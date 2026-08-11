@@ -1,0 +1,43 @@
+name: TAG5 Extended-Hours Integrity Guard
+
+on:
+  workflow_run:
+    workflows: ["TAG5 Mover Snapshot"]
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tag5-extended-hours-integrity-main
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Sync latest main
+        run: git pull --rebase origin main
+
+      - name: Validate extended-hours fields
+        run: python tag/model/extended_hours_integrity_guard.py
+
+      - name: Commit integrity state if changed
+        run: |
+          git config user.name "TAG Integrity Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/finviz.json tag/data/snapshots.json
+          if git diff --cached --quiet; then
+            echo "No integrity change"
+            exit 0
+          fi
+          git commit -m "Apply TAG5 extended-hours integrity guard"
+          git pull --rebase origin main
+          git push origin main
