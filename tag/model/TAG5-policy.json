@@ -1,0 +1,47 @@
+{
+  "referenceVersion": "TAG5",
+  "promotionPolicy": {
+    "nextVersion": "TAG6",
+    "requiresMaterialImprovement": true,
+    "requiresMultiSessionValidation": true,
+    "requiresReconciledFinalSnapshots": true,
+    "forbidPromotionOnSingleCase": true,
+    "forbidUnverifiedPredictionClaims": true
+  },
+  "retainedRules": [
+    "Extended-Hours Persistence Gate",
+    "Persistence Slope",
+    "After-Hours Volume Participation",
+    "Extended-Hours Volume Takeover",
+    "Mandatory Fresh-Catalyst Sweep",
+    "Event-Timing Context",
+    "Catalyst Clock",
+    "Catalyst Attribution Error",
+    "Exhaustion Memory Penalty",
+    "Early Regime Shift Score",
+    "No-News Momentum Path",
+    "Hour-to-Hour Gain Retention"
+  ],
+  "stageModel": ["DISCOVERY", "IGNITION", "LATE", "EXHAUSTION"],
+  "dataIntegrity": {
+    "mandatoryRule": "Final Snapshot Reconciliation",
+    "minimumIndependentSourcesWhenPossible": 2,
+    "singleSourceFinalMoverIsInsufficient": true,
+    "intraperiodMustNotBeTreatedAsFinal": true,
+    "materialDisagreementAction": "DATA_INTEGRITY_ERROR_AND_BLOCK_TRAINING",
+    "timestampEveryReading": true,
+    "separateFinalAfterHoursClose": true
+  },
+  "learningAudit": {
+    "compareActualMoversVsTAG": true,
+    "trackMissedMovers": true,
+    "trackFalsePositives": true,
+    "trackFirstActionableSignalTime": true,
+    "separateErrorClasses": ["MARKET_ERROR", "DATA_ERROR", "CLASSIFICATION_ERROR", "CATALYST_ATTRIBUTION_ERROR"]
+  },
+  "sharia": {
+    "strictGate": true,
+    "excludeCoreHaramActivities": true,
+    "financiallyUnverifiedStatus": "UNVERIFIED"
+  }
+}
