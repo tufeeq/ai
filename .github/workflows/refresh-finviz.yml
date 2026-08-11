@@ -50,6 +50,7 @@ jobs:
           merged = {}
           now_utc = datetime.datetime.now(datetime.timezone.utc)
           now_et = now_utc.astimezone(ZoneInfo('America/New_York'))
+          same_day = now_et.date().isoformat()
 
           if now_et.weekday() >= 5:
               session = 'closed'
@@ -83,7 +84,12 @@ jobs:
           except Exception:
               hist = []
 
-          previous_same_session = next((x for x in reversed(hist) if x.get('session') == session), None)
+          # Cadence is a same-trading-date concept. Never compare the first PM/AH
+          # snapshot of a new day with the prior day's session snapshot.
+          previous_same_session = next((
+              x for x in reversed(hist)
+              if x.get('session') == session and str(x.get('timestampET',''))[:10] == same_day
+          ), None)
           gap_minutes = None
           if previous_same_session and previous_same_session.get('timestampUTC'):
               try:
@@ -93,7 +99,6 @@ jobs:
                   pass
           cadence_status = 'OK' if gap_minutes is not None and gap_minutes <= 75 else ('INITIAL' if gap_minutes is None else 'GAP_ERROR')
 
-          same_day = now_et.date().isoformat()
           same_session_hist = [
               x for x in hist
               if x.get('session') == session and str(x.get('timestampET',''))[:10] == same_day
@@ -104,6 +109,27 @@ jobs:
               if b:
                   latest_by_bucket[b] = snap
 
+          # Preserve first observation independently from latest bucket replacement.
+          # firstObserved != firstActionableSignal; the latter requires model qualification.
+          first_seen = {}
+          for snap in sorted(same_session_hist, key=lambda x: x.get('timestampUTC','')):
+              for m in snap.get('topMovers', []):
+                  t = (m.get('Ticker') or '').upper()
+                  if not t:
+                      continue
+                  obs_et = m.get('firstObservedTimestampET') or snap.get('timestampET')
+                  obs_utc = m.get('firstObservedTimestampUTC') or snap.get('timestampUTC')
+                  candidate = {
+                      'timestampET': obs_et,
+                      'timestampUTC': obs_utc,
+                      'change': m.get('firstObservedChange', m.get('Change')),
+                      'volume': m.get('firstObservedVolume', m.get('Volume')),
+                      'bucket': m.get('firstObservedBucket', snap.get('sessionBucket')),
+                  }
+                  old = first_seen.get(t)
+                  if old is None or str(candidate.get('timestampUTC') or '') < str(old.get('timestampUTC') or ''):
+                      first_seen[t] = candidate
+
           if session == 'pre-market':
               bucket_order = [f'PM{i}' for i in range(1,7)]
           elif session == 'after-hours':
@@ -111,8 +137,6 @@ jobs:
           else:
               bucket_order = []
 
-          # Persistence must be based on a contiguous hourly chain. A jump such as
-          # PM2 -> PM5 is not valid hour-to-hour retention and is blocked.
           contiguous_prior = []
           bucket_continuity_status = 'NOT_APPLICABLE'
           if session_bucket in bucket_order:
@@ -158,6 +182,7 @@ jobs:
                   ticker = (row.get('Ticker') or row.get('Symbol') or '').strip().upper()
                   if not ticker:
                       continue
+                  prior_first = first_seen.get(ticker)
                   dst = merged.setdefault(ticker, {
                       'Ticker': ticker,
                       '_signals': [],
@@ -173,7 +198,13 @@ jobs:
                       '_bucketContinuityStatus': bucket_continuity_status,
                       '_persistenceTrainingEligible': persistence_training_eligible,
                       '_independentSourceCount': 1,
-                      '_dataIntegrityState': 'PENDING_SECOND_SOURCE'
+                      '_dataIntegrityState': 'PENDING_SECOND_SOURCE',
+                      '_firstObservedTimestampUTC': (prior_first or {}).get('timestampUTC', now_utc.isoformat()),
+                      '_firstObservedTimestampET': (prior_first or {}).get('timestampET', now_et.isoformat()),
+                      '_firstObservedBucket': (prior_first or {}).get('bucket', session_bucket),
+                      '_firstObservedChange': (prior_first or {}).get('change', row.get('Change')),
+                      '_firstObservedVolume': (prior_first or {}).get('volume', row.get('Volume')),
+                      '_firstActionableSignalTimestampET': None,
                   })
                   if signal not in dst['_signals']:
                       dst['_signals'].append(signal)
@@ -231,6 +262,8 @@ jobs:
               'bucketContinuityStatus': bucket_continuity_status,
               'persistenceTrainingEligible': persistence_training_eligible,
               'persistenceMethod': 'CONTIGUOUS_UNIQUE_HOURLY_SESSION_BUCKETS',
+              'firstObservationMethod': 'PRESERVE_EARLIEST_WITHIN_DATE_AND_SESSION',
+              'firstObservedIsActionable': False,
               'count': len(data),
               'signals': signals,
               'views': [111],
@@ -256,6 +289,7 @@ jobs:
               'bucketContinuityStatus': bucket_continuity_status,
               'persistenceTrainingEligible': persistence_training_eligible,
               'persistenceMethod': 'CONTIGUOUS_UNIQUE_HOURLY_SESSION_BUCKETS',
+              'firstObservationMethod': 'PRESERVE_EARLIEST_WITHIN_DATE_AND_SESSION',
               'topMovers': [
                   {
                       'Ticker': r.get('Ticker'),
@@ -263,6 +297,12 @@ jobs:
                       'Price': r.get('Price'),
                       'Volume': r.get('Volume'),
                       'signals': r.get('_signals', []),
+                      'firstObservedTimestampUTC': r.get('_firstObservedTimestampUTC'),
+                      'firstObservedTimestampET': r.get('_firstObservedTimestampET'),
+                      'firstObservedBucket': r.get('_firstObservedBucket'),
+                      'firstObservedChange': r.get('_firstObservedChange'),
+                      'firstObservedVolume': r.get('_firstObservedVolume'),
+                      'firstActionableSignalTimestampET': r.get('_firstActionableSignalTimestampET'),
                       'persistenceBuckets': r.get('_persistenceBuckets'),
                       'gainRetentionPct': r.get('_gainRetentionPct'),
                       'persistenceSlopePctPts': r.get('_persistenceSlopePctPts'),
@@ -272,9 +312,6 @@ jobs:
               ],
           }
 
-          # Keep one representative (latest) snapshot per date/session/hour bucket.
-          # This preserves multi-session history instead of letting 5-minute samples
-          # crowd previous trading days out of the validation set.
           if session != 'closed':
               key = (same_day, session, session_bucket)
               replaced = False
@@ -288,7 +325,6 @@ jobs:
               if not replaced:
                   hist.append(compact)
 
-          # Retain up to roughly 30 trading days of hourly bucket snapshots.
           hist = hist[-600:]
           hist_path.write_text(json.dumps(hist, ensure_ascii=False, indent=2), encoding='utf-8')
           print(f'Wrote {len(data)} mover rows for {session}/{session_bucket}; type={snapshot_type}; reconciliation pending; cadence={cadence_status}; continuity={bucket_continuity_status}')
