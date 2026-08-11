@@ -15,33 +15,47 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Fetch Finviz Elite CSV
+      - name: Fetch Finviz Elite views
         env:
           FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
         run: |
           test -n "$FINVIZ_TOKEN" || (echo "FINVIZ_TOKEN secret is missing" && exit 1)
           mkdir -p tag/data
-          curl --fail --silent --show-error --location \
-            "https://elite.finviz.com/export/screener?v=111&f=fa_div_pos,sec_technology&auth=${FINVIZ_TOKEN}" \
-            -o /tmp/finviz.csv
-          test -s /tmp/finviz.csv || (echo "Finviz returned an empty file" && exit 1)
+          BASE="https://elite.finviz.com/export/screener?f=fa_div_pos,sec_technology&auth=${FINVIZ_TOKEN}"
+          for VIEW in 111 141 151 161; do
+            curl --fail --silent --show-error --location "${BASE}&v=${VIEW}" -o "/tmp/finviz-${VIEW}.csv"
+            test -s "/tmp/finviz-${VIEW}.csv" || (echo "Finviz view ${VIEW} returned empty" && exit 1)
+          done
 
-      - name: Convert CSV to JSON
+      - name: Merge Finviz views to JSON
         run: |
           python - <<'PY'
           import csv, json, datetime, pathlib
-          src = pathlib.Path('/tmp/finviz.csv')
-          out = pathlib.Path('tag/data/finviz.json')
-          with src.open(newline='', encoding='utf-8-sig') as f:
-              rows = list(csv.DictReader(f))
+          views = [111, 141, 151, 161]
+          merged = {}
+          for view in views:
+              p = pathlib.Path(f'/tmp/finviz-{view}.csv')
+              with p.open(newline='', encoding='utf-8-sig') as f:
+                  rows = list(csv.DictReader(f))
+              for row in rows:
+                  ticker = (row.get('Ticker') or row.get('Symbol') or '').strip().upper()
+                  if not ticker:
+                      continue
+                  dst = merged.setdefault(ticker, {'Ticker': ticker})
+                  for k, v in row.items():
+                      if k and v not in (None, ''):
+                          dst[k] = v
+          data = list(merged.values())
+          data.sort(key=lambda r: r.get('Ticker',''))
           payload = {
               'source': 'Finviz Elite',
               'updatedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-              'count': len(rows),
-              'data': rows,
+              'count': len(data),
+              'views': views,
+              'data': data,
           }
-          out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
-          print(f'Wrote {len(rows)} rows to {out}')
+          pathlib.Path('tag/data/finviz.json').write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
+          print(f'Wrote {len(data)} merged rows')
           PY
 
       - name: Commit refreshed data
@@ -53,5 +67,5 @@ jobs:
             echo "No data change"
             exit 0
           fi
-          git commit -m "Refresh Finviz data"
+          git commit -m "Refresh enriched Finviz data"
           git push
