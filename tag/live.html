@@ -1,1 +1,29 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TAG5 Live</title></head><body><script>(async()=>{const r=await fetch('./index.html?ts='+Date.now(),{cache:'no-store'});let h=await r.text();h=h.replace('</head>','<link rel="stylesheet" href="./enhanced.css?v=2"></head>');h=h.replace('./github-data.js','./github-data-v2.js?v=2');h=h.replace('<script src="./github-data-v2.js?v=2"></script>','<script src="./enhanced.js?v=2"></script><script src="./github-data-v2.js?v=2"></script>');document.open();document.write(h);document.close();})();</script></body></html>
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TAG5 Live</title>
+</head>
+<body>
+<script>
+(async function () {
+  try {
+    const r = await fetch('./index.html?ts=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error('Failed to load TAG dashboard: HTTP ' + r.status);
+    let h = await r.text();
+    h = h.replace('</head>', '<link rel="stylesheet" href="./enhanced.css?v=3"></head>');
+    h = h.replace('./github-data.js', './github-data-v2.js?v=3');
+    const marker = '<script src="./github-data-v2.js?v=3"><' + '/script>';
+    const replacement = '<script src="./enhanced.js?v=3"><' + '/script>' + marker;
+    h = h.replace(marker, replacement);
+    document.open();
+    document.write(h);
+    document.close();
+  } catch (e) {
+    document.body.innerHTML = '<div style="font-family:system-ui;padding:30px">TAG loading error: ' + String(e.message || e) + '</div>';
+  }
+})();
+</script>
+</body>
+</html>
