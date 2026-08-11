@@ -21,72 +21,123 @@ jobs:
         run: |
           test -n "$FINVIZ_TOKEN" || (echo "FINVIZ_TOKEN secret is missing" && exit 1)
           mkdir -p tag/data
-          # TAG5 must not train from a sector/dividend-restricted universe.
-          # Use multiple independent Finviz signal universes to improve recall without downloading the entire market every 5 minutes.
+          # Keep recall broad without hammering Finviz: one Overview request per signal universe.
+          # Detailed ownership/technical fields can be enriched separately; mover discovery must remain reliable first.
           for SIGNAL in ta_topgainers ta_unusualvolume ta_mostactive; do
-            for VIEW in 111 141 151 161; do
-              URL="https://elite.finviz.com/export/screener?s=${SIGNAL}&v=${VIEW}&auth=${FINVIZ_TOKEN}"
-              curl --fail --silent --show-error --location "$URL" -o "/tmp/finviz-${SIGNAL}-${VIEW}.csv"
-              test -s "/tmp/finviz-${SIGNAL}-${VIEW}.csv" || (echo "Finviz ${SIGNAL} view ${VIEW} returned empty" && exit 1)
-            done
+            URL="https://elite.finviz.com/export/screener?s=${SIGNAL}&v=111&auth=${FINVIZ_TOKEN}"
+            curl --fail --silent --show-error --location \
+              --retry 5 --retry-delay 5 --retry-all-errors \
+              "$URL" -o "/tmp/finviz-${SIGNAL}.csv"
+            test -s "/tmp/finviz-${SIGNAL}.csv" || (echo "Finviz ${SIGNAL} returned empty" && exit 1)
+            sleep 3
           done
 
-      - name: Merge Finviz views to timestamped JSON
+      - name: Merge and timestamp TAG5 snapshot
         run: |
           python - <<'PY'
           import csv, json, datetime, pathlib
+          from zoneinfo import ZoneInfo
+
           signals = ['ta_topgainers', 'ta_unusualvolume', 'ta_mostactive']
-          views = [111, 141, 151, 161]
           merged = {}
-          now = datetime.datetime.now(datetime.timezone.utc)
+          now_utc = datetime.datetime.now(datetime.timezone.utc)
+          now_et = now_utc.astimezone(ZoneInfo('America/New_York'))
+
+          if now_et.weekday() >= 5:
+              session = 'closed'
+          elif datetime.time(4,0) <= now_et.time() < datetime.time(9,30):
+              session = 'pre-market'
+          elif datetime.time(9,30) <= now_et.time() < datetime.time(16,0):
+              session = 'regular'
+          elif datetime.time(16,0) <= now_et.time() <= datetime.time(20,0):
+              session = 'after-hours'
+          else:
+              session = 'closed'
+
           for signal in signals:
-              for view in views:
-                  p = pathlib.Path(f'/tmp/finviz-{signal}-{view}.csv')
-                  with p.open(newline='', encoding='utf-8-sig') as f:
-                      rows = list(csv.DictReader(f))
-                  for row in rows:
-                      ticker = (row.get('Ticker') or row.get('Symbol') or '').strip().upper()
-                      if not ticker:
-                          continue
-                      dst = merged.setdefault(ticker, {
-                          'Ticker': ticker,
-                          '_signals': [],
-                          '_snapshotTimestampUTC': now.isoformat(),
-                          '_snapshotType': 'intraperiod',
-                          '_finalReconciled': False
-                      })
-                      if signal not in dst['_signals']:
-                          dst['_signals'].append(signal)
-                      for k, v in row.items():
-                          if k and v not in (None, ''):
-                              dst[k] = v
+              p = pathlib.Path(f'/tmp/finviz-{signal}.csv')
+              with p.open(newline='', encoding='utf-8-sig') as f:
+                  rows = list(csv.DictReader(f))
+              for row in rows:
+                  ticker = (row.get('Ticker') or row.get('Symbol') or '').strip().upper()
+                  if not ticker:
+                      continue
+                  dst = merged.setdefault(ticker, {
+                      'Ticker': ticker,
+                      '_signals': [],
+                      '_snapshotTimestampUTC': now_utc.isoformat(),
+                      '_snapshotTimestampET': now_et.isoformat(),
+                      '_session': session,
+                      '_snapshotType': 'intraperiod',
+                      '_finalReconciled': False,
+                      '_trainingEligible': False,
+                  })
+                  if signal not in dst['_signals']:
+                      dst['_signals'].append(signal)
+                  for k, v in row.items():
+                      if k and v not in (None, ''):
+                          dst[k] = v
+
           data = list(merged.values())
-          data.sort(key=lambda r: r.get('Ticker',''))
+          def pct(v):
+              try: return float(str(v or '0').replace('%','').replace(',',''))
+              except: return 0.0
+          data.sort(key=lambda r: pct(r.get('Change')), reverse=True)
+
           payload = {
               'source': 'Finviz Elite',
-              'updatedAt': now.isoformat(),
-              'snapshotTimestampUTC': now.isoformat(),
+              'updatedAt': now_utc.isoformat(),
+              'snapshotTimestampUTC': now_utc.isoformat(),
+              'snapshotTimestampET': now_et.isoformat(),
+              'session': session,
               'snapshotType': 'intraperiod',
               'finalSnapshotReconciliation': 'PENDING_SECOND_SOURCE',
               'trainingEligible': False,
               'count': len(data),
               'signals': signals,
-              'views': views,
+              'views': [111],
               'rows': data,
               'data': data,
           }
           pathlib.Path('tag/data/finviz.json').write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
-          print(f'Wrote {len(data)} merged mover rows; trainingEligible=False pending Final Snapshot Reconciliation')
+
+          # Rolling compact snapshot history for hour-to-hour persistence analysis.
+          hist_path = pathlib.Path('tag/data/snapshots.json')
+          try:
+              hist = json.loads(hist_path.read_text(encoding='utf-8')) if hist_path.exists() else []
+          except Exception:
+              hist = []
+          compact = {
+              'timestampUTC': now_utc.isoformat(),
+              'timestampET': now_et.isoformat(),
+              'session': session,
+              'snapshotType': 'intraperiod',
+              'trainingEligible': False,
+              'topMovers': [
+                  {
+                      'Ticker': r.get('Ticker'),
+                      'Change': r.get('Change'),
+                      'Price': r.get('Price'),
+                      'Volume': r.get('Volume'),
+                      'signals': r.get('_signals', []),
+                  }
+                  for r in data[:100]
+              ],
+          }
+          hist.append(compact)
+          hist = hist[-288:]
+          hist_path.write_text(json.dumps(hist, ensure_ascii=False, indent=2), encoding='utf-8')
+          print(f'Wrote {len(data)} mover rows for {session}; trainingEligible=False pending reconciliation')
           PY
 
       - name: Commit refreshed data
         run: |
           git config user.name "TAG Data Bot"
           git config user.email "actions@users.noreply.github.com"
-          git add tag/data/finviz.json
+          git add tag/data/finviz.json tag/data/snapshots.json
           if git diff --cached --quiet; then
             echo "No data change"
             exit 0
           fi
-          git commit -m "Refresh TAG5 mover universe snapshot"
+          git commit -m "Refresh TAG5 mover snapshot"
           git push
