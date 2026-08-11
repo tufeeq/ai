@@ -97,14 +97,8 @@ jobs:
                   pass
           cadence_status = 'OK' if gap_minutes is not None and gap_minutes <= 75 else ('INITIAL' if gap_minutes is None else 'GAP_ERROR')
 
-          same_day_hist = [
-              x for x in hist
-              if str(x.get('timestampET',''))[:10] == same_day
-          ]
-          same_session_hist = [
-              x for x in same_day_hist
-              if x.get('session') == session
-          ]
+          same_day_hist = [x for x in hist if str(x.get('timestampET',''))[:10] == same_day]
+          same_session_hist = [x for x in same_day_hist if x.get('session') == session]
           latest_by_bucket = {}
           for snap in same_session_hist:
               b = snap.get('sessionBucket')
@@ -133,8 +127,6 @@ jobs:
                           out[t] = candidate
               return out
 
-          # Global first observation spans pre-market -> regular -> after-hours on the same trading date.
-          # Session-specific first observation is retained separately for intra-session diagnostics.
           first_seen_day = build_first_seen(same_day_hist)
           first_seen_session = build_first_seen(same_session_hist)
 
@@ -218,6 +210,17 @@ jobs:
                       '_firstSessionObservedTimestampET': (prior_session_first or {}).get('timestampET', now_et.isoformat()),
                       '_firstSessionObservedBucket': (prior_session_first or {}).get('bucket', session_bucket),
                       '_firstActionableSignalTimestampET': None,
+                      '_firstActionableSignalNullReason': 'INCOMPLETE_MODEL_INPUTS',
+                      '_modelQualificationEvaluated': False,
+                      '_qualificationDecision': 'BLOCKED',
+                      '_qualificationDecisionTimestampET': now_et.isoformat(),
+                      '_qualificationDecisionPhase': 'UNASSESSED',
+                      '_qualificationDecisionScore': None,
+                      '_qualificationDecisionReasonCodes': [
+                          'INCOMPLETE_MODEL_INPUTS',
+                          'CATALYST_SWEEP_NOT_AVAILABLE',
+                          'SHARIA_STATUS_NOT_AVAILABLE'
+                      ],
                   })
                   if signal not in dst['_signals']:
                       dst['_signals'].append(signal)
@@ -277,6 +280,7 @@ jobs:
               'persistenceMethod': 'CONTIGUOUS_UNIQUE_HOURLY_SESSION_BUCKETS',
               'firstObservationMethod': 'PRESERVE_EARLIEST_ACROSS_TRADING_DATE_AND_SESSION_SPECIFIC',
               'firstObservedIsActionable': False,
+              'actionabilityInstrumentationState': 'COMPLETE_FOR_BLOCKED_CASES',
               'count': len(data),
               'signals': signals,
               'views': [111],
@@ -303,6 +307,7 @@ jobs:
               'persistenceTrainingEligible': persistence_training_eligible,
               'persistenceMethod': 'CONTIGUOUS_UNIQUE_HOURLY_SESSION_BUCKETS',
               'firstObservationMethod': 'PRESERVE_EARLIEST_ACROSS_TRADING_DATE_AND_SESSION_SPECIFIC',
+              'actionabilityInstrumentationState': 'COMPLETE_FOR_BLOCKED_CASES',
               'topMovers': [
                   {
                       'Ticker': r.get('Ticker'),
@@ -320,6 +325,13 @@ jobs:
                       'firstSessionObservedTimestampET': r.get('_firstSessionObservedTimestampET'),
                       'firstSessionObservedBucket': r.get('_firstSessionObservedBucket'),
                       'firstActionableSignalTimestampET': r.get('_firstActionableSignalTimestampET'),
+                      'firstActionableSignalNullReason': r.get('_firstActionableSignalNullReason'),
+                      'modelQualificationEvaluated': r.get('_modelQualificationEvaluated'),
+                      'qualificationDecision': r.get('_qualificationDecision'),
+                      'qualificationDecisionTimestampET': r.get('_qualificationDecisionTimestampET'),
+                      'qualificationDecisionPhase': r.get('_qualificationDecisionPhase'),
+                      'qualificationDecisionScore': r.get('_qualificationDecisionScore'),
+                      'qualificationDecisionReasonCodes': r.get('_qualificationDecisionReasonCodes'),
                       'persistenceBuckets': r.get('_persistenceBuckets'),
                       'gainRetentionPct': r.get('_gainRetentionPct'),
                       'persistenceSlopePctPts': r.get('_persistenceSlopePctPts'),
