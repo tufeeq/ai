@@ -1,4 +1,4 @@
-name: Refresh Finviz Data
+name: TAG5 Mover Snapshot
 
 on:
   workflow_dispatch:
@@ -8,12 +8,22 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: tag5-market-data-main
+  cancel-in-progress: false
+
 jobs:
   refresh:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Sync latest main
+        run: git pull --rebase origin main
 
       - name: Fetch Finviz Elite mover universes
         env:
@@ -83,7 +93,6 @@ jobs:
               try: return float(str(v or '0').replace('%','').replace(',',''))
               except: return 0.0
 
-          # Build recent same-session ticker histories for Hour-to-Hour Gain Retention and Persistence Slope.
           recent = [x for x in hist if x.get('session') == session][-6:]
           ticker_hist = {}
           for snap in recent:
@@ -113,6 +122,8 @@ jobs:
                       '_trainingEligible': False,
                       '_cadenceStatus': cadence_status,
                       '_persistenceTrainingEligible': persistence_training_eligible,
+                      '_independentSourceCount': 1,
+                      '_dataIntegrityState': 'PENDING_SECOND_SOURCE'
                   })
                   if signal not in dst['_signals']:
                       dst['_signals'].append(signal)
@@ -140,8 +151,13 @@ jobs:
 
           data.sort(key=lambda r: pct(r.get('Change')), reverse=True)
 
+          training_block_reasons = ['SINGLE_SOURCE_ONLY', 'FINAL_SNAPSHOT_NOT_RECONCILED']
+          if cadence_status == 'GAP_ERROR':
+              training_block_reasons.append('SESSION_CADENCE_GAP')
+
           payload = {
               'source': 'Finviz Elite',
+              'independentSourceCount': 1,
               'updatedAt': now_utc.isoformat(),
               'snapshotTimestampUTC': now_utc.isoformat(),
               'snapshotTimestampET': now_et.isoformat(),
@@ -149,6 +165,8 @@ jobs:
               'sessionBucket': session_bucket,
               'snapshotType': 'intraperiod',
               'finalSnapshotReconciliation': 'PENDING_SECOND_SOURCE',
+              'dataIntegrityState': 'TRAINING_BLOCKED',
+              'trainingBlockReasons': training_block_reasons,
               'trainingEligible': False,
               'cadenceStatus': cadence_status,
               'gapMinutesFromPriorSessionSnapshot': gap_minutes,
@@ -167,8 +185,11 @@ jobs:
               'session': session,
               'sessionBucket': session_bucket,
               'snapshotType': 'intraperiod',
+              'independentSourceCount': 1,
               'trainingEligible': False,
               'finalSnapshotReconciliation': 'PENDING_SECOND_SOURCE',
+              'dataIntegrityState': 'TRAINING_BLOCKED',
+              'trainingBlockReasons': training_block_reasons,
               'cadenceStatus': cadence_status,
               'gapMinutesFromPriorSessionSnapshot': gap_minutes,
               'persistenceTrainingEligible': persistence_training_eligible,
@@ -192,7 +213,7 @@ jobs:
           print(f'Wrote {len(data)} mover rows for {session}/{session_bucket}; reconciliation pending; cadence={cadence_status}')
           PY
 
-      - name: Commit refreshed data
+      - name: Commit refreshed data safely
         run: |
           git config user.name "TAG Data Bot"
           git config user.email "actions@users.noreply.github.com"
@@ -202,4 +223,5 @@ jobs:
             exit 0
           fi
           git commit -m "Refresh TAG5 mover snapshot"
-          git push
+          git pull --rebase origin main
+          git push origin main
