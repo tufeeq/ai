@@ -1,0 +1,57 @@
+name: Refresh Finviz Data
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 * * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch Finviz Elite CSV
+        env:
+          FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
+        run: |
+          test -n "$FINVIZ_TOKEN" || (echo "FINVIZ_TOKEN secret is missing" && exit 1)
+          mkdir -p tag/data
+          curl --fail --silent --show-error --location \
+            "https://elite.finviz.com/export/screener?v=111&f=fa_div_pos,sec_technology&auth=${FINVIZ_TOKEN}" \
+            -o /tmp/finviz.csv
+          test -s /tmp/finviz.csv || (echo "Finviz returned an empty file" && exit 1)
+
+      - name: Convert CSV to JSON
+        run: |
+          python - <<'PY'
+          import csv, json, datetime, pathlib
+          src = pathlib.Path('/tmp/finviz.csv')
+          out = pathlib.Path('tag/data/finviz.json')
+          with src.open(newline='', encoding='utf-8-sig') as f:
+              rows = list(csv.DictReader(f))
+          payload = {
+              'source': 'Finviz Elite',
+              'updatedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'count': len(rows),
+              'data': rows,
+          }
+          out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
+          print(f'Wrote {len(rows)} rows to {out}')
+          PY
+
+      - name: Commit refreshed data
+        run: |
+          git config user.name "TAG Data Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/finviz.json
+          if git diff --cached --quiet; then
+            echo "No data change"
+            exit 0
+          fi
+          git commit -m "Refresh Finviz data"
+          git push
