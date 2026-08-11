@@ -1,0 +1,37 @@
+{
+  "referenceVersion": "TAG5",
+  "policyVersion": "2026-08-11.1",
+  "finalSnapshotReconciliation": {
+    "required": true,
+    "minimumIndependentSourcesWhenPossible": 2,
+    "singleSourceFinalMoverAccepted": false,
+    "materialDisagreementState": "DATA_INTEGRITY_ERROR",
+    "trainingBlockedUntilResolved": true
+  },
+  "snapshotTiming": {
+    "storeTimestampUTC": true,
+    "storeTimestampET": true,
+    "distinguishIntraperiodFromFinal": true,
+    "preMarketHourlyBuckets": ["PM1", "PM2", "PM3", "PM4", "PM5", "PM6"],
+    "afterHoursHourlyBuckets": ["AH1", "AH2", "AH3", "AH4"],
+    "requireContiguousBucketsForPersistence": true
+  },
+  "dataFreshness": {
+    "liveSnapshotMaxAgeMinutes": 20,
+    "staleState": "STALE_DATA_ERROR",
+    "staleSnapshotTrainingEligible": false,
+    "staleSnapshotRealtimeClaimEligible": false
+  },
+  "validation": {
+    "multiSessionRequiredForVersionUpgrade": true,
+    "separateMarketDataClassificationErrors": true,
+    "recordMissedMovers": true,
+    "recordFalsePositives": true,
+    "recordFirstActionableSignalTimestamp": true,
+    "doNotClaimUnverifiedPredictionSuccess": true
+  },
+  "sharia": {
+    "excludeCoreProhibitedActivities": true,
+    "financiallyUnverifiedState": "UNVERIFIED"
+  }
+}
