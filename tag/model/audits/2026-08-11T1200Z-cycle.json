@@ -1,0 +1,61 @@
+{
+  "referenceVersion": "TAG5",
+  "cycleTimestampUTC": "2026-08-11T12:00:00Z",
+  "promotionDecision": "NO_PROMOTION",
+  "promotionReason": "No reconciled multi-session evidence of material predictive improvement.",
+  "findings": [
+    {
+      "class": "DATA_ERROR",
+      "severity": "HIGH",
+      "issue": "Two active GitHub workflows wrote the same tag/data/finviz.json file. The older workflow used a Technology + positive-dividend filter and could overwrite the broader mover-universe snapshot.",
+      "action": "Removed duplicate .github/workflows/finviz-refresh.yml."
+    },
+    {
+      "class": "DATA_ERROR",
+      "severity": "HIGH",
+      "issue": "A rerun from a stale commit produced a non-fast-forward push rejection after repository changes.",
+      "action": "Hardened the surviving workflow with main-branch sync, concurrency serialization, and rebase-before-push."
+    },
+    {
+      "class": "DATA_INTEGRITY",
+      "severity": "BLOCKING_FOR_TRAINING",
+      "issue": "Current pre-market mover snapshots are single-source Finviz intraperiod observations.",
+      "action": "Keep trainingEligible=false, independentSourceCount=1, finalSnapshotReconciliation=PENDING_SECOND_SOURCE."
+    }
+  ],
+  "observedSequence": {
+    "session": "pre-market",
+    "snapshots": [
+      {"timestampET": "2026-08-11T05:35:26-04:00", "bucket": "early", "type": "intraperiod"},
+      {"timestampET": "2026-08-11T06:32:32-04:00", "bucket": "PM3", "type": "intraperiod", "cadenceStatus": "OK", "gapMinutes": 57.1}
+    ],
+    "examples": [
+      {"ticker": "WXM", "changeFirst": 151.25, "changeSecond": 120.75, "interpretation": "DECAYING from first to second snapshot; not a fresh discovery at the later snapshot."},
+      {"ticker": "ELPW", "changeFirst": 43.89, "changeSecond": 48.07, "interpretation": "STRENGTHENING across observed snapshots, pending catalyst and final reconciliation."},
+      {"ticker": "WAFU", "changeFirst": 42.10, "changeSecond": 43.37, "interpretation": "FLAT-to-slightly strengthening persistence, pending catalyst and final reconciliation."}
+    ]
+  },
+  "trainingStatus": {
+    "eligibleCases": 0,
+    "blockedReasons": ["SINGLE_SOURCE_ONLY", "INTRAPERIOD_NOT_FINAL", "FINAL_SNAPSHOT_RECONCILIATION_PENDING"],
+    "thresholdChanges": [],
+    "claimedPredictionSuccesses": 0
+  },
+  "retainedRules": [
+    "Extended-Hours Persistence Gate",
+    "Persistence Slope",
+    "After-Hours Volume Participation",
+    "Extended-Hours Volume Takeover",
+    "Mandatory Fresh-Catalyst Sweep",
+    "Event-Timing Context",
+    "Catalyst Clock",
+    "Catalyst Attribution Error",
+    "Exhaustion Memory Penalty",
+    "Final Snapshot Reconciliation"
+  ],
+  "shariaPolicy": {
+    "strict": true,
+    "coreHaramActivities": "EXCLUDED",
+    "financiallyUnverified": "UNVERIFIED"
+  }
+}
