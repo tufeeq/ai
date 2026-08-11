@@ -15,47 +15,68 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Fetch Finviz Elite views
+      - name: Fetch Finviz Elite mover universes
         env:
           FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
         run: |
           test -n "$FINVIZ_TOKEN" || (echo "FINVIZ_TOKEN secret is missing" && exit 1)
           mkdir -p tag/data
-          BASE="https://elite.finviz.com/export/screener?f=fa_div_pos,sec_technology&auth=${FINVIZ_TOKEN}"
-          for VIEW in 111 141 151 161; do
-            curl --fail --silent --show-error --location "${BASE}&v=${VIEW}" -o "/tmp/finviz-${VIEW}.csv"
-            test -s "/tmp/finviz-${VIEW}.csv" || (echo "Finviz view ${VIEW} returned empty" && exit 1)
+          # TAG5 must not train from a sector/dividend-restricted universe.
+          # Use multiple independent Finviz signal universes to improve recall without downloading the entire market every 5 minutes.
+          for SIGNAL in ta_topgainers ta_unusualvolume ta_mostactive; do
+            for VIEW in 111 141 151 161; do
+              URL="https://elite.finviz.com/export/screener?s=${SIGNAL}&v=${VIEW}&auth=${FINVIZ_TOKEN}"
+              curl --fail --silent --show-error --location "$URL" -o "/tmp/finviz-${SIGNAL}-${VIEW}.csv"
+              test -s "/tmp/finviz-${SIGNAL}-${VIEW}.csv" || (echo "Finviz ${SIGNAL} view ${VIEW} returned empty" && exit 1)
+            done
           done
 
-      - name: Merge Finviz views to JSON
+      - name: Merge Finviz views to timestamped JSON
         run: |
           python - <<'PY'
           import csv, json, datetime, pathlib
+          signals = ['ta_topgainers', 'ta_unusualvolume', 'ta_mostactive']
           views = [111, 141, 151, 161]
           merged = {}
-          for view in views:
-              p = pathlib.Path(f'/tmp/finviz-{view}.csv')
-              with p.open(newline='', encoding='utf-8-sig') as f:
-                  rows = list(csv.DictReader(f))
-              for row in rows:
-                  ticker = (row.get('Ticker') or row.get('Symbol') or '').strip().upper()
-                  if not ticker:
-                      continue
-                  dst = merged.setdefault(ticker, {'Ticker': ticker})
-                  for k, v in row.items():
-                      if k and v not in (None, ''):
-                          dst[k] = v
+          now = datetime.datetime.now(datetime.timezone.utc)
+          for signal in signals:
+              for view in views:
+                  p = pathlib.Path(f'/tmp/finviz-{signal}-{view}.csv')
+                  with p.open(newline='', encoding='utf-8-sig') as f:
+                      rows = list(csv.DictReader(f))
+                  for row in rows:
+                      ticker = (row.get('Ticker') or row.get('Symbol') or '').strip().upper()
+                      if not ticker:
+                          continue
+                      dst = merged.setdefault(ticker, {
+                          'Ticker': ticker,
+                          '_signals': [],
+                          '_snapshotTimestampUTC': now.isoformat(),
+                          '_snapshotType': 'intraperiod',
+                          '_finalReconciled': False
+                      })
+                      if signal not in dst['_signals']:
+                          dst['_signals'].append(signal)
+                      for k, v in row.items():
+                          if k and v not in (None, ''):
+                              dst[k] = v
           data = list(merged.values())
           data.sort(key=lambda r: r.get('Ticker',''))
           payload = {
               'source': 'Finviz Elite',
-              'updatedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'updatedAt': now.isoformat(),
+              'snapshotTimestampUTC': now.isoformat(),
+              'snapshotType': 'intraperiod',
+              'finalSnapshotReconciliation': 'PENDING_SECOND_SOURCE',
+              'trainingEligible': False,
               'count': len(data),
+              'signals': signals,
               'views': views,
+              'rows': data,
               'data': data,
           }
           pathlib.Path('tag/data/finviz.json').write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
-          print(f'Wrote {len(data)} merged rows')
+          print(f'Wrote {len(data)} merged mover rows; trainingEligible=False pending Final Snapshot Reconciliation')
           PY
 
       - name: Commit refreshed data
@@ -67,5 +88,5 @@ jobs:
             echo "No data change"
             exit 0
           fi
-          git commit -m "Refresh enriched Finviz data"
+          git commit -m "Refresh TAG5 mover universe snapshot"
           git push
