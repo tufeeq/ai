@@ -1,6 +1,6 @@
 {
   "referenceVersion": "TAG5",
-  "policyVersion": "2026-08-11.4",
+  "policyVersion": "2026-08-11.5",
   "finalSnapshotReconciliation": {
     "required": true,
     "minimumIndependentSourcesWhenPossible": 2,
@@ -39,6 +39,27 @@
     "rawAppearanceCannotSubstituteForModelQualification": true,
     "uiMustDistinguishFreshReconciledFromFreshUnreconciledAndStale": true
   },
+  "actionableSignalInstrumentation": {
+    "required": true,
+    "nullTimestampMustHaveExplicitReason": true,
+    "validNullReasons": [
+      "NOT_MODEL_QUALIFIED",
+      "INCOMPLETE_MODEL_INPUTS",
+      "DATA_INTEGRITY_BLOCK",
+      "SHARIA_UNVERIFIED",
+      "SHARIA_EXCLUDED",
+      "NOT_EVALUATED"
+    ],
+    "pipelineMustPersistQualificationDecision": true,
+    "pipelineMustPersistDecisionTimestampET": true,
+    "pipelineMustPersistDecisionPhase": true,
+    "pipelineMustPersistDecisionScore": true,
+    "pipelineMustPersistDecisionReasonCodes": true,
+    "missedMoverMetricsBlockedIfInstrumentationMissing": true,
+    "falsePositiveMetricsBlockedIfInstrumentationMissing": true,
+    "earlyDetectionClaimsBlockedIfInstrumentationMissing": true,
+    "missingInstrumentationState": "ACTIONABILITY_INSTRUMENTATION_ERROR"
+  },
   "classification": {
     "phases": ["DISCOVERY", "IGNITION", "LATE", "EXHAUSTION"],
     "hugeRvolAfterStrongPriceExpansionCannotQualifyAsEarlyDiscoveryByItself": true,
@@ -55,7 +76,8 @@
     "recordFirstSessionObservedTimestamp": true,
     "recordFirstActionableSignalTimestamp": true,
     "actionableTimestampRequiresModelQualificationNotRawAppearance": true,
-    "doNotClaimUnverifiedPredictionSuccess": true
+    "doNotClaimUnverifiedPredictionSuccess": true,
+    "blockPerformanceMetricsWhenActionabilityInstrumentationMissing": true
   },
   "sharia": {
     "excludeCoreProhibitedActivities": true,
