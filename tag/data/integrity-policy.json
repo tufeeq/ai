@@ -1,6 +1,6 @@
 {
   "referenceVersion": "TAG5",
-  "policyVersion": "2026-08-11.1",
+  "policyVersion": "2026-08-11.2",
   "finalSnapshotReconciliation": {
     "required": true,
     "minimumIndependentSourcesWhenPossible": 2,
@@ -14,7 +14,13 @@
     "distinguishIntraperiodFromFinal": true,
     "preMarketHourlyBuckets": ["PM1", "PM2", "PM3", "PM4", "PM5", "PM6"],
     "afterHoursHourlyBuckets": ["AH1", "AH2", "AH3", "AH4"],
-    "requireContiguousBucketsForPersistence": true
+    "requireContiguousBucketsForPersistence": true,
+    "cadenceComparisonMustStayWithinSameTradingDate": true,
+    "newTradingDateResetsCadenceState": true,
+    "preserveEarliestObservedTimestampPerTickerSession": true,
+    "preserveEarliestObservedChangeAndVolume": true,
+    "latestBucketReplacementMustNotEraseFirstObservation": true,
+    "firstObservedTimestampIsNotEquivalentToFirstActionableSignal": true
   },
   "dataFreshness": {
     "liveSnapshotMaxAgeMinutes": 20,
@@ -22,12 +28,21 @@
     "staleSnapshotTrainingEligible": false,
     "staleSnapshotRealtimeClaimEligible": false
   },
+  "classification": {
+    "phases": ["DISCOVERY", "IGNITION", "LATE", "EXHAUSTION"],
+    "hugeRvolAfterStrongPriceExpansionCannotQualifyAsEarlyDiscoveryByItself": true,
+    "mandatoryFreshCatalystSweepBeforeNoNewsPath": true,
+    "catalystAttributionErrorTrackedSeparately": true,
+    "exhaustionMemoryPenaltyRequired": true
+  },
   "validation": {
     "multiSessionRequiredForVersionUpgrade": true,
     "separateMarketDataClassificationErrors": true,
     "recordMissedMovers": true,
     "recordFalsePositives": true,
+    "recordFirstObservedTimestamp": true,
     "recordFirstActionableSignalTimestamp": true,
+    "actionableTimestampRequiresModelQualificationNotRawAppearance": true,
     "doNotClaimUnverifiedPredictionSuccess": true
   },
   "sharia": {
