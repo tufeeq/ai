@@ -7,14 +7,15 @@
       const r = await fetch('./data/finviz.json?ts=' + Date.now(), { cache: 'no-store' });
       if (!r.ok) throw new Error('Data file not ready yet');
       const payload = await r.json();
-      if (!payload.rows || !payload.rows.length) throw new Error('No Finviz rows found');
+      const finvizRows = Array.isArray(payload.data) ? payload.data : (Array.isArray(payload.rows) ? payload.rows : []);
+      if (!finvizRows.length) throw new Error('No Finviz rows found');
       if (typeof normalizeFinviz !== 'function') throw new Error('TAG Finviz parser is not ready');
-      rows = normalizeFinviz(payload.rows);
+      rows = normalizeFinviz(finvizRows);
       render();
       if (b) { b.textContent = '● DATA: FINVIZ'; b.classList.add('connected'); }
-      if (s) { s.className = 'connector-status ok'; s.textContent = `Finviz متصل عبر GitHub Actions · ${payload.count} سهم · آخر تحديث ${new Date(payload.updatedAt).toLocaleString()}`; }
+      if (s) { s.className = 'connector-status ok'; s.textContent = `Finviz متصل عبر GitHub Actions · ${finvizRows.length} سهم · آخر تحديث ${new Date(payload.updatedAt).toLocaleString()}`; }
     } catch (e) {
-      if (s) { s.className = 'connector-status err'; s.textContent = 'بيانات Finviz لم تُنشأ بعد. شغّل GitHub Action مرة واحدة بعد إضافة FINVIZ_TOKEN. ' + e.message; }
+      if (s) { s.className = 'connector-status err'; s.textContent = 'تعذر تحميل بيانات Finviz: ' + e.message; }
     }
   }
 
