@@ -33,7 +33,7 @@ jobs:
       - name: Merge and timestamp TAG5 snapshot
         run: |
           python - <<'PY'
-          import csv, json, datetime, pathlib
+          import csv, json, datetime, pathlib, statistics
           from zoneinfo import ZoneInfo
 
           signals = ['ta_topgainers', 'ta_unusualvolume', 'ta_mostactive']
@@ -52,11 +52,10 @@ jobs:
           else:
               session = 'closed'
 
-          # Explicit temporal buckets prevent a 5:30/6:00 snapshot from being mistaken for the final 8:00 close.
           if session == 'pre-market':
-              session_bucket = f"PM{max(1, min(6, now_et.hour - 3))}"  # PM1≈04h ... PM6≈09h
+              session_bucket = f"PM{max(1, min(6, now_et.hour - 3))}"
           elif session == 'after-hours':
-              session_bucket = f"AH{max(1, min(4, now_et.hour - 15))}" # AH1≈16h ... AH4≈19-20h
+              session_bucket = f"AH{max(1, min(4, now_et.hour - 15))}"
           elif session == 'regular':
               session_bucket = f"R{now_et.hour:02d}"
           else:
@@ -77,9 +76,22 @@ jobs:
               except Exception:
                   pass
 
-          # Persistence/Slope evidence is invalid if the temporal chain is too sparse.
           cadence_status = 'OK' if gap_minutes is not None and gap_minutes <= 75 else ('INITIAL' if gap_minutes is None else 'GAP_ERROR')
           persistence_training_eligible = cadence_status == 'OK'
+
+          def pct(v):
+              try: return float(str(v or '0').replace('%','').replace(',',''))
+              except: return 0.0
+
+          # Build recent same-session ticker histories for Hour-to-Hour Gain Retention and Persistence Slope.
+          recent = [x for x in hist if x.get('session') == session][-6:]
+          ticker_hist = {}
+          for snap in recent:
+              ts = snap.get('timestampUTC')
+              for m in snap.get('topMovers', []):
+                  t = (m.get('Ticker') or '').upper()
+                  if t:
+                      ticker_hist.setdefault(t, []).append((ts, pct(m.get('Change'))))
 
           for signal in signals:
               p = pathlib.Path(f'/tmp/finviz-{signal}.csv')
@@ -109,9 +121,23 @@ jobs:
                           dst[k] = v
 
           data = list(merged.values())
-          def pct(v):
-              try: return float(str(v or '0').replace('%','').replace(',',''))
-              except: return 0.0
+          for r in data:
+              t = r.get('Ticker')
+              cur = pct(r.get('Change'))
+              pts = [v for _, v in ticker_hist.get(t, [])][-3:] + [cur]
+              r['_persistencePoints'] = pts
+              if len(pts) >= 2:
+                  base = pts[0]
+                  r['_gainRetentionPct'] = round((cur / base) * 100, 1) if abs(base) > 0.01 else None
+                  diffs = [pts[i] - pts[i-1] for i in range(1, len(pts))]
+                  slope = statistics.mean(diffs)
+                  r['_persistenceSlopePctPts'] = round(slope, 2)
+                  r['_persistenceTrend'] = 'STRENGTHENING' if slope >= 2 else ('DECAYING' if slope <= -2 else 'FLAT')
+              else:
+                  r['_gainRetentionPct'] = None
+                  r['_persistenceSlopePctPts'] = None
+                  r['_persistenceTrend'] = 'INSUFFICIENT_HISTORY'
+
           data.sort(key=lambda r: pct(r.get('Change')), reverse=True)
 
           payload = {
@@ -153,6 +179,9 @@ jobs:
                       'Price': r.get('Price'),
                       'Volume': r.get('Volume'),
                       'signals': r.get('_signals', []),
+                      'gainRetentionPct': r.get('_gainRetentionPct'),
+                      'persistenceSlopePctPts': r.get('_persistenceSlopePctPts'),
+                      'persistenceTrend': r.get('_persistenceTrend'),
                   }
                   for r in data[:100]
               ],
