@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#07111f" />
+  <title>TAG5 — Early Ignition Scanner</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">TAG MARKET INTELLIGENCE</div>
+      <h1>TAG5 <span>Early Ignition Scanner</span></h1>
+    </div>
+    <div class="badges">
+      <span class="badge live">● ENGINE READY</span>
+      <span class="badge">Sharia Gate</span>
+      <span class="badge">Extended Hours</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel hero">
+      <div>
+        <h2>اكتشاف تغيّر النظام قبل الانفجار</h2>
+        <p>محرك TAG5 يحوّل بيانات السعر والسيولة والفلوت والمحفزات والتداول الممتد إلى درجات اكتشاف مبكر، استمرار، إنهاك، ومخاطر.</p>
+      </div>
+      <div class="version-card">
+        <small>الإصدار المرجعي</small>
+        <strong>TAG5</strong>
+        <span>Persistence + Catalyst Clock + Data Integrity</span>
+      </div>
+    </section>
+
+    <section class="metrics" id="summaryCards"></section>
+
+    <section class="panel controls">
+      <div class="control-row">
+        <label>بحث
+          <input id="search" placeholder="SOAR, WAFU..." />
+        </label>
+        <label>المرحلة
+          <select id="stageFilter">
+            <option value="all">الكل</option>
+            <option value="DISCOVERY">Discovery</option>
+            <option value="IGNITION">Ignition</option>
+            <option value="LATE">Late</option>
+            <option value="EXHAUSTION">Exhaustion</option>
+          </select>
+        </label>
+        <label>الشرعية
+          <select id="shariaFilter">
+            <option value="all">الكل</option>
+            <option value="VERIFIED">Verified</option>
+            <option value="UNVERIFIED">Unverified</option>
+            <option value="EXCLUDED">Excluded</option>
+          </select>
+        </label>
+        <button id="loadDemo" class="primary">تحميل عينة اختبار</button>
+        <label class="file-btn">استيراد CSV<input id="csvFile" type="file" accept=".csv,text/csv" /></label>
+      </div>
+      <div class="hint">CSV columns: ticker,price,changePct,volume,avgVolume,float,pmChange,ahChange,ahVolume,catalystAgeHours,spreadPct,sharia</div>
+    </section>
+
+    <section class="panel table-panel">
+      <div class="section-head">
+        <div>
+          <h3>لوحة الفرص</h3>
+          <p>مرتبة حسب Early Regime Shift Score مع عقوبات التأخر والإنهاك.</p>
+        </div>
+        <button id="exportBtn">تصدير النتائج CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>السهم</th><th>السعر</th><th>التغير</th><th>TAG Score</th><th>Stage</th><th>Ignition</th><th>Continuation</th><th>Exhaustion</th><th>Sharia</th><th>السبب</th>
+            </tr>
+          </thead>
+          <tbody id="scannerBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="grid-two">
+      <section class="panel">
+        <div class="section-head"><div><h3>محلل سهم</h3><p>أدخل قيمًا يدويًا لاختبار منطق TAG5.</p></div></div>
+        <form id="analyzerForm" class="form-grid">
+          <label>Ticker<input name="ticker" value="SOAR" required /></label>
+          <label>Price<input name="price" type="number" step="any" value="0.17" /></label>
+          <label>Change %<input name="changePct" type="number" step="any" value="25" /></label>
+          <label>Volume<input name="volume" type="number" step="any" value="300000000" /></label>
+          <label>Avg Volume<input name="avgVolume" type="number" step="any" value="22000000" /></label>
+          <label>Float<input name="float" type="number" step="any" value="30000000" /></label>
+          <label>Pre-market %<input name="pmChange" type="number" step="any" value="30" /></label>
+          <label>After-hours %<input name="ahChange" type="number" step="any" value="-2" /></label>
+          <label>AH Volume<input name="ahVolume" type="number" step="any" value="4000000" /></label>
+          <label>Spread %<input name="spreadPct" type="number" step="any" value="1.4" /></label>
+          <label>Catalyst age (h)<input name="catalystAgeHours" type="number" step="any" value="120" /></label>
+          <label>Sharia<select name="sharia"><option>UNVERIFIED</option><option>VERIFIED</option><option>EXCLUDED</option></select></label>
+          <button class="primary wide" type="submit">حلل بـ TAG5</button>
+        </form>
+        <div id="analysisResult" class="analysis-result empty">أدخل البيانات واضغط تحليل.</div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head"><div><h3>قواعد TAG5 الفعالة</h3><p>القواعد المطبقة في هذه النسخة.</p></div></div>
+        <div class="rules" id="rules"></div>
+      </section>
+    </section>
+
+    <section class="panel integrity">
+      <h3>Data Integrity Console</h3>
+      <p>TAG5 لا يحوّل اختلافات البيانات إلى أنماط سوق. القراءات غير المتطابقة يجب تمييزها قبل التدريب.</p>
+      <div id="integrityLog" class="log"></div>
+    </section>
+  </main>
+
+  <footer>
+    <strong>TAG5</strong> — Research & decision-support prototype. ليس توصية استثمارية. بيانات هذه النسخة تُدخل يدويًا أو عبر CSV ولا تدّعي اتصالًا لحظيًا بالسوق.
+  </footer>
+  <script src="./app.js"></script>
+</body>
+</html>
