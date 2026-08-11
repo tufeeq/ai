@@ -26,6 +26,7 @@ def main():
     except Exception:
         bucket_n = 0
 
+    native_verified = payload.get('extendedHoursNativeFieldsVerified') is True
     state = 'UNVERIFIED_EXTENDED_HOURS_FIELDS'
     evidence = {
         'method': 'CROSS_BUCKET_CHANGE_VOLUME_FREEZE_TEST',
@@ -36,6 +37,7 @@ def main():
         'freezeRatio': None,
         'threshold': 0.80,
         'minimumCommonTickers': 10,
+        'extendedHoursNativeFieldsVerified': native_verified,
     }
 
     if bucket_n > 1:
@@ -73,23 +75,31 @@ def main():
             else:
                 state = 'INSUFFICIENT_CROSS_BUCKET_SAMPLE'
 
+    # Cross-bucket movement alone does NOT prove the fields are after-hours native.
+    # Delayed regular-session prints/corrections can move Change/Volume after 16:00 ET.
+    # TAG5 therefore blocks all extended-hours persistence/volume metrics until the
+    # source explicitly verifies that the fields themselves are AH-native.
+    if not native_verified and state == 'CROSS_BUCKET_FIELDS_MOVING':
+        state = 'AH_NATIVE_SOURCE_UNVERIFIED'
+
     payload['extendedHoursFieldIntegrityState'] = state
     payload['extendedHoursFieldIntegrityEvidence'] = evidence
     payload['afterHoursVolumeParticipationEligible'] = False
     payload['extendedHoursVolumeTakeoverEligible'] = False
 
-    # TAG5 may store regular-session fields in Finviz during AH. Never allow those
-    # values to masquerade as AH persistence until an AH-native field source is verified.
-    block = state in {
+    block = (not native_verified) or state in {
         'UNVERIFIED_EXTENDED_HOURS_FIELDS',
         'SOURCE_FIELD_FREEZE_SUSPECTED',
         'INSUFFICIENT_CROSS_BUCKET_SAMPLE',
+        'AH_NATIVE_SOURCE_UNVERIFIED',
     }
     if block:
         payload['persistenceTrainingEligible'] = False
         reasons = payload.setdefault('trainingBlockReasons', [])
         if 'EXTENDED_HOURS_FIELD_INTEGRITY_BLOCK' not in reasons:
             reasons.append('EXTENDED_HOURS_FIELD_INTEGRITY_BLOCK')
+        if not native_verified and 'AH_NATIVE_SOURCE_NOT_VERIFIED' not in reasons:
+            reasons.append('AH_NATIVE_SOURCE_NOT_VERIFIED')
         for r in payload.get('rows', []):
             r['_persistenceTrainingEligible'] = False
             r['_gainRetentionPct'] = None
@@ -103,8 +113,6 @@ def main():
             r['_persistenceTrend'] = 'BLOCKED_EXTENDED_HOURS_FIELD_INTEGRITY'
             r['_extendedHoursMetricsState'] = state
 
-        # Update the compact current-bucket snapshot so later buckets cannot learn
-        # from invalidated AH values.
         for s in reversed(hist):
             if str(s.get('timestampET', ''))[:10] == day and s.get('session') == 'after-hours' and s.get('sessionBucket') == bucket:
                 s['extendedHoursFieldIntegrityState'] = state
@@ -115,6 +123,8 @@ def main():
                 reasons = s.setdefault('trainingBlockReasons', [])
                 if 'EXTENDED_HOURS_FIELD_INTEGRITY_BLOCK' not in reasons:
                     reasons.append('EXTENDED_HOURS_FIELD_INTEGRITY_BLOCK')
+                if not native_verified and 'AH_NATIVE_SOURCE_NOT_VERIFIED' not in reasons:
+                    reasons.append('AH_NATIVE_SOURCE_NOT_VERIFIED')
                 for m in s.get('topMovers', []):
                     m['gainRetentionPct'] = None
                     m['persistenceSlopePctPts'] = None
