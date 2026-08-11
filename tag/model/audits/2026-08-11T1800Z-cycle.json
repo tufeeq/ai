@@ -1,0 +1,85 @@
+{
+  "referenceVersion": "TAG5",
+  "cycleTimestampUTC": "2026-08-11T18:00:00Z",
+  "promotionDecision": "NO_PROMOTION",
+  "promotionReason": "No reconciled multi-session evidence of material predictive improvement; current market snapshot is intraperiod, single-source, and stale beyond the live threshold at audit time.",
+  "findings": [
+    {
+      "class": "CLASSIFICATION_TIMING_ERROR",
+      "severity": "HIGH",
+      "issue": "firstObserved timing was scoped to date+session, causing a ticker observed in pre-market to receive a new firstObserved timestamp when regular trading began. This can overstate detection latency and corrupt Discovery/Ignition/Late attribution.",
+      "action": "Changed firstObserved to preserve the earliest observation across the full trading date while also storing separate session-specific first-observation fields."
+    },
+    {
+      "class": "DATA_FRESHNESS_ERROR",
+      "severity": "BLOCKING_FOR_REALTIME_CLAIMS",
+      "issue": "Latest available mover snapshot before this audit was 2026-08-11 13:14:36 ET, more than 20 minutes old at 14:00 ET.",
+      "action": "Do not use the snapshot for realtime mover claims, missed-mover scoring, false-positive scoring, or threshold promotion evidence."
+    },
+    {
+      "class": "DATA_INTEGRITY",
+      "severity": "BLOCKING_FOR_TRAINING",
+      "issue": "Latest snapshot remains single-source Finviz, intraperiod, independentSourceCount=1, finalSnapshotReconciliation=PENDING_SECOND_SOURCE.",
+      "action": "Keep trainingEligible=false and do not record final mover truth until a time-aligned second independent source is reconciled."
+    }
+  ],
+  "provisionalObservations": [
+    {
+      "ticker": "PLAG",
+      "firstObservedRegularET": "2026-08-11T09:56:31-04:00",
+      "firstObservedRegularChangePct": 99.98,
+      "latestAvailableET": "2026-08-11T13:14:36-04:00",
+      "latestAvailableChangePct": 421.48,
+      "interpretation": "Large continuation after already-extreme first regular-session observation; not valid evidence of early discovery because the first actionable timestamp is null and final reconciliation is pending."
+    },
+    {
+      "ticker": "WXM",
+      "preMarketObservedET": "2026-08-11T05:35:26-04:00",
+      "preMarketChangePct": 151.25,
+      "latestAvailableET": "2026-08-11T13:14:36-04:00",
+      "latestAvailableChangePct": 91.0,
+      "interpretation": "Cross-session timing must preserve the pre-market observation; regular-session reset would incorrectly make this look like a later discovery."
+    }
+  ],
+  "moverAuditStatus": {
+    "actualFinalTopMoversAvailable": false,
+    "missedMoversFinal": null,
+    "falsePositivesFinal": null,
+    "firstActionableSignalsVerified": 0,
+    "reason": "Regular session still open and no time-aligned two-source final reconciliation exists."
+  },
+  "thresholdValidation": {
+    "changesApplied": [],
+    "reason": "No threshold may change from a single intraday case or unreconciled snapshot."
+  },
+  "trainingStatus": {
+    "eligibleCases": 0,
+    "blockedReasons": [
+      "SINGLE_SOURCE_ONLY",
+      "INTRAPERIOD_NOT_FINAL",
+      "FINAL_SNAPSHOT_RECONCILIATION_PENDING",
+      "LIVE_SNAPSHOT_STALE_AT_AUDIT_TIME"
+    ],
+    "claimedPredictionSuccesses": 0
+  },
+  "retainedRules": [
+    "Extended-Hours Persistence Gate",
+    "Persistence Slope",
+    "After-Hours Volume Participation",
+    "Extended-Hours Volume Takeover",
+    "Mandatory Fresh-Catalyst Sweep",
+    "Event-Timing Context",
+    "Catalyst Clock",
+    "Catalyst Attribution Error",
+    "Exhaustion Memory Penalty",
+    "Early Regime Shift Score",
+    "No-News Momentum Path",
+    "Hour-to-Hour Gain Retention",
+    "Final Snapshot Reconciliation"
+  ],
+  "shariaPolicy": {
+    "strict": true,
+    "coreHaramActivities": "EXCLUDED",
+    "financiallyUnverified": "UNVERIFIED"
+  }
+}
