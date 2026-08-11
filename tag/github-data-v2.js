@@ -10,10 +10,77 @@
       const finvizRows=Array.isArray(payload.data)?payload.data:(Array.isArray(payload.rows)?payload.rows:[]);
       if(!finvizRows.length) throw new Error('No Finviz rows found');
       if(typeof normalizeFinviz!=='function') throw new Error('TAG parser unavailable');
-      rows=normalizeFinviz(finvizRows);
+
+      const normalized=normalizeFinviz(finvizRows);
+      const rawByTicker=new Map(finvizRows.map(o=>[String(o.Ticker||o.Symbol||'').toUpperCase(),o]));
+      rows=normalized.map(x=>{
+        const o=rawByTicker.get(x.ticker)||{};
+        return {...x,
+          snapshotTimestampUTC:o._snapshotTimestampUTC||payload.snapshotTimestampUTC||payload.updatedAt||null,
+          snapshotTimestampET:o._snapshotTimestampET||payload.snapshotTimestampET||null,
+          session:o._session||payload.session||null,
+          sessionBucket:o._sessionBucket||payload.sessionBucket||null,
+          snapshotType:o._snapshotType||payload.snapshotType||null,
+          finalCandidate:Boolean(o._finalCandidate??payload.finalCandidate),
+          finalReconciled:Boolean(o._finalReconciled),
+          trainingEligible:Boolean(o._trainingEligible??payload.trainingEligible),
+          cadenceStatus:o._cadenceStatus||payload.cadenceStatus||null,
+          bucketContinuityStatus:o._bucketContinuityStatus||payload.bucketContinuityStatus||null,
+          persistenceTrainingEligible:Boolean(o._persistenceTrainingEligible??payload.persistenceTrainingEligible),
+          persistencePoints:Array.isArray(o._persistencePoints)?o._persistencePoints:[],
+          persistenceBuckets:Array.isArray(o._persistenceBuckets)?o._persistenceBuckets:[],
+          gainRetentionPct:o._gainRetentionPct??null,
+          persistenceSlopePctPts:o._persistenceSlopePctPts??null,
+          persistenceTrend:o._persistenceTrend||'INSUFFICIENT_HISTORY',
+          independentSourceCount:o._independentSourceCount??payload.independentSourceCount??0,
+          dataIntegrityState:o._dataIntegrityState||payload.dataIntegrityState||'UNKNOWN',
+          firstObservedTimestampUTC:o._firstObservedTimestampUTC||null,
+          firstObservedTimestampET:o._firstObservedTimestampET||null,
+          firstObservedSession:o._firstObservedSession||null,
+          firstObservedBucket:o._firstObservedBucket||null,
+          firstObservedChange:o._firstObservedChange??null,
+          firstObservedVolume:o._firstObservedVolume??null,
+          firstSessionObservedTimestampUTC:o._firstSessionObservedTimestampUTC||null,
+          firstSessionObservedTimestampET:o._firstSessionObservedTimestampET||null,
+          firstSessionObservedBucket:o._firstSessionObservedBucket||null,
+          firstActionableSignalTimestampET:o._firstActionableSignalTimestampET||null
+        };
+      });
+
+      const updatedMs=Date.parse(payload.updatedAt||payload.snapshotTimestampUTC||'');
+      const ageMinutes=Number.isFinite(updatedMs)?Math.max(0,(Date.now()-updatedMs)/60000):null;
+      const stale=ageMinutes===null||ageMinutes>20;
+      const reconciled=payload.finalSnapshotReconciliation==='RECONCILED' && (payload.independentSourceCount||0)>=2;
+      window.TAGDataIntegrity={
+        updatedAt:payload.updatedAt||null,
+        snapshotTimestampUTC:payload.snapshotTimestampUTC||null,
+        snapshotTimestampET:payload.snapshotTimestampET||null,
+        session:payload.session||null,
+        sessionBucket:payload.sessionBucket||null,
+        snapshotType:payload.snapshotType||null,
+        finalCandidate:Boolean(payload.finalCandidate),
+        finalSnapshotReconciliation:payload.finalSnapshotReconciliation||'UNKNOWN',
+        independentSourceCount:payload.independentSourceCount||0,
+        trainingEligible:Boolean(payload.trainingEligible),
+        cadenceStatus:payload.cadenceStatus||null,
+        bucketContinuityStatus:payload.bucketContinuityStatus||null,
+        trainingBlockReasons:Array.isArray(payload.trainingBlockReasons)?payload.trainingBlockReasons:[],
+        ageMinutes,
+        stale,
+        reconciled
+      };
+
       render();
-      if(b){b.textContent='● DATA: FINVIZ';b.classList.add('connected');}
-      if(s){s.className='connector-status ok';s.textContent=`Finviz متصل · ${finvizRows.length} سهم · آخر تحديث ${new Date(payload.updatedAt).toLocaleString()}`;}
+      if(b){
+        b.textContent=stale?'● DATA: STALE':(reconciled?'● DATA: RECONCILED':'● DATA: LIVE / UNRECONCILED');
+        if(!stale)b.classList.add('connected'); else b.classList.remove('connected');
+      }
+      if(s){
+        s.className=stale?'connector-status err':(reconciled?'connector-status ok':'connector-status');
+        const ageText=ageMinutes===null?'عمر غير معروف':`${ageMinutes.toFixed(0)} دقيقة`;
+        const recText=reconciled?'تمت المصالحة النهائية':'غير مصالَح نهائيًا / مصدر واحد';
+        s.textContent=`Finviz · ${finvizRows.length} سهم · ${ageText} · ${recText} · ${payload.sessionBucket||payload.session||'—'}`;
+      }
     }catch(e){if(s){s.className='connector-status err';s.textContent='تعذر تحميل بيانات Finviz: '+e.message;}}
   }
   window.addEventListener('DOMContentLoaded',()=>{
