@@ -1,6 +1,6 @@
 {
   "referenceVersion": "TAG5",
-  "policyVersion": "2026-08-11.6",
+  "policyVersion": "2026-08-11.7",
   "finalSnapshotReconciliation": {
     "required": true,
     "minimumIndependentSourcesWhenPossible": 2,
@@ -29,6 +29,24 @@
     "staleState": "STALE_DATA_ERROR",
     "staleSnapshotTrainingEligible": false,
     "staleSnapshotRealtimeClaimEligible": false
+  },
+  "extendedHoursFieldIntegrity": {
+    "required": true,
+    "doNotAssumeRegularSessionChangeOrVolumeAreExtendedHoursNative": true,
+    "crossBucketFreezeTestRequired": true,
+    "freezeTestFields": ["Change", "Volume"],
+    "freezeThreshold": 0.8,
+    "minimumCommonTickers": 10,
+    "freezeState": "SOURCE_FIELD_FREEZE_SUSPECTED",
+    "unverifiedState": "UNVERIFIED_EXTENDED_HOURS_FIELDS",
+    "blockedMetrics": [
+      "Persistence Slope",
+      "Hour-to-Hour Gain Retention",
+      "After-Hours Volume Participation",
+      "Extended-Hours Volume Takeover"
+    ],
+    "blockedMetricsCannotTrainOrCreateActionableSignal": true,
+    "requireExtendedHoursNativeSourceBeforeReenable": true
   },
   "modelInputIntegrity": {
     "required": true,
