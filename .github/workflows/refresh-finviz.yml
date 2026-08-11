@@ -21,8 +21,6 @@ jobs:
         run: |
           test -n "$FINVIZ_TOKEN" || (echo "FINVIZ_TOKEN secret is missing" && exit 1)
           mkdir -p tag/data
-          # Keep recall broad without hammering Finviz: one Overview request per signal universe.
-          # Detailed ownership/technical fields can be enriched separately; mover discovery must remain reliable first.
           for SIGNAL in ta_topgainers ta_unusualvolume ta_mostactive; do
             URL="https://elite.finviz.com/export/screener?s=${SIGNAL}&v=111&auth=${FINVIZ_TOKEN}"
             curl --fail --silent --show-error --location \
@@ -54,6 +52,35 @@ jobs:
           else:
               session = 'closed'
 
+          # Explicit temporal buckets prevent a 5:30/6:00 snapshot from being mistaken for the final 8:00 close.
+          if session == 'pre-market':
+              session_bucket = f"PM{max(1, min(6, now_et.hour - 3))}"  # PM1≈04h ... PM6≈09h
+          elif session == 'after-hours':
+              session_bucket = f"AH{max(1, min(4, now_et.hour - 15))}" # AH1≈16h ... AH4≈19-20h
+          elif session == 'regular':
+              session_bucket = f"R{now_et.hour:02d}"
+          else:
+              session_bucket = 'CLOSED'
+
+          hist_path = pathlib.Path('tag/data/snapshots.json')
+          try:
+              hist = json.loads(hist_path.read_text(encoding='utf-8')) if hist_path.exists() else []
+          except Exception:
+              hist = []
+
+          previous_same_session = next((x for x in reversed(hist) if x.get('session') == session), None)
+          gap_minutes = None
+          if previous_same_session and previous_same_session.get('timestampUTC'):
+              try:
+                  prev = datetime.datetime.fromisoformat(previous_same_session['timestampUTC'])
+                  gap_minutes = round((now_utc - prev).total_seconds() / 60, 2)
+              except Exception:
+                  pass
+
+          # Persistence/Slope evidence is invalid if the temporal chain is too sparse.
+          cadence_status = 'OK' if gap_minutes is not None and gap_minutes <= 75 else ('INITIAL' if gap_minutes is None else 'GAP_ERROR')
+          persistence_training_eligible = cadence_status == 'OK'
+
           for signal in signals:
               p = pathlib.Path(f'/tmp/finviz-{signal}.csv')
               with p.open(newline='', encoding='utf-8-sig') as f:
@@ -68,9 +95,12 @@ jobs:
                       '_snapshotTimestampUTC': now_utc.isoformat(),
                       '_snapshotTimestampET': now_et.isoformat(),
                       '_session': session,
+                      '_sessionBucket': session_bucket,
                       '_snapshotType': 'intraperiod',
                       '_finalReconciled': False,
                       '_trainingEligible': False,
+                      '_cadenceStatus': cadence_status,
+                      '_persistenceTrainingEligible': persistence_training_eligible,
                   })
                   if signal not in dst['_signals']:
                       dst['_signals'].append(signal)
@@ -90,9 +120,13 @@ jobs:
               'snapshotTimestampUTC': now_utc.isoformat(),
               'snapshotTimestampET': now_et.isoformat(),
               'session': session,
+              'sessionBucket': session_bucket,
               'snapshotType': 'intraperiod',
               'finalSnapshotReconciliation': 'PENDING_SECOND_SOURCE',
               'trainingEligible': False,
+              'cadenceStatus': cadence_status,
+              'gapMinutesFromPriorSessionSnapshot': gap_minutes,
+              'persistenceTrainingEligible': persistence_training_eligible,
               'count': len(data),
               'signals': signals,
               'views': [111],
@@ -101,18 +135,17 @@ jobs:
           }
           pathlib.Path('tag/data/finviz.json').write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
 
-          # Rolling compact snapshot history for hour-to-hour persistence analysis.
-          hist_path = pathlib.Path('tag/data/snapshots.json')
-          try:
-              hist = json.loads(hist_path.read_text(encoding='utf-8')) if hist_path.exists() else []
-          except Exception:
-              hist = []
           compact = {
               'timestampUTC': now_utc.isoformat(),
               'timestampET': now_et.isoformat(),
               'session': session,
+              'sessionBucket': session_bucket,
               'snapshotType': 'intraperiod',
               'trainingEligible': False,
+              'finalSnapshotReconciliation': 'PENDING_SECOND_SOURCE',
+              'cadenceStatus': cadence_status,
+              'gapMinutesFromPriorSessionSnapshot': gap_minutes,
+              'persistenceTrainingEligible': persistence_training_eligible,
               'topMovers': [
                   {
                       'Ticker': r.get('Ticker'),
@@ -127,7 +160,7 @@ jobs:
           hist.append(compact)
           hist = hist[-288:]
           hist_path.write_text(json.dumps(hist, ensure_ascii=False, indent=2), encoding='utf-8')
-          print(f'Wrote {len(data)} mover rows for {session}; trainingEligible=False pending reconciliation')
+          print(f'Wrote {len(data)} mover rows for {session}/{session_bucket}; reconciliation pending; cadence={cadence_status}')
           PY
 
       - name: Commit refreshed data
