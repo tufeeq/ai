@@ -71,9 +71,6 @@ jobs:
           else:
               session_bucket = 'CLOSED'
 
-          # Final Snapshot Reconciliation needs a boundary snapshot, not merely the
-          # last arbitrary intraperiod sample. This marks boundary candidates only;
-          # they remain training-blocked until independently reconciled.
           is_final_candidate = (
               (session == 'pre-market' and now_et.time() >= datetime.time(9,25)) or
               (session == 'after-hours' and now_et.time() >= datetime.time(19,55))
@@ -94,13 +91,13 @@ jobs:
                   gap_minutes = round((now_utc - prev).total_seconds() / 60, 2)
               except Exception:
                   pass
-
           cadence_status = 'OK' if gap_minutes is not None and gap_minutes <= 75 else ('INITIAL' if gap_minutes is None else 'GAP_ERROR')
 
-          # Hour-to-hour persistence must use one representative observation from
-          # each hour bucket. Multiple 5-minute samples inside PM5/AH2 must never be
-          # treated as PM4->PM5 or AH1->AH2 persistence.
-          same_session_hist = [x for x in hist if x.get('session') == session]
+          same_day = now_et.date().isoformat()
+          same_session_hist = [
+              x for x in hist
+              if x.get('session') == session and str(x.get('timestampET',''))[:10] == same_day
+          ]
           latest_by_bucket = {}
           for snap in same_session_hist:
               b = snap.get('sessionBucket')
@@ -114,15 +111,38 @@ jobs:
           else:
               bucket_order = []
 
-          prior_bucket_snaps = [latest_by_bucket[b] for b in bucket_order if b in latest_by_bucket and b != session_bucket]
-          persistence_training_eligible = cadence_status == 'OK' and len(prior_bucket_snaps) >= 1
+          # Persistence must be based on a contiguous hourly chain. A jump such as
+          # PM2 -> PM5 is not valid hour-to-hour retention and is blocked.
+          contiguous_prior = []
+          bucket_continuity_status = 'NOT_APPLICABLE'
+          if session_bucket in bucket_order:
+              idx = bucket_order.index(session_bucket)
+              j = idx - 1
+              while j >= 0 and bucket_order[j] in latest_by_bucket:
+                  contiguous_prior.insert(0, latest_by_bucket[bucket_order[j]])
+                  j -= 1
+              immediate_prev = bucket_order[idx-1] if idx > 0 else None
+              if immediate_prev is None:
+                  bucket_continuity_status = 'INITIAL_BUCKET'
+              elif immediate_prev in latest_by_bucket:
+                  bucket_continuity_status = 'CONTIGUOUS'
+              else:
+                  bucket_continuity_status = 'BUCKET_GAP_ERROR'
+
+          prior_bucket_snaps = contiguous_prior[-3:]
+          persistence_training_eligible = (
+              session in ('pre-market','after-hours') and
+              cadence_status != 'GAP_ERROR' and
+              bucket_continuity_status == 'CONTIGUOUS' and
+              len(prior_bucket_snaps) >= 1
+          )
 
           def pct(v):
               try: return float(str(v or '0').replace('%','').replace(',',''))
               except: return 0.0
 
           ticker_hist = {}
-          for snap in prior_bucket_snaps[-3:]:
+          for snap in prior_bucket_snaps:
               ts = snap.get('timestampUTC')
               b = snap.get('sessionBucket')
               for m in snap.get('topMovers', []):
@@ -150,6 +170,7 @@ jobs:
                       '_finalReconciled': False,
                       '_trainingEligible': False,
                       '_cadenceStatus': cadence_status,
+                      '_bucketContinuityStatus': bucket_continuity_status,
                       '_persistenceTrainingEligible': persistence_training_eligible,
                       '_independentSourceCount': 1,
                       '_dataIntegrityState': 'PENDING_SECOND_SOURCE'
@@ -164,12 +185,12 @@ jobs:
           for r in data:
               t = r.get('Ticker')
               cur = pct(r.get('Change'))
-              hist_pts = ticker_hist.get(t, [])
+              hist_pts = ticker_hist.get(t, []) if persistence_training_eligible else []
               pts = [v for _, _, v in hist_pts] + [cur]
               labels = [b for b, _, _ in hist_pts] + [session_bucket]
               r['_persistencePoints'] = pts
               r['_persistenceBuckets'] = labels
-              if len(pts) >= 2:
+              if persistence_training_eligible and len(pts) >= 2:
                   base = pts[0]
                   r['_gainRetentionPct'] = round((cur / base) * 100, 1) if abs(base) > 0.01 else None
                   diffs = [pts[i] - pts[i-1] for i in range(1, len(pts))]
@@ -186,6 +207,8 @@ jobs:
           training_block_reasons = ['SINGLE_SOURCE_ONLY', 'FINAL_SNAPSHOT_NOT_RECONCILED']
           if cadence_status == 'GAP_ERROR':
               training_block_reasons.append('SESSION_CADENCE_GAP')
+          if bucket_continuity_status == 'BUCKET_GAP_ERROR':
+              training_block_reasons.append('HOURLY_BUCKET_GAP')
           if session in ('pre-market','after-hours') and not is_final_candidate:
               training_block_reasons.append('NOT_SESSION_BOUNDARY_SNAPSHOT')
 
@@ -205,8 +228,9 @@ jobs:
               'trainingEligible': False,
               'cadenceStatus': cadence_status,
               'gapMinutesFromPriorSessionSnapshot': gap_minutes,
+              'bucketContinuityStatus': bucket_continuity_status,
               'persistenceTrainingEligible': persistence_training_eligible,
-              'persistenceMethod': 'UNIQUE_HOURLY_SESSION_BUCKETS',
+              'persistenceMethod': 'CONTIGUOUS_UNIQUE_HOURLY_SESSION_BUCKETS',
               'count': len(data),
               'signals': signals,
               'views': [111],
@@ -229,8 +253,9 @@ jobs:
               'trainingBlockReasons': training_block_reasons,
               'cadenceStatus': cadence_status,
               'gapMinutesFromPriorSessionSnapshot': gap_minutes,
+              'bucketContinuityStatus': bucket_continuity_status,
               'persistenceTrainingEligible': persistence_training_eligible,
-              'persistenceMethod': 'UNIQUE_HOURLY_SESSION_BUCKETS',
+              'persistenceMethod': 'CONTIGUOUS_UNIQUE_HOURLY_SESSION_BUCKETS',
               'topMovers': [
                   {
                       'Ticker': r.get('Ticker'),
@@ -246,10 +271,27 @@ jobs:
                   for r in data[:100]
               ],
           }
-          hist.append(compact)
-          hist = hist[-288:]
+
+          # Keep one representative (latest) snapshot per date/session/hour bucket.
+          # This preserves multi-session history instead of letting 5-minute samples
+          # crowd previous trading days out of the validation set.
+          if session != 'closed':
+              key = (same_day, session, session_bucket)
+              replaced = False
+              for i in range(len(hist)-1, -1, -1):
+                  h = hist[i]
+                  hkey = (str(h.get('timestampET',''))[:10], h.get('session'), h.get('sessionBucket'))
+                  if hkey == key:
+                      hist[i] = compact
+                      replaced = True
+                      break
+              if not replaced:
+                  hist.append(compact)
+
+          # Retain up to roughly 30 trading days of hourly bucket snapshots.
+          hist = hist[-600:]
           hist_path.write_text(json.dumps(hist, ensure_ascii=False, indent=2), encoding='utf-8')
-          print(f'Wrote {len(data)} mover rows for {session}/{session_bucket}; type={snapshot_type}; reconciliation pending; cadence={cadence_status}')
+          print(f'Wrote {len(data)} mover rows for {session}/{session_bucket}; type={snapshot_type}; reconciliation pending; cadence={cadence_status}; continuity={bucket_continuity_status}')
           PY
 
       - name: Commit refreshed data safely
