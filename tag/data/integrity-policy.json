@@ -1,6 +1,6 @@
 {
   "referenceVersion": "TAG5",
-  "policyVersion": "2026-08-12.1",
+  "policyVersion": "2026-08-12.2",
   "finalSnapshotReconciliation": {
     "required": true,
     "minimumIndependentSourcesWhenPossible": 2,
@@ -26,6 +26,16 @@
     "preserveEarliestObservedChangeAndVolume": true,
     "latestBucketReplacementMustNotEraseFirstObservation": true,
     "firstObservedTimestampIsNotEquivalentToFirstActionableSignal": true
+  },
+  "ingestionReliability": {
+    "nominalRefreshMinutes": 5,
+    "primaryScheduler": "GITHUB_ACTIONS_SCHEDULE",
+    "cadenceKeeperEnabled": true,
+    "cadenceKeeperStrategy": "LONG_RUNNING_INTERNAL_5_MINUTE_DISPATCH_LOOP",
+    "cadenceKeeperWindowET": "04:00-20:00_WEEKDAYS",
+    "schedulerDelayMustNotBeInterpretedAsMarketInactivity": true,
+    "missingRefreshCreatesDataIntegrityGap": true,
+    "rankingMustFailClosedWhenFreshnessLimitExceeded": true
   },
   "dataFreshness": {
     "liveSnapshotMaxAgeMinutes": 15,
