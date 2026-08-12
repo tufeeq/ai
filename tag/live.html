@@ -3,27 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>TAG5 Live</title>
+  <title>TAG6 Live</title>
+  <meta http-equiv="refresh" content="0; url=./index.html?v=7">
 </head>
 <body>
-<script>
-(async function () {
-  try {
-    const r = await fetch('./index.html?ts=' + Date.now(), { cache: 'no-store' });
-    if (!r.ok) throw new Error('Failed to load TAG dashboard: HTTP ' + r.status);
-    let h = await r.text();
-    h = h.replace('</head>', '<link rel="stylesheet" href="./enhanced.css?v=3"></head>');
-    h = h.replace('./github-data.js', './github-data-v2.js?v=3');
-    const marker = '<script src="./github-data-v2.js?v=3"><' + '/script>';
-    const replacement = '<script src="./enhanced.js?v=3"><' + '/script>' + marker;
-    h = h.replace(marker, replacement);
-    document.open();
-    document.write(h);
-    document.close();
-  } catch (e) {
-    document.body.innerHTML = '<div style="font-family:system-ui;padding:30px">TAG loading error: ' + String(e.message || e) + '</div>';
-  }
-})();
-</script>
+  <p style="font-family:system-ui;padding:24px">جاري فتح TAG6… <a href="./index.html?v=7">اضغط هنا إذا لم يتم التحويل تلقائيًا</a>.</p>
+  <script>location.replace('./index.html?v=7');</script>
 </body>
 </html>
