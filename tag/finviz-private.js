@@ -1,1 +1,17 @@
-(()=>{const $=s=>document.querySelector(s);function status(msg,type=''){const el=$('#finvizStatus');if(!el)return;el.className='connector-status'+(type?' '+type:'');el.textContent=msg}function init(){const token=$('#finvizToken'),url=$('#finvizUrl'),connect=$('#connectFinviz'),toggle=$('#toggleToken'),forget=$('#forgetToken'),remember=$('#rememberToken');if(!token||!url||!connect)return;token.disabled=false;token.readOnly=false;token.style.pointerEvents='auto';token.style.opacity='1';if(remember){remember.checked=false;remember.disabled=true;remember.title='لأمان أعلى، لا يتم حفظ الرمز في هذه النسخة.'}if(toggle)toggle.onclick=()=>{token.type=token.type==='password'?'text':'password'};if(forget)forget.onclick=()=>{token.value='';status('تم مسح الرمز من ذاكرة الصفحة.','ok')};connect.onclick=async()=>{const t=token.value.trim(),tpl=url.value.trim();if(!t){status('أدخل Finviz Elite Token أولاً.','err');token.focus();return}if(!tpl){status('أدخل رابط Finviz API/Export واستخدم {TOKEN} مكان الرمز.','err');url.focus();return}if(!tpl.includes('{TOKEN}')){status('يجب أن يحتوي الرابط على {TOKEN} في موضع الرمز حتى لا تضطر لكتابته داخل الرابط.','err');return}const endpoint=tpl.replace('{TOKEN}',encodeURIComponent(t));status('جاري الاتصال مباشرة من متصفحك…');try{const r=await fetch(endpoint,{cache:'no-store',credentials:'omit'});if(!r.ok)throw new Error('HTTP '+r.status);const text=await r.text();if(typeof window.loadFinvizText==='function'){await window.loadFinvizText(text,'Finviz Elite');return}let data;try{data=JSON.parse(text)}catch{data=null}status(data?'تم الاتصال واستلام البيانات، لكن محول Finviz الحالي يحتاج ضبط الصيغة.':'تم الوصول إلى Finviz لكن تعذر تفسير الاستجابة.','err')}catch(e){status('تعذر الاتصال المباشر من GitHub Pages. غالبًا Finviz يمنع CORS لهذا الرابط. استخدم Finviz CSV الآن، أو اربط Proxy آمن لاحقًا. '+e.message,'err')}};status('الحقل جاهز. أدخل Token، ثم رابط Finviz الذي يحتوي على {TOKEN}. الرمز يبقى في ذاكرة الصفحة فقط ولا يُحفظ في GitHub.')}}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init()})();
+(()=>{
+  const VERSION='7';
+  function loadEnhanced(){
+    if(window.__TAG_ENHANCED_BOOTSTRAP)return;
+    window.__TAG_ENHANCED_BOOTSTRAP=true;
+    if(!document.querySelector('link[data-tag-enhanced]')){
+      const l=document.createElement('link');l.rel='stylesheet';l.href='./enhanced.css?v='+VERSION;l.dataset.tagEnhanced='1';document.head.appendChild(l);
+    }
+    if(!document.querySelector('script[data-tag-enhanced]')){
+      const s=document.createElement('script');s.src='./enhanced.js?v='+VERSION;s.dataset.tagEnhanced='1';s.onload=()=>{
+        if(typeof window.loadGitHubFinviz==='function')window.loadGitHubFinviz();
+        else if(typeof window.render==='function')window.render();
+      };document.head.appendChild(s);
+    }
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadEnhanced);else loadEnhanced();
+})();
