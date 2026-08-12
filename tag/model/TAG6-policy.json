@@ -1,103 +1,49 @@
 {
   "referenceVersion": "TAG6",
   "derivedFrom": "TAG5",
-  "promotionBasis": "August 11 diagnostic: distinguish observation from prediction and optimize conversion of early observations into timestamped actionable signals without inflating false positives.",
+  "promotionBasis": "Validated structural upgrade: separate observation from prediction and convert genuinely early observations into timestamped actionable signals without inflating false positives.",
   "primaryObjective": {
     "metric": "Top-20 Early-Capture Rate",
     "formula": "Predicted Early members of reconciled regular-session Top-20 gainers / 20 * 100",
-    "targetPath": [">=30% validated baseline", ">=40% rolling 5-session", ">=50% rolling 20-session stretch"],
     "constraint": "Do not improve capture rate by relabeling late detections or increasing low-quality false positives."
   },
-  "mandatoryOutcomeLabels": [
-    "PREDICTED_EARLY",
-    "DETECTED_EARLY_NOT_ACTIONABLE",
-    "DETECTED_LATE",
-    "MISSED",
-    "DATA_UNVERIFIED"
-  ],
+  "mandatoryOutcomeLabels": ["PREDICTED_EARLY","DETECTED_EARLY_NOT_ACTIONABLE","DETECTED_LATE","MISSED","DATA_UNVERIFIED"],
   "actionableSignalContract": {
     "required": true,
     "immutableFirstSignal": true,
-    "requiredFields": [
-      "ticker",
-      "firstObservedTimestampET",
-      "firstObservedPrice",
-      "firstObservedChangePct",
-      "firstObservedVolume",
-      "firstActionableSignalTimestampET",
-      "actionablePrice",
-      "actionableChangePct",
-      "actionableVolume",
-      "TAG6Score",
-      "stageAtSignal",
-      "signalReasons",
-      "riskFlags",
-      "shariaStatus",
-      "dataConfidence"
-    ],
+    "requiredFields": ["ticker","firstObservedTimestampET","firstObservedPrice","firstObservedChangePct","firstObservedVolume","firstActionableSignalTimestampET","actionablePrice","actionableChangePct","actionableVolume","TAG6Score","stageAtSignal","signalReasons","riskFlags","shariaStatus","dataConfidence"],
     "rule": "A historical observation cannot be counted as a prediction unless a contemporaneous firstActionableSignalTimestampET exists."
   },
-  "stageModel": ["DISCOVERY", "IGNITION", "LATE", "EXHAUSTION"],
+  "stageModel": ["DISCOVERY","IGNITION","LATE","EXHAUSTION"],
   "earlyConversionEngine": {
     "purpose": "Convert weak but genuine early observations into ranked watch/action candidates before obvious price expansion.",
-    "preferredStages": ["DISCOVERY", "IGNITION"],
-    "features": [
-      "relativeVolumeAcceleration",
-      "volumeVelocity",
-      "priceVelocity",
-      "priceVolumeDivergence",
-      "multiBucketPersistence",
-      "persistenceSlope",
-      "gainRetention",
-      "freshCatalystStrength",
-      "catalystClock",
-      "floatSensitivity",
-      "liquidityExpansion",
-      "spreadQuality",
-      "earlyRegimeShiftScore",
-      "noNewsMomentumPath"
-    ],
-    "promotionRule": "Observation becomes actionable only when multi-factor evidence crosses the calibrated threshold while stage is DISCOVERY or IGNITION and integrity/Sharia gates pass.",
-    "latePenalty": "Strongly penalize candidates first becoming obvious after large price expansion; late visibility is detection, not prediction."
+    "preferredStages": ["DISCOVERY","IGNITION"],
+    "features": ["relativeVolumeAcceleration","volumeVelocity","priceVelocity","priceVolumeDivergence","multiBucketPersistence","persistenceSlope","gainRetention","freshCatalystStrength","catalystClock","floatSensitivity","liquidityExpansion","spreadQuality","earlyRegimeShiftScore","noNewsMomentumPath"],
+    "promotionRule": "Observation becomes actionable only when multi-factor evidence crosses a multi-session calibrated threshold while stage is DISCOVERY or IGNITION and integrity/Sharia gates pass."
+  },
+  "visibilitySaturationGate": {
+    "purpose": "Prevent public leaderboard visibility from being mistaken for discovery.",
+    "evidence": "August 11 pre-market public mover lists already showed PLAG above 100%, GLE about 85%, FRTT about 46%, AIHS about 23% and STIM about 22% by 09:05 ET; therefore detecting such names at or after this state is not early prediction.",
+    "inputs": ["preSignalChangePct","publicMoverRank","volumeClimaxState","priceAccelerationState","timeSinceCatalyst","priorBucketVisibility"],
+    "rule": "If the candidate is already a conspicuous public mover after substantial expansion, classify DETECTED_LATE unless TAG has an immutable earlier actionable signal.",
+    "forbidRVOLRescue": true
+  },
+  "incrementalUpsideGate": {
+    "purpose": "Favor signals with meaningful remaining upside rather than names whose move is mostly spent.",
+    "metrics": ["postSignalMaxGainPct","postSignalMaxDrawdownPct","finalGainMinusSignalGainPct","gainRetentionAfterSignal"],
+    "rule": "Calibration must reward remaining post-signal opportunity and penalize signals issued after most of the final move has already occurred.",
+    "thresholdPolicy": "No numeric threshold changes from a single session; calibrate on multiple reconciled sessions."
   },
   "lateDetectionGuard": {
-    "purpose": "Prevent chasing already-expanded movers.",
-    "signals": [
-      "largePreSignalPriceExpansion",
-      "parabolicAcceleration",
-      "exhaustionMemory",
-      "volumeClimax",
-      "gainRetentionFailure",
-      "lateCatalystReaction"
-    ],
+    "signals": ["largePreSignalPriceExpansion","parabolicAcceleration","exhaustionMemory","volumeClimax","gainRetentionFailure","lateCatalystReaction","visibilitySaturation"],
     "action": "Downgrade to DETECTED_LATE or EXHAUSTION; never count toward Early-Capture Rate."
   },
   "falsePositiveControl": {
     "required": true,
-    "track": [
-      "actionableSignalsIssued",
-      "actionableSignalsEnteringFinalTop20",
-      "actionableSignalsFailingFollowThrough",
-      "precisionAtK",
-      "medianPostSignalMaxGain",
-      "medianPostSignalDrawdown"
-    ],
-    "optimization": "Maximize early capture subject to precision and drawdown constraints, not raw alert count."
+    "track": ["actionableSignalsIssued","actionableSignalsEnteringFinalTop20","actionableSignalsFailingFollowThrough","precisionAtK","medianPostSignalMaxGain","medianPostSignalDrawdown"],
+    "optimization": "Maximize early capture subject to precision, incremental-upside and drawdown constraints, not raw alert count."
   },
-  "retainedRules": [
-    "Extended-Hours Persistence Gate",
-    "Persistence Slope",
-    "After-Hours Volume Participation",
-    "Extended-Hours Volume Takeover",
-    "Mandatory Fresh-Catalyst Sweep",
-    "Event-Timing Context",
-    "Catalyst Clock",
-    "Catalyst Attribution Error",
-    "Exhaustion Memory Penalty",
-    "Early Regime Shift Score",
-    "No-News Momentum Path",
-    "Hour-to-Hour Gain Retention"
-  ],
+  "retainedRules": ["Extended-Hours Persistence Gate","Persistence Slope","After-Hours Volume Participation","Extended-Hours Volume Takeover","Mandatory Fresh-Catalyst Sweep","Event-Timing Context","Catalyst Clock","Catalyst Attribution Error","Exhaustion Memory Penalty","Early Regime Shift Score","No-News Momentum Path","Hour-to-Hour Gain Retention"],
   "dataIntegrity": {
     "mandatoryRule": "Final Snapshot Reconciliation",
     "minimumIndependentSourcesWhenPossible": 2,
@@ -120,15 +66,9 @@
     "trackEarlyNonActionableObservations": true,
     "trackFalsePositives": true,
     "trackFirstActionableSignalTime": true,
-    "rollingWindowsSessions": [1, 5, 20],
-    "separateErrorClasses": [
-      "MARKET_ERROR",
-      "DATA_ERROR",
-      "CLASSIFICATION_ERROR",
-      "CATALYST_ATTRIBUTION_ERROR",
-      "SIGNAL_CONVERSION_ERROR",
-      "LATE_DETECTION_ERROR"
-    ],
+    "trackRemainingUpsideAtSignal": true,
+    "rollingWindowsSessions": [1,5,20],
+    "separateErrorClasses": ["MARKET_ERROR","DATA_ERROR","CLASSIFICATION_ERROR","CATALYST_ATTRIBUTION_ERROR","SIGNAL_CONVERSION_ERROR","LATE_DETECTION_ERROR"],
     "blockOutcomeLabelsWhenGroundTruthSemanticBasisIsUnreconciled": true
   },
   "sharia": {
@@ -136,5 +76,12 @@
     "excludeCoreHaramActivities": true,
     "financiallyUnverifiedStatus": "UNVERIFIED",
     "unverifiedAction": "DO_NOT_PROMOTE_TO_ACTIONABLE"
+  },
+  "versionPolicy": {
+    "nextVersion": "TAG7",
+    "requiresMaterialImprovement": true,
+    "requiresMultiSessionValidation": true,
+    "requiresReconciledFinalSnapshots": true,
+    "forbidPromotionOnSingleCase": true
   }
 }
