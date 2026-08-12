@@ -1,0 +1,73 @@
+{
+  "auditTimestampET": "2026-08-11T20:00:28-04:00",
+  "referenceVersion": "TAG5",
+  "promotionDecision": "KEEP_TAG5",
+  "promotionBlocked": true,
+  "promotionReasons": [
+    "NO_MULTI_SESSION_MATERIAL_IMPROVEMENT_VALIDATION",
+    "FINAL_SNAPSHOT_RECONCILIATION_FAILED",
+    "SESSION_SEMANTIC_BASIS_UNRECONCILED"
+  ],
+  "tagFinalCandidate": {
+    "timestampET": "2026-08-11T19:56:42.000289-04:00",
+    "session": "after-hours",
+    "sessionBucket": "AH4",
+    "snapshotType": "final-candidate",
+    "independentSourceCount": 1,
+    "trainingEligible": false,
+    "finalSnapshotReconciliation": "PENDING_SECOND_SOURCE",
+    "examples": [
+      {"ticker": "PLAG", "change": "927.05%", "price": "5.81", "interpretation": "daily-change field; not proven AH-native"},
+      {"ticker": "WXM", "change": "97.50%", "price": "7.90", "interpretation": "daily-change field; not proven AH-native"},
+      {"ticker": "QMCO", "change": "64.69%", "price": "19.40", "interpretation": "daily-change field; not proven AH-native"}
+    ]
+  },
+  "externalFinalWindowChecks": [
+    {
+      "source": "TradingView",
+      "basis": "post-market change",
+      "observedTop": [
+        {"ticker": "BAOS", "change": "+108.36%"},
+        {"ticker": "BOXL", "change": "+51.19%"},
+        {"ticker": "DRMA", "change": "+49.07%"}
+      ]
+    },
+    {
+      "source": "Finsuba",
+      "basis": "after-hours 4:00pm-8:00pm ET change",
+      "observedTop": [
+        {"ticker": "DXF", "change": "+63.55%"},
+        {"ticker": "WAFU", "change": "+53.79%"},
+        {"ticker": "BW", "change": "+40.47%"}
+      ],
+      "crossCheckExamples": [
+        {"ticker": "PLAG", "afterHoursChange": "+4.30%", "price": "$0.5900"},
+        {"ticker": "QMCO", "afterHoursChange": "+13.24%", "price": "$13.34"},
+        {"ticker": "WXM", "afterHoursChange": "+10.00%", "price": "$4.40"}
+      ]
+    }
+  ],
+  "integrityFinding": {
+    "errorClass": "DATA_ERROR",
+    "errorCode": "SESSION_SEMANTIC_RECONCILIATION_ERROR",
+    "description": "TAG daily Change values cannot be reconciled directly against after-hours-only percentage changes. Independent after-hours leaderboards also disagree materially on final ranking, so final top-mover ground truth is unresolved.",
+    "trainingAction": "BLOCK",
+    "thresholdTuningAction": "BLOCK",
+    "missedMoverLabelingAction": "BLOCK",
+    "falsePositiveLabelingAction": "BLOCK",
+    "predictionSuccessClaims": "BLOCK"
+  },
+  "newMandatoryRule": {
+    "name": "Session-Semantic Reconciliation Gate",
+    "requireSameChangeBasis": true,
+    "requireSameReferencePriceType": true,
+    "requireSameWindow": true,
+    "requireTimestampedReferenceAndObservedPrices": true,
+    "crossSemanticComparisonsMustNotCountAsIndependentConfirmation": true
+  },
+  "sharia": {
+    "policyUnchanged": true,
+    "excludeCoreHaramActivities": true,
+    "financiallyUnverified": "UNVERIFIED"
+  }
+}
