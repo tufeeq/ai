@@ -1,0 +1,42 @@
+{
+  "cycleTimestampUTC": "2026-08-12T07:05:26Z",
+  "referenceVersion": "TAG6",
+  "promotionDecision": "KEEP_TAG6",
+  "newVersion": false,
+  "reason": "A new reversal/inflection discovery path was identified from August 11 data, but only one clearly documented case was available in the current snapshot set. Multi-session validation is therefore insufficient for TAG7 or numeric threshold changes.",
+  "evidence": {
+    "case": "OMH",
+    "firstObservedTimestampET": "2026-08-11T07:26:34-04:00",
+    "firstObservedChangePct": -10.90,
+    "laterSnapshotChangePct": 28.02,
+    "interpretation": "Potential negative-to-positive regime reversal that would be missed by a framework focused only on already-positive movers.",
+    "limitations": [
+      "Current repository snapshot history available for this audit begins on August 11, so no comparable prior-session cases were available for validation.",
+      "The later +28.02% figure is from a post-close intraperiod snapshot with single-source training blocked; it is not promoted to reconciled final market truth.",
+      "No contemporaneous firstActionableSignalTimestampET exists for OMH, so this is not a prediction success claim."
+    ]
+  },
+  "change": {
+    "name": "Reversal Ignition Research Path",
+    "status": "HYPOTHESIS_ONLY_NOT_CALIBRATED",
+    "newFeatures": [
+      "negativeToPositiveZeroCross",
+      "zeroCrossVelocity",
+      "volumeAccelerationAcrossZeroCross",
+      "liquidityExpansion",
+      "priceVelocityInflection",
+      "relativeStrengthVsMicrocapUniverse"
+    ],
+    "guardrails": [
+      "No actionable promotion on price rebound alone",
+      "Require volume or liquidity confirmation",
+      "Apply Exhaustion Memory",
+      "Apply strict Sharia gate",
+      "Apply Final Snapshot Reconciliation and semantic integrity gates"
+    ]
+  },
+  "thresholdDecision": "NO_NUMERIC_THRESHOLD_CHANGE",
+  "trainingDecision": "NO_NEW_TRAINING_TRUTH_FROM_THIS_CASE",
+  "errorClass": "RESEARCH_GAP_NOT_MODEL_SUCCESS",
+  "nextValidationRequirement": "Accumulate multiple reconciled sessions with timestamped reversal candidates, false-positive outcomes, and post-signal remaining upside before calibration or TAG7 promotion."
+}
