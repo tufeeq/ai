@@ -23,6 +23,16 @@
     "Hour-to-Hour Gain Retention"
   ],
   "stageModel": ["DISCOVERY", "IGNITION", "LATE", "EXHAUSTION"],
+  "eventBoundarySegmentation": {
+    "required": true,
+    "purpose": "Prevent persistence measured before a known market-wide information release from being carried across the event as if the market regime were unchanged.",
+    "coveredEvents": ["CPI", "PPI", "FOMC_RATE_DECISION", "NONFARM_PAYROLLS", "OTHER_PREDECLARED_HIGH_IMPACT_MACRO_RELEASES"],
+    "timestampRule": "Store the scheduled event timestamp in ET and label every observation PRE_EVENT, EVENT_WINDOW, or POST_EVENT.",
+    "persistenceRule": "Do not combine PRE_EVENT and POST_EVENT points into one Persistence Slope or Hour-to-Hour Gain Retention sequence without explicit post-event reconfirmation.",
+    "signalRule": "A PRE_EVENT actionable signal remains historically immutable, but continuation confidence must be recomputed after the event boundary before ranking it as a current actionable candidate.",
+    "trainingRule": "Do not treat a post-event reversal as ordinary persistence failure if the signal crossed a declared macro event boundary; classify separately as EVENT_BOUNDARY_CONTEXT_ERROR or MARKET_REGIME_RESET after reconciliation.",
+    "thresholdPolicy": "No numeric threshold is introduced by this rule; thresholds remain subject to multi-session reconciled validation."
+  },
   "dataIntegrity": {
     "mandatoryRule": "Final Snapshot Reconciliation",
     "minimumIndependentSourcesWhenPossible": 2,
@@ -60,7 +70,7 @@
     "trackMissedMovers": true,
     "trackFalsePositives": true,
     "trackFirstActionableSignalTime": true,
-    "separateErrorClasses": ["MARKET_ERROR", "DATA_ERROR", "CLASSIFICATION_ERROR", "CATALYST_ATTRIBUTION_ERROR"],
+    "separateErrorClasses": ["MARKET_ERROR", "DATA_ERROR", "CLASSIFICATION_ERROR", "CATALYST_ATTRIBUTION_ERROR", "EVENT_BOUNDARY_CONTEXT_ERROR", "MARKET_REGIME_RESET"],
     "blockMissedMoverAndFalsePositiveLabelsWhenGroundTruthSemanticBasisIsUnreconciled": true
   },
   "sharia": {
