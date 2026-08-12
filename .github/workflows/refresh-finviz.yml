@@ -95,7 +95,7 @@ jobs:
                   gap_minutes = round((now_utc - prev).total_seconds() / 60, 2)
               except Exception:
                   pass
-          cadence_status = 'OK' if gap_minutes is not None and gap_minutes <= 75 else ('INITIAL' if gap_minutes is None else 'GAP_ERROR')
+          cadence_status = 'OK' if gap_minutes is not None and gap_minutes <= 15 else ('INITIAL' if gap_minutes is None else 'GAP_ERROR')
 
           same_day_hist = [x for x in hist if str(x.get('timestampET',''))[:10] == same_day]
           same_session_hist = [x for x in same_day_hist if x.get('session') == session]
