@@ -22,26 +22,44 @@
   }
 
   function overnightContinuity(x){
-    const ah=num(x.ahChange), pm=num(x.pmChange);
-    // Preserve direction: AH strength carried into PM is useful; a gap-down is not continuity.
-    const positive=ah>0&&pm>0;
-    const fade=ah>0&&pm<0;
+    // IMPORTANT: overnight continuity is only valid when previous-day AH is explicitly
+    // carried with provenance. Never reuse the current session's AH field as a proxy.
+    const priorAHRaw=x.priorDayAHChange ?? x.overnightPreviousAHChange ?? null;
+    const priorAH=priorAHRaw===null?null:num(priorAHRaw);
+    const pm=num(x.pmChange);
+    const provenance=String(x.overnightProvenance||'').toUpperCase();
+    const verified=priorAH!==null && (x.priorDayAHVerified===true || provenance==='VERIFIED' || provenance==='PREVIOUS_DAY_AH');
+    if(!verified){
+      return {state:'UNCONFIRMED',score:0,penalty:0,verified:false,priorAHChange:priorAH};
+    }
+    const positive=priorAH>0&&pm>0;
+    const fade=priorAH>0&&pm<0;
     return {
       state:positive?'POSITIVE_CARRY':(fade?'OVERNIGHT_FADE':'UNCONFIRMED'),
-      score:positive?clamp(Math.min(ah,40)*0.55+Math.min(pm,35)*0.65):0,
-      penalty:fade?clamp(Math.abs(pm)*0.9+Math.min(ah,35)*0.25):0
+      score:positive?clamp(Math.min(priorAH,40)*0.55+Math.min(pm,35)*0.65):0,
+      penalty:fade?clamp(Math.abs(pm)*0.9+Math.min(priorAH,35)*0.25):0,
+      verified:true,
+      priorAHChange:priorAH
     };
   }
 
   function persistenceAdjustment(x){
+    // Persistence bonuses/penalties require a contiguous, cadence-valid hourly chain.
+    // This prevents stale/manual/partial fields from masquerading as AH1→AH2→AH3 persistence.
+    const eligible=x.persistenceTrainingEligible===true &&
+      String(x.cadenceStatus||'').toUpperCase()!=='GAP_ERROR' &&
+      String(x.bucketContinuityStatus||'').toUpperCase()==='CONTIGUOUS';
     const trend=String(x.persistenceTrend||'').toUpperCase();
     const retention=num(x.gainRetentionPct);
+    if(!eligible){
+      return {bonus:0,penalty:0,trend:'UNVERIFIED_CHAIN',retention,eligible:false};
+    }
     let bonus=0,penalty=0;
     if(trend==='STRENGTHENING') bonus+=8;
     if(trend==='DECAYING') penalty+=12;
     if(retention>=85&&retention<=180) bonus+=6;
     if(retention>0&&retention<55) penalty+=10;
-    return {bonus,penalty,trend,retention};
+    return {bonus,penalty,trend,retention,eligible:true};
   }
 
   root.analyze=function TAG6EarlyDiscoveryAnalyze(x){
@@ -93,10 +111,12 @@
     if(inIgnitionWindow&&stillHasRoom){
       r.reasons.push(`Ignition candidate window: first seen ${first>=0?'+':''}${first.toFixed(1)}%`);
     }
-    if(overnight.state==='POSITIVE_CARRY') r.reasons.push('AH→PM positive continuity');
-    if(overnight.state==='OVERNIGHT_FADE') r.reasons.push('AH→PM fade penalty');
+    if(overnight.state==='POSITIVE_CARRY') r.reasons.push('Verified prior-day AH→PM positive continuity');
+    if(overnight.state==='OVERNIGHT_FADE') r.reasons.push('Verified prior-day AH→PM fade penalty');
+    if(!overnight.verified) r.reasons.push('Overnight continuity unverified — no bonus applied');
     if(persistence.trend==='STRENGTHENING') r.reasons.push('Persistence strengthening');
     if(persistence.trend==='DECAYING') r.reasons.push('Persistence decaying');
+    if(!persistence.eligible) r.reasons.push('Persistence chain unverified — no persistence adjustment');
 
     // Strict Sharia actionability: UNVERIFIED remains visible for research, never actionable.
     r.actionable=r.sharia==='VERIFIED' && r.dataConfidence!=='DATA_INTEGRITY_ERROR' && !(root.TAGDataIntegrity&&root.TAGDataIntegrity.stale) && r.discoveryStatus!=='DETECTED_LATE';
