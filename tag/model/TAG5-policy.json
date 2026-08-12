@@ -33,14 +33,35 @@
     "separateFinalAfterHoursClose": true,
     "extendedHoursNativeFieldVerificationRequired": true,
     "crossBucketMovementDoesNotProveAfterHoursNativeFields": true,
-    "blockPersistenceAndExtendedHoursVolumeMetricsUntilNativeFieldsVerified": true
+    "blockPersistenceAndExtendedHoursVolumeMetricsUntilNativeFieldsVerified": true,
+    "sessionSemanticReconciliationRequired": true,
+    "requireSameReferenceBasisBeforePercentComparison": true,
+    "requiredReconciliationMetadata": [
+      "session",
+      "windowStartET",
+      "windowEndET",
+      "referencePriceType",
+      "referencePriceTimestampET",
+      "observedPriceTimestampET",
+      "changeBasis",
+      "volumeBasis"
+    ],
+    "forbidCrossSemanticReconciliation": true,
+    "crossSemanticMismatchAction": "DATA_INTEGRITY_ERROR_AND_BLOCK_TRAINING",
+    "allowedChangeBasisExamples": [
+      "PREMARKET_VS_PRIOR_REGULAR_CLOSE",
+      "REGULAR_VS_PRIOR_REGULAR_CLOSE",
+      "AFTER_HOURS_VS_REGULAR_1600_CLOSE",
+      "DAILY_CHANGE_VS_PRIOR_REGULAR_CLOSE"
+    ]
   },
   "learningAudit": {
     "compareActualMoversVsTAG": true,
     "trackMissedMovers": true,
     "trackFalsePositives": true,
     "trackFirstActionableSignalTime": true,
-    "separateErrorClasses": ["MARKET_ERROR", "DATA_ERROR", "CLASSIFICATION_ERROR", "CATALYST_ATTRIBUTION_ERROR"]
+    "separateErrorClasses": ["MARKET_ERROR", "DATA_ERROR", "CLASSIFICATION_ERROR", "CATALYST_ATTRIBUTION_ERROR"],
+    "blockMissedMoverAndFalsePositiveLabelsWhenGroundTruthSemanticBasisIsUnreconciled": true
   },
   "sharia": {
     "strictGate": true,
