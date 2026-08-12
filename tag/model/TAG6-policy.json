@@ -18,8 +18,16 @@
   "earlyConversionEngine": {
     "purpose": "Convert weak but genuine early observations into ranked watch/action candidates before obvious price expansion.",
     "preferredStages": ["DISCOVERY","IGNITION"],
-    "features": ["relativeVolumeAcceleration","volumeVelocity","priceVelocity","priceVolumeDivergence","multiBucketPersistence","persistenceSlope","gainRetention","freshCatalystStrength","catalystClock","floatSensitivity","liquidityExpansion","spreadQuality","earlyRegimeShiftScore","noNewsMomentumPath"],
+    "features": ["relativeVolumeAcceleration","volumeVelocity","priceVelocity","priceVolumeDivergence","multiBucketPersistence","persistenceSlope","gainRetention","freshCatalystStrength","catalystClock","floatSensitivity","liquidityExpansion","spreadQuality","earlyRegimeShiftScore","noNewsMomentumPath","reversalInflectionScore","zeroCrossVelocity"],
     "promotionRule": "Observation becomes actionable only when multi-factor evidence crosses a multi-session calibrated threshold while stage is DISCOVERY or IGNITION and integrity/Sharia gates pass."
+  },
+  "reversalIgnitionResearchPath": {
+    "status": "HYPOTHESIS_ONLY_NOT_CALIBRATED",
+    "purpose": "Detect future top movers that begin weak or negative and then undergo a genuine regime reversal before becoming obvious gainers.",
+    "triggerContext": "August 11 diagnostic showed OMH first observed at -10.90% in pre-market before later appearing around +28% in the post-close mover snapshot; this is a structural clue, not sufficient evidence for a numeric threshold.",
+    "features": ["negativeToPositiveZeroCross","zeroCrossVelocity","volumeAccelerationAcrossZeroCross","bidAskSpreadImprovement","liquidityExpansion","priceVelocityInflection","higherLowAfterWeakOpen","relativeStrengthVsMicrocapUniverse","freshCatalystStatus","noNewsMomentumPath","floatSensitivity"],
+    "guardrails": ["doNotPromoteOnPriceReboundAlone","requireVolumeOrLiquidityConfirmation","applyExhaustionMemory","applyShariaGate","applyDataIntegrityGate"],
+    "trainingRule": "Do not calibrate or promote this path until multiple reconciled sessions contain comparable cases with timestamped actionable signals and measured false-positive rate."
   },
   "visibilitySaturationGate": {
     "purpose": "Prevent public leaderboard visibility from being mistaken for discovery.",
@@ -40,7 +48,7 @@
   },
   "falsePositiveControl": {
     "required": true,
-    "track": ["actionableSignalsIssued","actionableSignalsEnteringFinalTop20","actionableSignalsFailingFollowThrough","precisionAtK","medianPostSignalMaxGain","medianPostSignalDrawdown"],
+    "track": ["actionableSignalsIssued","actionableSignalsEnteringFinalTop20","actionableSignalsFailingFollowThrough","precisionAtK","medianPostSignalMaxGain","medianPostSignalDrawdown","reversalPathFalsePositives"],
     "optimization": "Maximize early capture subject to precision, incremental-upside and drawdown constraints, not raw alert count."
   },
   "retainedRules": ["Extended-Hours Persistence Gate","Persistence Slope","After-Hours Volume Participation","Extended-Hours Volume Takeover","Mandatory Fresh-Catalyst Sweep","Event-Timing Context","Catalyst Clock","Catalyst Attribution Error","Exhaustion Memory Penalty","Early Regime Shift Score","No-News Momentum Path","Hour-to-Hour Gain Retention"],
@@ -67,8 +75,9 @@
     "trackFalsePositives": true,
     "trackFirstActionableSignalTime": true,
     "trackRemainingUpsideAtSignal": true,
+    "trackReversalCandidates": true,
     "rollingWindowsSessions": [1,5,20],
-    "separateErrorClasses": ["MARKET_ERROR","DATA_ERROR","CLASSIFICATION_ERROR","CATALYST_ATTRIBUTION_ERROR","SIGNAL_CONVERSION_ERROR","LATE_DETECTION_ERROR"],
+    "separateErrorClasses": ["MARKET_ERROR","DATA_ERROR","CLASSIFICATION_ERROR","CATALYST_ATTRIBUTION_ERROR","SIGNAL_CONVERSION_ERROR","LATE_DETECTION_ERROR","REVERSAL_PATH_FALSE_POSITIVE"],
     "blockOutcomeLabelsWhenGroundTruthSemanticBasisIsUnreconciled": true
   },
   "sharia": {
