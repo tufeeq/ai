@@ -1,98 +1,38 @@
-const STORAGE_KEY = "nook-data-v2";
-const defaults = {
-  feeds: ["Watch later", "Long reads", "Recipes", "For the kids"],
-  items: [
-    {id:"memory",type:"Video",source:"YouTube",title:"Why we remember what we remember",summary:"A fascinating look at how memory shapes identity — and why forgetting can be a gift.",from:"Maya",feed:"Watch later",url:"https://www.youtube.com/",saved:false,created:3,visual:"linear-gradient(135deg,#c6bea5,#718172 55%,#34483d)"},
-    {id:"joy",type:"Article",source:"The Atlantic",title:"The hidden joy of doing things badly",summary:"Why hobbies don’t need to become side hustles, and the case for being a beginner.",from:"Dad",feed:"Long reads",url:"https://www.theatlantic.com/",saved:true,created:2,visual:"linear-gradient(135deg,#8ca18f,#ddd1af 55%,#766a50)"},
-    {id:"kyoto",type:"Video",source:"Vimeo",title:"A quiet morning in Kyoto",summary:"Ten calming minutes of early streets, small rituals, and the city waking up.",from:"Jamie",feed:"Watch later",url:"https://vimeo.com/",saved:false,created:1,visual:"linear-gradient(135deg,#3d5149,#b96b5d 55%,#edc27f)"},
-    {id:"pasta",type:"Recipe",source:"YouTube",title:"The only pasta recipe you'll ever need",summary:"A weeknight technique for glossy, restaurant-style pasta with pantry ingredients.",from:"Alex",feed:"Recipes",url:"https://www.youtube.com/",saved:false,created:0,visual:"linear-gradient(135deg,#c44e35,#e9bd69)"}
-  ]
-};
+const $=id=>document.getElementById(id), DB_NAME="nook-social", DB_VERSION=1;
+const seedPosts=[
+ {id:"p1",authorId:"u2",title:"Why we remember what we remember",summary:"A fascinating look at how memory shapes identity — and why forgetting can be a gift.",url:"https://www.youtube.com/",source:"YouTube",kind:"video",feed:"Watch later",minutes:18,created:Date.now()-60000,community:true,likes:24,visual:"linear-gradient(150deg,#253f38,#8ba792 58%,#dac5a0)"},
+ {id:"p2",authorId:"u3",title:"The hidden joy of doing things badly",summary:"Hobbies do not need to become side hustles. A thoughtful case for being a beginner.",url:"https://www.theatlantic.com/",source:"The Atlantic",kind:"article",feed:"Long reads",minutes:8,created:Date.now()-120000,community:true,likes:41,visual:"linear-gradient(150deg,#687c6c,#d9ceb0 58%,#856a51)"},
+ {id:"p3",authorId:"u4",title:"A quiet morning in Kyoto",summary:"Ten calming minutes of early streets, small rituals, and the city waking up.",url:"https://vimeo.com/",source:"Vimeo",kind:"video",feed:"Watch later",minutes:10,created:Date.now()-180000,community:true,likes:67,visual:"linear-gradient(150deg,#233d3a,#b5695e 60%,#ebbd7f)"},
+ {id:"p4",authorId:"u1",title:"The only pasta recipe you’ll ever need",summary:"A weeknight technique for glossy, restaurant-style pasta using pantry ingredients.",url:"https://www.youtube.com/",source:"YouTube",kind:"video",feed:"Recipes",minutes:12,created:Date.now()-240000,community:false,likes:9,visual:"linear-gradient(150deg,#8e3428,#dc7650 52%,#efc16e)"},
+ {id:"p5",authorId:"u2",title:"How to raise curious readers",summary:"Five small family rituals that help children see reading as discovery, not homework.",url:"https://www.nytimes.com/",source:"The New York Times",kind:"article",feed:"For the kids",minutes:6,created:Date.now()-300000,community:true,likes:18,visual:"linear-gradient(150deg,#36526b,#81a5ba 58%,#e5d3a7)"}
+];
+const users=[{id:"u1",name:"Alex",handle:"@alex",color:"coral"},{id:"u2",name:"Maya",handle:"@maya",color:"blue"},{id:"u3",name:"Dad",handle:"@dad",color:"gold"},{id:"u4",name:"Jamie",handle:"@jamie",color:"green"}];
+let db,state={view:"home",feed:null,query:"",sort:"latest",shareId:null};
 
-const $ = id => document.getElementById(id);
-let data;
-try { data = JSON.parse(localStorage.getItem(STORAGE_KEY)) || structuredClone(defaults); }
-catch { data = structuredClone(defaults); }
-if (!Array.isArray(data.feeds) || !Array.isArray(data.items)) data = structuredClone(defaults);
-let state = {view:"home", feed:null, query:"", sort:"newest"};
+function request(req){return new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});}
+async function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,DB_VERSION);req.onupgradeneeded=()=>{const d=req.result;const posts=d.createObjectStore("posts",{keyPath:"id"});posts.createIndex("created","created");posts.createIndex("feed","feed");d.createObjectStore("users",{keyPath:"id"});d.createObjectStore("feeds",{keyPath:"name"});d.createObjectStore("interactions",{keyPath:"id"});};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});}
+async function all(store){return request(db.transaction(store).objectStore(store).getAll());}
+async function put(store,value){return request(db.transaction(store,"readwrite").objectStore(store).put(value));}
+async function remove(store,key){return request(db.transaction(store,"readwrite").objectStore(store).delete(key));}
+async function seed(){if(!(await all("users")).length)for(const u of users)await put("users",u);if(!(await all("feeds")).length)for(const name of ["Watch later","Long reads","Recipes","For the kids"])await put("feeds",{name});if(!(await all("posts")).length)for(const p of seedPosts)await put("posts",p);}
+function escapeHTML(text=""){const el=document.createElement("span");el.textContent=text;return el.innerHTML;}
+function initials(name){return name.split(" ").map(x=>x[0]).join("").slice(0,2).toUpperCase();}
+function sourceFrom(url){try{return new URL(url).hostname.replace("www.","");}catch{return "Web";}}
+function toast(message){$("toast").textContent=message;$("toast").classList.add("show");clearTimeout(window.toastTimeout);window.toastTimeout=setTimeout(()=>$("toast").classList.remove("show"),2200);}
+async function interaction(postId){return request(db.transaction("interactions").objectStore("interactions").get(`u1:${postId}`))||{id:`u1:${postId}`,postId,userId:"u1",liked:false,saved:false};}
 
-function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
-function escapeHTML(value=""){ const node=document.createElement("div"); node.textContent=value; return node.innerHTML; }
-function initials(name){ return name.split(/\s+/).map(word=>word[0]).join("").slice(0,2).toUpperCase(); }
-function domain(url){ try{return new URL(url).hostname.replace(/^www\./,"");}catch{return "Link";} }
-function showToast(message){ const toast=$("toast"); toast.textContent=message; toast.classList.add("show"); clearTimeout(window.toastTimer); window.toastTimer=setTimeout(()=>toast.classList.remove("show"),2200); }
+async function getData(){const [posts,people,feeds,interactions]=await Promise.all([all("posts"),all("users"),all("feeds"),all("interactions")]);return{posts,people,feeds,interactions};}
+function filtered(posts,interactions){let list=[...posts];if(state.view==="community")list=list.filter(p=>p.community);if(state.view==="saved"){const ids=new Set(interactions.filter(i=>i.saved).map(i=>i.postId));list=list.filter(p=>ids.has(p.id));}if(state.feed)list=list.filter(p=>p.feed===state.feed);if(state.query){const q=state.query.toLowerCase();list=list.filter(p=>`${p.title} ${p.summary} ${p.source} ${p.feed}`.toLowerCase().includes(q));}if(state.sort==="popular")list.sort((a,b)=>b.likes-a.likes);else if(state.sort==="short")list.sort((a,b)=>a.minutes-b.minutes);else list.sort((a,b)=>b.created-a.created);return list;}
+function postCard(p,user,i){return `<article class="post-card" data-id="${p.id}" style="--delay:${i*35}ms"><button class="media" data-action="open" style="background:${p.visual}" aria-label="Open ${escapeHTML(p.title)}"><span class="format">${p.kind==="video"?"▶ Video":"▤ Read"}</span><span class="duration">${p.minutes} min</span></button><div class="post-content"><div class="author"><span class="avatar ${user.color}">${initials(user.name)}</span><span><strong>${escapeHTML(user.name)}</strong><small>${user.handle} · shared recently</small></span><button data-action="more" aria-label="Remove post">•••</button></div><span class="category">${p.kind} · ${escapeHTML(p.feed)}</span><h3>${escapeHTML(p.title)}</h3><p>${escapeHTML(p.summary)}</p><div class="actions"><button data-action="like">♡ <span>${p.likes}</span></button><button data-action="save">▱ <span>Save</span></button><button data-action="share">↗ <span>Share</span></button></div><button class="source" data-action="open"><span>↗</span><span><small>ORIGINAL SOURCE</small><strong>${escapeHTML(p.source)}</strong></span><b>Open ›</b></button></div></article>`;}
+function reelCard(p,user){return `<article class="reel" data-id="${p.id}"><div class="reel-backdrop" style="background:${p.visual}"></div><div class="reel-top"><span>${p.kind==="video"?"VIDEO":"ARTICLE"} · ${p.minutes} MIN</span><span>${escapeHTML(p.feed)}</span></div>${p.kind==="video"?'<button class="reel-play" data-action="open" aria-label="Play video">▶</button>':'<div class="read-preview"><span>QUICK SUMMARY</span><h2>'+escapeHTML(p.title)+'</h2><p>'+escapeHTML(p.summary)+'</p><button data-action="open">Read original ↗</button></div>'}<div class="reel-copy"><div class="reel-author"><span class="avatar ${user.color}">${initials(user.name)}</span><strong>${escapeHTML(user.name)}</strong><button data-action="follow">Follow</button></div>${p.kind==="video"?`<h2>${escapeHTML(p.title)}</h2><p>${escapeHTML(p.summary)}</p>`:""}<button class="reel-source" data-action="open">↗ ${escapeHTML(p.source)}</button></div><div class="reel-actions"><button data-action="like">♡<span>${p.likes}</span></button><button data-action="save">▱<span>Save</span></button><button data-action="share">↗<span>Share</span></button></div><div class="swipe-hint">Swipe up for next <b>↑</b></div></article>`;}
 
-function renderFeeds(){
-  $("feedNav").innerHTML=data.feeds.map((feed,index)=>{
-    const count=data.items.filter(item=>item.feed===feed).length;
-    return `<button class="feed-link ${state.feed===feed?"active":""}" data-feed="${escapeHTML(feed)}"><i class="dot color-${index%4}"></i><span class="feed-name">${escapeHTML(feed)}</span><span>${count}</span></button>`;
-  }).join("");
-  $("feedSelect").innerHTML=data.feeds.map(feed=>`<option>${escapeHTML(feed)}</option>`).join("");
-  document.querySelectorAll(".feed-link").forEach(button=>button.addEventListener("click",()=>setFeed(button.dataset.feed)));
-}
+async function render(){const {posts,people,feeds,interactions}=await getData();const list=filtered(posts,interactions);const userMap=Object.fromEntries(people.map(u=>[u.id,u]));$("postStat").textContent=posts.length;$("savedStat").textContent=interactions.filter(x=>x.saved).length;$("peopleStat").textContent=people.length;$("digestText").textContent=`${posts.filter(p=>p.community).length} community posts, ${posts.filter(p=>p.kind==="article").length} thoughtful reads, and ${posts.filter(p=>p.kind==="video").length} videos — summarized for you.`;$("feedList").innerHTML=feeds.map((f,i)=>`<button class="feed-button ${state.feed===f.name?"active":""}" data-feed="${escapeHTML(f.name)}"><i class="feed-dot c${i%4}"></i><span>${escapeHTML(f.name)}</span><b>${posts.filter(p=>p.feed===f.name).length}</b></button>`).join("");$("feedInput").innerHTML=feeds.map(f=>`<option>${escapeHTML(f.name)}</option>`).join("");
+  const titles={home:["Your daily nook","Good ideas from people you trust, without the noise.","For you"],community:["Nook community","Discover what your people are reading and watching.","From the community"],saved:["Saved for later","Everything you want to return to.","Your saved posts"]};const t=state.feed?[state.feed,"A focused space for links you care about.",state.feed]:titles[state.view]||titles.home;$("pageTitle").textContent=state.query?`Results for “${state.query}”`:t[0];$("pageDescription").textContent=t[1];$("listTitle").textContent=t[2];$("digest").hidden=state.view!=="home"||!!state.feed||!!state.query;$("postGrid").innerHTML=list.map((p,i)=>postCard(p,userMap[p.authorId]||users[0],i)).join("");$("emptyState").hidden=!!list.length;$("streamFeed").innerHTML=list.map(p=>reelCard(p,userMap[p.authorId]||users[0])).join("");$("streamProgress").textContent=`1 / ${list.length||1}`;bindDynamic();}
+function bindDynamic(){document.querySelectorAll("[data-feed]").forEach(b=>b.onclick=()=>selectFeed(b.dataset.feed));document.querySelectorAll("[data-id]").forEach(card=>card.onclick=e=>{const action=e.target.closest("[data-action]")?.dataset.action;if(action)act(card.dataset.id,action);});const feed=$("streamFeed");feed.onscroll=()=>{const n=Math.round(feed.scrollTop/Math.max(1,feed.clientHeight))+1;$("streamProgress").textContent=`${n} / ${feed.children.length}`;};}
+async function act(id,action){const post=await request(db.transaction("posts").objectStore("posts").get(id));if(action==="open")return window.open(post.url,"_blank","noopener,noreferrer");if(action==="follow")return toast("You are now following this creator");if(action==="share"){state.shareId=id;return $("shareDialog").showModal();}if(action==="more"&&confirm(`Remove “${post.title}”?`)){await remove("posts",id);toast("Post removed");return render();}const i=await interaction(id);if(action==="like"){i.liked=!i.liked;post.likes+=i.liked?1:-1;await put("posts",post);toast(i.liked?"You liked this":"Like removed");}if(action==="save"){i.saved=!i.saved;toast(i.saved?"Saved for later":"Removed from saved");}await put("interactions",i);render();}
+function setView(view){state.view=view;state.feed=null;state.query="";$("searchInput").value="";const stream=view==="stream";$("standardView").hidden=stream;$("streamView").hidden=!stream;document.body.classList.toggle("streaming",stream);document.querySelectorAll("[data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===view));render();window.scrollTo(0,0);}
+function selectFeed(feed){state.feed=feed;state.view="home";$("standardView").hidden=false;$("streamView").hidden=true;document.querySelectorAll("[data-view]").forEach(b=>b.classList.remove("active"));render();}
+function openSheet(id){$(id).showModal();setTimeout(()=>$(id).querySelector("input")?.focus(),100);}
 
-function getVisibleItems(){
-  let result=[...data.items];
-  if(state.view==="saved") result=result.filter(item=>item.saved);
-  if(state.feed) result=result.filter(item=>item.feed===state.feed);
-  if(state.query){ const q=state.query.toLowerCase(); result=result.filter(item=>[item.title,item.summary,item.from,item.feed,item.type,item.source].join(" ").toLowerCase().includes(q)); }
-  if(state.sort==="title") result.sort((a,b)=>a.title.localeCompare(b.title));
-  else if(state.sort==="type") result.sort((a,b)=>a.type.localeCompare(b.type));
-  else result.sort((a,b)=>b.created-a.created);
-  return result;
-}
-
-function render(){
-  renderFeeds();
-  const items=getVisibleItems();
-  $("itemCount").textContent=items.length;
-  $("newCount").textContent=data.items.length;
-  $("savedCount").textContent=data.items.filter(item=>item.saved).length;
-  $("feedCount").textContent=data.feeds.length;
-  $("dailyCard").hidden=state.view!=="home" || state.feed || state.query;
-  $("continueSection").hidden=state.view!=="home" || state.feed || state.query;
-  const heading=state.query?`Results for “${state.query}”`:state.feed||({saved:"Saved for later",all:"All your links",home:"Recently added"}[state.view]);
-  $("sectionTitle").textContent=heading;
-  $("sectionSubtitle").textContent=state.feed?`Everything filed in ${state.feed}`:state.view==="saved"?"The things you want to come back to":"Links from you and your favorite people";
-  $("pageTitle").textContent=state.feed||({saved:"Saved for later",all:"Your whole collection",home:"Good morning, Alex."}[state.view]);
-  $("pageSubtitle").textContent=state.feed?"A focused place for the things you care about.":"Everything worth your time, in one calm place.";
-  $("cardGrid").innerHTML=items.map(item=>`<article class="content-card" data-id="${item.id}">
-    <button class="card-link" data-action="open" aria-label="Open ${escapeHTML(item.title)}"><div class="thumb" style="background:${item.visual}"><span class="type-icon">${item.type==="Video"?"▶":"↗"}</span><span class="feed-pill">${escapeHTML(item.feed)}</span><span class="shared-by"><i class="mini-avatar">${initials(item.from)}</i> ${escapeHTML(item.from)}</span></div><div class="card-body"><span class="tag">${escapeHTML(item.type)} · ${escapeHTML(item.source||domain(item.url))}</span><h3>${escapeHTML(item.title)}</h3><p class="summary">${escapeHTML(item.summary||"Saved to read or watch later.")}</p></div></button>
-    <div class="card-actions"><span>Added recently</span><button data-action="save" class="bookmark ${item.saved?"saved":""}" aria-label="${item.saved?"Unsave":"Save"} ${escapeHTML(item.title)}">${item.saved?"♥":"♡"}</button><button data-action="delete" class="delete-btn" aria-label="Delete ${escapeHTML(item.title)}">⋯</button></div></article>`).join("");
-  $("emptyState").hidden=items.length>0;
-  document.querySelectorAll(".content-card").forEach(card=>card.addEventListener("click",event=>handleCardAction(event,card.dataset.id)));
-}
-
-function handleCardAction(event,id){
-  const action=event.target.closest("[data-action]")?.dataset.action;
-  if(!action)return;
-  const item=data.items.find(entry=>entry.id===id);
-  if(action==="open") window.open(item.url,"_blank","noopener,noreferrer");
-  if(action==="save"){ item.saved=!item.saved; save(); render(); showToast(item.saved?"Saved for later":"Removed from saved"); }
-  if(action==="delete" && confirm(`Remove “${item.title}” from your Nook?`)){ data.items=data.items.filter(entry=>entry.id!==id); save(); render(); showToast("Link removed"); }
-}
-
-function selectView(view){
-  state.view=view; state.feed=null; state.query=""; $("searchInput").value="";
-  document.querySelectorAll(".nav-item").forEach(button=>button.classList.toggle("active",button.dataset.view===view));
-  render(); window.scrollTo({top:0,behavior:"smooth"});
-}
-function setFeed(feed){ state.feed=feed; state.view="all"; document.querySelectorAll(".nav-item").forEach(button=>button.classList.remove("active")); render(); window.scrollTo({top:0,behavior:"smooth"}); }
-function openDialog(dialog){ dialog.showModal(); setTimeout(()=>dialog.querySelector("input:not([readonly])")?.focus(),50); }
-
-document.querySelectorAll(".nav-item").forEach(button=>button.addEventListener("click",()=>selectView(button.dataset.view)));
-$("brandBtn").addEventListener("click",()=>selectView("home"));
-$("addLinkBtn").addEventListener("click",()=>openDialog($("linkDialog")));
-$("emptyAddBtn").addEventListener("click",()=>openDialog($("linkDialog")));
-$("addFeedBtn").addEventListener("click",()=>openDialog($("feedDialog")));
-$("inviteBtn").addEventListener("click",()=>openDialog($("inviteDialog")));
-document.querySelectorAll("dialog").forEach(dialog=>{ dialog.querySelector(".modal-close").addEventListener("click",()=>dialog.close()); dialog.addEventListener("click",event=>{if(event.target===dialog)dialog.close();}); });
-$("linkForm").addEventListener("submit",event=>{ event.preventDefault(); const url=$("urlInput").value; data.items.push({id:crypto.randomUUID?.()||String(Date.now()),type:$("typeSelect").value,source:domain(url),title:$("titleInput").value.trim(),summary:$("noteInput").value.trim(),from:"Alex",feed:$("feedSelect").value,url,saved:false,created:Date.now(),visual:"linear-gradient(135deg,#315f4a,#8fb99c)"}); save(); event.target.reset(); $("linkDialog").close(); selectView("all"); showToast("Link added to your Nook"); });
-$("feedForm").addEventListener("submit",event=>{ event.preventDefault(); const name=$("feedNameInput").value.trim(); if(data.feeds.some(feed=>feed.toLowerCase()===name.toLowerCase())) return showToast("That feed already exists"); data.feeds.push(name); save(); event.target.reset(); $("feedDialog").close(); setFeed(name); showToast(`${name} created`); });
-$("copyInvite").addEventListener("click",async()=>{ try{await navigator.clipboard.writeText($("inviteLink").value);showToast("Invite link copied");}catch{$("inviteLink").select();document.execCommand("copy");showToast("Invite link copied");} });
-$("searchInput").addEventListener("input",event=>{state.query=event.target.value.trim();render();});
-$("sortSelect").addEventListener("change",event=>{state.sort=event.target.value;render();});
-$("startCatchup").addEventListener("click",()=>{$("sharedSection").scrollIntoView({behavior:"smooth"});showToast("Here are your newest links");});
-document.addEventListener("keydown",event=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==="k"){event.preventDefault();$("searchInput").focus();}});
-$("todayLabel").textContent=new Intl.DateTimeFormat("en-US",{weekday:"long",month:"long",day:"numeric"}).format(new Date()).toUpperCase();
-render();
+async function init(){db=await openDB();await seed();$("dateLabel").textContent=new Intl.DateTimeFormat("en",{weekday:"long",month:"long",day:"numeric"}).format(new Date()).toUpperCase();document.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>setView(b.dataset.view));$("addButton").onclick=$("mobileAdd").onclick=$("emptyAdd").onclick=()=>openSheet("addDialog");$("newFeedButton").onclick=()=>openSheet("feedDialog");document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());document.querySelectorAll("dialog").forEach(d=>d.onclick=e=>{if(e.target===d)d.close();});$("searchInput").oninput=e=>{state.query=e.target.value.trim();render();};$("sortSelect").onchange=e=>{state.sort=e.target.value;render();};$("addForm").onsubmit=async e=>{e.preventDefault();const url=$("urlInput").value,shareToCommunity=$("communityInput").checked;await put("posts",{id:crypto.randomUUID(),authorId:"u1",title:$("titleInput").value.trim(),summary:$("summaryInput").value.trim()||"Saved from the web to explore later.",url,source:sourceFrom(url),kind:$("kindInput").value,feed:$("feedInput").value,minutes:5,created:Date.now(),community:shareToCommunity,likes:0,visual:"linear-gradient(150deg,#244c3b,#79a68b 58%,#d9c69f)"});e.target.reset();$("addDialog").close();toast("Added to your Nook");setView(shareToCommunity?"community":"home");};$("feedForm").onsubmit=async e=>{e.preventDefault();const name=$("feedName").value.trim();const exists=(await all("feeds")).some(f=>f.name.toLowerCase()===name.toLowerCase());if(exists)return toast("That space already exists");await put("feeds",{name});e.target.reset();$("feedDialog").close();selectFeed(name);toast("New space created");};$("communityShare").onclick=async()=>{const p=await request(db.transaction("posts").objectStore("posts").get(state.shareId));p.community=true;await put("posts",p);$("shareDialog").close();toast("Shared with your community");render();};$("copyLink").onclick=async()=>{const p=await request(db.transaction("posts").objectStore("posts").get(state.shareId));try{await navigator.clipboard.writeText(p.url);}catch{}$("shareDialog").close();toast("Link copied");};document.addEventListener("keydown",e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"){e.preventDefault();$("searchInput").focus();}});render();}
+init().catch(error=>{console.error(error);document.body.innerHTML='<main class="fatal"><h1>Nook could not start</h1><p>Please enable browser storage and reload the page.</p></main>';});

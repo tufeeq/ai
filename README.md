@@ -10,6 +10,10 @@ Nook is a responsive social link organizer that brings videos, articles, recipes
 - Link submission flow that sorts new finds into a selected feed
 - Daily catch-up and sharing prompts for friends and family
 - Responsive desktop and mobile layouts
+- iPhone-style mobile navigation with safe-area support and native-feeling sheets
+- Continuous, swipe-up reading and video stream with scroll snapping
+- Community publishing, reactions, saved posts, sharing, and original-source links
+- IndexedDB stores for normalized posts, users, spaces, and user interactions
 
 ## Run locally
 

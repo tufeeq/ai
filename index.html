@@ -1,88 +1,52 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Gather, organize, and share the best things you find online." />
-  <title>Nook — Your internet, thoughtfully gathered</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f5f5f7"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="description" content="Nook turns links into a calm, social stream for your closest people."><title>Nook — Your social reading room</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet"><link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="app-shell">
+  <div class="shell">
     <aside class="sidebar">
-      <button class="brand" id="brandBtn" aria-label="Nook home"><span>n</span> nook</button>
-
-      <nav class="main-nav" aria-label="Main navigation">
-        <button class="nav-item active" data-view="home"><span>⌂</span> Home</button>
-        <button class="nav-item" data-view="all"><span>⌕</span> All links</button>
-        <button class="nav-item" data-view="saved"><span>♡</span> Saved</button>
+      <button class="brand" data-view="home"><b>n</b><span>nook</span></button>
+      <nav class="desktop-nav" aria-label="Main navigation">
+        <button class="nav-button active" data-view="home"><i>⌂</i><span>Home</span></button>
+        <button class="nav-button" data-view="stream"><i>▶</i><span>Stream</span></button>
+        <button class="nav-button" data-view="community"><i>♧</i><span>Community</span></button>
+        <button class="nav-button" data-view="saved"><i>♡</i><span>Saved</span></button>
       </nav>
-
-      <div class="feeds-heading"><span>MY FEEDS</span><button id="addFeedBtn" aria-label="Add feed">＋</button></div>
-      <nav class="feed-nav" id="feedNav" aria-label="Your feeds"></nav>
-
-      <div class="sidebar-bottom">
-        <button class="invite-card" id="inviteBtn"><span class="people">♟ ♟</span><strong>Invite your people</strong><small>Share a nook with friends & family</small></button>
-        <div class="user-card">
-          <div class="avatar">AM</div><div><strong>Alex Morgan</strong><small>alex@nook.family</small></div><button aria-label="More options">•••</button>
-        </div>
-      </div>
+      <div class="feed-title"><span>YOUR SPACES</span><button id="newFeedButton" aria-label="Create space">＋</button></div><nav id="feedList" class="feed-list"></nav>
+      <div class="profile"><span class="avatar coral">AM</span><span><strong>Alex Morgan</strong><small>@alex · Nook family</small></span><i>●</i></div>
     </aside>
 
     <main>
       <header class="topbar">
-        <div class="mobile-brand"><span>n</span> nook</div>
-        <div class="search"><span>⌕</span><input id="searchInput" type="search" placeholder="Search your nook..." aria-label="Search your nook"><kbd>⌘ K</kbd></div>
-        <div class="top-actions"><button class="icon-btn" aria-label="Notifications">♧<i></i></button><button class="add-link" id="addLinkBtn"><span>＋</span> Add a link</button></div>
+        <button class="mobile-logo" data-view="home"><b>n</b><span>nook</span></button>
+        <label class="search"><span>⌕</span><input id="searchInput" type="search" placeholder="Search Nook" autocomplete="off"><kbd>⌘K</kbd></label>
+        <button class="primary" id="addButton"><span>＋</span><em>Add link</em></button>
       </header>
 
-      <div class="content">
-        <section class="welcome-row">
-          <div><p class="eyebrow" id="todayLabel"></p><h1 id="pageTitle">Good morning, Alex.</h1><p id="pageSubtitle">Everything worth your time, in one calm place.</p></div>
-          <div class="result-count"><strong id="itemCount">0</strong><span>items</span></div>
-        </section>
+      <section id="standardView" class="page">
+        <div class="page-heading"><div><p id="dateLabel" class="eyebrow"></p><h1 id="pageTitle">Your daily nook</h1><p id="pageDescription">Good ideas from people you trust, without the noise.</p></div><button class="view-stream" data-view="stream">Open continuous stream <span>↑</span></button></div>
+        <div id="digest" class="digest"><div><span class="spark">✦</span><small>SMART DIGEST</small><h2>Catch up without catching everything.</h2><p id="digestText"></p></div><div class="digest-stats"><span><b id="postStat">0</b> posts</span><span><b id="savedStat">0</b> saved</span><span><b id="peopleStat">0</b> people</span></div></div>
+        <div class="section-heading"><div><h2 id="listTitle">For you</h2><p id="listDescription">A balanced mix of videos and things to read</p></div><select id="sortSelect" aria-label="Sort posts"><option value="latest">Latest</option><option value="popular">Most loved</option><option value="short">Quickest</option></select></div>
+        <div id="postGrid" class="post-grid"></div>
+        <div id="emptyState" class="empty" hidden><span>⌁</span><h2>No posts found</h2><p>Try a different search or add something worth keeping.</p><button class="primary" id="emptyAdd">Add a link</button></div>
+      </section>
 
-        <section class="daily-card" id="dailyCard">
-          <div class="daily-copy"><div class="daily-label"><span>✦</span> YOUR DAILY NOOK</div><h2>Catch up in 3 minutes</h2><p>A quick summary of what your people shared, plus a few things you saved for later.</p><button id="startCatchup">Start catch-up <span>→</span></button></div>
-          <div class="daily-stats"><div><strong id="newCount">0</strong><span>total links</span></div><div><strong id="savedCount">0</strong><span>saved</span></div><div><strong id="feedCount">0</strong><span>feeds</span></div></div>
-          <div class="sun-art" aria-hidden="true"><i></i><i></i><i></i><b>☀</b></div>
-        </section>
-
-        <section class="section" id="sharedSection">
-          <div class="section-head"><div><h2 id="sectionTitle">Recently added</h2><p id="sectionSubtitle">Links from you and your favorite people</p></div><select id="sortSelect" class="sort-select" aria-label="Sort items"><option value="newest">Newest first</option><option value="title">Title A–Z</option><option value="type">Content type</option></select></div>
-          <div class="card-grid" id="cardGrid"></div>
-          <div class="empty-state" id="emptyState" hidden><span>⌕</span><h3>Nothing here yet</h3><p>Try another search or add a link to this feed.</p><button id="emptyAddBtn">＋ Add a link</button></div>
-        </section>
-
-        <section class="section continue-section" id="continueSection">
-          <div class="section-head"><div><h2>Continue where you left off</h2><p>Pick up anytime, right where you stopped</p></div></div>
-          <div class="continue-card">
-            <div class="continue-thumb cooking"><span>▶</span></div>
-            <div class="continue-info"><span class="content-type">VIDEO · YOUTUBE</span><h3>The only pasta recipe you’ll ever need</h3><p>Not Another Cooking Show</p><div class="progress"><i></i></div><small>12 min left</small></div>
-            <button class="more-btn" aria-label="More options">•••</button>
-          </div>
-        </section>
-      </div>
+      <section id="streamView" class="stream-view" hidden aria-label="Continuous content stream">
+        <header class="stream-header"><button data-view="home">‹</button><strong>For you</strong><span id="streamProgress">1 / 1</span></header><div id="streamFeed" class="stream-feed"></div>
+      </section>
     </main>
   </div>
 
-  <dialog id="linkDialog">
-    <form id="linkForm" class="modal">
-      <button type="button" class="modal-close" aria-label="Close">×</button><span class="modal-icon">↗</span>
-      <h2>Add something good</h2><p>Paste a link and Nook will organize it for you.</p>
-      <label>Link<input id="urlInput" type="url" placeholder="https://youtube.com/watch?v=..." required></label>
-      <label>Title<input id="titleInput" type="text" placeholder="Give it a helpful title" required maxlength="100"></label>
-      <div class="form-row"><label>Type<select id="typeSelect"><option>Video</option><option>Article</option><option>Recipe</option><option>Podcast</option></select></label><label>Add to feed<select id="feedSelect"></select></label></div>
-      <label>Short note<textarea id="noteInput" placeholder="Why is this worth sharing?" maxlength="220"></textarea></label>
-      <button class="submit-link" type="submit">Add to my nook</button>
-    </form>
-  </dialog>
-  <dialog id="feedDialog"><form id="feedForm" class="modal compact-modal"><button type="button" class="modal-close" aria-label="Close">×</button><span class="modal-icon">＋</span><h2>Create a feed</h2><p>Make a focused space for links you want to keep together.</p><label>Feed name<input id="feedNameInput" required maxlength="28" placeholder="e.g. Weekend ideas"></label><button class="submit-link" type="submit">Create feed</button></form></dialog>
-  <dialog id="inviteDialog"><form class="modal compact-modal"><button type="button" class="modal-close" aria-label="Close">×</button><span class="modal-icon">♧</span><h2>Share your Nook</h2><p>Send this private invite link to family or friends.</p><div class="copy-field"><input id="inviteLink" readonly value="https://nook.family/invite/alex"><button id="copyInvite" type="button">Copy</button></div></form></dialog>
-  <div class="toast" id="toast" role="status"></div>
-  <script src="app.js"></script>
-</body>
-</html>
+  <nav class="tabbar" aria-label="Mobile navigation">
+    <button class="active" data-view="home"><i>⌂</i><span>Home</span></button><button data-view="stream"><i>▶</i><span>Stream</span></button><button class="tab-add" id="mobileAdd"><i>＋</i><span>Add</span></button><button data-view="community"><i>♧</i><span>Community</span></button><button data-view="saved"><i>♡</i><span>Saved</span></button>
+  </nav>
+
+  <dialog id="addDialog"><form id="addForm" class="sheet"><button type="button" class="close" data-close>×</button><div class="sheet-mark">↗</div><h2>Add something good</h2><p>Nook organizes it and creates a short preview.</p><label>URL<input id="urlInput" type="url" placeholder="https://…" required></label><label>Title<input id="titleInput" maxlength="100" placeholder="What is it about?" required></label><div class="form-row"><label>Format<select id="kindInput"><option value="video">Video</option><option value="article">Article</option><option value="podcast">Podcast</option></select></label><label>Space<select id="feedInput"></select></label></div><label>Your note<textarea id="summaryInput" maxlength="240" placeholder="Why should people open this?"></textarea></label><label class="toggle"><span><strong>Share to community</strong><small>Visible to everyone in your Nook</small></span><input id="communityInput" type="checkbox" checked></label><button class="primary wide" type="submit">Add to Nook</button></form></dialog>
+  <dialog id="feedDialog"><form id="feedForm" class="sheet small"><button type="button" class="close" data-close>×</button><div class="sheet-mark">＋</div><h2>New space</h2><p>Group related links into a calm collection.</p><label>Name<input id="feedName" maxlength="30" placeholder="Weekend recipes" required></label><button class="primary wide">Create space</button></form></dialog>
+  <dialog id="shareDialog"><div class="sheet small"><button type="button" class="close" data-close>×</button><div class="sheet-mark">♧</div><h2>Share this post</h2><p>Send it to your Nook community or copy the original link.</p><button id="communityShare" class="share-option"><i>♧</i><span><strong>Share to community</strong><small>Your people can react and save it</small></span><b>›</b></button><button id="copyLink" class="share-option"><i>↗</i><span><strong>Copy link</strong><small>Share anywhere</small></span><b>›</b></button></div></dialog>
+  <div id="toast" class="toast" role="status"></div><script src="app.js"></script>
+</body></html>
