@@ -153,17 +153,72 @@ jobs:
               else:
                   bucket_continuity_status = 'BUCKET_GAP_ERROR'
 
+          def pct(v):
+              try: return float(str(v or '0').replace('%','').replace(',',''))
+              except: return 0.0
+
+          def num(v):
+              try: return float(str(v or '0').replace(',','').replace('$',''))
+              except: return 0.0
+
+          # Extended-hours field freeze test. Finviz screener fields may remain regular-session
+          # values after 16:00 ET. If Change/Volume are essentially unchanged for >=80% of at
+          # least 10 common tickers between consecutive snapshots, treat them as non-native
+          # extended-hours fields and block persistence-derived learning/actionability.
+          field_integrity_state = 'NOT_APPLICABLE'
+          freeze_common_tickers = 0
+          change_freeze_ratio = None
+          volume_freeze_ratio = None
+          change_field_frozen = False
+          volume_field_frozen = False
+          if session in ('pre-market','after-hours') and previous_same_session:
+              prev_map = {
+                  str(m.get('Ticker') or '').upper(): m
+                  for m in previous_same_session.get('topMovers', [])
+                  if m.get('Ticker')
+              }
+              current_probe = {}
+              for signal in signals:
+                  p = pathlib.Path(f'/tmp/finviz-{signal}.csv')
+                  with p.open(newline='', encoding='utf-8-sig') as f:
+                      for row in csv.DictReader(f):
+                          t = (row.get('Ticker') or row.get('Symbol') or '').strip().upper()
+                          if t and t not in current_probe:
+                              current_probe[t] = row
+              common = sorted(set(prev_map).intersection(current_probe))
+              freeze_common_tickers = len(common)
+              if freeze_common_tickers >= 10:
+                  change_same = 0
+                  volume_same = 0
+                  for t in common:
+                      pv = prev_map[t]
+                      cv = current_probe[t]
+                      pchg, cchg = pct(pv.get('Change')), pct(cv.get('Change'))
+                      pvol, cvol = num(pv.get('Volume')), num(cv.get('Volume'))
+                      if abs(cchg - pchg) <= 0.01:
+                          change_same += 1
+                      vol_base = max(abs(pvol), 1.0)
+                      if abs(cvol - pvol) / vol_base <= 0.001:
+                          volume_same += 1
+                  change_freeze_ratio = round(change_same / freeze_common_tickers, 4)
+                  volume_freeze_ratio = round(volume_same / freeze_common_tickers, 4)
+                  change_field_frozen = change_freeze_ratio >= 0.80
+                  volume_field_frozen = volume_freeze_ratio >= 0.80
+                  field_integrity_state = 'SOURCE_FIELD_FREEZE_SUSPECTED' if (change_field_frozen or volume_field_frozen) else 'CROSS_SNAPSHOT_FIELDS_MOVING'
+              else:
+                  field_integrity_state = 'UNVERIFIED_EXTENDED_HOURS_FIELDS'
+          elif session in ('pre-market','after-hours'):
+              field_integrity_state = 'UNVERIFIED_EXTENDED_HOURS_FIELDS'
+
           prior_bucket_snaps = contiguous_prior[-3:]
           persistence_training_eligible = (
               session in ('pre-market','after-hours') and
               cadence_status != 'GAP_ERROR' and
               bucket_continuity_status == 'CONTIGUOUS' and
-              len(prior_bucket_snaps) >= 1
+              len(prior_bucket_snaps) >= 1 and
+              not change_field_frozen and
+              field_integrity_state == 'CROSS_SNAPSHOT_FIELDS_MOVING'
           )
-
-          def pct(v):
-              try: return float(str(v or '0').replace('%','').replace(',',''))
-              except: return 0.0
 
           ticker_hist = {}
           for snap in prior_bucket_snaps:
@@ -198,6 +253,9 @@ jobs:
                       '_cadenceStatus': cadence_status,
                       '_bucketContinuityStatus': bucket_continuity_status,
                       '_persistenceTrainingEligible': persistence_training_eligible,
+                      '_extendedHoursFieldIntegrity': field_integrity_state,
+                      '_changeFieldFrozen': change_field_frozen,
+                      '_volumeFieldFrozen': volume_field_frozen,
                       '_independentSourceCount': 1,
                       '_dataIntegrityState': 'PENDING_SECOND_SOURCE',
                       '_firstObservedTimestampUTC': (prior_first or {}).get('timestampUTC', now_utc.isoformat()),
@@ -256,6 +314,8 @@ jobs:
               training_block_reasons.append('SESSION_CADENCE_GAP')
           if bucket_continuity_status == 'BUCKET_GAP_ERROR':
               training_block_reasons.append('HOURLY_BUCKET_GAP')
+          if session in ('pre-market','after-hours') and field_integrity_state != 'CROSS_SNAPSHOT_FIELDS_MOVING':
+              training_block_reasons.append(field_integrity_state)
           if session in ('pre-market','after-hours') and not is_final_candidate:
               training_block_reasons.append('NOT_SESSION_BOUNDARY_SNAPSHOT')
 
@@ -277,7 +337,17 @@ jobs:
               'gapMinutesFromPriorSessionSnapshot': gap_minutes,
               'bucketContinuityStatus': bucket_continuity_status,
               'persistenceTrainingEligible': persistence_training_eligible,
-              'persistenceMethod': 'CONTIGUOUS_UNIQUE_HOURLY_SESSION_BUCKETS',
+              'persistenceMethod': 'CONTIGUOUS_UNIQUE_HOURLY_SESSION_BUCKETS_WITH_FIELD_FREEZE_GATE',
+              'extendedHoursFieldIntegrity': field_integrity_state,
+              'fieldFreezeDiagnostics': {
+                  'minimumCommonTickers': 10,
+                  'freezeThreshold': 0.80,
+                  'commonTickers': freeze_common_tickers,
+                  'changeFreezeRatio': change_freeze_ratio,
+                  'volumeFreezeRatio': volume_freeze_ratio,
+                  'changeFieldFrozen': change_field_frozen,
+                  'volumeFieldFrozen': volume_field_frozen,
+              },
               'firstObservationMethod': 'PRESERVE_EARLIEST_ACROSS_TRADING_DATE_AND_SESSION_SPECIFIC',
               'firstObservedIsActionable': False,
               'actionabilityInstrumentationState': 'COMPLETE_FOR_BLOCKED_CASES',
@@ -305,7 +375,15 @@ jobs:
               'gapMinutesFromPriorSessionSnapshot': gap_minutes,
               'bucketContinuityStatus': bucket_continuity_status,
               'persistenceTrainingEligible': persistence_training_eligible,
-              'persistenceMethod': 'CONTIGUOUS_UNIQUE_HOURLY_SESSION_BUCKETS',
+              'persistenceMethod': 'CONTIGUOUS_UNIQUE_HOURLY_SESSION_BUCKETS_WITH_FIELD_FREEZE_GATE',
+              'extendedHoursFieldIntegrity': field_integrity_state,
+              'fieldFreezeDiagnostics': {
+                  'commonTickers': freeze_common_tickers,
+                  'changeFreezeRatio': change_freeze_ratio,
+                  'volumeFreezeRatio': volume_freeze_ratio,
+                  'changeFieldFrozen': change_field_frozen,
+                  'volumeFieldFrozen': volume_field_frozen,
+              },
               'firstObservationMethod': 'PRESERVE_EARLIEST_ACROSS_TRADING_DATE_AND_SESSION_SPECIFIC',
               'actionabilityInstrumentationState': 'COMPLETE_FOR_BLOCKED_CASES',
               'topMovers': [
@@ -336,6 +414,9 @@ jobs:
                       'gainRetentionPct': r.get('_gainRetentionPct'),
                       'persistenceSlopePctPts': r.get('_persistenceSlopePctPts'),
                       'persistenceTrend': r.get('_persistenceTrend'),
+                      'extendedHoursFieldIntegrity': r.get('_extendedHoursFieldIntegrity'),
+                      'changeFieldFrozen': r.get('_changeFieldFrozen'),
+                      'volumeFieldFrozen': r.get('_volumeFieldFrozen'),
                   }
                   for r in data[:100]
               ],
@@ -356,7 +437,7 @@ jobs:
 
           hist = hist[-600:]
           hist_path.write_text(json.dumps(hist, ensure_ascii=False, indent=2), encoding='utf-8')
-          print(f'Wrote {len(data)} mover rows for {session}/{session_bucket}; type={snapshot_type}; reconciliation pending; cadence={cadence_status}; continuity={bucket_continuity_status}')
+          print(f'Wrote {len(data)} mover rows for {session}/{session_bucket}; type={snapshot_type}; reconciliation pending; cadence={cadence_status}; continuity={bucket_continuity_status}; fieldIntegrity={field_integrity_state}')
           PY
 
       - name: Commit refreshed data safely
