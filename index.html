@@ -3,84 +3,86 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="A private AI assistant that runs locally in your browser with no API fees." />
-  <title>MyAI — Private, Free AI</title>
+  <meta name="description" content="Gather, organize, and share the best things you find online." />
+  <title>Nook — Your internet, thoughtfully gathered</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar">
-      <div class="brand"><span class="logo">✦</span><span>MyAI</span></div>
-      <button id="newChatBtn" class="new-chat">＋ New chat</button>
-      <div class="side-note">
-        <strong>Private by design</strong>
-        <span>Your chats and AI processing stay in this browser.</span>
+      <button class="brand" id="brandBtn" aria-label="Nook home"><span>n</span> nook</button>
+
+      <nav class="main-nav" aria-label="Main navigation">
+        <button class="nav-item active" data-view="home"><span>⌂</span> Home</button>
+        <button class="nav-item" data-view="all"><span>⌕</span> All links</button>
+        <button class="nav-item" data-view="saved"><span>♡</span> Saved</button>
+      </nav>
+
+      <div class="feeds-heading"><span>MY FEEDS</span><button id="addFeedBtn" aria-label="Add feed">＋</button></div>
+      <nav class="feed-nav" id="feedNav" aria-label="Your feeds"></nav>
+
+      <div class="sidebar-bottom">
+        <button class="invite-card" id="inviteBtn"><span class="people">♟ ♟</span><strong>Invite your people</strong><small>Share a nook with friends & family</small></button>
+        <div class="user-card">
+          <div class="avatar">AM</div><div><strong>Alex Morgan</strong><small>alex@nook.family</small></div><button aria-label="More options">•••</button>
+        </div>
       </div>
-      <div class="sidebar-footer">No API key • No server bill</div>
     </aside>
 
-    <main class="main">
+    <main>
       <header class="topbar">
-        <div>
-          <h1>Your personal AI</h1>
-          <p id="statusText">Choose a model and load it to begin.</p>
-        </div>
-        <button id="settingsBtn" class="icon-button" aria-label="Open settings">⚙</button>
+        <div class="mobile-brand"><span>n</span> nook</div>
+        <div class="search"><span>⌕</span><input id="searchInput" type="search" placeholder="Search your nook..." aria-label="Search your nook"><kbd>⌘ K</kbd></div>
+        <div class="top-actions"><button class="icon-btn" aria-label="Notifications">♧<i></i></button><button class="add-link" id="addLinkBtn"><span>＋</span> Add a link</button></div>
       </header>
 
-      <section id="welcome" class="welcome">
-        <div class="hero-icon">✦</div>
-        <h2>How can I help?</h2>
-        <p>This AI runs locally on your device. The first launch downloads a model, then your browser caches it.</p>
-        <div class="suggestions">
-          <button class="suggestion">Draft a professional email</button>
-          <button class="suggestion">Explain a difficult idea simply</button>
-          <button class="suggestion">Create a weekly action plan</button>
-        </div>
-        <button id="loadModelBtn" class="primary-button">Load free AI model</button>
-        <div id="progressWrap" class="progress-wrap hidden">
-          <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
-          <span id="progressLabel">Preparing…</span>
-        </div>
-      </section>
+      <div class="content">
+        <section class="welcome-row">
+          <div><p class="eyebrow" id="todayLabel"></p><h1 id="pageTitle">Good morning, Alex.</h1><p id="pageSubtitle">Everything worth your time, in one calm place.</p></div>
+          <div class="result-count"><strong id="itemCount">0</strong><span>items</span></div>
+        </section>
 
-      <section id="messages" class="messages hidden" aria-live="polite"></section>
+        <section class="daily-card" id="dailyCard">
+          <div class="daily-copy"><div class="daily-label"><span>✦</span> YOUR DAILY NOOK</div><h2>Catch up in 3 minutes</h2><p>A quick summary of what your people shared, plus a few things you saved for later.</p><button id="startCatchup">Start catch-up <span>→</span></button></div>
+          <div class="daily-stats"><div><strong id="newCount">0</strong><span>total links</span></div><div><strong id="savedCount">0</strong><span>saved</span></div><div><strong id="feedCount">0</strong><span>feeds</span></div></div>
+          <div class="sun-art" aria-hidden="true"><i></i><i></i><i></i><b>☀</b></div>
+        </section>
 
-      <footer class="composer-wrap">
-        <form id="chatForm" class="composer">
-          <textarea id="promptInput" rows="1" placeholder="Message MyAI…" disabled></textarea>
-          <button id="sendBtn" type="submit" aria-label="Send message" disabled>➤</button>
-        </form>
-        <p class="disclaimer">Local AI can make mistakes. Verify important information.</p>
-      </footer>
+        <section class="section" id="sharedSection">
+          <div class="section-head"><div><h2 id="sectionTitle">Recently added</h2><p id="sectionSubtitle">Links from you and your favorite people</p></div><select id="sortSelect" class="sort-select" aria-label="Sort items"><option value="newest">Newest first</option><option value="title">Title A–Z</option><option value="type">Content type</option></select></div>
+          <div class="card-grid" id="cardGrid"></div>
+          <div class="empty-state" id="emptyState" hidden><span>⌕</span><h3>Nothing here yet</h3><p>Try another search or add a link to this feed.</p><button id="emptyAddBtn">＋ Add a link</button></div>
+        </section>
+
+        <section class="section continue-section" id="continueSection">
+          <div class="section-head"><div><h2>Continue where you left off</h2><p>Pick up anytime, right where you stopped</p></div></div>
+          <div class="continue-card">
+            <div class="continue-thumb cooking"><span>▶</span></div>
+            <div class="continue-info"><span class="content-type">VIDEO · YOUTUBE</span><h3>The only pasta recipe you’ll ever need</h3><p>Not Another Cooking Show</p><div class="progress"><i></i></div><small>12 min left</small></div>
+            <button class="more-btn" aria-label="More options">•••</button>
+          </div>
+        </section>
+      </div>
     </main>
   </div>
 
-  <dialog id="settingsDialog">
-    <form method="dialog" class="settings-panel">
-      <div class="settings-header"><h2>Settings</h2><button class="close-button" value="cancel">×</button></div>
-      <label>
-        AI model
-        <select id="modelSelect"></select>
-      </label>
-      <label>
-        Assistant instructions
-        <textarea id="systemPrompt" rows="5">You are MyAI, a helpful, accurate, concise personal assistant. Ask clarifying questions only when essential.</textarea>
-      </label>
-      <label class="range-label">
-        Creativity <span id="temperatureValue">0.7</span>
-        <input id="temperature" type="range" min="0" max="1.5" value="0.7" step="0.1" />
-      </label>
-      <div class="settings-actions">
-        <button id="clearDataBtn" type="button" class="danger-button">Clear local chat</button>
-        <button id="saveSettingsBtn" value="default" class="primary-button">Save</button>
-      </div>
+  <dialog id="linkDialog">
+    <form id="linkForm" class="modal">
+      <button type="button" class="modal-close" aria-label="Close">×</button><span class="modal-icon">↗</span>
+      <h2>Add something good</h2><p>Paste a link and Nook will organize it for you.</p>
+      <label>Link<input id="urlInput" type="url" placeholder="https://youtube.com/watch?v=..." required></label>
+      <label>Title<input id="titleInput" type="text" placeholder="Give it a helpful title" required maxlength="100"></label>
+      <div class="form-row"><label>Type<select id="typeSelect"><option>Video</option><option>Article</option><option>Recipe</option><option>Podcast</option></select></label><label>Add to feed<select id="feedSelect"></select></label></div>
+      <label>Short note<textarea id="noteInput" placeholder="Why is this worth sharing?" maxlength="220"></textarea></label>
+      <button class="submit-link" type="submit">Add to my nook</button>
     </form>
   </dialog>
-
-  <script type="module" src="app.js"></script>
+  <dialog id="feedDialog"><form id="feedForm" class="modal compact-modal"><button type="button" class="modal-close" aria-label="Close">×</button><span class="modal-icon">＋</span><h2>Create a feed</h2><p>Make a focused space for links you want to keep together.</p><label>Feed name<input id="feedNameInput" required maxlength="28" placeholder="e.g. Weekend ideas"></label><button class="submit-link" type="submit">Create feed</button></form></dialog>
+  <dialog id="inviteDialog"><form class="modal compact-modal"><button type="button" class="modal-close" aria-label="Close">×</button><span class="modal-icon">♧</span><h2>Share your Nook</h2><p>Send this private invite link to family or friends.</p><div class="copy-field"><input id="inviteLink" readonly value="https://nook.family/invite/alex"><button id="copyInvite" type="button">Copy</button></div></form></dialog>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js"></script>
 </body>
 </html>
