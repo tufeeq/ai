@@ -40,14 +40,18 @@ jobs:
           def num(v):
               try:return float(str(v or '0').replace(',',''))
               except:return None
+          def parse_dt(v):
+              if not v:return None
+              try:
+                  d=datetime.datetime.fromisoformat(str(v).replace('Z','+00:00'))
+                  if d.tzinfo is None:d=d.replace(tzinfo=datetime.timezone.utc)
+                  return d
+              except:return None
 
           f=load(finviz_path);e=load(enrich_path)
           ts=f.get('snapshotTimestampET') or f.get('updatedAt')
-          try:
-              dt=datetime.datetime.fromisoformat(ts)
-              if dt.tzinfo is None:dt=dt.replace(tzinfo=datetime.timezone.utc)
-              dt_et=dt.astimezone(ZoneInfo('America/New_York'))
-          except Exception:dt_et=None
+          dt=parse_dt(ts)
+          dt_et=dt.astimezone(ZoneInfo('America/New_York')) if dt else None
 
           final_boundary=bool(dt_et and datetime.time(19,55)<=dt_et.time()<=datetime.time(20,10))
           rows=f.get('rows') or f.get('data') or [];erows=(e.get('rows') or {}) if isinstance(e,dict) else {}
@@ -59,26 +63,42 @@ jobs:
               fp=num(r.get('Price'));fc=pct(r.get('Change'));fv=num(r.get('Volume'))
               y=(erows.get(t) or {}).get('price') or {}
               yp=num(y.get('last'));yc=num(y.get('changePct'));yv=num(y.get('volume'))
+              yts=parse_dt(y.get('timestampUTC'));fts=parse_dt(f.get('snapshotTimestampET') or f.get('updatedAt'))
+              timestamp_diff_minutes=None if not(yts and fts) else abs((yts-fts.astimezone(datetime.timezone.utc)).total_seconds())/60
+              timestamp_aligned=bool(timestamp_diff_minutes is not None and timestamp_diff_minutes<=10)
+              same_session_date=bool(yts and fts and yts.astimezone(ZoneInfo('America/New_York')).date()==fts.astimezone(ZoneInfo('America/New_York')).date())
               price_diff_pct=None if not(fp and yp) else abs(fp-yp)/max(abs(fp),abs(yp))*100
               change_diff_pp=None if fc is None or yc is None else abs(fc-yc)
-              price_change_reconciled=bool(price_diff_pct is not None and price_diff_pct<=2.0 and change_diff_pp is not None and change_diff_pp<=5.0)
-              volume_reconciled=bool(fv is not None and yv is not None and yv>0 and abs(fv-yv)/max(fv,yv,1)<=0.10)
+              price_change_reconciled=bool(timestamp_aligned and same_session_date and price_diff_pct is not None and price_diff_pct<=2.0 and change_diff_pp is not None and change_diff_pp<=5.0)
+              volume_semantic=y.get('volumeSemantic')
+              volume_semantic_compatible=volume_semantic=='chart_bar_sum_session_cumulative'
+              volume_reconciled=bool(timestamp_aligned and same_session_date and volume_semantic_compatible and fv is not None and yv is not None and yv>0 and abs(fv-yv)/max(fv,yv,1)<=0.10)
               if price_change_reconciled:matched+=1
               elif yp is None or yc is None:missing+=1
               else:conflict+=1
               state='DATA_INTEGRITY_ERROR'
-              if price_change_reconciled and volume_reconciled:state='FULLY_RECONCILED'
+              if not timestamp_aligned or not same_session_date:state='SOURCE_TIMESTAMP_MISMATCH'
+              elif price_change_reconciled and volume_reconciled:state='FULLY_RECONCILED'
               elif price_change_reconciled:state='PRICE_CHANGE_RECONCILED_VOLUME_BLOCKED'
               elif yp is None or yc is None:state='SECOND_SOURCE_MISSING'
               outcome_eligible=bool(final_boundary and price_change_reconciled)
               volume_eligible=bool(final_boundary and price_change_reconciled and volume_reconciled)
+              reasons=[]
+              if not timestamp_aligned or not same_session_date:reasons.append('SOURCE_TIMESTAMP_NOT_ALIGNED')
+              if not price_change_reconciled:reasons.append('FINAL_PRICE_CHANGE_NOT_RECONCILED')
+              if not volume_semantic_compatible:reasons.append('SECOND_SOURCE_VOLUME_SEMANTIC_INCOMPATIBLE')
+              if not volume_reconciled:reasons.append('FINAL_VOLUME_NOT_RECONCILED')
               results.append({
                   'ticker':t,
                   'finviz':{'price':fp,'changePct':fc,'volume':fv,'timestampET':f.get('snapshotTimestampET')},
-                  'yahoo':{'price':yp,'changePct':yc,'volume':yv,'timestampUTC':y.get('timestampUTC')},
+                  'yahoo':{'price':yp,'changePct':yc,'volume':yv,'volumeSemantic':volume_semantic,'timestampUTC':y.get('timestampUTC')},
+                  'timestampDiffMinutes':None if timestamp_diff_minutes is None else round(timestamp_diff_minutes,3),
+                  'timestampAligned':timestamp_aligned,
+                  'sameSessionDate':same_session_date,
                   'priceDiffPct':None if price_diff_pct is None else round(price_diff_pct,3),
                   'changeDiffPctPoints':None if change_diff_pp is None else round(change_diff_pp,3),
                   'priceChangeReconciled':price_change_reconciled,
+                  'volumeSemanticCompatible':volume_semantic_compatible,
                   'volumeReconciled':volume_reconciled,
                   'state':state,
                   'fieldLevelTrainingEligibility':{
@@ -89,7 +109,7 @@ jobs:
                       'volumeDerivedMetrics':volume_eligible
                   },
                   'trainingEligible':volume_eligible,
-                  'trainingBlockReasons':([] if price_change_reconciled else ['FINAL_PRICE_CHANGE_NOT_RECONCILED'])+([] if volume_reconciled else ['FINAL_VOLUME_NOT_RECONCILED'])
+                  'trainingBlockReasons':reasons
               })
 
           outcome_count=sum(1 for x in results if x['fieldLevelTrainingEligibility']['finalMoverOutcomeLabel'])
@@ -100,11 +120,13 @@ jobs:
               'snapshotType':'final-after-hours-close' if final_boundary else 'not-final-boundary',
               'finalBoundaryRecognized':final_boundary,
               'sources':['Finviz Elite','Yahoo Finance chart'],
+              'timestampAlignmentToleranceMinutes':10,
               'priceChangeTolerance':{'pricePct':2.0,'changePctPoints':5.0},
               'volumeTolerancePct':10.0,
+              'requiredVolumeSemantic':'chart_bar_sum_session_cumulative',
               'finalSnapshotReconciliation':'PARTIAL_RECONCILIATION' if final_boundary and matched else 'BLOCKED',
               'trainingEligible':bool(volume_count>0),
-              'fieldLevelPolicy':'Reconciled final price/change may label mover outcomes. Volume-dependent features remain blocked unless final volume is independently reconciled. No threshold promotion from a single session.',
+              'fieldLevelPolicy':'Reconciled final price/change may label mover outcomes only when source timestamps are aligned to the same session. Volume-derived learning requires compatible cumulative-volume semantics plus independent reconciliation. No threshold promotion from a single session.',
               'counts':{'checked':len(results),'priceChangeMatched':matched,'conflicts':conflict,'secondSourceMissing':missing,'outcomeLabelsEligible':outcome_count,'volumeMatched':volume_count},
               'rows':results
           }
@@ -119,5 +141,5 @@ jobs:
           git add tag/data/final-reconciliation.json
           git diff --cached --quiet && exit 0
           git commit -m "Reconcile TAG final after-hours snapshot"
-          git pull --rebase origin main
-          git push origin main
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*5)); done
+          exit 1
