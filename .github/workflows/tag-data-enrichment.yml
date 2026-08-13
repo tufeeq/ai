@@ -25,19 +25,30 @@ jobs:
         run: |
           python - <<'PY'
           import json, pathlib, urllib.request, urllib.parse, datetime, time, re, xml.etree.ElementTree as ET
-          from zoneinfo import ZoneInfo
 
-          UA='TAG-Market-Research/6.0 contact: github.com/tufeeq/ai'
-          def get_json(url, timeout=12):
-              req=urllib.request.Request(url,headers={'User-Agent':UA,'Accept':'application/json,text/plain,*/*'})
-              with urllib.request.urlopen(req,timeout=timeout) as r: return json.loads(r.read().decode('utf-8'))
-          def get_text(url, timeout=12):
-              req=urllib.request.Request(url,headers={'User-Agent':UA,'Accept':'application/rss+xml,text/xml,*/*'})
-              with urllib.request.urlopen(req,timeout=timeout) as r: return r.read().decode('utf-8','replace')
+          UA='TAG-Market-Research/6.1 github.com/tufeeq/ai'
+          def request(url, accept='application/json,text/plain,*/*', timeout=15, retries=3):
+              last=None
+              for i in range(retries):
+                  try:
+                      req=urllib.request.Request(url,headers={
+                          'User-Agent':UA,
+                          'Accept':accept,
+                          'Accept-Encoding':'identity',
+                          'Connection':'close'
+                      })
+                      return urllib.request.urlopen(req,timeout=timeout)
+                  except Exception as e:
+                      last=e; time.sleep(1.5*(i+1))
+              raise last
+          def get_json(url, timeout=15):
+              with request(url,timeout=timeout) as r:return json.loads(r.read().decode('utf-8'))
+          def get_text(url, timeout=15):
+              with request(url,'application/rss+xml,text/xml,*/*',timeout) as r:return r.read().decode('utf-8','replace')
 
           p=pathlib.Path('tag/data/finviz.json')
           try: base=json.loads(p.read_text(encoding='utf-8'))
-          except: base={}
+          except Exception: base={}
           rows=base.get('rows') or base.get('data') or []
           def pct(v):
               try:return float(str(v or 0).replace('%','').replace(',',''))
@@ -46,67 +57,82 @@ jobs:
           tickers=[]
           for r in rows:
               t=str(r.get('Ticker') or r.get('Symbol') or '').strip().upper()
-              if t and re.match(r'^[A-Z][A-Z0-9.\-]{0,9}$',t) and t not in tickers: tickers.append(t)
+              if t and re.match(r'^[A-Z][A-Z0-9.\-]{0,9}$',t) and t not in tickers:tickers.append(t)
           tickers=tickers[:80]
 
           now=datetime.datetime.now(datetime.timezone.utc)
           out={'updatedAt':now.isoformat(),'sources':['Yahoo Finance chart','SEC submissions','Google News RSS'],'sourceStatus':{},'rows':{},'independentPriceSource':'Yahoo Finance chart','trainingTruth':False}
 
-          # SEC ticker -> CIK identity map
-          secmap={}
-          try:
-              j=get_json('https://www.sec.gov/files/company_tickers.json')
-              for v in j.values(): secmap[str(v.get('ticker','')).upper()]={'cik':str(v.get('cik_str','')).zfill(10),'company':v.get('title')}
-              out['sourceStatus']['SEC']='OK'
-          except Exception as e: out['sourceStatus']['SEC']='ERROR:'+type(e).__name__
+          # Keep a persistent SEC ticker/CIK cache. The SEC association files can intermittently block cloud IPs;
+          # cached identities remain provenance-tagged and are refreshed whenever the official endpoint works.
+          cache_path=pathlib.Path('tag/data/sec-ticker-map.json')
+          try: secmap=json.loads(cache_path.read_text(encoding='utf-8')) if cache_path.exists() else {}
+          except Exception: secmap={}
+          secmap_source='CACHE' if secmap else 'NONE'
+          sec_errors=[]
+          for sec_url in ['https://www.sec.gov/files/company_tickers_exchange.json','https://www.sec.gov/files/company_tickers.json']:
+              try:
+                  j=get_json(sec_url)
+                  fresh={}
+                  if isinstance(j,dict) and isinstance(j.get('data'),list):
+                      fields=j.get('fields') or []
+                      idx={k:i for i,k in enumerate(fields)}
+                      for row in j['data']:
+                          t=str(row[idx.get('ticker',2)] or '').upper()
+                          if t:fresh[t]={'cik':str(row[idx.get('cik',1)]).zfill(10),'company':row[idx.get('name',0)],'source':'SEC'}
+                  elif isinstance(j,dict):
+                      for v in j.values():
+                          if not isinstance(v,dict):continue
+                          t=str(v.get('ticker','')).upper()
+                          if t:fresh[t]={'cik':str(v.get('cik_str','')).zfill(10),'company':v.get('title'),'source':'SEC'}
+                  if fresh:
+                      secmap=fresh;secmap_source='SEC';cache_path.write_text(json.dumps(secmap,ensure_ascii=False),encoding='utf-8');break
+              except Exception as e:sec_errors.append(type(e).__name__)
+          out['sourceStatus']['SECIdentityMap']='OK:'+secmap_source if secmap else 'ERROR:'+','.join(sec_errors or ['UNAVAILABLE'])
 
           yahoo_ok=sec_ok=news_ok=0
-          for i,t in enumerate(tickers):
+          for t in tickers:
               item={'ticker':t,'price':{},'identity':secmap.get(t,{}),'filings':[],'news':[],'errors':[]}
-              # independent quote/chart with pre/post market included
               try:
                   y=get_json('https://query1.finance.yahoo.com/v8/finance/chart/'+urllib.parse.quote(t)+'?interval=5m&range=1d&includePrePost=true')
                   res=(y.get('chart',{}).get('result') or [None])[0]
                   if res:
-                      meta=res.get('meta',{}); ts=res.get('timestamp') or []; q=((res.get('indicators',{}).get('quote') or [{}])[0]); closes=q.get('close') or []; vols=q.get('volume') or []
+                      meta=res.get('meta',{});ts=res.get('timestamp') or [];q=((res.get('indicators',{}).get('quote') or [{}])[0]);closes=q.get('close') or [];vols=q.get('volume') or []
                       valid=[(a,b,c) for a,b,c in zip(ts,closes,vols) if b is not None]
-                      last=valid[-1] if valid else (None,None,None)
-                      prev=meta.get('chartPreviousClose') or meta.get('previousClose')
+                      last=valid[-1] if valid else (None,None,None);prev=meta.get('chartPreviousClose') or meta.get('previousClose')
                       ch=((last[1]/prev-1)*100) if last[1] and prev else None
-                      item['price']={'source':'Yahoo Finance chart','last':last[1],'volume':last[2],'timestampUTC':datetime.datetime.fromtimestamp(last[0],datetime.timezone.utc).isoformat() if last[0] else None,'previousClose':prev,'changePct':round(ch,3) if ch is not None else None,'exchange':meta.get('exchangeName'),'currency':meta.get('currency')}
+                      item['price']={'source':'Yahoo Finance chart','last':last[1],'volume':last[2],'volumeUsableForFinalReconciliation':bool(last[2] and last[2]>0),'timestampUTC':datetime.datetime.fromtimestamp(last[0],datetime.timezone.utc).isoformat() if last[0] else None,'previousClose':prev,'changePct':round(ch,3) if ch is not None else None,'exchange':meta.get('exchangeName'),'currency':meta.get('currency')}
                       yahoo_ok+=1
               except Exception as e:item['errors'].append('YAHOO:'+type(e).__name__)
 
               ident=secmap.get(t)
-              if ident:
+              if ident and ident.get('cik'):
                   try:
                       s=get_json('https://data.sec.gov/submissions/CIK'+ident['cik']+'.json')
-                      recent=s.get('filings',{}).get('recent',{}); forms=recent.get('form',[])
-                      for k in range(min(len(forms),40)):
-                          form=forms[k]
-                          if form in ('8-K','6-K','10-Q','10-K','S-1','S-3','424B3','424B5','DEF 14A','SC 13D','SC 13G'):
-                              acc=recent.get('accessionNumber',[''])[k]; primary=recent.get('primaryDocument',[''])[k]
-                              accn=acc.replace('-',''); ciknum=str(int(ident['cik']))
-                              item['filings'].append({'form':form,'filed':recent.get('filingDate',[''])[k],'description':recent.get('primaryDocDescription',[''])[k] if k<len(recent.get('primaryDocDescription',[])) else '', 'url':f'https://www.sec.gov/Archives/edgar/data/{ciknum}/{accn}/{primary}'})
-                              if len(item['filings'])>=6:break
+                      recent=s.get('filings',{}).get('recent',{});forms=recent.get('form',[])
+                      wanted={'8-K','6-K','10-Q','10-K','S-1','S-3','424B3','424B5','DEF 14A','SC 13D','SC 13G'}
+                      for k,form in enumerate(forms[:80]):
+                          if form not in wanted:continue
+                          acc=(recent.get('accessionNumber') or ['']*len(forms))[k];primary=(recent.get('primaryDocument') or ['']*len(forms))[k]
+                          accn=acc.replace('-','');ciknum=str(int(ident['cik']))
+                          item['filings'].append({'form':form,'filed':(recent.get('filingDate') or ['']*len(forms))[k],'description':(recent.get('primaryDocDescription') or ['']*len(forms))[k] if k<len(recent.get('primaryDocDescription') or []) else '','url':f'https://www.sec.gov/Archives/edgar/data/{ciknum}/{accn}/{primary}','source':'SEC'})
+                          if len(item['filings'])>=8:break
                       sec_ok+=1
                   except Exception as e:item['errors'].append('SEC_SUBMISSIONS:'+type(e).__name__)
-                  time.sleep(.11)
+                  time.sleep(.12)
 
               try:
                   company=(ident or {}).get('company') or t
                   q=urllib.parse.quote(f'"{t}" stock OR "{company}" when:3d')
                   xml=get_text('https://news.google.com/rss/search?q='+q+'&hl=en-US&gl=US&ceid=US:en')
                   root=ET.fromstring(xml)
-                  for n in root.findall('.//item')[:6]:
-                      item['news'].append({'title':n.findtext('title') or '', 'url':n.findtext('link') or '', 'published':n.findtext('pubDate') or '', 'source':(n.findtext('source') or 'Google News')})
+                  for n in root.findall('.//item')[:8]:item['news'].append({'title':n.findtext('title') or '','url':n.findtext('link') or '','published':n.findtext('pubDate') or '','source':n.findtext('source') or 'Google News'})
                   news_ok+=1
               except Exception as e:item['errors'].append('NEWS:'+type(e).__name__)
-              out['rows'][t]=item
-              time.sleep(.08)
+              out['rows'][t]=item;time.sleep(.08)
 
           out['sourceStatus']['Yahoo']=f'OK:{yahoo_ok}/{len(tickers)}' if yahoo_ok else 'UNAVAILABLE'
-          out['sourceStatus']['SECSubmissions']=f'OK:{sec_ok}'
+          out['sourceStatus']['SECSubmissions']=f'OK:{sec_ok}/{sum(1 for t in tickers if t in secmap)}'
           out['sourceStatus']['News']=f'OK:{news_ok}/{len(tickers)}'
           pathlib.Path('tag/data/enrichment.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
           print(json.dumps(out['sourceStatus']))
@@ -115,7 +141,7 @@ jobs:
         run: |
           git config user.name 'tag6-data-bot'
           git config user.email 'actions@users.noreply.github.com'
-          git add tag/data/enrichment.json
+          git add tag/data/enrichment.json tag/data/sec-ticker-map.json
           git diff --cached --quiet && exit 0
           git commit -m 'data: refresh TAG6 multi-source enrichment'
           for i in 1 2 3; do
