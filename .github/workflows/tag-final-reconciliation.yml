@@ -24,7 +24,7 @@ jobs:
       - name: Reconcile final after-hours snapshot
         run: |
           python - <<'PY'
-          import json, pathlib, datetime, math
+          import json, pathlib, datetime
           from zoneinfo import ZoneInfo
 
           finviz_path=pathlib.Path('tag/data/finviz.json')
@@ -32,45 +32,46 @@ jobs:
           out_path=pathlib.Path('tag/data/final-reconciliation.json')
 
           def load(p):
-              try: return json.loads(p.read_text(encoding='utf-8'))
-              except Exception: return {}
+              try:return json.loads(p.read_text(encoding='utf-8'))
+              except Exception:return {}
           def pct(v):
-              try: return float(str(v or '0').replace('%','').replace(',',''))
-              except: return None
+              try:return float(str(v or '0').replace('%','').replace(',',''))
+              except:return None
           def num(v):
-              try: return float(str(v or '0').replace(',',''))
-              except: return None
+              try:return float(str(v or '0').replace(',',''))
+              except:return None
 
-          f=load(finviz_path); e=load(enrich_path)
+          f=load(finviz_path);e=load(enrich_path)
           ts=f.get('snapshotTimestampET') or f.get('updatedAt')
           try:
               dt=datetime.datetime.fromisoformat(ts)
-              if dt.tzinfo is None: dt=dt.replace(tzinfo=datetime.timezone.utc)
+              if dt.tzinfo is None:dt=dt.replace(tzinfo=datetime.timezone.utc)
               dt_et=dt.astimezone(ZoneInfo('America/New_York'))
-          except Exception:
-              dt_et=None
+          except Exception:dt_et=None
 
-          # Accept the last after-hours boundary even when the producer runs a few minutes after 20:00
-          final_boundary=bool(dt_et and datetime.time(19,55) <= dt_et.time() <= datetime.time(20,10))
-          rows=f.get('rows') or f.get('data') or []
-          erows=(e.get('rows') or {}) if isinstance(e,dict) else {}
-          results=[]
-          matched=0; conflict=0; missing=0
+          final_boundary=bool(dt_et and datetime.time(19,55)<=dt_et.time()<=datetime.time(20,10))
+          rows=f.get('rows') or f.get('data') or [];erows=(e.get('rows') or {}) if isinstance(e,dict) else {}
+          results=[];matched=conflict=missing=0
 
           for r in rows[:120]:
               t=str(r.get('Ticker') or r.get('Symbol') or '').upper()
-              if not t: continue
-              fp=num(r.get('Price')); fc=pct(r.get('Change')); fv=num(r.get('Volume'))
+              if not t:continue
+              fp=num(r.get('Price'));fc=pct(r.get('Change'));fv=num(r.get('Volume'))
               y=(erows.get(t) or {}).get('price') or {}
-              yp=num(y.get('last')); yc=num(y.get('changePct')); yv=num(y.get('volume'))
+              yp=num(y.get('last'));yc=num(y.get('changePct'));yv=num(y.get('volume'))
               price_diff_pct=None if not(fp and yp) else abs(fp-yp)/max(abs(fp),abs(yp))*100
               change_diff_pp=None if fc is None or yc is None else abs(fc-yc)
-              # Yahoo chart often reports zero volume at the final extended-hours print; do not fabricate reconciliation.
-              volume_reconciled=bool(fv is not None and yv is not None and yv>0 and abs(fv-yv)/max(fv,yv,1)<=0.10)
               price_change_reconciled=bool(price_diff_pct is not None and price_diff_pct<=2.0 and change_diff_pp is not None and change_diff_pp<=5.0)
-              if price_change_reconciled: state='PRICE_CHANGE_RECONCILED'; matched+=1
-              elif yp is None or yc is None: state='SECOND_SOURCE_MISSING'; missing+=1
-              else: state='DATA_INTEGRITY_ERROR'; conflict+=1
+              volume_reconciled=bool(fv is not None and yv is not None and yv>0 and abs(fv-yv)/max(fv,yv,1)<=0.10)
+              if price_change_reconciled:matched+=1
+              elif yp is None or yc is None:missing+=1
+              else:conflict+=1
+              state='DATA_INTEGRITY_ERROR'
+              if price_change_reconciled and volume_reconciled:state='FULLY_RECONCILED'
+              elif price_change_reconciled:state='PRICE_CHANGE_RECONCILED_VOLUME_BLOCKED'
+              elif yp is None or yc is None:state='SECOND_SOURCE_MISSING'
+              outcome_eligible=bool(final_boundary and price_change_reconciled)
+              volume_eligible=bool(final_boundary and price_change_reconciled and volume_reconciled)
               results.append({
                   'ticker':t,
                   'finviz':{'price':fp,'changePct':fc,'volume':fv,'timestampET':f.get('snapshotTimestampET')},
@@ -80,10 +81,19 @@ jobs:
                   'priceChangeReconciled':price_change_reconciled,
                   'volumeReconciled':volume_reconciled,
                   'state':state,
-                  'trainingEligible':False,
-                  'trainingBlockReasons':([] if price_change_reconciled else ['FINAL_PRICE_CHANGE_NOT_RECONCILED']) + ([] if volume_reconciled else ['FINAL_VOLUME_NOT_RECONCILED'])
+                  'fieldLevelTrainingEligibility':{
+                      'finalPrice':outcome_eligible,
+                      'finalChangePct':outcome_eligible,
+                      'finalMoverOutcomeLabel':outcome_eligible,
+                      'finalVolume':volume_eligible,
+                      'volumeDerivedMetrics':volume_eligible
+                  },
+                  'trainingEligible':volume_eligible,
+                  'trainingBlockReasons':([] if price_change_reconciled else ['FINAL_PRICE_CHANGE_NOT_RECONCILED'])+([] if volume_reconciled else ['FINAL_VOLUME_NOT_RECONCILED'])
               })
 
+          outcome_count=sum(1 for x in results if x['fieldLevelTrainingEligibility']['finalMoverOutcomeLabel'])
+          volume_count=sum(1 for x in results if x['fieldLevelTrainingEligibility']['finalVolume'])
           payload={
               'generatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),
               'sourceSnapshotTimestampET':f.get('snapshotTimestampET'),
@@ -93,9 +103,9 @@ jobs:
               'priceChangeTolerance':{'pricePct':2.0,'changePctPoints':5.0},
               'volumeTolerancePct':10.0,
               'finalSnapshotReconciliation':'PARTIAL_RECONCILIATION' if final_boundary and matched else 'BLOCKED',
-              'trainingEligible':False,
-              'trainingPolicy':'No final case is training truth unless required fields are independently reconciled. Volume remains blocked when second-source final AH volume is unavailable.',
-              'counts':{'checked':len(results),'priceChangeMatched':matched,'conflicts':conflict,'secondSourceMissing':missing,'volumeMatched':sum(1 for x in results if x['volumeReconciled'])},
+              'trainingEligible':bool(volume_count>0),
+              'fieldLevelPolicy':'Reconciled final price/change may label mover outcomes. Volume-dependent features remain blocked unless final volume is independently reconciled. No threshold promotion from a single session.',
+              'counts':{'checked':len(results),'priceChangeMatched':matched,'conflicts':conflict,'secondSourceMissing':missing,'outcomeLabelsEligible':outcome_count,'volumeMatched':volume_count},
               'rows':results
           }
           out_path.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8')
