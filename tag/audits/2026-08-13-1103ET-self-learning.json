@@ -1,0 +1,67 @@
+{
+  "referenceVersion": "TAG5",
+  "runTimestampET": "2026-08-13T11:03:22-04:00",
+  "session": "regular-market-intraperiod",
+  "latestRepositoryFeedRefresh": {
+    "commit": "3be81318514e2cb823217f19b2a5eea15d1c55d2",
+    "commitTimestampUTC": "2026-08-13T14:50:58Z",
+    "files": ["tag/data/finviz.json", "tag/data/snapshots.json"],
+    "note": "Repository refresh time is not by itself a validated market timestamp or final-window close."
+  },
+  "dataIntegrity": {
+    "snapshotType": "INTRAPERIOD",
+    "finalSnapshotReconciliation": "PENDING_REGULAR_SESSION_CLOSE",
+    "trainingEligible": false,
+    "state": "TRAINING_BLOCKED",
+    "reason": "The regular session is still open. No current mover can be recorded as final truth. Public sources were not sufficiently timestamp-matched and mutually independent for final price/volume reconciliation."
+  },
+  "mandatoryRulesPreserved": [
+    "Extended-Hours Persistence Gate",
+    "Persistence Slope",
+    "After-Hours Volume Participation",
+    "Extended-Hours Volume Takeover",
+    "Mandatory Fresh-Catalyst Sweep",
+    "Event-Timing Context",
+    "Catalyst Clock",
+    "Catalyst Attribution Error",
+    "Exhaustion Memory Penalty",
+    "Final Snapshot Reconciliation",
+    "Early Regime Shift Score",
+    "No-News Momentum Path",
+    "Hour-to-Hour Gain Retention"
+  ],
+  "currentCycleLearning": {
+    "moversTruthSetAvailable": false,
+    "missedMoversFinal": false,
+    "falsePositivesFinal": false,
+    "firstActionableSignalFinal": false,
+    "provisionalObservation": "Current-session web mover pages are useful only as discovery leads. One search surfaced EDBL as a large premarket mover, but the available pages mixed estimated earnings timing, older catalyst text, and non-current or future-close fields; this is a timestamp-integrity warning, not training truth.",
+    "eventTimingExample": "EDBL had an earnings event scheduled for Aug 13 before market/open conference call context, but schedule context alone does not establish catalyst attribution. Fresh official announcement timing must be verified before assigning the move to earnings.",
+    "classificationDiscipline": "Any ticker first observed after a large percentage move remains Late unless an earlier timestamped regime-shift observation exists. RVOL after the move does not create Discovery credit."
+  },
+  "errorAttribution": {
+    "marketError": "NOT_ASSESSABLE_BEFORE_RECONCILED_CLOSE",
+    "dataError": "CURRENT_WINDOW_NOT_FINAL_AND_SECOND_SOURCE_NOT_TIMESTAMP_MATCHED",
+    "classificationError": "NOT_PROVEN"
+  },
+  "shariaPolicy": {
+    "strictCoreActivityExclusion": true,
+    "financialComplianceUnknownState": "UNVERIFIED",
+    "note": "No current mover is promoted to Sharia-compliant status without verified business activity and financial screening."
+  },
+  "thresholdExperiment": {
+    "changed": false,
+    "reason": "No reconciled multi-session sample demonstrates material improvement."
+  },
+  "versionDecision": {
+    "promote": false,
+    "version": "TAG5",
+    "reason": "No final reconciled truth set and no validated multi-session threshold improvement."
+  },
+  "nextLearningPriority": [
+    "Reconcile the 16:00 ET regular-session close with two independent timestamp-matched sources before scoring misses/false positives.",
+    "Continue AH1-AH4 timestamped observations and compute persistence/retention only from comparable hourly points.",
+    "At 20:00 ET distinguish final after-hours close from intraperiod snapshots and repeat two-source reconciliation.",
+    "Perform fresh catalyst sweep before using No-News Momentum Path or catalyst attribution."
+  ]
+}
