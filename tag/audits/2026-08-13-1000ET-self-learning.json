@@ -1,0 +1,67 @@
+{
+  "referenceVersion": "TAG5",
+  "runTimestampET": "2026-08-13T10:00:00-04:00",
+  "session": "regular-market-early",
+  "latestRepositoryFeedRefresh": {
+    "commit": "4766d8ecd0f0f951cbe41a02bde164120b3796ac",
+    "commitTimestampUTC": "2026-08-13T13:49:26Z",
+    "files": ["tag/data/finviz.json", "tag/data/snapshots.json"],
+    "note": "Commit time is a repository refresh timestamp, not a validated market snapshot timestamp."
+  },
+  "dataIntegrity": {
+    "finalSnapshotReconciliation": "NOT_AVAILABLE_FOR_CURRENT_WINDOW",
+    "independentTimestampMatchedSources": 1,
+    "trainingEligible": false,
+    "state": "TRAINING_BLOCKED",
+    "reason": "No second independent authoritative source with timestamp-matched current-window price/volume data was available. Public web results surfaced stale historical FGI data and therefore were rejected for reconciliation."
+  },
+  "rulesPreserved": [
+    "Extended-Hours Persistence Gate",
+    "Persistence Slope",
+    "After-Hours Volume Participation",
+    "Extended-Hours Volume Takeover",
+    "Mandatory Fresh-Catalyst Sweep",
+    "Event-Timing Context",
+    "Catalyst Clock",
+    "Catalyst Attribution Error",
+    "Exhaustion Memory Penalty",
+    "Final Snapshot Reconciliation",
+    "Early Regime Shift Score",
+    "No-News Momentum Path",
+    "Hour-to-Hour Gain Retention"
+  ],
+  "continuityFromPriorAudit": {
+    "priorAudit": "tag/audits/2026-08-13-0905ET-self-learning.json",
+    "FGI": "Remain early-regime-shift candidate from unreconciled premarket evidence; no predictive credit and no threshold change.",
+    "GXAI": "Remain late-momentum classification; no discovery credit.",
+    "XHG": "Remain excluded from actionable Sharia universe because core activity was classified as Insurance Brokers in prior audit."
+  },
+  "currentWindowEvaluation": {
+    "moversTruthSetAvailable": false,
+    "missedMoversScored": false,
+    "falsePositivesScored": false,
+    "firstActionableSignalScored": false,
+    "reason": "Early regular-session window is not final and lacks reconciled two-source truth set."
+  },
+  "errorAttribution": {
+    "marketError": "NOT_ASSESSABLE_YET",
+    "dataError": "SECOND_SOURCE_AND_FINAL_WINDOW_UNAVAILABLE",
+    "classificationError": "NOT_PROVEN"
+  },
+  "thresholdExperiment": {
+    "changed": false,
+    "testedCandidateChange": null,
+    "reason": "No reconciled multi-session sample supports a threshold modification."
+  },
+  "versionDecision": {
+    "promote": false,
+    "version": "TAG5",
+    "reason": "No validated multi-session improvement; current window remains unreconciled and non-final. TAG10 alpha artifacts do not constitute a validated promotion for this self-learning lineage."
+  },
+  "nextLearningPriority": [
+    "Obtain timestamp-matched second-source market data for final window reconciliation.",
+    "Preserve explicit snapshot timestamps and distinguish intraperiod from final extended-hours close.",
+    "Complete catalyst and Sharia enrichment early enough to measure firstActionableSignal rather than only firstObserved.",
+    "Do not score missed movers or false positives until a reconciled truth set exists."
+  ]
+}
