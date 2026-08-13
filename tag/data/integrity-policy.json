@@ -1,12 +1,16 @@
 {
   "referenceVersion": "TAG5",
-  "policyVersion": "2026-08-12.2",
+  "policyVersion": "2026-08-13.1",
   "finalSnapshotReconciliation": {
     "required": true,
     "minimumIndependentSourcesWhenPossible": 2,
     "singleSourceFinalMoverAccepted": false,
     "materialDisagreementState": "DATA_INTEGRITY_ERROR",
-    "trainingBlockedUntilResolved": true
+    "trainingBlockedUntilResolved": true,
+    "fieldLevelEligibility": true,
+    "priceChangeOutcomeMayTrainWhenIndependentlyReconciled": true,
+    "volumeDerivedMetricsRequireIndependentFinalVolumeReconciliation": true,
+    "singleSessionReconciliationCannotTriggerVersionPromotion": true
   },
   "snapshotTiming": {
     "storeTimestampUTC": true,
@@ -53,12 +57,7 @@
     "minimumCommonTickers": 10,
     "freezeState": "SOURCE_FIELD_FREEZE_SUSPECTED",
     "unverifiedState": "UNVERIFIED_EXTENDED_HOURS_FIELDS",
-    "blockedMetrics": [
-      "Persistence Slope",
-      "Hour-to-Hour Gain Retention",
-      "After-Hours Volume Participation",
-      "Extended-Hours Volume Takeover"
-    ],
+    "blockedMetrics": ["Persistence Slope", "Hour-to-Hour Gain Retention", "After-Hours Volume Participation", "Extended-Hours Volume Takeover"],
     "blockedMetricsCannotTrainOrCreateActionableSignal": true,
     "requireExtendedHoursNativeSourceBeforeReenable": true
   },
@@ -74,14 +73,7 @@
   "actionableSignalInstrumentation": {
     "required": true,
     "nullTimestampMustHaveExplicitReason": true,
-    "validNullReasons": [
-      "NOT_MODEL_QUALIFIED",
-      "INCOMPLETE_MODEL_INPUTS",
-      "DATA_INTEGRITY_BLOCK",
-      "SHARIA_UNVERIFIED",
-      "SHARIA_EXCLUDED",
-      "NOT_EVALUATED"
-    ],
+    "validNullReasons": ["NOT_MODEL_QUALIFIED", "INCOMPLETE_MODEL_INPUTS", "DATA_INTEGRITY_BLOCK", "SHARIA_UNVERIFIED", "SHARIA_EXCLUDED", "NOT_EVALUATED"],
     "pipelineMustPersistQualificationDecision": true,
     "pipelineMustPersistDecisionTimestampET": true,
     "pipelineMustPersistDecisionPhase": true,
@@ -113,7 +105,9 @@
     "recordFirstActionableSignalTimestamp": true,
     "actionableTimestampRequiresModelQualificationNotRawAppearance": true,
     "doNotClaimUnverifiedPredictionSuccess": true,
-    "blockPerformanceMetricsWhenActionabilityInstrumentationMissing": true
+    "blockPerformanceMetricsWhenActionabilityInstrumentationMissing": true,
+    "allowOutcomeLabelLearningOnlyFromReconciledPriceChange": true,
+    "blockVolumeThresholdLearningUnlessVolumeReconciled": true
   },
   "sharia": {
     "excludeCoreProhibitedActivities": true,
