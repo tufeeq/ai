@@ -1,0 +1,22 @@
+name: TAG10 CI
+on:
+  push:
+    branches: [tag10-rebuild]
+    paths: ['tag10/**', '.github/workflows/tag10-ci.yml']
+  pull_request:
+    paths: ['tag10/**']
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check tag10/engine.js
+          node --check tag10/data-source.js
+          node --check tag10/app.js
+      - name: Engine behavioral tests
+        run: node tag10/test-engine.js
