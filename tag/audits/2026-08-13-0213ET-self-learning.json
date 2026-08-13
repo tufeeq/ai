@@ -1,0 +1,56 @@
+{
+  "cycleLocalTimeET": "2026-08-13T02:13:32-04:00",
+  "referenceVersion": "TAG5",
+  "versionPromoted": false,
+  "thresholdChanges": [],
+  "preservedRules": [
+    "Extended-Hours Persistence Gate",
+    "Persistence Slope",
+    "After-Hours Volume Participation",
+    "Extended-Hours Volume Takeover",
+    "Mandatory Fresh-Catalyst Sweep",
+    "Event-Timing Context",
+    "Catalyst Clock",
+    "Catalyst Attribution Error",
+    "Exhaustion Memory Penalty",
+    "Early Regime Shift Score",
+    "No-News Momentum Path",
+    "Hour-to-Hour Gain Retention",
+    "Final Snapshot Reconciliation",
+    "Strict Sharia Gate"
+  ],
+  "latestFinalReconciliation": {
+    "session": "2026-08-12",
+    "state": "PARTIAL_RECONCILIATION",
+    "trainingEligible": false,
+    "notes": [
+      "BOXL remained DATA_INTEGRITY_ERROR on final price/change and volume.",
+      "RMCF price/change reconciled but final volume remained blocked.",
+      "OFAL remained DATA_INTEGRITY_ERROR on final price/change and volume.",
+      "BOXL and RMCF first observations were LATE; OFAL remained an ignition candidate but unusable for threshold training."
+    ]
+  },
+  "integrityFindings": [
+    {
+      "severity": "HIGH",
+      "issue": "Yahoo enrichment stored the last 5-minute bar volume as generic volume, creating a semantic mismatch against cumulative Finviz volume and potential contamination of RVOL/volume-derived learning.",
+      "action": "Changed Yahoo volume to the sum of available 5-minute chart bars, retained intervalVolume separately, and tagged volumeSemantic plus a coverage warning."
+    },
+    {
+      "severity": "HIGH",
+      "issue": "Final Snapshot Reconciliation did not explicitly require source timestamps to align to the same final window/session before declaring price/change reconciliation.",
+      "action": "Added <=10-minute timestamp alignment and same-session-date gates. Timestamp mismatch now produces SOURCE_TIMESTAMP_MISMATCH and blocks training."
+    },
+    {
+      "severity": "HIGH",
+      "issue": "Volume reconciliation did not require compatible volume semantics between independent sources.",
+      "action": "Volume-derived training now requires volumeSemantic=chart_bar_sum_session_cumulative plus timestamp alignment and <=10% volume difference."
+    }
+  ],
+  "commits": [
+    "a722741d69c08edda6ce9c713463aac568a9c47e",
+    "c702a672fae172855350c1250751106776419119"
+  ],
+  "promotionDecision": "KEEP_TAG5",
+  "promotionReason": "No reconciled multi-session evidence of material predictive improvement; this cycle corrected data semantics and reconciliation gates only."
+}
