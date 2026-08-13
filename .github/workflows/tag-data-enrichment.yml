@@ -100,8 +100,12 @@ jobs:
               try:
                   y=get_json('https://query1.finance.yahoo.com/v8/finance/chart/'+urllib.parse.quote(t)+'?interval=5m&range=1d&includePrePost=true');res=(y.get('chart',{}).get('result') or [None])[0]
                   if res:
-                      meta=res.get('meta',{});ts=res.get('timestamp') or [];q=((res.get('indicators',{}).get('quote') or [{}])[0]);closes=q.get('close') or [];vols=q.get('volume') or [];valid=[(a,b,c) for a,b,c in zip(ts,closes,vols) if b is not None];last=valid[-1] if valid else (None,None,None);prev=meta.get('chartPreviousClose') or meta.get('previousClose');ch=((last[1]/prev-1)*100) if last[1] and prev else None
-                      item['price']={'source':'Yahoo Finance chart','last':last[1],'volume':last[2],'volumeUsableForFinalReconciliation':bool(last[2] and last[2]>0),'timestampUTC':datetime.datetime.fromtimestamp(last[0],datetime.timezone.utc).isoformat() if last[0] else None,'previousClose':prev,'changePct':round(ch,3) if ch is not None else None,'exchange':meta.get('exchangeName'),'currency':meta.get('currency')};yahoo_ok+=1
+                      meta=res.get('meta',{});ts=res.get('timestamp') or [];q=((res.get('indicators',{}).get('quote') or [{}])[0]);closes=q.get('close') or [];vols=q.get('volume') or []
+                      valid=[(a,b,c) for a,b,c in zip(ts,closes,vols) if b is not None]
+                      last=valid[-1] if valid else (None,None,None)
+                      cumulative_volume=sum(float(c) for a,b,c in valid if c is not None and float(c)>=0)
+                      prev=meta.get('chartPreviousClose') or meta.get('previousClose');ch=((last[1]/prev-1)*100) if last[1] and prev else None
+                      item['price']={'source':'Yahoo Finance chart','last':last[1],'volume':cumulative_volume if cumulative_volume>0 else None,'intervalVolume':last[2],'volumeSemantic':'chart_bar_sum_session_cumulative','volumeCoverageNote':'Sum of Yahoo 5-minute chart bars; extended-hours volume may be incomplete or zero for some symbols.','volumeUsableForFinalReconciliation':bool(cumulative_volume and cumulative_volume>0),'timestampUTC':datetime.datetime.fromtimestamp(last[0],datetime.timezone.utc).isoformat() if last[0] else None,'previousClose':prev,'changePct':round(ch,3) if ch is not None else None,'exchange':meta.get('exchangeName'),'currency':meta.get('currency')};yahoo_ok+=1
               except Exception as e:item['errors'].append('YAHOO:'+type(e).__name__)
               ident=secmap.get(t)
               if ident and ident.get('cik'):
