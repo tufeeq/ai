@@ -1,128 +1,22 @@
 (()=>{
-  const $=s=>document.querySelector(s);
-  const numericFields=['price','changePct','volume','avgVolume','float','pmChange','ahChange','ahVolume','spreadPct','catalystAgeHours'];
-  const labels={price:'السعر',changePct:'التغير %',volume:'الحجم',avgVolume:'متوسط الحجم',float:'الفلوت',pmChange:'قبل الافتتاح %',ahChange:'بعد الإغلاق %',ahVolume:'حجم AH',spreadPct:'Spread %',catalystAgeHours:'عمر المحفز'};
-  const fmt=(v,d=2)=>Number.isFinite(+v)?Number(v).toLocaleString('en-US',{maximumFractionDigits:d}):'غير متوفر';
-  let enrichmentCache=null;
-
-  function cleanNumber(v){
-    const s=String(v??'').trim();
-    if(!s)return null;
-    const m=s.replace(/[$,%]/g,'').replace(/,/g,'').match(/^(-?[\d.]+)\s*([KMBT])?$/i);
-    if(!m)return null;
-    const mult={K:1e3,M:1e6,B:1e9,T:1e12};
-    const n=Number(m[1])*(mult[(m[2]||'').toUpperCase()]||1);
-    return Number.isFinite(n)?n:null;
-  }
-  function findLiveRow(ticker){
-    try{return (typeof rows!=='undefined'?rows:[]).find(r=>String(r.ticker||r.Ticker||'').toUpperCase()===ticker)||null;}catch(e){return null;}
-  }
-  async function enrichment(){
-    if(enrichmentCache)return enrichmentCache;
-    try{const r=await fetch(`./data/enrichment.json?ts=${Date.now()}`,{cache:'no-store'});if(!r.ok)return null;enrichmentCache=await r.json();return enrichmentCache;}catch(e){return null;}
-  }
-  function recursiveTickerLookup(obj,ticker,depth=0){
-    if(!obj||depth>5)return null;
-    if(Array.isArray(obj)){
-      for(const x of obj){const hit=recursiveTickerLookup(x,ticker,depth+1);if(hit)return hit;}
-      return null;
-    }
-    if(typeof obj!=='object')return null;
-    const symbol=String(obj.ticker||obj.Ticker||obj.symbol||obj.Symbol||'').toUpperCase();
-    if(symbol===ticker)return obj;
-    if(obj[ticker]&&typeof obj[ticker]==='object')return obj[ticker];
-    for(const v of Object.values(obj)){if(v&&typeof v==='object'){const hit=recursiveTickerLookup(v,ticker,depth+1);if(hit)return hit;}}
-    return null;
-  }
-  function val(o,...keys){for(const k of keys){if(o&&o[k]!==undefined&&o[k]!==null&&o[k]!=='')return o[k];}return null;}
-  function mergeSource(live,enr){
-    const market=enr?.market||enr?.quote||enr?.yahoo||enr?.price||{};
-    return {
-      price: val(live,'price') ?? val(market,'price','regularMarketPrice','postMarketPrice','preMarketPrice') ?? val(enr,'price','regularMarketPrice'),
-      changePct: val(live,'changePct') ?? val(market,'changePct','regularMarketChangePercent','postMarketChangePercent','preMarketChangePercent') ?? val(enr,'changePct'),
-      volume: val(live,'volume') ?? val(market,'volume','regularMarketVolume') ?? val(enr,'volume'),
-      avgVolume: val(live,'avgVolume') ?? val(market,'avgVolume','averageDailyVolume10Day','averageVolume') ?? val(enr,'avgVolume'),
-      float: val(live,'float') ?? val(market,'float','floatShares') ?? val(enr,'float','floatShares'),
-      pmChange: val(live,'pmChange') ?? val(market,'preMarketChangePercent','pmChange') ?? val(enr,'pmChange'),
-      ahChange: val(live,'ahChange') ?? val(market,'postMarketChangePercent','afterHoursChangePercent','ahChange') ?? val(enr,'ahChange'),
-      ahVolume: val(live,'ahVolume') ?? val(market,'postMarketVolume','afterHoursVolume','ahVolume') ?? val(enr,'ahVolume'),
-      spreadPct: val(live,'spreadPct') ?? val(enr,'spreadPct'),
-      catalystAgeHours: val(live,'catalystAgeHours') ?? val(enr,'catalystAgeHours'),
-      sharia: val(live,'sharia') ?? val(enr,'sharia') ?? 'UNVERIFIED'
-    };
-  }
-  function setField(form,name,value,source){
-    const el=form.elements[name]; if(!el)return;
-    if(value===null||value===undefined||value===''){el.value='';el.dataset.source='missing';return;}
-    el.value=typeof value==='number'?String(value):String(value).replace('%','');
-    el.dataset.source=source;
-  }
-  function paintSources(form){
-    numericFields.forEach(name=>{
-      const el=form.elements[name];if(!el)return;
-      const label=el.closest('label');if(!label)return;
-      let badge=label.querySelector('.field-source');
-      if(!badge){badge=document.createElement('small');badge.className='field-source';label.appendChild(badge);}
-      const s=el.dataset.source||'manual';
-      badge.textContent=s==='live'?'بيانات السوق':s==='enriched'?'مصدر ثانٍ':s==='missing'?'غير متوفر':'إدخال يدوي';
-      badge.className=`field-source source-${s}`;
-    });
-  }
-  async function loadTicker(form){
-    const ticker=String(form.elements.ticker?.value||'').trim().toUpperCase();
-    if(!ticker)return;
-    const status=$('#manualAnalyzerStatus'); if(status)status.textContent='جاري جلب بيانات السهم…';
-    const live=findLiveRow(ticker);
-    const e=await enrichment();
-    const enr=recursiveTickerLookup(e,ticker);
-    const merged=mergeSource(live,enr);
-    numericFields.forEach(name=>setField(form,name,merged[name],live&&live[name]!==undefined&&live[name]!==null?'live':(enr?'enriched':'missing')));
-    if(form.elements.sharia)form.elements.sharia.value=['VERIFIED','UNVERIFIED','EXCLUDED'].includes(String(merged.sharia).toUpperCase())?String(merged.sharia).toUpperCase():'UNVERIFIED';
-    paintSources(form);
-    if(status){
-      const sources=[live?'Finviz/TAG market snapshot':null,enr?'enrichment source':null].filter(Boolean);
-      status.textContent=sources.length?`تم تحميل ${ticker} من ${sources.join(' + ')}. راجع توقيت البيانات قبل القرار.`:`لم أجد ${ticker} في البيانات الحالية. أدخل القيم يدويًا؛ لن يتم اختلاق الحقول الناقصة.`;
-    }
-  }
-  function readForm(form){
-    const o={ticker:String(form.elements.ticker?.value||'').trim().toUpperCase(),sharia:String(form.elements.sharia?.value||'UNVERIFIED').toUpperCase()};
-    const missing=[];
-    numericFields.forEach(k=>{const v=cleanNumber(form.elements[k]?.value);o[k]=v===null?undefined:v;if(v===null)missing.push(k);});
-    return {o,missing};
-  }
-  function renderResult(o,missing){
-    const box=$('#analysisResult');if(!box)return;
-    const required=['price','changePct','volume','avgVolume'];
-    const absent=required.filter(k=>!Number.isFinite(o[k]));
-    if(absent.length){
-      box.classList.remove('empty');
-      box.innerHTML=`<div class="manual-error"><strong>لا يمكن إصدار تحليل موثوق بعد.</strong><p>الحقول الأساسية المفقودة: ${absent.map(k=>labels[k]).join('، ')}.</p><small>TAG لن يحول الحقول الفارغة إلى صفر ولن يستخدم بيانات المثال السابق.</small></div>`;
-      return;
-    }
-    const z=window.TAG8?.analyze?window.TAG8.analyze(o):(typeof window.analyze==='function'?window.analyze(o):null);
-    if(!z){box.innerHTML='<div class="manual-error">محرك TAG8 غير متاح.</div>';return;}
-    const t=z.targets||{};
-    const missingText=missing.length?missing.map(k=>labels[k]).join('، '):'لا يوجد';
-    const stage=window.TAG8?.stageLabel?window.TAG8.stageLabel(z.stage):z.stage;
-    box.classList.remove('empty');
-    box.innerHTML=`<div class="manual-result-head"><div><small>${o.ticker} · تحليل بالقيم المعروضة فقط</small><h3>${stage}</h3></div><strong>${fmt(z.score,0)}/100</strong></div>
-      <div class="manual-result-grid"><div><small>السعر</small><b>$${fmt(z.price,4)}</b></div><div><small>التغير</small><b>${z.changePct>=0?'+':''}${fmt(z.changePct,2)}%</b></div><div><small>RVOL</small><b>${fmt(z.rvol,2)}×</b></div><div><small>المخاطر</small><b>${fmt(z.risk,0)}/100</b></div><div><small>جودة البيانات</small><b>${fmt(z.dataQuality,0)}%</b></div><div><small>T2</small><b>${Number.isFinite(t.t2)?'$'+fmt(t.t2,4):'غير متوفر'}</b></div></div>
-      <div class="manual-provenance"><strong>القرار:</strong> ${z.decision||'مراقبة'}<br><strong>حقول ناقصة:</strong> ${missingText}<br><strong>تنبيه:</strong> الحقول الناقصة تخفض جودة البيانات ولا تُفترض قيمها.</div>`;
-  }
-  function replaceForm(){
-    const old=$('#analyzerForm');if(!old||old.dataset.fixed==='1')return;
-    const form=old.cloneNode(true);old.replaceWith(form);form.dataset.fixed='1';
-    numericFields.forEach(k=>{const el=form.elements[k];if(el){el.value='';el.dataset.source='missing';}});
-    if(form.elements.ticker)form.elements.ticker.value='';
-    if(form.elements.sharia)form.elements.sharia.value='UNVERIFIED';
-    const btn=form.querySelector('button[type="submit"],button.primary');if(btn)btn.textContent='حلل بالقيم الحالية';
-    const load=document.createElement('button');load.type='button';load.id='loadTickerData';load.className='app-secondary wide';load.textContent='جلب بيانات السهم الحالية';form.appendChild(load);
-    const status=document.createElement('div');status.id='manualAnalyzerStatus';status.className='manual-analyzer-status wide';status.textContent='اكتب الرمز ثم اجلب البيانات الحالية أو أدخل القيم يدويًا.';form.appendChild(status);
-    paintSources(form);
-    load.onclick=()=>loadTicker(form);
-    form.elements.ticker?.addEventListener('change',()=>loadTicker(form));
-    numericFields.forEach(k=>form.elements[k]?.addEventListener('input',e=>{e.target.dataset.source='manual';paintSources(form);}));
-    form.addEventListener('submit',e=>{e.preventDefault();const {o,missing}=readForm(form);renderResult(o,missing);});
-  }
-  window.addEventListener('DOMContentLoaded',()=>setTimeout(replaceForm,0));
+const $=s=>document.querySelector(s);const fmt=(v,d=2)=>Number.isFinite(+v)?Number(v).toLocaleString('en-US',{maximumFractionDigits:d}):'—';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function marketRows(){try{return typeof rows!=='undefined'?rows:[]}catch(e){return[]}}
+async function getJson(path){try{const r=await fetch(path+'?ts='+Date.now(),{cache:'no-store'});if(!r.ok)return null;return await r.json()}catch(e){return null}}
+function findRow(t){return marketRows().find(r=>String(r.ticker||r.Ticker||'').toUpperCase()===t)||null}
+function age(ts){const x=Date.parse(ts||'');if(!Number.isFinite(x))return null;return Math.max(0,(Date.now()-x)/60000)}
+function ageText(ts){const m=age(ts);if(m===null)return 'غير معروف';if(m<60)return Math.round(m)+' د';return Math.floor(m/60)+' س '+Math.round(m%60)+' د'}
+function populate(){const list=$('#analysisTickerList');if(!list)return;const a=marketRows().map(r=>String(r.ticker||'').toUpperCase()).filter(Boolean).sort();list.innerHTML=a.map(t=>`<option value="${esc(t)}"></option>`).join('')}
+function usefulNews(item){return (item?.news||[]).slice(0,3)}function usefulFilings(item){return (item?.filings||[]).slice(0,3)}
+async function analyzeTicker(ticker,refresh=false){ticker=String(ticker||'').trim().toUpperCase();const box=$('#analysisResult');if(!ticker||!box)return;if(refresh&&typeof window.loadGitHubFinviz==='function')await window.loadGitHubFinviz();box.classList.remove('empty');box.innerHTML='<div class="analysis-loading">جاري جلب أحدث البيانات المتاحة…</div>';
+const [enr,rec]=await Promise.all([getJson('./data/enrichment.json'),getJson('./data/final-reconciliation.json')]);const live=findRow(ticker);const item=enr?.rows?.[ticker]||null;if(!live){box.innerHTML=`<div class="manual-error"><strong>${esc(ticker)} غير موجود في مسح السوق الحالي.</strong><p>اختر سهمًا من القائمة الحالية حتى لا يتم تركيب تحليل من بيانات ناقصة.</p></div>`;return}
+const yahoo=item?.price||{};const marketTs=live.snapshotTimestampUTC||window.TAGDataIntegrity?.snapshotTimestampUTC||null;const yahooTs=yahoo.timestampUTC||null;const marketAge=age(marketTs);const yahooAge=age(yahooTs);const marketFresh=marketAge!==null&&marketAge<=15;const session=live.session||window.TAGDataIntegrity?.session||'—';
+let input={...live};let priceSource='Finviz';let cross='غير متوفر';if(Number.isFinite(+yahoo.last)&&Number.isFinite(+live.price)&&+live.price>0){const diff=Math.abs((+yahoo.last/+live.price-1)*100);cross=`فرق السعر ${diff.toFixed(2)}%`;if(yahooAge!==null&&marketAge!==null&&yahooAge<marketAge&&diff<=3){input.price=+yahoo.last;if(Number.isFinite(+yahoo.changePct))input.changePct=+yahoo.changePct;priceSource='Yahoo (أحدث، متوافق)'}}
+if((!Number.isFinite(+input.float)||+input.float<=0)&&Number.isFinite(+item?.shortData?.publicFloat))input.float=+item.shortData.publicFloat;
+const z=window.TAG8?.analyze?window.TAG8.analyze(input):null;if(!z){box.innerHTML='<div class="manual-error">محرك TAG غير متاح.</div>';return}
+const sd=item?.shortData||{};const news=usefulNews(item),fil=usefulFilings(item);const t=z.targets||{};const stage=window.TAG8?.stageLabel?window.TAG8.stageLabel(z.stage):z.stage;const liveLabel=marketFresh?'حديثة':'آخر لقطة متاحة';const recState=rec?.status||rec?.reconciliationStatus||rec?.finalSnapshotReconciliation||'غير مكتملة';
+box.innerHTML=`<div class="auto-analysis-head"><div><small>${esc(item?.identity?.company||'')}</small><h2>${esc(ticker)}</h2><span>${stage}</span></div><div class="auto-analysis-score"><strong>${fmt(z.score,0)}</strong><small>TAG</small></div></div><div class="auto-decision">${esc(z.decision||'مراقبة')}<small>${liveLabel} · ${esc(session)} · ${esc(marketTs||'')}</small></div><div class="auto-kpis"><div><small>السعر</small><b>$${fmt(z.price,4)}</b><span>${priceSource}</span></div><div><small>التغير</small><b class="${z.changePct>=0?'pos':'neg'}">${z.changePct>=0?'+':''}${fmt(z.changePct,2)}%</b><span>${cross}</span></div><div><small>RVOL</small><b>${fmt(z.rvol,2)}×</b><span>الحجم ${fmt(z.volume,0)}</span></div><div><small>المخاطر</small><b>${fmt(z.risk,0)}/100</b><span>إنهاك ${fmt(z.exhaustion,0)}</span></div><div><small>T2</small><b>${Number.isFinite(+t.t2)?'$'+fmt(t.t2,4):'—'}</b><span>${Number.isFinite(+t.p2)?fmt(t.p2,0)+'%':'—'}</span></div><div><small>Short Float</small><b>${Number.isFinite(+sd.shortFloatPct)?fmt(sd.shortFloatPct,2)+'%':'—'}</b><span>${sd.settlementDate?'تسوية '+esc(sd.settlementDate):'غير متوفر'}</span></div></div><div class="auto-analysis-grid"><section><h4>الإشارة</h4><p>${(z.reasons||[]).slice(0,5).map(esc).join(' · ')||'لا توجد إشارة مكتملة.'}</p><dl><dt>Early</dt><dd>${fmt(z.early,0)}</dd><dt>Ignition</dt><dd>${fmt(z.ignition,0)}</dd><dt>Continuation</dt><dd>${fmt(z.continuation,0)}</dd><dt>جودة البيانات</dt><dd>${fmt(z.dataQuality,0)}%</dd></dl></section><section><h4>المصادر</h4><dl><dt>Finviz</dt><dd>${ageText(marketTs)}</dd><dt>Yahoo</dt><dd>${yahooTs?ageText(yahooTs):'غير متوفر'}</dd><dt>SEC</dt><dd>${fil.length?'متوفر':'غير متوفر'}</dd><dt>المصالحة النهائية</dt><dd>${esc(recState)}</dd></dl></section></div>${news.length?`<div class="auto-feed"><h4>آخر الأخبار</h4>${news.map(n=>`<a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.title)}</a>`).join('')}</div>`:''}${fil.length?`<div class="auto-feed"><h4>آخر الإفصاحات</h4>${fil.map(f=>`<a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.form)} · ${esc(f.filed)}</a>`).join('')}</div>`:''}`;
+}
+function wire(){const old=$('#analyzerForm');if(!old)return;const form=old.cloneNode(true);old.replaceWith(form);const input=form.elements.ticker;form.addEventListener('submit',e=>{e.preventDefault();analyzeTicker(input.value,false)});$('#refreshSelectedTicker')?.addEventListener('click',()=>analyzeTicker(input.value,true));document.addEventListener('click',e=>{const tr=e.target.closest?.('.stock-row');if(!tr?.dataset?.ticker)return;input.value=tr.dataset.ticker;analyzeTicker(tr.dataset.ticker,false);document.querySelector('#analysis')?.scrollIntoView({behavior:'smooth',block:'start'})});populate();let tries=0;const id=setInterval(()=>{populate();if(marketRows().length||++tries>20)clearInterval(id)},500)}
+window.addEventListener('DOMContentLoaded',()=>setTimeout(wire,0));window.TAGAnalyzeTicker=analyzeTicker;
 })();
