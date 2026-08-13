@@ -48,11 +48,13 @@ function targetSet(x,e,p){
 }
 function analyze(x){
  const e=normEvidence(x), state=stateMachine(x,e), probabilities=paths(x,e,state), targets=targetSet(x,e,probabilities);
- const verified=x.sharia==='VERIFIED', excluded=x.sharia==='EXCLUDED';
  const tradeability=clamp(1-(e.executionRisk*.45+e.dilution*.22+e.halt*.18+e.exhaustion*.15));
  const evidenceStrength=clamp(e.volAccel*.18+e.floatVelocity*.12+(e.micro??.5)*.18+e.persistence*.13+e.fresh*.12+e.sector*.08+e.spreadQ*.08+e.liquidity*.05+e.quality*.06);
- let decision='ABSTAIN';
- if(excluded)decision='EXCLUDED'; else if(!verified)decision='SHARIA_UNVERIFIED'; else if(e.quality<.5)decision='ABSTAIN_DATA'; else if(state==='FAILURE_RISK'||probabilities.pFail>.58)decision='AVOID'; else if(['PRESSURE','IGNITION'].includes(state)&&probabilities.pUp10>.62&&tradeability>.55)decision='NOW'; else if(['ACCUMULATION','PRESSURE'].includes(state)&&probabilities.pUp10>.50)decision='FORMING'; else decision='WATCH';
+ let decision='WATCH';
+ if(e.quality<.5)decision='ABSTAIN_DATA';
+ else if(state==='FAILURE_RISK'||probabilities.pFail>.58)decision='AVOID';
+ else if(['PRESSURE','IGNITION'].includes(state)&&probabilities.pUp10>.62&&tradeability>.55)decision='NOW';
+ else if(['ACCUMULATION','PRESSURE'].includes(state)&&probabilities.pUp10>.50)decision='FORMING';
  const invalidation=e.price*(1-Math.min(.14,.045+e.executionRisk*.05+e.exhaustion*.03));
  return {...x,evidence:e,state,probabilities,targets,tradeability,evidenceStrength,decision,invalidation};
 }
