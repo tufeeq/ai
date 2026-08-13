@@ -1,0 +1,113 @@
+name: TAG Final Snapshot Reconciliation
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '5 0 * * 1-6'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tag-final-reconciliation-main
+  cancel-in-progress: true
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Reconcile final after-hours snapshot
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime, math
+          from zoneinfo import ZoneInfo
+
+          finviz_path=pathlib.Path('tag/data/finviz.json')
+          enrich_path=pathlib.Path('tag/data/enrichment.json')
+          out_path=pathlib.Path('tag/data/final-reconciliation.json')
+
+          def load(p):
+              try: return json.loads(p.read_text(encoding='utf-8'))
+              except Exception: return {}
+          def pct(v):
+              try: return float(str(v or '0').replace('%','').replace(',',''))
+              except: return None
+          def num(v):
+              try: return float(str(v or '0').replace(',',''))
+              except: return None
+
+          f=load(finviz_path); e=load(enrich_path)
+          ts=f.get('snapshotTimestampET') or f.get('updatedAt')
+          try:
+              dt=datetime.datetime.fromisoformat(ts)
+              if dt.tzinfo is None: dt=dt.replace(tzinfo=datetime.timezone.utc)
+              dt_et=dt.astimezone(ZoneInfo('America/New_York'))
+          except Exception:
+              dt_et=None
+
+          # Accept the last after-hours boundary even when the producer runs a few minutes after 20:00
+          final_boundary=bool(dt_et and datetime.time(19,55) <= dt_et.time() <= datetime.time(20,10))
+          rows=f.get('rows') or f.get('data') or []
+          erows=(e.get('rows') or {}) if isinstance(e,dict) else {}
+          results=[]
+          matched=0; conflict=0; missing=0
+
+          for r in rows[:120]:
+              t=str(r.get('Ticker') or r.get('Symbol') or '').upper()
+              if not t: continue
+              fp=num(r.get('Price')); fc=pct(r.get('Change')); fv=num(r.get('Volume'))
+              y=(erows.get(t) or {}).get('price') or {}
+              yp=num(y.get('last')); yc=num(y.get('changePct')); yv=num(y.get('volume'))
+              price_diff_pct=None if not(fp and yp) else abs(fp-yp)/max(abs(fp),abs(yp))*100
+              change_diff_pp=None if fc is None or yc is None else abs(fc-yc)
+              # Yahoo chart often reports zero volume at the final extended-hours print; do not fabricate reconciliation.
+              volume_reconciled=bool(fv is not None and yv is not None and yv>0 and abs(fv-yv)/max(fv,yv,1)<=0.10)
+              price_change_reconciled=bool(price_diff_pct is not None and price_diff_pct<=2.0 and change_diff_pp is not None and change_diff_pp<=5.0)
+              if price_change_reconciled: state='PRICE_CHANGE_RECONCILED'; matched+=1
+              elif yp is None or yc is None: state='SECOND_SOURCE_MISSING'; missing+=1
+              else: state='DATA_INTEGRITY_ERROR'; conflict+=1
+              results.append({
+                  'ticker':t,
+                  'finviz':{'price':fp,'changePct':fc,'volume':fv,'timestampET':f.get('snapshotTimestampET')},
+                  'yahoo':{'price':yp,'changePct':yc,'volume':yv,'timestampUTC':y.get('timestampUTC')},
+                  'priceDiffPct':None if price_diff_pct is None else round(price_diff_pct,3),
+                  'changeDiffPctPoints':None if change_diff_pp is None else round(change_diff_pp,3),
+                  'priceChangeReconciled':price_change_reconciled,
+                  'volumeReconciled':volume_reconciled,
+                  'state':state,
+                  'trainingEligible':False,
+                  'trainingBlockReasons':([] if price_change_reconciled else ['FINAL_PRICE_CHANGE_NOT_RECONCILED']) + ([] if volume_reconciled else ['FINAL_VOLUME_NOT_RECONCILED'])
+              })
+
+          payload={
+              'generatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'sourceSnapshotTimestampET':f.get('snapshotTimestampET'),
+              'snapshotType':'final-after-hours-close' if final_boundary else 'not-final-boundary',
+              'finalBoundaryRecognized':final_boundary,
+              'sources':['Finviz Elite','Yahoo Finance chart'],
+              'priceChangeTolerance':{'pricePct':2.0,'changePctPoints':5.0},
+              'volumeTolerancePct':10.0,
+              'finalSnapshotReconciliation':'PARTIAL_RECONCILIATION' if final_boundary and matched else 'BLOCKED',
+              'trainingEligible':False,
+              'trainingPolicy':'No final case is training truth unless required fields are independently reconciled. Volume remains blocked when second-source final AH volume is unavailable.',
+              'counts':{'checked':len(results),'priceChangeMatched':matched,'conflicts':conflict,'secondSourceMissing':missing,'volumeMatched':sum(1 for x in results if x['volumeReconciled'])},
+              'rows':results
+          }
+          out_path.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(payload['counts']))
+          PY
+
+      - name: Commit reconciliation
+        run: |
+          git config user.name "TAG Reconciliation Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/final-reconciliation.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Reconcile TAG final after-hours snapshot"
+          git pull --rebase origin main
+          git push origin main
