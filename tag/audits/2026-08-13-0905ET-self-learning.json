@@ -1,0 +1,83 @@
+{
+  "referenceVersion": "TAG5",
+  "runTimestampET": "2026-08-13T09:05:46-04:00",
+  "session": "pre-market",
+  "latestObservedSnapshot": {
+    "timestampET": "2026-08-13T08:57:58.534664-04:00",
+    "bucket": "PM5",
+    "snapshotType": "intraperiod",
+    "source": "Finviz Elite",
+    "independentSourceCount": 1,
+    "finalSnapshotReconciliation": "PENDING_SECOND_SOURCE",
+    "dataIntegrityState": "TRAINING_BLOCKED",
+    "trainingEligible": false
+  },
+  "rulesPreserved": [
+    "Extended-Hours Persistence Gate",
+    "Persistence Slope",
+    "After-Hours Volume Participation",
+    "Extended-Hours Volume Takeover",
+    "Mandatory Fresh-Catalyst Sweep",
+    "Event-Timing Context",
+    "Catalyst Clock",
+    "Catalyst Attribution Error",
+    "Exhaustion Memory Penalty",
+    "Final Snapshot Reconciliation"
+  ],
+  "observations": [
+    {
+      "ticker": "FGI",
+      "classification": "EARLY_REGIME_SHIFT_TO_IGNITION_CANDIDATE",
+      "firstObservedET": "2026-08-13T04:39:08.842591-04:00",
+      "firstObservedChangePct": 9.94,
+      "latestObservedET": "2026-08-13T08:57:58.534664-04:00",
+      "latestObservedChangePct": 86.50,
+      "latestObservedVolume": 30944425,
+      "persistenceBuckets": ["PM2", "PM3", "PM4", "PM5"],
+      "persistencePointsPct": [6.89, 18.52, 74.58, 86.50],
+      "persistenceSlopePctPts": 26.54,
+      "gainRetentionPct": 1255.4,
+      "firstActionableSignalET": null,
+      "blockedReasons": ["INCOMPLETE_MODEL_INPUTS", "CATALYST_SWEEP_NOT_AVAILABLE", "SHARIA_STATUS_NOT_AVAILABLE"],
+      "trainingEligible": false,
+      "lesson": "Strong evidence that the scanner can observe a regime shift before the explosive phase, but enrichment/actionability latency prevents credit. Do not lower momentum thresholds based on this single unreconciled session; prioritize catalyst and Sharia qualification latency."
+    },
+    {
+      "ticker": "GXAI",
+      "classification": "LATE_MOMENTUM",
+      "firstObservedET": "2026-08-13T04:39:08.842591-04:00",
+      "firstObservedChangePct": 51.60,
+      "trainingEligible": false,
+      "lesson": "Do not award discovery credit where first observation occurs after a large move. Apply Late/Exhaustion logic even when subsequent RVOL remains extreme."
+    },
+    {
+      "ticker": "XHG",
+      "classification": "SHARIA_EXCLUDED_AND_LATE",
+      "firstObservedET": "2026-08-13T08:08:26.651484-04:00",
+      "firstObservedChangePct": 30.27,
+      "latestObservedChangePct": 552.42,
+      "industry": "Insurance Brokers",
+      "shariaStatus": "EXCLUDED_CORE_ACTIVITY",
+      "trainingEligible": false,
+      "lesson": "Exclude from actionable universe regardless of momentum. It may remain a non-actionable market-regime observation only if data integrity is later reconciled."
+    }
+  ],
+  "externalReconciliation": {
+    "status": "INSUFFICIENT_FOR_FINAL_RECONCILIATION",
+    "notes": "Fresh web checks did not provide a second authoritative timestamp-matched source for FGI/GXAI/XHG at the 08:57:58 ET PM5 snapshot. Public.com pages surfaced stale July data, so they were rejected. ADVFN showed a live premarket list but did not provide timestamp-matched corroboration for these specific observations. No current intraperiod values were promoted to training truth."
+  },
+  "errorAttribution": {
+    "FGI": "DATA_ENRICHMENT_LATENCY_OR_INCOMPLETE_INPUTS",
+    "GXAI": "LATE_DISCOVERY_NOT_THRESHOLD_FAILURE",
+    "XHG": "SHARIA_EXCLUSION_PLUS_LATE_DISCOVERY"
+  },
+  "thresholdExperiment": {
+    "changed": false,
+    "reason": "No multi-session reconciled evidence supports a material threshold change."
+  },
+  "versionDecision": {
+    "promote": false,
+    "version": "TAG5",
+    "reason": "Current PM5 snapshot is intraperiod, single-source, and training-blocked; no validated multi-session improvement exists."
+  }
+}
