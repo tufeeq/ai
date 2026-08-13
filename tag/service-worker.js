@@ -1,5 +1,5 @@
-const CACHE='tag8-shell-v2';
-const SHELL=['./','./index.html','./styles.css','./tag8.css','./webapp.css','./app.js','./tag8-ui.js','./enrichment-ui.js','./webapp.js','./model/tag8-engine.js','./model/tag6-runtime-guard.js','./model/tag6-behavioral-learning.js','./model/tag6-early-discovery-upgrade.js','./manifest.webmanifest','./tag-icon.svg'];
+const CACHE='tag8-shell-v3';
+const SHELL=['./','./index.html','./styles.css','./tag8.css','./webapp.css','./app.js','./tag8-ui.js','./enrichment-ui.js','./webapp.js','./manual-analyzer.js','./model/tag8-engine.js','./model/tag6-runtime-guard.js','./model/tag6-behavioral-learning.js','./model/tag6-early-discovery-upgrade.js','./manifest.webmanifest','./tag-icon.svg'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',e=>{
