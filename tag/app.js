@@ -1,13 +1,356 @@
-const demo=[{ticker:'WAFU',price:2.41,changePct:66.1,volume:21500000,avgVolume:620000,float:4500000,pmChange:2,ahChange:66.1,ahVolume:19000000,catalystAgeHours:4,spreadPct:1.2,sharia:'UNVERIFIED'},{ticker:'BW',price:12.58,changePct:41.7,volume:7300000,avgVolume:1700000,float:90000000,pmChange:1,ahChange:41.7,ahVolume:3000000,catalystAgeHours:3,spreadPct:.4,sharia:'UNVERIFIED'},{ticker:'MTEN',price:1.40,changePct:29.6,volume:41000000,avgVolume:1800000,float:7650000,pmChange:5,ahChange:29.6,ahVolume:9000000,catalystAgeHours:96,spreadPct:2.2,sharia:'UNVERIFIED'},{ticker:'SOAR',price:.17,changePct:25.6,volume:314000000,avgVolume:22000000,float:30000000,pmChange:30,ahChange:-2.3,ahVolume:3700000,catalystAgeHours:144,spreadPct:1.5,sharia:'UNVERIFIED'},{ticker:'SCKT',price:8.1,changePct:180,volume:58000000,avgVolume:90000,float:3700000,pmChange:545,ahChange:-27,ahVolume:4100000,catalystAgeHours:18,spreadPct:2.7,sharia:'UNVERIFIED'},{ticker:'PLBY',price:2.3,changePct:26,volume:8000000,avgVolume:1200000,float:42000000,pmChange:0,ahChange:26,ahVolume:1500000,catalystAgeHours:8,spreadPct:1.1,sharia:'EXCLUDED'}];let rows=[];const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));const n=v=>{if(typeof v==='number')return v;const s=String(v??'').replace(/[$,%]/g,'').trim();const m=s.match(/^(-?[\d.]+)\s*([KMBT])?$/i);if(!m)return Number(s)||0;const p={K:1e3,M:1e6,B:1e9,T:1e12};return Number(m[1])*(p[(m[2]||'').toUpperCase()]||1)};
-function analyze(x){const rvol=x.avgVolume>0?x.volume/x.avgVolume:0,turnover=x.float>0?x.volume/x.float:0,ahPart=x.volume>0?x.ahVolume/x.volume:0,fresh=x.catalystAgeHours>=0&&x.catalystAgeHours<=24,extended=Math.max(Math.abs(x.pmChange),Math.abs(x.ahChange)),liquidity=clamp(Math.log2(1+rvol)*17),turnoverScore=clamp(Math.log2(1+turnover)*24),extScore=clamp(extended*1.15),spreadQuality=clamp(100-x.spreadPct*18),catalyst=fresh?88:x.catalystAgeHours<=72?55:25;let early=clamp(liquidity*.28+turnoverScore*.22+extScore*.25+spreadQuality*.13+catalyst*.12),ignition=clamp(early*.55+clamp(x.changePct*1.25)*.25+liquidity*.2),continuation=clamp(42+Math.max(x.ahChange,0)*.45+ahPart*80+spreadQuality*.14+(fresh?12:0)),exhaustion=clamp(Math.max(0,x.changePct-35)*.65+turnover*7+Math.max(0,-x.ahChange)*1.4+(rvol>12?12:0));if(x.changePct>80)early-=18;if(x.changePct>120)exhaustion+=20;if(x.ahChange<0&&x.changePct>50){continuation-=25;exhaustion+=18}if(x.sharia==='EXCLUDED'){early=0;ignition=0;continuation=0}early=clamp(early);ignition=clamp(ignition);continuation=clamp(continuation);exhaustion=clamp(exhaustion);let stage='DISCOVERY';if(x.changePct>90||exhaustion>76)stage='EXHAUSTION';else if(x.changePct>35||(early<45&&ignition>60))stage='LATE';else if(ignition>62||x.changePct>15)stage='IGNITION';const score=clamp(early*.55+continuation*.25+ignition*.2-exhaustion*.22),reasons=[];if(rvol>=5)reasons.push(`RVOL ${rvol.toFixed(1)}×`);if(turnover>=1)reasons.push(`Turnover ${turnover.toFixed(1)}×`);if(Math.abs(x.pmChange)>=15)reasons.push(`PM ${x.pmChange>0?'+':''}${x.pmChange}%`);if(Math.abs(x.ahChange)>=15)reasons.push(`AH ${x.ahChange>0?'+':''}${x.ahChange}%`);if(fresh)reasons.push('Fresh catalyst');if(x.changePct>80)reasons.push('Late penalty');if(x.ahChange<0&&x.changePct>50)reasons.push('Exhaustion memory');return {...x,rvol,turnover,ahPart,fresh,early,ignition,continuation,exhaustion,score,stage,reasons}}
-function gauge(label,v,c='var(--green)'){return `<div class="gauge"><div class="gauge-ring" style="--v:${v.toFixed(0)};--c:${c}"><strong>${v.toFixed(0)}</strong></div><small>${label}</small></div>`}
-function renderVisuals(a){const active=a.filter(x=>x.sharia!=='EXCLUDED').sort((a,b)=>b.score-a.score),top=active.slice(0,5);const avg=k=>top.length?top.reduce((s,x)=>s+x[k],0)/top.length:0;document.querySelector('#radar').innerHTML=gauge('Early Regime',avg('early'),'var(--blue)')+gauge('Ignition',avg('ignition'),'var(--green)')+gauge('Continuation',avg('continuation'),'var(--cyan)')+gauge('Exhaustion',avg('exhaustion'),'var(--red)');const counts=['DISCOVERY','IGNITION','LATE','EXHAUSTION'].map(k=>[k,a.filter(x=>x.stage===k).length]),mx=Math.max(1,...counts.map(x=>x[1]));document.querySelector('#stageChart').innerHTML=counts.map(([k,v])=>`<div class="stage-row"><span>${k}</span><div class="stage-track"><div class="stage-fill f-${k.toLowerCase()}" style="width:${v/mx*100}%"></div></div><b>${v}</b></div>`).join('');const t=active[0];document.querySelector('#topOpportunity').innerHTML=t?`<div class="result-top"><div class="top-ticker">${t.ticker}</div><div class="top-score">${t.score.toFixed(0)}</div></div><div class="top-meta"><span class="pill p-${t.stage.toLowerCase()}">${t.stage}</span><span class="pill p-${t.sharia.toLowerCase()}">${t.sharia}</span><span class="${t.changePct>=0?'pos':'neg'}">${t.changePct>=0?'+':''}${t.changePct.toFixed(1)}%</span></div><div class="top-reasons">${t.reasons.join(' · ')||'No strong trigger'}<br>RVOL ${t.rvol.toFixed(1)}× · Float turnover ${t.turnover.toFixed(1)}×</div>`:'لا توجد بيانات.'}
-function render(){const q=document.querySelector('#search').value.trim().toUpperCase(),sf=document.querySelector('#stageFilter').value,sh=document.querySelector('#shariaFilter').value,a=rows.map(analyze),out=a.filter(x=>(!q||x.ticker.includes(q))&&(sf==='all'||x.stage===sf)&&(sh==='all'||x.sharia===sh)).sort((a,b)=>b.score-a.score);document.querySelector('#scannerBody').innerHTML=out.map(x=>`<tr><td class="ticker">${x.ticker}</td><td>$${n(x.price).toFixed(x.price<1?3:2)}</td><td class="${x.changePct>=0?'pos':'neg'}">${x.changePct>=0?'+':''}${x.changePct.toFixed(1)}%</td><td class="score">${x.score.toFixed(0)}</td><td><span class="pill p-${x.stage.toLowerCase()}">${x.stage}</span></td><td>${x.ignition.toFixed(0)}</td><td>${x.continuation.toFixed(0)}</td><td>${x.exhaustion.toFixed(0)}</td><td>${x.rvol.toFixed(1)}×</td><td>${x.turnover.toFixed(1)}×</td><td><span class="pill p-${x.sharia.toLowerCase()}">${x.sharia}</span></td><td>${x.reasons.join(' · ')||'—'}</td></tr>`).join('')||'<tr><td colspan="12">لا توجد نتائج مطابقة.</td></tr>';const discovery=a.filter(x=>x.stage==='DISCOVERY'||x.stage==='IGNITION').length,excluded=a.filter(x=>x.sharia==='EXCLUDED').length,avg=a.length?a.reduce((s,x)=>s+x.score,0)/a.length:0,hot=a.filter(x=>x.score>=60&&x.sharia!=='EXCLUDED').length;document.querySelector('#summaryCards').innerHTML=`<div class="metric"><small>Universe</small><strong>${rows.length}</strong></div><div class="metric"><small>Early candidates</small><strong>${discovery}</strong></div><div class="metric"><small>TAG ≥ 60</small><strong>${hot}</strong></div><div class="metric"><small>Average Score</small><strong>${avg.toFixed(0)}</strong></div>`;renderVisuals(a)}
-function resultHTML(x){return `<div class="result-top"><div><div class="ticker">${x.ticker}</div><span class="pill p-${x.stage.toLowerCase()}">${x.stage}</span> <span class="pill p-${x.sharia.toLowerCase()}">${x.sharia}</span></div><div class="big-score">${x.score.toFixed(0)}</div></div><div class="score-bars">${[['Early Regime',x.early],['Ignition',x.ignition],['Continuation',x.continuation],['Exhaustion',x.exhaustion]].map(([k,v])=>`<div class="bar-row"><span>${k}</span><div class="bar"><i style="width:${v}%"></i></div><b>${v.toFixed(0)}</b></div>`).join('')}</div><p>${x.reasons.join(' · ')||'لا توجد إشارة قوية.'}</p><small>RVOL ${x.rvol.toFixed(2)}× · Turnover ${x.turnover.toFixed(2)}× · AH participation ${(x.ahPart*100).toFixed(1)}%</small>`}
-function csvRows(t){const lines=t.trim().split(/\r?\n/).filter(Boolean),h=lines.shift().match(/("[^"]*"|[^,]+)/g).map(s=>s.replace(/^"|"$/g,'').trim());return lines.map(line=>{const v=line.match(/("[^"]*"|[^,]*)/g).filter((_,i)=>i%2===0).map(s=>s.replace(/^"|"$/g,'').trim()),o={};h.forEach((k,i)=>o[k]=v[i]??'');return o})}
-function pick(o,names){for(const k of Object.keys(o)){const key=k.toLowerCase().replace(/[^a-z0-9]/g,'');if(names.includes(key))return o[k]}return ''}
-function normalizeFinviz(raw){return raw.map(o=>{const price=n(pick(o,['price'])),changePct=n(pick(o,['change','changepct','perfday'])),volume=n(pick(o,['volume'])),avgVolume=n(pick(o,['avgvolume','averagevolume','avgvol'])),flt=n(pick(o,['float','sharessfloat','sharesfloat'])),pmChange=n(pick(o,['premarketchange','premktchange','pmchange'])),ahChange=n(pick(o,['afterhourschange','postmarketchange','ahchange'])),ahVolume=n(pick(o,['afterhoursvolume','postmarketvolume','ahvolume']));return {ticker:String(pick(o,['ticker','symbol'])).toUpperCase(),price,changePct,volume,avgVolume,float:flt,pmChange,ahChange,ahVolume,catalystAgeHours:999,spreadPct:0.8,sharia:'UNVERIFIED'}}).filter(x=>x.ticker)}
-async function loadFinvizText(text,label){let parsed;try{const trimmed=text.trim();if(trimmed.startsWith('[')||trimmed.startsWith('{')){const j=JSON.parse(trimmed);parsed=Array.isArray(j)?j:(j.data||j.results||j.stocks||[])}else parsed=csvRows(text);rows=normalizeFinviz(parsed);if(!rows.length)throw new Error('No recognizable ticker rows');render();document.querySelector('#dataBadge').textContent='● DATA: FINVIZ';document.querySelector('#dataBadge').classList.add('connected');document.querySelector('#finvizStatus').className='connector-status ok';document.querySelector('#finvizStatus').textContent=`تم تحميل ${rows.length} سهم من ${label}. حقول Finviz غير الموجودة تُترك محايدة/Unverified ولا يتم اختلاقها.`;document.querySelector('#integrityLog').innerHTML=`<div class="log-item">FINVIZ import: ${rows.length} records · ${new Date().toLocaleString()}</div><div class="log-item warn">Sharia status is UNVERIFIED until a separate financial/Sharia screen is reconciled.</div>`}catch(e){document.querySelector('#finvizStatus').className='connector-status err';document.querySelector('#finvizStatus').textContent='تعذر قراءة بيانات Finviz: '+e.message}}
-async function connectFinviz(){const u=document.querySelector('#finvizUrl').value.trim();if(!u)return;const s=document.querySelector('#finvizStatus');s.className='connector-status';s.textContent='جاري الاتصال...';try{const r=await fetch(u,{credentials:'include'});if(!r.ok)throw new Error(`HTTP ${r.status}`);await loadFinvizText(await r.text(),'Finviz Elite API')}catch(e){s.className='connector-status err';s.textContent='فشل الاتصال المباشر. غالبًا رابط Elite محمي بالجلسة أو CORS. استخدم Export CSV من Finviz أو API endpoint مسموحًا به لحسابك. '+e.message}}
-function exportCSV(){const a=rows.map(analyze),h=['ticker','TAGScore','stage','ignition','continuation','exhaustion','sharia','rvol','turnover'],csv=[h.join(','),...a.map(x=>[x.ticker,x.score.toFixed(1),x.stage,x.ignition.toFixed(1),x.continuation.toFixed(1),x.exhaustion.toFixed(1),x.sharia,x.rvol.toFixed(2),x.turnover.toFixed(2)].join(','))].join('\n'),b=new Blob([csv],{type:'text/csv'}),u=URL.createObjectURL(b),ael=document.createElement('a');ael.href=u;ael.download='TAG5-results.csv';ael.click();URL.revokeObjectURL(u)}
-document.querySelector('#loadDemo').onclick=()=>{rows=structuredClone(demo);render();document.querySelector('#dataBadge').textContent='● DATA: DEMO';document.querySelector('#integrityLog').innerHTML='<div class="log-item">DEMO dataset loaded — illustrative, not live market data.</div><div class="log-item warn">UNVERIFIED = Sharia financial screening incomplete.</div>'};['search','stageFilter','shariaFilter'].forEach(id=>document.querySelector('#'+id).addEventListener('input',render));document.querySelector('#finvizFile').addEventListener('change',async e=>{const f=e.target.files[0];if(f)await loadFinvizText(await f.text(),`Finviz CSV: ${f.name}`)});document.querySelector('#connectFinviz').onclick=connectFinviz;document.querySelector('#exportBtn').onclick=exportCSV;document.querySelector('#analyzerForm').addEventListener('submit',e=>{e.preventDefault();const fd=new FormData(e.currentTarget),o={};for(const [k,v]of fd)o[k]=k==='ticker'||k==='sharia'?v.toUpperCase():n(v);document.querySelector('#analysisResult').innerHTML=resultHTML(analyze(o));document.querySelector('#analysisResult').classList.remove('empty')});const ruleData=[['Early Regime Shift','Time-normalized liquidity + range + turnover + spread quality.'],['Finviz Bridge','Official Elite API/Export input; no scraping or embedded credentials.'],['Extended-Hours Persistence','Persistent ignition versus flash spike/fade.'],['Persistence Slope','Strengthening / flat / decaying extended-hours momentum.'],['Catalyst Clock','Fresh and event-driven moves separated from recycled/no-news momentum.'],['Late Detection Penalty','Huge RVOL after a large move is not early discovery.'],['Exhaustion Memory','Mega-runners that surrender gains receive a continuation penalty.'],['Final Snapshot Reconciliation','Do not train on stale or mismatched end-of-window snapshots.'],['Sharia Gate','Excluded activity blocked; incomplete financial screening remains Unverified.']];document.querySelector('#rules').innerHTML=ruleData.map(([a,b])=>`<div class="rule"><strong>${a}</strong><span>${b}</span></div>`).join('');render();
+'use strict';
+
+const $ = (s) => document.querySelector(s);
+let rows = [];
+let analyzed = [];
+let sourceMeta = {name:'none', updated:null, warnings:[]};
+
+const FIELD_ALIASES = {
+  ticker:['ticker','symbol'],
+  price:['price','last','lastprice','close'],
+  changePct:['change','changepct','changepercent','perfday','percentchange'],
+  volume:['volume','vol'],
+  avgVolume:['avgvolume','averagevolume','avgvol','avgvolume3m','averagevol'],
+  float:['float','sharesfloat','sharessfloat','floatshares'],
+  pmChange:['premarketchange','premktchange','pmchange','premarketpercent'],
+  pmVolume:['premarketvolume','premktvolume','pmvolume'],
+  ahChange:['afterhourschange','postmarketchange','ahchange','postmarketpercent'],
+  ahVolume:['afterhoursvolume','postmarketvolume','ahvolume'],
+  prevClose:['prevclose','previousclose','priorclose','closeprev','previousdayclose'],
+  prevVolume:['prevvolume','previousvolume','priorvolume','previousdayvolume'],
+  prevHigh:['prevhigh','previoushigh','priorhigh'],
+  prevLow:['prevlow','previouslow','priorlow'],
+  high:['high','dayhigh'],
+  low:['low','daylow'],
+  open:['open','dayopen'],
+  catalystAgeHours:['catalystagehours','newsagehours'],
+  spreadPct:['spreadpct','spreadpercent','spread'],
+  sharia:['sharia','shariastatus']
+};
+
+function keyify(v){ return String(v||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+function rawPick(obj, aliases){
+  if(!obj || typeof obj !== 'object') return null;
+  const map = new Map(Object.keys(obj).map(k => [keyify(k), obj[k]]));
+  for(const a of aliases) if(map.has(a)) return map.get(a);
+  return null;
+}
+function num(v){
+  if(v === null || v === undefined || v === '') return null;
+  if(typeof v === 'number') return Number.isFinite(v) ? v : null;
+  let s = String(v).trim();
+  if(!s || /^(n\/a|na|null|undefined|—|-)$/i.test(s)) return null;
+  const neg = /^\(.*\)$/.test(s);
+  s = s.replace(/[()$,%\s]/g,'');
+  const m = s.match(/^(-?[\d.]+)([KMBT])?$/i);
+  if(!m) return null;
+  const mult={K:1e3,M:1e6,B:1e9,T:1e12};
+  let out = Number(m[1]) * (mult[(m[2]||'').toUpperCase()] || 1);
+  if(neg) out = -Math.abs(out);
+  return Number.isFinite(out) ? out : null;
+}
+function clamp(v,a=0,b=100){ return Math.max(a,Math.min(b,v)); }
+function fmt(v,d=2){ return Number.isFinite(v) ? v.toFixed(d) : '—'; }
+function fmtPct(v,d=1){ return Number.isFinite(v) ? `${v>=0?'+':''}${v.toFixed(d)}%` : '—'; }
+function fmtVol(v){
+  if(!Number.isFinite(v)) return '—';
+  if(v>=1e9) return (v/1e9).toFixed(2)+'B';
+  if(v>=1e6) return (v/1e6).toFixed(2)+'M';
+  if(v>=1e3) return (v/1e3).toFixed(1)+'K';
+  return String(Math.round(v));
+}
+function esc(s){ return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+function recordsFromPayload(payload){
+  if(Array.isArray(payload)) return payload;
+  if(!payload || typeof payload !== 'object') return [];
+  for(const k of ['data','results','stocks','rows','items','records','screener']) if(Array.isArray(payload[k])) return payload[k];
+  const vals = Object.values(payload);
+  const objectVals = vals.filter(v => v && typeof v === 'object' && !Array.isArray(v));
+  if(objectVals.length && objectVals.every(v => rawPick(v, FIELD_ALIASES.ticker))) return objectVals;
+  return [];
+}
+
+function normalizeRecord(o){
+  const ticker = String(rawPick(o,FIELD_ALIASES.ticker)||'').trim().toUpperCase();
+  if(!ticker) return null;
+  const out={ticker, raw:o};
+  for(const [k,a] of Object.entries(FIELD_ALIASES)){
+    if(k==='ticker') continue;
+    const v=rawPick(o,a);
+    out[k]=k==='sharia' ? (v?String(v).toUpperCase():'UNVERIFIED') : num(v);
+  }
+  if(!['VERIFIED','UNVERIFIED','EXCLUDED'].includes(out.sharia)) out.sharia='UNVERIFIED';
+  if(out.prevClose===null && Number.isFinite(out.price) && Number.isFinite(out.changePct) && out.changePct>-99.9){
+    out.prevClose = out.price/(1+out.changePct/100);
+    out.prevCloseDerived = true;
+  }
+  return out;
+}
+
+function applyHistoricalContext(baseRows, snapshotPayload){
+  const recs = recordsFromPayload(snapshotPayload);
+  if(!recs.length) return baseRows;
+  const groups = new Map();
+  for(const r of recs){
+    const t=String(rawPick(r,FIELD_ALIASES.ticker)||'').toUpperCase();
+    if(!t) continue;
+    const ts = Date.parse(r.timestamp||r.updatedAt||r.asOf||r.date||r.datetime||'');
+    if(!groups.has(t)) groups.set(t,[]);
+    groups.get(t).push({r,ts:Number.isFinite(ts)?ts:0});
+  }
+  for(const x of baseRows){
+    const g=(groups.get(x.ticker)||[]).sort((a,b)=>b.ts-a.ts);
+    if(g.length<2) continue;
+    const prev=g[1].r;
+    const prevPrice=num(rawPick(prev,FIELD_ALIASES.price));
+    const prevVol=num(rawPick(prev,FIELD_ALIASES.volume));
+    if(x.prevClose===null && prevPrice!==null){x.prevClose=prevPrice; x.prevCloseDerived=true;}
+    if(x.prevVolume===null && prevVol!==null){x.prevVolume=prevVol; x.prevVolumeDerived=true;}
+  }
+  return baseRows;
+}
+
+function duplicateFieldAudit(data){
+  const fields=['price','changePct','volume','avgVolume','float','pmChange','pmVolume','ahChange','ahVolume','prevClose','prevVolume','spreadPct','catalystAgeHours'];
+  const suspect=[];
+  for(const f of fields){
+    const vals=data.map(x=>x[f]).filter(Number.isFinite);
+    if(vals.length<10) continue;
+    const counts=new Map();
+    for(const v of vals){
+      const k=Math.abs(v)>=1000 ? String(Math.round(v)) : Number(v).toFixed(4);
+      counts.set(k,(counts.get(k)||0)+1);
+    }
+    const max=Math.max(...counts.values());
+    if(max/vals.length>=0.8 && counts.size<=3) suspect.push(f);
+  }
+  for(const f of suspect) for(const x of data) x[f]=null;
+  return suspect;
+}
+
+function weighted(parts){
+  let w=0,s=0,n=0;
+  for(const [v,weight] of parts){
+    if(Number.isFinite(v)){s+=v*weight; w+=weight; n++;}
+  }
+  return {value:w?s/w:null,count:n};
+}
+
+function analyze(x){
+  const reasons=[], missing=[];
+  const rvol = Number.isFinite(x.volume) && Number.isFinite(x.avgVolume) && x.avgVolume>0 ? x.volume/x.avgVolume : null;
+  const prevVolRatio = Number.isFinite(x.volume) && Number.isFinite(x.prevVolume) && x.prevVolume>0 ? x.volume/x.prevVolume : null;
+  const turnover = Number.isFinite(x.volume) && Number.isFinite(x.float) && x.float>0 ? x.volume/x.float : null;
+  const prevRangePct = Number.isFinite(x.prevHigh)&&Number.isFinite(x.prevLow)&&Number.isFinite(x.prevClose)&&x.prevClose>0 ? (x.prevHigh-x.prevLow)/x.prevClose*100 : null;
+  const gapPct = Number.isFinite(x.price)&&Number.isFinite(x.prevClose)&&x.prevClose>0 ? (x.price-x.prevClose)/x.prevClose*100 : x.changePct;
+  const extVals=[x.pmChange,x.ahChange].filter(Number.isFinite);
+  const extended=extVals.length?Math.max(...extVals.map(Math.abs)):null;
+
+  const liquidity = Number.isFinite(rvol) ? clamp(Math.log2(1+rvol)*17) : Number.isFinite(prevVolRatio) ? clamp(Math.log2(1+prevVolRatio)*15) : null;
+  const turnoverScore = Number.isFinite(turnover) ? clamp(Math.log2(1+turnover)*24) : null;
+  const extScore = Number.isFinite(extended) ? clamp(extended*1.15) : null;
+  const spreadQuality = Number.isFinite(x.spreadPct) ? clamp(100-x.spreadPct*18) : null;
+  const catalyst = Number.isFinite(x.catalystAgeHours) ? (x.catalystAgeHours<=24?88:x.catalystAgeHours<=72?55:25) : null;
+  const priorSetup = Number.isFinite(prevRangePct) ? clamp(prevRangePct*5) : null;
+
+  const earlyW=weighted([[liquidity,.30],[turnoverScore,.22],[extScore,.20],[spreadQuality,.10],[catalyst,.10],[priorSetup,.08]]);
+  let early=earlyW.value;
+  const changeSignal=Number.isFinite(x.changePct)?clamp(Math.max(0,x.changePct)*1.25):null;
+  const ignitionW=weighted([[early,.55],[changeSignal,.25],[liquidity,.20]]);
+  let ignition=ignitionW.value;
+  const ahPos=Number.isFinite(x.ahChange)?clamp(Math.max(0,x.ahChange)*1.2):null;
+  const continuationW=weighted([[ahPos,.35],[liquidity,.25],[spreadQuality,.15],[priorSetup,.10],[catalyst,.15]]);
+  let continuation=continuationW.value;
+  const exhaustionW=weighted([
+    [Number.isFinite(x.changePct)?clamp(Math.max(0,x.changePct-35)*1.2):null,.45],
+    [Number.isFinite(turnover)?clamp(turnover*18):null,.20],
+    [Number.isFinite(x.ahChange)?clamp(Math.max(0,-x.ahChange)*3):null,.20],
+    [Number.isFinite(rvol)&&rvol>12?70:null,.15]
+  ]);
+  let exhaustion=exhaustionW.value;
+
+  const dynamicInputs=[rvol,turnover,extended,x.changePct,x.prevClose,x.prevVolume].filter(Number.isFinite).length;
+  const qualityFields=['price','volume','changePct','avgVolume','float','prevClose','prevVolume','pmChange','ahChange'];
+  const present=qualityFields.filter(k=>Number.isFinite(x[k])).length;
+  const quality=Math.round(present/qualityFields.length*100);
+
+  if(Number.isFinite(x.changePct)&&x.changePct>80&&Number.isFinite(early)) early=clamp(early-18);
+  if(Number.isFinite(x.ahChange)&&x.ahChange<0&&Number.isFinite(x.changePct)&&x.changePct>50){
+    if(Number.isFinite(continuation)) continuation=clamp(continuation-25);
+    if(Number.isFinite(exhaustion)) exhaustion=clamp(exhaustion+18);
+  }
+
+  const scoreW=weighted([[early,.50],[continuation,.22],[ignition,.20],[Number.isFinite(exhaustion)?100-exhaustion:null,.08]]);
+  let score=scoreW.value;
+  let valid = dynamicInputs>=3 && present>=4 && scoreW.count>=3;
+  if(x.sharia==='EXCLUDED'){ valid=false; score=null; reasons.push('مستبعد شرعيًا'); }
+
+  if(Number.isFinite(rvol)&&rvol>=2) reasons.push(`RVOL ${rvol.toFixed(1)}×`);
+  if(Number.isFinite(prevVolRatio)&&prevVolRatio>=2) reasons.push(`الحجم/أمس ${prevVolRatio.toFixed(1)}×`);
+  if(Number.isFinite(turnover)&&turnover>=.5) reasons.push(`دوران الفلوت ${turnover.toFixed(1)}×`);
+  if(Number.isFinite(x.pmChange)&&Math.abs(x.pmChange)>=8) reasons.push(`PM ${fmtPct(x.pmChange)}`);
+  if(Number.isFinite(x.ahChange)&&Math.abs(x.ahChange)>=8) reasons.push(`AH ${fmtPct(x.ahChange)}`);
+  if(Number.isFinite(gapPct)&&Math.abs(gapPct)>=8) reasons.push(`مقابل إغلاق أمس ${fmtPct(gapPct)}`);
+  if(x.prevCloseDerived) reasons.push('إغلاق أمس مشتق');
+  if(!valid) reasons.unshift('بيانات غير كافية للتقييم');
+
+  for(const k of qualityFields) if(!Number.isFinite(x[k])) missing.push(k);
+
+  let stage='DATA_INSUFFICIENT';
+  if(valid){
+    if(Number.isFinite(exhaustion)&&exhaustion>76) stage='EXHAUSTION';
+    else if(Number.isFinite(x.changePct)&&x.changePct>35) stage='LATE';
+    else if(Number.isFinite(ignition)&&ignition>62) stage='IGNITION';
+    else stage='DISCOVERY';
+  }
+
+  return {...x,rvol,prevVolRatio,turnover,prevRangePct,gapPct,early,ignition,continuation,exhaustion,score,stage,valid,quality,reasons,missing};
+}
+
+function integritySummary(data,suspect){
+  const valid=data.filter(x=>x.valid).length;
+  const prev=data.filter(x=>Number.isFinite(x.prevClose)||Number.isFinite(x.prevVolume)).length;
+  const items=[
+    `<div class="log-item">${esc(sourceMeta.name)} · ${data.length} سهم · ${new Date().toLocaleString('ar-SA')}</div>`,
+    `<div class="log-item">${valid} سهم صالح للتقييم · ${prev} سهم لديه سياق جلسة سابقة</div>`
+  ];
+  if(suspect.length) items.push(`<div class="log-item warn">تم تعطيل حقول مكررة/مشبوهة: ${suspect.map(esc).join('، ')}</div>`);
+  if(!valid) items.push('<div class="log-item warn">DATA FAILURE: لا توجد بيانات كافية لإصدار تقييم موثوق. لن تُعرض فرص وهمية.</div>');
+  return items.join('');
+}
+
+function render(){
+  analyzed=rows.map(analyze);
+  const q=($('#search')?.value||'').trim().toUpperCase();
+  const sf=$('#stageFilter')?.value||'all';
+  const sh=$('#shariaFilter')?.value||'all';
+  const out=analyzed.filter(x=>(!q||x.ticker.includes(q))&&(sf==='all'||x.stage===sf)&&(sh==='all'||x.sharia===sh))
+    .sort((a,b)=>(b.valid-a.valid)||((b.score??-1)-(a.score??-1)));
+
+  $('#scannerBody').innerHTML=out.map(x=>`
+    <tr data-ticker="${esc(x.ticker)}">
+      <td class="ticker">${esc(x.ticker)}</td>
+      <td>${Number.isFinite(x.price)?'$'+fmt(x.price,x.price<1?3:2):'—'}</td>
+      <td class="${(x.changePct??0)>=0?'pos':'neg'}">${fmtPct(x.changePct)}</td>
+      <td class="score">${x.valid?fmt(x.score,0):'—'}</td>
+      <td><span class="pill">${esc(x.stage)}</span></td>
+      <td>${Number.isFinite(x.prevClose)?'$'+fmt(x.prevClose,x.prevClose<1?3:2):'—'}</td>
+      <td>${fmtVol(x.prevVolume)}</td>
+      <td>${Number.isFinite(x.rvol)?x.rvol.toFixed(1)+'×':'—'}</td>
+      <td>${Number.isFinite(x.turnover)?x.turnover.toFixed(2)+'×':'—'}</td>
+      <td>${x.quality}%</td>
+      <td><span class="pill">${esc(x.sharia)}</span></td>
+    </tr>`).join('') || '<tr><td colspan="11">لا توجد نتائج مطابقة.</td></tr>';
+
+  const valid=analyzed.filter(x=>x.valid);
+  const early=valid.filter(x=>x.stage==='DISCOVERY'||x.stage==='IGNITION').length;
+  const hot=valid.filter(x=>x.score>=60).length;
+  $('#summaryCards').innerHTML=`
+    <div class="metric"><small>Universe</small><strong>${rows.length}</strong></div>
+    <div class="metric"><small>Valid data</small><strong>${valid.length}</strong></div>
+    <div class="metric"><small>Early candidates</small><strong>${early}</strong></div>
+    <div class="metric"><small>TAG ≥ 60</small><strong>${hot}</strong></div>`;
+
+  const top=valid.sort((a,b)=>b.score-a.score)[0];
+  $('#topOpportunity').innerHTML=top?`
+    <div class="result-top"><div class="top-ticker">${esc(top.ticker)}</div><div class="top-score">${fmt(top.score,0)}</div></div>
+    <div class="top-meta">${fmtPct(top.changePct)} · جودة البيانات ${top.quality}%</div>
+    <div class="top-reasons">${top.reasons.map(esc).join(' · ')||'لا توجد إشارة نوعية واضحة'}</div>
+    <div class="top-reasons">إغلاق أمس ${Number.isFinite(top.prevClose)?'$'+fmt(top.prevClose,2):'—'} · حجم أمس ${fmtVol(top.prevVolume)} · RVOL ${Number.isFinite(top.rvol)?top.rvol.toFixed(1)+'×':'—'}</div>`
+    :'<div class="log-item warn">لا توجد فرصة صالحة لأن جودة البيانات الحالية لا تكفي للتقييم.</div>';
+
+  const avgMetric=k=>{
+    const a=valid.map(x=>x[k]).filter(Number.isFinite);
+    return a.length?a.reduce((s,v)=>s+v,0)/a.length:null;
+  };
+  $('#radar').innerHTML=['early','ignition','continuation','exhaustion'].map(k=>{
+    const v=avgMetric(k); return `<div class="gauge"><strong>${Number.isFinite(v)?v.toFixed(0):'—'}</strong><small>${k}</small></div>`;
+  }).join('');
+  const stages=['DISCOVERY','IGNITION','LATE','EXHAUSTION','DATA_INSUFFICIENT'];
+  $('#stageChart').innerHTML=stages.map(k=>`<div class="stage-row"><span>${k}</span><b>${analyzed.filter(x=>x.stage===k).length}</b></div>`).join('');
+}
+
+function showAnalysis(ticker){
+  const x=analyzed.find(r=>r.ticker===ticker);
+  if(!x) return;
+  $('#analysisResult').classList.remove('empty');
+  $('#analysisResult').innerHTML=`
+    <div class="result-top"><div class="ticker">${esc(x.ticker)}</div><div class="big-score">${x.valid?fmt(x.score,0):'—'}</div></div>
+    <p><strong>حالة البيانات:</strong> ${x.valid?'صالحة للتقييم':'غير كافية — لا يوجد تقييم'}</p>
+    <p><strong>الجلسة السابقة:</strong> إغلاق ${Number.isFinite(x.prevClose)?'$'+fmt(x.prevClose,3):'—'} · حجم ${fmtVol(x.prevVolume)} · أعلى ${fmt(x.prevHigh,3)} · أدنى ${fmt(x.prevLow,3)}</p>
+    <p><strong>الحالية:</strong> السعر ${Number.isFinite(x.price)?'$'+fmt(x.price,3):'—'} · التغير ${fmtPct(x.changePct)} · الحجم ${fmtVol(x.volume)} · RVOL ${Number.isFinite(x.rvol)?x.rvol.toFixed(2)+'×':'—'}</p>
+    <p><strong>قبل/بعد:</strong> PM ${fmtPct(x.pmChange)} · PM Vol ${fmtVol(x.pmVolume)} · AH ${fmtPct(x.ahChange)} · AH Vol ${fmtVol(x.ahVolume)}</p>
+    <p>${x.reasons.map(esc).join(' · ')}</p>
+    <small>جودة البيانات ${x.quality}% · الحقول الناقصة: ${x.missing.map(esc).join('، ')||'لا يوجد'}</small>`;
+}
+
+async function fetchJSON(path){
+  const r=await fetch(`${path}?v=${Date.now()}`,{cache:'no-store'});
+  if(!r.ok) throw new Error(`${path}: HTTP ${r.status}`);
+  return r.json();
+}
+
+async function loadData(){
+  const status=$('#finvizStatus');
+  status.textContent='جاري جلب البيانات والتحقق من سلامتها…';
+  try{
+    const primary=await fetchJSON('./data/finviz.json');
+    let base=recordsFromPayload(primary).map(normalizeRecord).filter(Boolean);
+    if(!base.length) throw new Error('finviz.json لا يحتوي سجلات أسهم قابلة للقراءة');
+
+    try{
+      const hist=await fetchJSON('./data/snapshots.json');
+      base=applyHistoricalContext(base,hist);
+    }catch(e){ sourceMeta.warnings.push('تعذر تحميل snapshots'); }
+
+    const suspect=duplicateFieldAudit(base);
+    rows=base;
+    sourceMeta={name:'GitHub market dataset',updated:new Date(),warnings:sourceMeta.warnings};
+    $('#dataBadge').textContent='● البيانات: تم التحقق';
+    $('#dataBadge').classList.add('connected');
+    status.className='connector-status ok';
+    status.textContent=`تم تحميل ${rows.length} سهم. القيم المفقودة لا تتحول إلى صفر، والحقول المتكررة بشكل غير طبيعي تُعزل تلقائيًا.`;
+    render();
+    $('#integrityLog').innerHTML=integritySummary(analyzed,suspect);
+    const dl=$('#analysisTickerList');
+    if(dl) dl.innerHTML=rows.slice(0,3000).map(x=>`<option value="${esc(x.ticker)}"></option>`).join('');
+  }catch(e){
+    rows=[]; analyzed=[];
+    $('#dataBadge').textContent='● DATA FAILURE';
+    status.className='connector-status err';
+    status.textContent='فشل تحميل بيانات موثوقة: '+e.message;
+    $('#integrityLog').innerHTML='<div class="log-item warn">DATA FAILURE — تم إيقاف التقييم بدل عرض أرقام افتراضية.</div>';
+    render();
+  }
+}
+
+function exportCSV(){
+  const h=['ticker','price','changePct','prevClose','volume','prevVolume','rvol','turnover','quality','score','stage'];
+  const lines=[h.join(',')];
+  for(const x of analyzed) lines.push(h.map(k=>x[k]??'').join(','));
+  const blob=new Blob([lines.join('\n')],{type:'text/csv'});
+  const u=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=u;a.download='TAG500-results.csv';a.click();URL.revokeObjectURL(u);
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  ['search','stageFilter','shariaFilter'].forEach(id=>$('#'+id)?.addEventListener('input',render));
+  $('#connectFinviz')?.addEventListener('click',loadData);
+  $('#exportBtn')?.addEventListener('click',exportCSV);
+  $('#analyzerForm')?.addEventListener('submit',e=>{
+    e.preventDefault();
+    const t=($('#analysisTicker')?.value||'').trim().toUpperCase();
+    showAnalysis(t);
+  });
+  $('#refreshSelectedTicker')?.addEventListener('click',async()=>{
+    await loadData();
+    const t=($('#analysisTicker')?.value||'').trim().toUpperCase();
+    if(t) showAnalysis(t);
+  });
+  $('#scannerBody')?.addEventListener('click',e=>{
+    const tr=e.target.closest('tr[data-ticker]');
+    if(tr){ $('#analysisTicker').value=tr.dataset.ticker; showAnalysis(tr.dataset.ticker); $('#analysis')?.scrollIntoView({behavior:'smooth'}); }
+  });
+  loadData();
+});
