@@ -1,5 +1,8 @@
 'use strict';
 
+const TAG_RUNTIME_VERSION='TAG507';
+const FRESHNESS_LIMIT_MIN=20;
+
 function sessionDateFromET(ts){
   const d=new Date(ts||Date.now());
   if(!Number.isFinite(d.getTime())) return null;
@@ -9,6 +12,11 @@ function sessionDateFromET(ts){
   const local=new Date(Date.UTC(y,m-1,day));
   if(h<4) local.setUTCDate(local.getUTCDate()-1);
   return local.toISOString().slice(0,10);
+}
+
+function freshnessMinutes(ts){
+  const n=Date.parse(ts||'');
+  return Number.isFinite(n)?Math.max(0,(Date.now()-n)/60000):Infinity;
 }
 
 function flattenSnapshots(payload){
@@ -87,22 +95,31 @@ analyze=function(x){
   if(Number.isFinite(x.changePct)&&x.changePct>100&&Number.isFinite(early)) early=clamp(early-20);
   const score=weighted([[early,.42],[ignition,.30],[continuation,.20],[Number.isFinite(exhaustion)?100-exhaustion:null,.08]]).value;
   const core=['price','volume','changePct','prevClose'].filter(k=>Number.isFinite(x[k])).length;
-  const valid=core>=4&&Number.isFinite(score);
+  const marketCoreValid=core>=4&&Number.isFinite(score);
+  const shariaVerified=x.sharia==='VERIFIED';
+  const feedFresh=sourceMeta.feedFresh===true;
+  const valid=marketCoreValid&&shariaVerified&&feedFresh;
+  const trainingEligible=valid&&sourceMeta.finalReconciled===true&&sourceMeta.independentSourceCount>=2;
   const quality=Math.round((core/4*.65 + (Number.isFinite(x.prevVolume)?.15:0) + (Number.isFinite(x.catalystAgeHours)?.10:0) + (Number.isFinite(x.prevSessionChangePct)?.10:0))*100);
+
+  if(x.sharia==='EXCLUDED') reasons.push('مستبعد شرعيًا');
+  else if(!shariaVerified) reasons.push('غير متحقق شرعيًا — Research Only');
+  if(!feedFresh) reasons.push(`لقطة قديمة > ${FRESHNESS_LIMIT_MIN} دقيقة — الترتيب التنفيذي متوقف`);
   if(Number.isFinite(prevVolRatio)) reasons.push(`الحجم/الجلسة السابقة ${prevVolRatio.toFixed(1)}×`);
   else if(Number.isFinite(x.volumeRank)) reasons.push(`الحجم ضمن أعلى ${(100-x.volumeRank).toFixed(0)}% من المسح`);
   if(Number.isFinite(gapPct)&&Math.abs(gapPct)>=5) reasons.push(`مقابل الإغلاق السابق ${fmtPct(gapPct)}`);
   if(Number.isFinite(x.prevSessionChangePct)) reasons.push(`الجلسة السابقة ${fmtPct(x.prevSessionChangePct)}`);
   if(Number.isFinite(x.catalystAgeHours)&&x.catalystAgeHours<=96) reasons.push(`خبر خلال ${Math.round(x.catalystAgeHours)}س`);
-  if(!valid) reasons.unshift('بيانات غير كافية للتقييم');
+  if(!marketCoreValid) reasons.unshift('بيانات سوق غير كافية للتقييم');
+
   let stage='DATA_INSUFFICIENT';
-  if(valid){
+  if(marketCoreValid){
     if(Number.isFinite(exhaustion)&&exhaustion>=76) stage='EXHAUSTION';
     else if(Number.isFinite(x.changePct)&&x.changePct>=45) stage='LATE';
     else if(Number.isFinite(ignition)&&ignition>=62) stage='IGNITION';
     else stage='DISCOVERY';
   }
-  return {...x,rvol,prevVolRatio,turnover,gapPct,early,ignition,continuation,exhaustion,score,stage,valid,quality,reasons,missing};
+  return {...x,rvol,prevVolRatio,turnover,gapPct,early,ignition,continuation,exhaustion,score,stage,valid,marketCoreValid,shariaVerified,feedFresh,trainingEligible,quality,reasons,missing};
 };
 
 loadData=async function(){
@@ -116,22 +133,36 @@ loadData=async function(){
     ]);
     let base=recordsFromPayload(primary).map(normalizeRecord).filter(Boolean);
     if(!base.length) throw new Error('لا توجد سجلات قابلة للقراءة');
-    const currentTs=Date.parse(primary.snapshotTimestampET||primary.snapshotTimestampUTC||primary.updatedAt||'')||Date.now();
+    const rawTs=primary.snapshotTimestampET||primary.snapshotTimestampUTC||primary.updatedAt||'';
+    const currentTs=Date.parse(rawTs)||Date.now();
+    const ageMin=freshnessMinutes(rawTs||currentTs);
+    const feedFresh=Number.isFinite(ageMin)&&ageMin<=FRESHNESS_LIMIT_MIN;
+    const reconciliation=String(primary.finalSnapshotReconciliation||primary.reconciliationStatus||primary.dataIntegrityState||'UNKNOWN').toUpperCase();
+    const independentSourceCount=Number(primary.independentSourceCount||0);
+    const finalReconciled=/FINAL|RECONCILED|MATCHED|VERIFIED/.test(reconciliation)&&!/ERROR|MISMATCH|UNVERIFIED|UNKNOWN/.test(reconciliation);
+
     mergeEnrichment(base,enrichment,currentTs);
-    mergeHistorical(base,hist,sessionDateFromET(primary.snapshotTimestampET||primary.snapshotTimestampUTC));
+    mergeHistorical(base,hist,sessionDateFromET(rawTs));
     volumePercentiles(base);
     rows=base;
-    sourceMeta={name:'Finviz + Yahoo + session history',updated:new Date(currentTs),warnings:[]};
+    sourceMeta={name:'Finviz + Yahoo + session history',updated:new Date(currentTs),warnings:[],feedFresh,ageMin,reconciliation,independentSourceCount,finalReconciled};
     render();
-    const valid=analyzed.filter(x=>x.valid).length,prev=rows.filter(x=>Number.isFinite(x.prevVolume)).length;
-    $('#dataBadge').textContent=`● البيانات: ${base.length} سهم`;
-    $('#dataBadge').classList.add('connected');
-    status.className='connector-status ok';
-    status.textContent=`تم تحميل ${base.length} سهم · ${valid} بتحليل صالح · ${prev} بسياق حجم من جلسة سابقة · آخر لقطة ${new Date(currentTs).toLocaleString('ar-SA')}`;
-    $('#integrityLog').innerHTML=`<div class="log-item">Finviz: الحركة الحالية · Yahoo: الإغلاق السابق/الأخبار · snapshots: الجلسة السابقة</div><div class="log-item">${valid} تحليل صالح من ${base.length} · لا توجد أرقام افتراضية موحدة.</div>`;
+
+    const executable=analyzed.filter(x=>x.valid).length;
+    const researchOnly=analyzed.filter(x=>x.marketCoreValid&&!x.valid&&x.sharia!=='EXCLUDED').length;
+    const training=analyzed.filter(x=>x.trainingEligible).length;
+    const prev=rows.filter(x=>Number.isFinite(x.prevVolume)).length;
+    $('#dataBadge').textContent=feedFresh?`● البيانات حديثة: ${base.length} سهم`:`● البيانات قديمة: ${Math.round(ageMin)}د`;
+    $('#dataBadge').classList.toggle('connected',feedFresh);
+    status.className=feedFresh?'connector-status ok':'connector-status err';
+    status.textContent=`${TAG_RUNTIME_VERSION} · ${base.length} سهم · ${executable} مؤهل تنفيذيًا · ${researchOnly} Research Only · ${prev} بسياق جلسة سابقة · عمر اللقطة ${Number.isFinite(ageMin)?Math.round(ageMin)+'د':'غير معروف'}`;
+    $('#integrityLog').innerHTML=`<div class="log-item">Freshness: ${feedFresh?'PASS':'FAIL'} · ${Number.isFinite(ageMin)?Math.round(ageMin)+' دقيقة':'timestamp غير صالح'} · الحد ${FRESHNESS_LIMIT_MIN} دقيقة</div><div class="log-item">Sharia gate: VERIFIED فقط مؤهل تنفيذيًا · UNVERIFIED = Research Only · EXCLUDED = مستبعد</div><div class="log-item">Final Snapshot Reconciliation: ${esc(reconciliation)} · مصادر مستقلة ${independentSourceCount} · Training Eligible ${training}</div><div class="log-item">لا تتحول أي نتيجة intraperiod أو غير مصالحة إلى حقيقة تدريبية.</div>`;
   }catch(e){
+    rows=[]; analyzed=[];
+    sourceMeta={name:'none',updated:null,warnings:[e.message],feedFresh:false,ageMin:Infinity,reconciliation:'ERROR',independentSourceCount:0,finalReconciled:false};
     status.className='connector-status err';
     status.textContent='فشل تحميل البيانات: '+e.message;
+    $('#dataBadge').textContent='● DATA FAILURE';
     $('#integrityLog').innerHTML='<div class="log-item warn">DATA FAILURE: '+esc(e.message)+'</div>';
   }
 };
