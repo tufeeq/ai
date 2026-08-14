@@ -1,6 +1,6 @@
 'use strict';
 (function(){
-  const BUILD='TAG510';
+  const BUILD='TAG511';
   const MAIN='https://raw.githubusercontent.com/tufeeq/ai/main/tag/data/';
   const LOCAL='./data/';
   async function directJSON(url){
