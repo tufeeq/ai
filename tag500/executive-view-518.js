@@ -1,11 +1,23 @@
 'use strict';
 (function(){
-  const BUILD='TAG518';
+  const BUILD='TAG519';
   let mode='EXECUTIVE';
   function actionCode(z){return z?.actionability?.code||'X';}
   function visible(z){
     if(mode==='RESEARCH') return true;
     return z?.valid===true && z?.sharia==='VERIFIED' && ['A','B'].includes(actionCode(z));
+  }
+  function ensureSessionClock(){
+    if(window.TAG500SessionClock||document.querySelector('script[data-tag519-session]')) return;
+    const s=document.createElement('script');
+    s.src='../tag500/session-state-519.js?v=519';s.dataset.tag519Session='1';document.head.appendChild(s);
+  }
+  function paintVersion(){
+    const b=document.querySelector('#versionBadge');if(b)b.textContent=BUILD;
+    const f=document.querySelector('footer strong');if(f)f.textContent=BUILD;
+    document.title='TAG519 — منصة TAG500';
+    const summary=document.querySelector('.release-box summary');if(summary)summary.textContent='سجل الإصدار · TAG519';
+    const note=document.querySelector('.release-note');if(note&&note.closest('.release-box'))note.textContent='TAG519: Session-aware Final Close UX يميز intraperiod snapshots عن Final AH Close Candidate بعد 8:00 ET، ويُبقي اللقطة Research Only حتى Final Snapshot Reconciliation من مصدرين مستقلين على الأقل. Executive/Research Mode كما في TAG518، ولا تغيير في thresholds أو ادعاء أداء غير مثبت.';
   }
   function ensureControls(){
     const row=document.querySelector('.control-row');
@@ -17,7 +29,7 @@
     if(s) s.value='VERIFIED';
   }
   function apply(){
-    ensureControls();
+    paintVersion();ensureSessionClock();ensureControls();
     const select=document.querySelector('#viewMode518');
     if(select) mode=select.value||mode;
     const map=new Map((window.analyzed||[]).map(z=>[z.ticker,z]));
@@ -46,7 +58,7 @@
     if(top) top.dataset.viewMode=mode;
   }
   function bind(){
-    ensureControls();
+    ensureControls();paintVersion();ensureSessionClock();
     const s=document.querySelector('#viewMode518');
     if(s&&!s.dataset.bound518){
       s.dataset.bound518='1';
