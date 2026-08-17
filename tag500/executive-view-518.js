@@ -1,6 +1,6 @@
 'use strict';
 (function(){
-  const BUILD='TAG519';
+  const BUILD='TAG521';
   let mode='EXECUTIVE';
   function actionCode(z){return z?.actionability?.code||'X';}
   function visible(z){
@@ -10,14 +10,14 @@
   function ensureSessionClock(){
     if(window.TAG500SessionClock||document.querySelector('script[data-tag519-session]')) return;
     const s=document.createElement('script');
-    s.src='../tag500/session-state-519.js?v=519';s.dataset.tag519Session='1';document.head.appendChild(s);
+    s.src='../tag500/session-state-519.js?v=521';s.dataset.tag519Session='1';document.head.appendChild(s);
   }
   function paintVersion(){
     const b=document.querySelector('#versionBadge');if(b)b.textContent=BUILD;
     const f=document.querySelector('footer strong');if(f)f.textContent=BUILD;
-    document.title='TAG519 — منصة TAG500';
-    const summary=document.querySelector('.release-box summary');if(summary)summary.textContent='سجل الإصدار · TAG519';
-    const note=document.querySelector('.release-note');if(note&&note.closest('.release-box'))note.textContent='TAG519: Session-aware Final Close UX يميز intraperiod snapshots عن Final AH Close Candidate بعد 8:00 ET، ويُبقي اللقطة Research Only حتى Final Snapshot Reconciliation من مصدرين مستقلين على الأقل. Executive/Research Mode كما في TAG518، ولا تغيير في thresholds أو ادعاء أداء غير مثبت.';
+    document.title=BUILD+' — منصة TAG500';
+    const summary=document.querySelector('.release-box summary');if(summary)summary.textContent='سجل الإصدار · '+BUILD;
+    const note=document.querySelector('.release-note');if(note&&note.closest('.release-box'))note.textContent='TAG521: وحّد هوية الإصدار بين HTML وruntime ومنع رجوع الواجهة إلى رقم أقدم بعد render. أضاف تشخيصًا واضحًا لأسباب عدم ظهور فرص تنفيذية (الشرعية، حداثة البيانات، Actionability، أو نقص المدخلات) بدل واجهة فارغة مبهمة. لا تغيير في thresholds ولا ادعاء أداء غير مثبت.';
   }
   function ensureControls(){
     const row=document.querySelector('.control-row');
@@ -28,11 +28,30 @@
     const s=document.querySelector('#shariaFilter');
     if(s) s.value='VERIFIED';
   }
+  function blockerSummary(all,shown){
+    const stale=window.sourceMeta?.fresh===false;
+    const unverified=all.filter(z=>z?.sharia==='UNVERIFIED').length;
+    const excluded=all.filter(z=>z?.sharia==='EXCLUDED').length;
+    const verified=all.filter(z=>z?.sharia==='VERIFIED').length;
+    const notAB=all.filter(z=>z?.sharia==='VERIFIED'&&!['A','B'].includes(actionCode(z))).length;
+    const incomplete=all.filter(z=>z?.dataComplete===false||z?.stage==='DATA_INSUFFICIENT').length;
+    const lateOrigin=all.filter(z=>['LATE','VERY_LATE'].includes(z?.signalOrigin?.class)).length;
+    const reasons=[];
+    if(stale) reasons.push('البيانات قديمة — الترتيب التنفيذي متوقف');
+    if(unverified) reasons.push(`${unverified} غير متحقق شرعيًا`);
+    if(excluded) reasons.push(`${excluded} مستبعد شرعيًا`);
+    if(notAB) reasons.push(`${notAB} شرعي مؤكد لكنه خارج A/B`);
+    if(incomplete) reasons.push(`${incomplete} ناقص المدخلات`);
+    if(lateOrigin) reasons.push(`${lateOrigin} ظهر متأخرًا`);
+    if(!shown&&verified===0) reasons.unshift('لا توجد أسهم VERIFIED في التغذية الحالية');
+    return reasons.length?reasons.join(' · '):'لا توجد عوائق رئيسية ظاهرة';
+  }
   function apply(){
     paintVersion();ensureSessionClock();ensureControls();
     const select=document.querySelector('#viewMode518');
     if(select) mode=select.value||mode;
-    const map=new Map((window.analyzed||[]).map(z=>[z.ticker,z]));
+    const all=window.analyzed||[];
+    const map=new Map(all.map(z=>[z.ticker,z]));
     const body=document.querySelector('#scannerBody');
     if(body){
       let shown=0;
@@ -48,10 +67,10 @@
         body.closest('.table-panel')?.querySelector('.section-head')?.appendChild(note);
       }
       if(note){
-        const total=(window.analyzed||[]).length;
+        const total=all.length;
         note.innerHTML=mode==='EXECUTIVE'
-          ? `<strong>Executive Mode:</strong> يعرض فقط VERIFIED + A/B. ظاهر ${shown} من ${total}. انتقل إلى Research Mode لرؤية الحالات المحجوبة والمتأخرة وغير المتحققة.`
-          : `<strong>Research Mode:</strong> يعرض جميع الحالات للبحث والتدقيق؛ الحالات غير المؤهلة لا تصبح فرصًا تنفيذية تلقائيًا.`;
+          ? `<strong>Executive Mode:</strong> VERIFIED + A/B فقط · ظاهر ${shown} من ${total}. <span style="color:#8fa9bd">${blockerSummary(all,shown)}</span>`
+          : `<strong>Research Mode:</strong> جميع الحالات للبحث والتدقيق؛ غير المؤهل لا يتحول إلى فرصة تنفيذية. <span style="color:#8fa9bd">${blockerSummary(all,shown)}</span>`;
       }
     }
     const top=document.querySelector('#topOpportunity');
