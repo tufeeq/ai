@@ -1,6 +1,6 @@
 'use strict';
 (function(){
-  const BUILD='TAG521';
+  const BUILD='TAG522';
   let mode='EXECUTIVE';
   function actionCode(z){return z?.actionability?.code||'X';}
   function visible(z){
@@ -10,14 +10,14 @@
   function ensureSessionClock(){
     if(window.TAG500SessionClock||document.querySelector('script[data-tag519-session]')) return;
     const s=document.createElement('script');
-    s.src='../tag500/session-state-519.js?v=521';s.dataset.tag519Session='1';document.head.appendChild(s);
+    s.src='../tag500/session-state-519.js?v=522';s.dataset.tag519Session='1';document.head.appendChild(s);
   }
   function paintVersion(){
     const b=document.querySelector('#versionBadge');if(b)b.textContent=BUILD;
     const f=document.querySelector('footer strong');if(f)f.textContent=BUILD;
     document.title=BUILD+' — منصة TAG500';
     const summary=document.querySelector('.release-box summary');if(summary)summary.textContent='سجل الإصدار · '+BUILD;
-    const note=document.querySelector('.release-note');if(note&&note.closest('.release-box'))note.textContent='TAG521: وحّد هوية الإصدار بين HTML وruntime ومنع رجوع الواجهة إلى رقم أقدم بعد render. أضاف تشخيصًا واضحًا لأسباب عدم ظهور فرص تنفيذية (الشرعية، حداثة البيانات، Actionability، أو نقص المدخلات) بدل واجهة فارغة مبهمة. لا تغيير في thresholds ولا ادعاء أداء غير مثبت.';
+    const note=document.querySelector('.release-note');if(note&&note.closest('.release-box'))note.textContent='TAG522: أضاف Catalyst Relevance Gate لمنع أخبار تطابق الرمز لفظيًا لكنها لا تخص الشركة من دخول Catalyst Clock أو رفع Actionability. يستفيد من اسم الشركة في Finviz والرمز ككيان، ويبقي النتائج غير المرتبطة خارج Catalyst credit. لا تغيير في thresholds ولا ادعاء أداء غير مثبت.';
   }
   function ensureControls(){
     const row=document.querySelector('.control-row');
@@ -36,6 +36,7 @@
     const notAB=all.filter(z=>z?.sharia==='VERIFIED'&&!['A','B'].includes(actionCode(z))).length;
     const incomplete=all.filter(z=>z?.dataComplete===false||z?.stage==='DATA_INSUFFICIENT').length;
     const lateOrigin=all.filter(z=>['LATE','VERY_LATE'].includes(z?.signalOrigin?.class)).length;
+    const irrelevantNews=all.filter(z=>(z?.catalystNewsTimelineRawCount||0)>0&&(z?.catalystNewsTimeline||[]).length===0).length;
     const reasons=[];
     if(stale) reasons.push('البيانات قديمة — الترتيب التنفيذي متوقف');
     if(unverified) reasons.push(`${unverified} غير متحقق شرعيًا`);
@@ -43,6 +44,7 @@
     if(notAB) reasons.push(`${notAB} شرعي مؤكد لكنه خارج A/B`);
     if(incomplete) reasons.push(`${incomplete} ناقص المدخلات`);
     if(lateOrigin) reasons.push(`${lateOrigin} ظهر متأخرًا`);
+    if(irrelevantNews) reasons.push(`${irrelevantNews} نتائج أخبار غير مرتبطة تم حجبها`);
     if(!shown&&verified===0) reasons.unshift('لا توجد أسهم VERIFIED في التغذية الحالية');
     return reasons.length?reasons.join(' · '):'لا توجد عوائق رئيسية ظاهرة';
   }
