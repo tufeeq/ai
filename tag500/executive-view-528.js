@@ -1,6 +1,6 @@
 'use strict';
 (function(){
-  const BUILD='TAG529';
+  const BUILD='TAG528';
   let mode='EXECUTIVE';
   function actionCode(z){return z?.actionability?.code||'X';}
   function runtimeHealth(){
@@ -80,7 +80,7 @@
     document.querySelector('#runtime527Health')?.remove();
     let item=document.querySelector('#runtime528Health');
     if(log&&!item){item=document.createElement('div');item.id='runtime528Health';item.className='log-item';log.appendChild(item);}
-    if(item)item.innerHTML=health.ok?`Runtime ${BUILD}: ✓ الطبقات المطلوبة محمّلة، بما فيها Actionability contract وData Bridge؛ الحجب غير مدمّر.`:`Runtime ${BUILD}: ⚠ طبقات مفقودة: ${health.missing.join(', ')}. Executive Mode محجوب مؤقتًا دون تعديل z.valid.`;
+    if(item)item.innerHTML=health.ok?`Runtime ${BUILD}: ✓ الطبقات المطلوبة محمّلة؛ Data Bridge alias متوافق؛ لا mutation لنتائج التحليل عند فشل health.`:`Runtime ${BUILD}: ⚠ طبقات مفقودة: ${health.missing.join(', ')}. Executive Mode محجوب مؤقتًا دون تعديل z.valid.`;
     if(!health.ok&&mode==='EXECUTIVE'){
       const top=document.querySelector('#topOpportunity');
       if(top){top.classList.add('empty');top.textContent='تم حجب الفرص التنفيذية مؤقتًا: runtime غير مكتمل. لم يتم تغيير صلاحية الحالات الأصلية.';}
