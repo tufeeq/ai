@@ -1,6 +1,6 @@
 'use strict';
 (function(){
-  const BUILD='TAG529';
+  const BUILD='TAG514';
   const ORDER={A:0,B:1,C:2,L:3,U:4,X:5};
   function tier(z){
     if(!z?.valid) return {code:'X',label:'محجوب',reason:'بيانات/شرعية/حداثة غير مؤهلة'};
@@ -61,5 +61,4 @@
   }
   const baseRender=window.render;
   if(typeof baseRender==='function') window.render=function(){baseRender();decorate();};
-  window.TAG500Actionability={build:BUILD,tier,cmp,decorate};
 })();
