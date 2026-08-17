@@ -1,7 +1,8 @@
 'use strict';
 (function(){
-  const BUILD='TAG530';
+  const FALLBACK_BUILD='TAG533';
   let mode='EXECUTIVE';
+  function buildId(){return document.body?.dataset?.tagRelease||document.querySelector('#versionBadge')?.textContent?.trim()||FALLBACK_BUILD;}
   function actionCode(z){return z?.actionability?.code||'X';}
   function runtimeHealth(){
     const required=[
@@ -16,33 +17,26 @@
       ['session-clock',window.TAG500SessionClock]
     ];
     const missing=required.filter(([,v])=>!v).map(([n])=>n);
-    return {ok:missing.length===0,missing};
+    return {ok:missing.length===0,missing,build:buildId()};
   }
   function visible(z,healthOk){
     if(mode==='RESEARCH') return true;
     return healthOk && z?.valid===true && z?.sharia==='VERIFIED' && ['A','B'].includes(actionCode(z));
   }
   function paintVersion(){
-    const b=document.querySelector('#versionBadge');if(b)b.textContent=BUILD;
-    const f=document.querySelector('footer strong');if(f)f.textContent=BUILD;
-    document.title=BUILD+' — منصة TAG500';
-    const release=document.querySelector('.release-box');
-    if(release){
-      const summary=release.querySelector('summary');
-      if(summary)summary.textContent='سجل الإصدار · '+BUILD;
-      const chips=release.querySelector('.release-meta');
-      if(chips)chips.innerHTML='<span class="release-chip">2026-08-17</span><span class="release-chip">Refresh outcome integrity</span><span class="release-chip">Runtime identity authoritative</span><span class="release-chip">Fail-closed preserved</span><span class="release-chip">No threshold retune</span>';
-      const note=release.querySelector('.release-note');
-      if(note)note.textContent='TAG530: أصلح تعريف نجاح التحديث بحيث لا يُسجل نجاحًا لمجرد اكتمال طلب loadData؛ يجب أن تنتج لقطة سوق حديثة وغير فارغة ومسار بيانات غير فاشل. كما أصبحت هوية الإصدار المعروضة موحدة على TAG530 بدل إعادة كتابتها إلى TAG528. لا تغيير في thresholds أو scoring.';
-    }
+    const build=buildId();
+    const b=document.querySelector('#versionBadge');if(b&&b.textContent.trim()!==build)b.textContent=build;
+    const f=document.querySelector('footer strong');if(f&&f.textContent.trim()!==build)f.textContent=build;
+    if(!document.title.startsWith(build+' —')) document.title=build+' — منصة TAG500';
   }
   function ensureControls(){
     const row=document.querySelector('.control-row');
-    if(!row||document.querySelector('#viewMode530')) return;
+    if(!row||document.querySelector('#viewMode533')) return;
+    document.querySelector('#viewMode530')?.closest('label')?.remove();
     document.querySelector('#viewMode528')?.closest('label')?.remove();
     document.querySelector('#viewMode527')?.closest('label')?.remove();
     const wrap=document.createElement('label');
-    wrap.innerHTML='وضع العرض<select id="viewMode530"><option value="EXECUTIVE">تنفيذي — فرص مؤهلة فقط</option><option value="RESEARCH">بحث — جميع الحالات</option></select>';
+    wrap.innerHTML='وضع العرض<select id="viewMode533"><option value="EXECUTIVE">تنفيذي — فرص مؤهلة فقط</option><option value="RESEARCH">بحث — جميع الحالات</option></select>';
     row.prepend(wrap);
     const s=document.querySelector('#shariaFilter');if(s)s.value='VERIFIED';
   }
@@ -69,7 +63,7 @@
   }
   function apply(){
     paintVersion();ensureControls();
-    const select=document.querySelector('#viewMode530');if(select)mode=select.value||mode;
+    const select=document.querySelector('#viewMode533');if(select)mode=select.value||mode;
     const all=window.analyzed||[];
     const map=new Map(all.map(z=>[z.ticker,z]));
     const health=runtimeHealth();
@@ -81,18 +75,20 @@
         const show=mode==='RESEARCH'||visible(z,health.ok);
         tr.hidden=!show;if(show)shown++;
       }
+      document.querySelector('#view530Note')?.remove();
       document.querySelector('#view528Note')?.remove();
       document.querySelector('#view527Note')?.remove();
-      let note=document.querySelector('#view530Note');
-      if(!note){note=document.createElement('div');note.id='view530Note';note.className='release-note';note.style.margin='8px 0 0';body.closest('.table-panel')?.querySelector('.section-head')?.appendChild(note);}
+      let note=document.querySelector('#view533Note');
+      if(!note){note=document.createElement('div');note.id='view533Note';note.className='release-note';note.style.margin='8px 0 0';body.closest('.table-panel')?.querySelector('.section-head')?.appendChild(note);}
       if(note){const total=all.length;note.innerHTML=mode==='EXECUTIVE'?`<strong>Executive Mode:</strong> VERIFIED + A/B فقط · ظاهر ${shown} من ${total}. <span style="color:#8fa9bd">${blockerSummary(all,shown,health)}</span>`:`<strong>Research Mode:</strong> جميع الحالات للبحث والتدقيق؛ غير المؤهل لا يتحول إلى فرصة تنفيذية. <span style="color:#8fa9bd">${blockerSummary(all,shown,health)}</span>`;}
     }
     const log=document.querySelector('#integrityLog');
+    document.querySelector('#runtime530Health')?.remove();
     document.querySelector('#runtime528Health')?.remove();
     document.querySelector('#runtime527Health')?.remove();
-    let item=document.querySelector('#runtime530Health');
-    if(log&&!item){item=document.createElement('div');item.id='runtime530Health';item.className='log-item';log.appendChild(item);}
-    if(item)item.innerHTML=health.ok?`Runtime ${BUILD}: ✓ الطبقات المطلوبة محمّلة؛ هوية الإصدار موحدة؛ Refresh Health يتحقق من صلاحية اللقطة لا مجرد اكتمال الطلب.`:`Runtime ${BUILD}: ⚠ طبقات مفقودة: ${health.missing.join(', ')}. Executive Mode محجوب مؤقتًا دون تعديل z.valid.`;
+    let item=document.querySelector('#runtime533Health');
+    if(log&&!item){item=document.createElement('div');item.id='runtime533Health';item.className='log-item';log.appendChild(item);}
+    if(item)item.innerHTML=health.ok?`Runtime ${health.build}: ✓ الطبقات المطلوبة محمّلة؛ هوية الإصدار مأخوذة من entrypoint ولا تستطيع overlay قديمة خفضها.`:`Runtime ${health.build}: ⚠ طبقات مفقودة: ${health.missing.join(', ')}. Executive Mode محجوب مؤقتًا دون تعديل z.valid.`;
     if(!health.ok&&mode==='EXECUTIVE'){
       const top=document.querySelector('#topOpportunity');
       if(top){top.classList.add('empty');top.textContent='تم حجب الفرص التنفيذية مؤقتًا: runtime غير مكتمل. لم يتم تغيير صلاحية الحالات الأصلية.';}
@@ -100,12 +96,13 @@
   }
   function bind(){
     ensureControls();paintVersion();
-    const s=document.querySelector('#viewMode530');
-    if(s&&!s.dataset.bound530){s.dataset.bound530='1';s.addEventListener('change',()=>{mode=s.value;apply();});}
+    const s=document.querySelector('#viewMode533');
+    if(s&&!s.dataset.bound533){s.dataset.bound533='1';s.addEventListener('change',()=>{mode=s.value;apply();});}
     apply();
   }
   const baseRender=window.render;
   if(typeof baseRender==='function')window.render=function(){baseRender();queueMicrotask(bind);};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
-  window.TAG500ExecutiveView={build:BUILD,getMode:()=>mode,setMode:(m)=>{mode=m==='RESEARCH'?'RESEARCH':'EXECUTIVE';const s=document.querySelector('#viewMode530');if(s)s.value=mode;apply();},runtimeHealth};
+  window.addEventListener('tag500:runtime-ready',apply);
+  window.TAG500ExecutiveView={build:buildId(),getMode:()=>mode,setMode:(m)=>{mode=m==='RESEARCH'?'RESEARCH':'EXECUTIVE';const s=document.querySelector('#viewMode533');if(s)s.value=mode;apply();},runtimeHealth,apply};
 })();
