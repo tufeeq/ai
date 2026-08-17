@@ -12,6 +12,20 @@
     const s=document.createElement('script');
     s.src='../tag500/session-state-519.js?v=522';s.dataset.tag519Session='1';document.head.appendChild(s);
   }
+  function ensureCatalystRelevance(){
+    if(document.querySelector('script[data-tag522-relevance]')) return;
+    const s=document.createElement('script');
+    s.src='../tag500/catalyst-relevance-522.js?v=522';s.dataset.tag522Relevance='1';s.async=false;
+    s.onload=()=>{
+      try{
+        if(typeof rows!=='undefined'&&Array.isArray(rows)&&rows.length&&typeof analyze==='function'){
+          analyzed=rows.map(analyze);
+          if(typeof render==='function') render();
+        }
+      }catch(e){console.warn('TAG522 relevance rerender skipped',e);}
+    };
+    document.head.appendChild(s);
+  }
   function paintVersion(){
     const b=document.querySelector('#versionBadge');if(b)b.textContent=BUILD;
     const f=document.querySelector('footer strong');if(f)f.textContent=BUILD;
@@ -49,7 +63,7 @@
     return reasons.length?reasons.join(' · '):'لا توجد عوائق رئيسية ظاهرة';
   }
   function apply(){
-    paintVersion();ensureSessionClock();ensureControls();
+    paintVersion();ensureSessionClock();ensureCatalystRelevance();ensureControls();
     const select=document.querySelector('#viewMode518');
     if(select) mode=select.value||mode;
     const all=window.analyzed||[];
@@ -79,7 +93,7 @@
     if(top) top.dataset.viewMode=mode;
   }
   function bind(){
-    ensureControls();paintVersion();ensureSessionClock();
+    ensureControls();paintVersion();ensureSessionClock();ensureCatalystRelevance();
     const s=document.querySelector('#viewMode518');
     if(s&&!s.dataset.bound518){
       s.dataset.bound518='1';
