@@ -1,15 +1,16 @@
 'use strict';
 (function(){
-  const RELEASE='TAG546';
+  const RELEASE=document.body?.dataset?.tagRelease||'TAG547';
   const FINAL_WINDOW_START_MIN=19*60+55;
   const TRANSITION_CHECK_MS=10000;
   const TRANSITION_RETRY_MS=45000;
   let lastSessionCode=null,lastTransitionRefresh=0,lastTransitionReason='';
   function publishRelease(){
-    if(document.body)document.body.dataset.tagRelease=RELEASE;
-    const b=document.querySelector('#versionBadge');if(b)b.textContent=RELEASE;
-    const f=document.querySelector('footer strong');if(f)f.textContent=RELEASE;
-    document.title=RELEASE+' — منصة TAG500';
+    const build=buildId();
+    if(document.body)document.body.dataset.tagRelease=build;
+    const b=document.querySelector('#versionBadge');if(b)b.textContent=build;
+    const f=document.querySelector('footer strong');if(f)f.textContent=build;
+    document.title=build+' — منصة TAG500';
   }
   function buildId(){return document.body?.dataset?.tagRelease||document.querySelector('#versionBadge')?.textContent?.trim()||RELEASE;}
   function etParts(ts){const d=new Date(ts||Date.now());const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',weekday:'short',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).formatToParts(d);return Object.fromEntries(parts.map(p=>[p.type,p.value]));}
@@ -58,6 +59,6 @@
   publishRelease();lastSessionCode=sessionState(Date.now()).code;
   setInterval(paint,15000);setInterval(transitionTick,TRANSITION_CHECK_MS);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{publishRelease();paint();});else paint();
-  window.TAG500SessionClock={build:RELEASE,state:sessionState,sourceState:sourceSession,sameSessionDate,finalCandidate,finalLocked,finalReconciled,transitionState:()=>({lastTransitionRefresh,lastTransitionReason,current:lastSessionCode})};
-  window.dispatchEvent(new CustomEvent('tag500:runtime-ready',{detail:{build:RELEASE,layer:'session-clock'}}));
+  window.TAG500SessionClock={build:buildId(),state:sessionState,sourceState:sourceSession,sameSessionDate,finalCandidate,finalLocked,finalReconciled,transitionState:()=>({lastTransitionRefresh,lastTransitionReason,current:lastSessionCode})};
+  window.dispatchEvent(new CustomEvent('tag500:runtime-ready',{detail:{build:buildId(),layer:'session-clock'}}));
 })();
