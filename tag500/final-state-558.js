@@ -11,14 +11,16 @@
   function finalize(){
     const current=window.TAG500State||{};
     generation=Math.max(generation+1,Number(current.generation)||0);
+    const liveRows=Array.isArray(window.rows)?window.rows:(Array.isArray(current.rows)?current.rows:[]);
+    const liveAnalyzed=Array.isArray(window.analyzed)?window.analyzed:(Array.isArray(current.analyzed)?current.analyzed:[]);
     window.TAG500State={
       ...current,
       build:BUILD,
       phase:'FINAL',
       generation,
-      rows:Array.isArray(window.rows)?window.rows:(Array.isArray(current.rows)?current.rows:[]),
-      analyzed:Array.isArray(window.analyzed)?window.analyzed:(Array.isArray(current.analyzed)?current.analyzed:[]),
-      analyzedCount:Array.isArray(window.analyzed)?window.analyzed.length:(Number(current.analyzedCount)||0),
+      rows:liveRows,
+      analyzed:liveAnalyzed,
+      analyzedCount:liveAnalyzed.length,
       finalizedAt:new Date().toISOString()
     };
     const badge=document.getElementById('versionBadge');
@@ -26,7 +28,7 @@
     document.title=BUILD+' — منصة TAG500';
     const footer=document.querySelector('footer strong');
     if(footer)footer.textContent=BUILD;
-    window.dispatchEvent(new CustomEvent('tag500:state-final',{detail:{build:BUILD,generation,analyzedCount:window.TAG500State.analyzedCount}}));
+    window.dispatchEvent(new CustomEvent('tag500:state-final',{detail:{build:BUILD,generation,analyzedCount:liveAnalyzed.length}}));
   }
   window.render=function(){
     depth+=1;
@@ -38,4 +40,5 @@
   };
   window.addEventListener('tag500:state-ready',function(){ if(depth===0)queueMicrotask(finalize); });
   window.TAG500FinalState={build:BUILD,ready:true,source:'outermost-render-finalizer'};
+  if(window.TAG500State)queueMicrotask(finalize);
 })();
