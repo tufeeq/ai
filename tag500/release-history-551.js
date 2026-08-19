@@ -1,8 +1,43 @@
 'use strict';
 (function(){
-  const BUILD='TAG551';
+  const BUILD='TAG558';
   const URL='../tag500/versions.json';
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  // TAG558 release identity is applied by the last runtime layer so older overlays cannot
+  // visually downgrade the page during the same load.
+  function applyReleaseIdentity(){
+    document.body.dataset.tagRelease=BUILD;
+    document.title=`${BUILD} — منصة TAG500`;
+    const badge=document.querySelector('#versionBadge'); if(badge) badge.textContent=BUILD;
+    const footer=document.querySelector('footer strong'); if(footer) footer.textContent=BUILD;
+    const summary=document.querySelector('.release-box summary'); if(summary) summary.textContent=`سجل الإصدارات · ${BUILD}`;
+    const meta=document.querySelector('.release-meta');
+    if(meta) meta.innerHTML='<span class="release-chip">2026-08-19</span><span class="release-chip">Final Render State</span><span class="release-chip">Overlay-ready state</span><span class="release-chip">No threshold retune</span>';
+    const note=document.querySelector('.release-note');
+    if(note) note.textContent='TAG558: إضافة Final Render State Gate كآخر طبقة runtime. لا تُعتبر TAG500State نهائية إلا بعد اكتمال جميع render overlays، بحيث تقرأ لوحات Qualification/Universe/Decision نفس الحالة المكتملة بدل مرحلة وسطية من دورة الرسم. لا تغيير للـthresholds أو الأوزان، والتدريب يبقى محجوبًا حتى Final Snapshot Reconciliation.';
+  }
+
+  function installFinalStateGate(){
+    const baseRender=window.render;
+    if(typeof baseRender!=='function'){
+      window.TAG500StateFinalizer={build:BUILD,ready:false,error:'RENDER_MISSING'};
+      return;
+    }
+    let finalGeneration=0;
+    window.render=function(){
+      const result=baseRender.apply(this,arguments);
+      const state=window.TAG500State&&typeof window.TAG500State==='object'?window.TAG500State:{};
+      const analyzed=Array.isArray(window.analyzed)?window.analyzed:(Array.isArray(state.analyzed)?state.analyzed:[]);
+      const rows=Array.isArray(window.rows)?window.rows:(Array.isArray(state.rows)?state.rows:[]);
+      finalGeneration+=1;
+      window.TAG500State={...state,build:BUILD,phase:'FINAL',finalGeneration,rows,analyzed,analyzedCount:analyzed.length,finalizedAt:new Date().toISOString()};
+      window.dispatchEvent(new CustomEvent('tag500:state-final',{detail:{build:BUILD,finalGeneration,analyzedCount:analyzed.length}}));
+      return result;
+    };
+    window.TAG500StateFinalizer={build:BUILD,ready:true,source:'outermost-render-finalizer'};
+  }
+
   function ensureStyles(){
     if(document.getElementById('tag551-release-history-style')) return;
     const s=document.createElement('style');
@@ -17,10 +52,7 @@
     const current=String(data?.current||document.body.dataset.tagRelease||BUILD);
     const releases=Array.isArray(data?.releases)?data.releases:[];
     let region=box.querySelector('[data-release-history-551]');
-    if(!region){
-      region=document.createElement('div');region.dataset.releaseHistory551='1';
-      box.appendChild(region);
-    }
+    if(!region){region=document.createElement('div');region.dataset.releaseHistory551='1';box.appendChild(region);}
     region.innerHTML=`<div class="release-history-tools"><input type="search" data-release-search placeholder="ابحث برقم الإصدار أو التغيير"><span class="release-history-count" data-release-count></span></div><div class="release-history-list" data-release-list></div>`;
     const input=region.querySelector('[data-release-search]'),list=region.querySelector('[data-release-list]'),count=region.querySelector('[data-release-count]');
     function paint(){
@@ -45,7 +77,10 @@
       region.innerHTML=`<div class="release-history-error">تعذر تحميل سجل الإصدارات الكامل: ${esc(e.message)}. الإصدار الحالي يبقى ظاهرًا أعلاه.</div>`;
     }
   }
+
+  applyReleaseIdentity();
+  installFinalStateGate();
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',load); else load();
   window.TAG500ReleaseHistory={build:BUILD,load,render};
-  window.dispatchEvent(new CustomEvent('tag500:runtime-ready',{detail:{layer:'releaseHistory',build:BUILD}}));
+  window.dispatchEvent(new CustomEvent('tag500:runtime-ready',{detail:{layer:'releaseHistoryAndStateFinalizer',build:BUILD}}));
 })();
