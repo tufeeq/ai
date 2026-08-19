@@ -134,6 +134,8 @@ jobs:
               bucket_order = [f'PM{i}' for i in range(1,7)]
           elif session == 'after-hours':
               bucket_order = [f'AH{i}' for i in range(1,5)]
+          elif session == 'regular':
+              bucket_order = [f'R{i:02d}' for i in range(9,16)]
           else:
               bucket_order = []
 
@@ -211,13 +213,16 @@ jobs:
               field_integrity_state = 'UNVERIFIED_EXTENDED_HOURS_FIELDS'
 
           prior_bucket_snaps = contiguous_prior[-3:]
+          extended_field_ok = (
+              session == 'regular' or
+              (not change_field_frozen and field_integrity_state == 'CROSS_SNAPSHOT_FIELDS_MOVING')
+          )
           persistence_training_eligible = (
-              session in ('pre-market','after-hours') and
+              session in ('pre-market','regular','after-hours') and
               cadence_status != 'GAP_ERROR' and
               bucket_continuity_status == 'CONTIGUOUS' and
               len(prior_bucket_snaps) >= 1 and
-              not change_field_frozen and
-              field_integrity_state == 'CROSS_SNAPSHOT_FIELDS_MOVING'
+              extended_field_ok
           )
 
           ticker_hist = {}
@@ -337,7 +342,7 @@ jobs:
               'gapMinutesFromPriorSessionSnapshot': gap_minutes,
               'bucketContinuityStatus': bucket_continuity_status,
               'persistenceTrainingEligible': persistence_training_eligible,
-              'persistenceMethod': 'CONTIGUOUS_UNIQUE_HOURLY_SESSION_BUCKETS_WITH_FIELD_FREEZE_GATE',
+              'persistenceMethod': 'CONTIGUOUS_UNIQUE_HOURLY_SESSION_BUCKETS_WITH_EXTENDED_FIELD_FREEZE_GATE',
               'extendedHoursFieldIntegrity': field_integrity_state,
               'fieldFreezeDiagnostics': {
                   'minimumCommonTickers': 10,
@@ -375,7 +380,7 @@ jobs:
               'gapMinutesFromPriorSessionSnapshot': gap_minutes,
               'bucketContinuityStatus': bucket_continuity_status,
               'persistenceTrainingEligible': persistence_training_eligible,
-              'persistenceMethod': 'CONTIGUOUS_UNIQUE_HOURLY_SESSION_BUCKETS_WITH_FIELD_FREEZE_GATE',
+              'persistenceMethod': 'CONTIGUOUS_UNIQUE_HOURLY_SESSION_BUCKETS_WITH_EXTENDED_FIELD_FREEZE_GATE',
               'extendedHoursFieldIntegrity': field_integrity_state,
               'fieldFreezeDiagnostics': {
                   'commonTickers': freeze_common_tickers,
