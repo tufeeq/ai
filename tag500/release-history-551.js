@@ -2,8 +2,9 @@
 (function(){
   const releaseFromPage=()=>String(document.body?.dataset?.tagRelease||document.documentElement?.dataset?.tagRelease||'TAG500');
   function setRelease(build){if(!build)return;document.body.dataset.tagRelease=build;document.title=`${build} — منصة TAG500`;const badge=document.querySelector('#versionBadge');if(badge)badge.textContent=build;const footer=document.querySelector('footer strong');if(footer)footer.textContent=build;const summary=document.querySelector('.release-box summary');if(summary)summary.textContent=`سجل الإصدارات · ${build}`;}
-  const URL='../tag500/versions.json';
-  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const LEDGER_URL='../tag500/versions.json';
+  const CURRENT_URL='../tag500/current-release.json';
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 
   function applyReleaseIdentity(){setRelease(releaseFromPage());}
 
@@ -26,7 +27,7 @@
       window.dispatchEvent(new CustomEvent('tag500:state-final',{detail:{build:currentBuild,finalGeneration,analyzedCount:analyzed.length}}));
       return result;
     };
-    window.TAG500StateFinalizer={build,ready:true,source:'outermost-render-finalizer',releaseAuthority:'page-data-tag-release'};
+    window.TAG500StateFinalizer={build,ready:true,source:'outermost-render-finalizer',releaseAuthority:'current-release-then-page'};
   }
 
   function ensureStyles(){
@@ -55,13 +56,17 @@
     }
     input.addEventListener('input',paint);paint();
   }
+  async function fetchJSON(url){const sep=url.includes('?')?'&':'?';const r=await fetch(url+sep+'ts='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status+' '+url);return r.json();}
   async function load(){
     const box=host(); if(!box) return;
     try{
-      const sep=URL.includes('?')?'&':'?';
-      const r=await fetch(URL+sep+'ts='+Date.now(),{cache:'no-store'});
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      render(await r.json());
+      const [ledger,currentMeta]=await Promise.all([fetchJSON(LEDGER_URL),fetchJSON(CURRENT_URL).catch(()=>null)]);
+      const releases=Array.isArray(ledger?.releases)?ledger.releases.slice():[];
+      let current=String(currentMeta?.current||ledger?.current||releaseFromPage());
+      if(currentMeta?.current&&!releases.some(r=>String(r.version)===String(currentMeta.current))){
+        releases.push({version:String(currentMeta.current),date:String(currentMeta.updatedAt||'').slice(0,10),summary:String(currentMeta.summary||'')});
+      }
+      render({...ledger,current,releases});
     }catch(e){
       ensureStyles();
       let region=box.querySelector('[data-release-history]');
@@ -73,6 +78,6 @@
   applyReleaseIdentity();
   installFinalStateGate();
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',load); else load();
-  window.TAG500ReleaseHistory={get build(){return releaseFromPage();},load,render,releaseAuthority:'versions-current-then-page'};
+  window.TAG500ReleaseHistory={get build(){return releaseFromPage();},load,render,releaseAuthority:'current-release-then-ledger-then-page'};
   window.dispatchEvent(new CustomEvent('tag500:runtime-ready',{detail:{layer:'releaseHistoryAndStateFinalizer',build:releaseFromPage()}}));
 })();
