@@ -3,7 +3,7 @@
   const releaseFromPage=()=>String(document.body?.dataset?.tagRelease||document.documentElement?.dataset?.tagRelease||'TAG500');
   function setRelease(build){if(!build)return;document.body.dataset.tagRelease=build;document.title=`${build} — منصة TAG500`;const badge=document.querySelector('#versionBadge');if(badge)badge.textContent=build;const footer=document.querySelector('footer strong');if(footer)footer.textContent=build;const summary=document.querySelector('.release-box summary');if(summary)summary.textContent=`سجل الإصدارات · ${build}`;}
   const URL='../tag500/versions.json';
-  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
   function applyReleaseIdentity(){setRelease(releaseFromPage());}
 
@@ -30,9 +30,9 @@
   }
 
   function ensureStyles(){
-    if(document.getElementById('tag559-release-history-style')) return;
+    if(document.getElementById('tag558-release-history-style')) return;
     const s=document.createElement('style');
-    s.id='tag559-release-history-style';
+    s.id='tag558-release-history-style';
     s.textContent='.release-history-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}.release-history-tools input{min-width:180px;flex:1;background:#07121d;border:1px solid #29445b;color:#eef4f8;border-radius:10px;padding:8px 10px}.release-history-list{margin-top:10px;max-height:360px;overflow:auto;display:grid;gap:7px;padding-inline-end:3px}.release-history-item{border:1px solid #20364a;background:#081522;border-radius:10px;padding:9px 11px}.release-history-item.current{border-color:#4c7ba2}.release-history-item strong{display:inline-block;min-width:66px}.release-history-item small{color:#8fa9bd;margin-inline-start:8px}.release-history-item p{margin:5px 0 0;color:#b9c9d8;font-size:12px;line-height:1.55}.release-history-count{font-size:12px;color:#8fa9bd}.release-history-error{margin-top:9px;color:#f3b3b3;font-size:12px}';
     document.head.appendChild(s);
   }
