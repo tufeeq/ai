@@ -1,6 +1,6 @@
 'use strict';
 (function(){
-  const buildId=()=>document.body?.dataset?.tagRelease||document.querySelector('#versionBadge')?.textContent?.trim()||'TAG559';
+  const buildId=()=>document.body?.dataset?.tagRelease||document.querySelector('#versionBadge')?.textContent?.trim()||'TAG560';
   const previousRender=window.render;
   if(typeof previousRender!=='function'){
     window.TAG500FinalState={get build(){return buildId();},ready:false,error:'RENDER_MISSING'};
@@ -30,9 +30,9 @@
   if(window.TAG500State)queueMicrotask(finalize);
   if(!document.querySelector('script[data-tag500-snapshot-order]')){
     const s=document.createElement('script');
-    s.src='../tag500/snapshot-order-559.js?v=559';
+    s.src='../tag500/snapshot-order-560.js?v=560';
     s.async=false;
-    s.dataset.tag500SnapshotOrder='559';
+    s.dataset.tag500SnapshotOrder='560';
     document.body.appendChild(s);
   }
 })();
