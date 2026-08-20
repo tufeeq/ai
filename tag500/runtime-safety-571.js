@@ -1,69 +1,91 @@
 'use strict';
-(function(){
-  const state={ok:true,critical:[],warnings:[],lastEventAt:null};
-  function now(){return new Date().toISOString();}
-  function text(v){return String(v||'').slice(0,500);}
-  function moduleName(src){try{const u=new URL(src,location.href);return u.pathname.split('/').pop()||u.pathname;}catch(_){return text(src);}}
-  function publish(){
-    state.ok=state.critical.length===0;
-    state.lastEventAt=now();
-    window.TAG500RuntimeSafety={ok:state.ok,critical:state.critical.slice(-10),warnings:state.warnings.slice(-10),lastEventAt:state.lastEventAt};
-    window.dispatchEvent(new CustomEvent('tag500:runtime-safety',{detail:window.TAG500RuntimeSafety}));
-    window.dispatchEvent(new Event('tag500:runtime-ready'));
+(()=>{
+  const RELEASE='TAG572';
+  const runtime={release:RELEASE,ok:true,critical:[],warnings:[],lastEventAt:null,renderBound:false,renderBoundaryRevision:0,lastBoundaryAt:null};
+  const now=()=>new Date().toISOString();
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function ownedScript(src){return /\/tag500\//.test(String(src||''));}
+  function remember(kind,message,source,stack){
+    const item={kind,message:String(message||'Unknown runtime error'),source:String(source||''),stack:String(stack||'').slice(0,1200),at:now()};
+    const list=kind==='warning'?runtime.warnings:runtime.critical;
+    const key=item.kind+'|'+item.message+'|'+item.source;
+    if(!list.some(x=>(x.kind+'|'+x.message+'|'+x.source)===key)) list.unshift(item);
+    list.splice(12);
+    runtime.lastEventAt=item.at;
+    runtime.ok=runtime.critical.length===0;
     paint();
+    try{window.dispatchEvent(new CustomEvent('tag500:runtime-safety',{detail:{ok:runtime.ok,critical:runtime.critical.slice(-10),item}}));}catch(_){ }
   }
-  function push(kind,entry){
-    const arr=kind==='critical'?state.critical:state.warnings;
-    const sig=JSON.stringify(entry);
-    if(!arr.some(x=>JSON.stringify(x)===sig))arr.push(entry);
-    if(arr.length>20)arr.splice(0,arr.length-20);
-    publish();
-  }
-  function isOwned(src){const s=text(src);return /\/tag500\/|\/tag\/(app|data-fix|tag)/i.test(s);}
-  function paint(){
-    const log=document.querySelector('#integrityLog');
-    if(!log)return;
-    let row=document.querySelector('#runtime571Safety');
-    if(!row){row=document.createElement('div');row.id='runtime571Safety';row.className='log-item';log.appendChild(row);}
-    if(state.critical.length){
-      const last=state.critical[state.critical.length-1];
-      row.innerHTML=`<strong>Runtime Safety: FAIL-CLOSED</strong> · ${state.critical.length} خطأ تشغيلي حرج · ${text(last.message||last.module||last.type)}. Executive Mode محجوب حتى إعادة تحميل runtime سليمة.`;
-    }else if(state.warnings.length){
-      row.innerHTML=`<strong>Runtime Safety: OK</strong> · لا أخطاء حرجة · ${state.warnings.length} تحذير غير حرج مسجل.`;
-    }else{
-      row.innerHTML='<strong>Runtime Safety: OK</strong> · لم تُرصد أخطاء JavaScript أو ملفات runtime مفقودة.';
-    }
-  }
-  window.addEventListener('error',function(e){
+  window.TAG500RuntimeSafety=runtime;
+  window.addEventListener('error',e=>{
     const target=e.target;
-    if(target&&target!==window){
-      const src=target.src||target.href||'';
-      if(target.tagName==='SCRIPT'&&isOwned(src))push('critical',{type:'SCRIPT_LOAD_ERROR',module:moduleName(src),message:'فشل تحميل ملف runtime'});
+    if(target&&target.tagName==='SCRIPT'&&ownedScript(target.src)){
+      remember('error','فشل تحميل ملف تشغيل TAG500',target.src,'SCRIPT_LOAD_ERROR');
       return;
     }
-    const src=e.filename||'';
-    if(isOwned(src))push('critical',{type:'RUNTIME_EXCEPTION',module:moduleName(src),message:text(e.message),line:e.lineno||null,col:e.colno||null});
+    if(e.error||e.message) remember('error',e.message||e.error?.message||'JavaScript error',e.filename||'runtime',e.error?.stack||'');
   },true);
-  window.addEventListener('unhandledrejection',function(e){
-    const reason=e.reason;
-    const stack=text(reason?.stack||reason?.message||reason);
-    const critical=/\/tag500\/|\/tag\/(app|data-fix|tag)/i.test(stack)&&!/fetch|network|http/i.test(stack);
-    push(critical?'critical':'warning',{type:'UNHANDLED_REJECTION',message:text(reason?.message||reason||'Unhandled promise rejection')});
+  window.addEventListener('unhandledrejection',e=>{
+    const r=e.reason;
+    const msg=String(r?.message||r||'Unhandled promise rejection');
+    const stack=String(r?.stack||'');
+    if(/network|fetch|failed to fetch|load failed|http\s+\d+/i.test(msg)) remember('warning',msg,'promise/network',stack);
+    else remember('error',msg,'promise',stack);
   });
-  const baseRender=window.render;
-  if(typeof baseRender==='function'){
-    window.render=function(){
-      baseRender.apply(this,arguments);
-      queueMicrotask(function(){
-        paint();
-        if(state.critical.length&&window.TAG500ExecutiveView?.getMode?.()==='EXECUTIVE'){
-          const top=document.querySelector('#topOpportunity');
-          if(top){top.classList.add('empty');top.textContent='تم حجب الفرص التنفيذية: خطأ runtime حرج. راجع سلامة البيانات ثم أعد تحميل الصفحة.';}
-          document.querySelectorAll('#scannerBody tr[data-ticker]').forEach(tr=>{tr.hidden=true;});
-        }
-      });
-    };
+  function paint(){
+    const host=document.querySelector('#integrityLog');
+    if(!host)return;
+    let panel=host.querySelector('[data-runtime-safety]');
+    if(!panel){panel=document.createElement('div');panel.dataset.runtimeSafety='1';panel.className='log-entry';host.prepend(panel);}
+    const status=runtime.critical.length?'FAIL-CLOSED':runtime.warnings.length?'تحذير':'سليم';
+    const cls=runtime.critical.length?'bad':runtime.warnings.length?'warn':'ok';
+    const latest=[...runtime.critical,...runtime.warnings].sort((a,b)=>Date.parse(b.at)-Date.parse(a.at))[0];
+    panel.innerHTML=`<b class="${cls}">Runtime Safety · ${status}</b><small>${runtime.renderBound?'Render Boundary ✓':'Render Boundary: جارٍ الربط'} · إعادة ربط ${runtime.renderBoundaryRevision}${latest?` · ${esc(latest.message)}`:''}</small>`;
   }
-  window.TAG500RuntimeSafety={ok:true,critical:[],warnings:[],lastEventAt:null};
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',paint);else paint();
+  function wrapOutermost(){
+    const current=window.render;
+    if(typeof current!=='function') return false;
+    if(current.__tag500RuntimeBoundary===runtime){runtime.renderBound=true;paint();return true;}
+    const base=current;
+    function guardedRender(){
+      try{
+        const out=base.apply(this,arguments);
+        paint();
+        return out;
+      }catch(err){
+        remember('error',err?.message||String(err),'render/outermost',err?.stack||'');
+        paint();
+        throw err;
+      }
+    }
+    Object.defineProperty(guardedRender,'__tag500RuntimeBoundary',{value:runtime,configurable:false});
+    Object.defineProperty(guardedRender,'__tag500RuntimeBase',{value:base,configurable:false});
+    window.render=guardedRender;
+    runtime.renderBound=true;
+    runtime.renderBoundaryRevision+=1;
+    runtime.lastBoundaryAt=now();
+    paint();
+    try{window.dispatchEvent(new CustomEvent('tag500:runtime-boundary-ready',{detail:{release:RELEASE,revision:runtime.renderBoundaryRevision}}));}catch(_){ }
+    return true;
+  }
+  runtime.ensureRenderBoundary=wrapOutermost;
+  let stable=0,attempts=0;
+  const timer=setInterval(()=>{
+    attempts+=1;
+    const before=window.render;
+    const ok=wrapOutermost();
+    const after=window.render;
+    if(ok&&before===after&&after?.__tag500RuntimeBoundary===runtime) stable+=1; else stable=0;
+    if(stable>=6||attempts>=80){
+      clearInterval(timer);
+      if(!runtime.renderBound&&document.readyState==='complete') remember('error','تعذر ربط حد أمان render النهائي','runtime-safety','RENDER_BOUNDARY_NOT_ATTACHED');
+    }
+  },50);
+  const rebind=()=>{stable=0;wrapOutermost();};
+  ['tag500:runtime-ready','tag500:state-ready','tag500:state-final'].forEach(name=>window.addEventListener(name,rebind));
+  window.addEventListener('load',()=>{wrapOutermost();setTimeout(wrapOutermost,0);});
+  queueMicrotask(wrapOutermost);
+  setTimeout(wrapOutermost,0);
+  setTimeout(wrapOutermost,250);
+  paint();
 })();
