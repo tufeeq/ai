@@ -1,6 +1,6 @@
 'use strict';
 (function(){
-  const RELEASE='TAG574';
+  const RELEASE='TAG575';
   const MAIN='https://raw.githubusercontent.com/tufeeq/ai/main/tag/data/';
   const ET='America/New_York';
   function parts(ts){return Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:ET,weekday:'short',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).formatToParts(new Date(ts||Date.now())).map(p=>[p.type,p.value]));}
@@ -18,32 +18,29 @@
       return;
     }
     try{
-      const [candidate,rec]=await Promise.all([json('final-ah-candidate.json'),json('final-reconciliation-v2.json')]);
+      const [candidate,rec]=await Promise.all([json('final-ah-candidate.json'),json('final-reconciliation-v3.json')]);
       const cts=candidate.snapshotTimestampET||candidate.snapshotTimestampUTC;
       const rts=rec.sourceSnapshotTimestampET;
       const today=tradingDate(Date.now());
       const candidateValid=Boolean(candidate.finalCandidate===true&&candidate.session==='after-hours-finalization'&&strictFinal(cts)&&tradingDate(cts)===today);
-      const reconciliationValid=Boolean(rec.finalBoundaryRecognized===true&&rec.snapshotType==='final-after-hours-close'&&rts&&tradingDate(rts)===today&&strictFinal(rts));
+      const matchingPolicyOK=rec.schemaVersion===3&&rec.matchingPolicy==='NEAREST_TIMESTAMP_TO_FINVIZ_CANDIDATE';
+      const reconciliationValid=Boolean(rec.finalBoundaryRecognized===true&&rec.snapshotType==='final-after-hours-close'&&rts&&tradingDate(rts)===today&&strictFinal(rts)&&matchingPolicyOK);
       const matches=Number(rec?.counts?.priceChangeMatched||0),checked=Number(rec?.counts?.checked||0),sources=Number(rec.independentSourceCount||0);
       const outcomeOK=Boolean(candidateValid&&reconciliationValid&&rec.outcomeTrainingEligible===true&&matches>0&&sources>=2);
-      const state=!candidateValid?'STRICT_FINAL_CANDIDATE_MISSING':!reconciliationValid?'FINAL_RECONCILIATION_BLOCKED':outcomeOK?'FINAL_PRICE_CHANGE_RECONCILED':'FINAL_PRICE_CHANGE_NOT_RECONCILED';
+      const state=!candidateValid?'STRICT_FINAL_CANDIDATE_MISSING':!matchingPolicyOK?'FINAL_MATCH_POLICY_INVALID':!reconciliationValid?'FINAL_RECONCILIATION_BLOCKED':outcomeOK?'FINAL_PRICE_CHANGE_RECONCILED':'FINAL_PRICE_CHANGE_NOT_RECONCILED';
       if(typeof sourceMeta==='object'&&sourceMeta){
-        sourceMeta.strictFinalCapture={state,candidateTimestampET:cts,reconciliationTimestampET:rts,checked,priceChangeMatched:matches,independentSourceCount:sources,outcomeTrainingEligible:outcomeOK,volumeTrainingEligible:false};
+        sourceMeta.strictFinalCapture={state,candidateTimestampET:cts,reconciliationTimestampET:rts,matchingPolicy:rec.matchingPolicy,checked,priceChangeMatched:matches,independentSourceCount:sources,outcomeTrainingEligible:outcomeOK,volumeTrainingEligible:false};
         sourceMeta.reconciliation=rec.finalSnapshotReconciliation||sourceMeta.reconciliation;
         sourceMeta.independentSourceCount=Math.max(Number(sourceMeta.independentSourceCount||0),sources);
         sourceMeta.outcomeTrainingEligible=outcomeOK;
-        // Overall training stays fail-closed because final cumulative AH volume is not independently reconciled.
         sourceMeta.trainingEligible=false;
       }
       const badge=document.querySelector('#dataBadge');
-      if(badge){
-        badge.textContent=outcomeOK?`● FINAL: السعر/التغير ${matches}/${checked} مصالح · الحجم محجوب`:`● FINAL: ${state}`;
-        badge.classList.toggle('connected',outcomeOK);
-      }
+      if(badge){badge.textContent=outcomeOK?`● FINAL: السعر/التغير ${matches}/${checked} مصالح · أقرب توقيت · الحجم محجوب`:`● FINAL: ${state}`;badge.classList.toggle('connected',outcomeOK);}
       logLine(`Strict Final Capture: ${candidateValid?'PASS':'FAIL'} · ${cts||'no timestamp'} · policy ${candidate.capturePolicy||'UNKNOWN'}`,candidateValid?'':'warn');
-      logLine(`Final Snapshot Reconciliation v2: ${rec.finalSnapshotReconciliation||'BLOCKED'} · مصادر مستقلة ${sources} · price/change ${matches}/${checked} · Outcome labels ${outcomeOK?'ELIGIBLE per reconciled ticker':'BLOCKED'}`,outcomeOK?'':'warn');
+      logLine(`Final Snapshot Reconciliation v3: ${rec.finalSnapshotReconciliation||'BLOCKED'} · matching ${rec.matchingPolicy||'UNKNOWN'} · مصادر ${sources} · price/change ${matches}/${checked} · Outcome labels ${outcomeOK?'ELIGIBLE per reconciled ticker':'BLOCKED'}`,outcomeOK?'':'warn');
       logLine('Final Volume: BLOCKED — Yahoo 1m extended-hours volume is not cumulative-session volume; no volume-derived training until a compatible independent source is reconciled.','warn');
-      publish({active:true,state,candidateValid,reconciliationValid,candidateTimestampET:cts,checked,priceChangeMatched:matches,independentSourceCount:sources,outcomeTrainingEligible:outcomeOK,trainingEligible:false,volumeTrainingEligible:false});
+      publish({active:true,state,candidateValid,reconciliationValid,matchingPolicy:rec.matchingPolicy,candidateTimestampET:cts,checked,priceChangeMatched:matches,independentSourceCount:sources,outcomeTrainingEligible:outcomeOK,trainingEligible:false,volumeTrainingEligible:false});
     }catch(err){
       if(typeof sourceMeta==='object'&&sourceMeta){sourceMeta.outcomeTrainingEligible=false;sourceMeta.trainingEligible=false;sourceMeta.strictFinalCapture={state:'FINAL_AUTHORITY_UNAVAILABLE',error:String(err.message||err)};}
       logLine('Final Snapshot Authority: FAIL-CLOSED · '+String(err.message||err),'warn');
