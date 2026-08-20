@@ -1,20 +1,20 @@
 'use strict';
 (()=>{
-  const RELEASE=String(document.body?.dataset?.tagRelease||'TAG572');
-  const runtime={release:RELEASE,ok:true,critical:false,errors:[],warnings:[],lastErrorAt:null,renderBound:false,renderBoundaryRevision:0,lastBoundaryAt:null};
+  const RELEASE='TAG572';
+  const runtime={release:RELEASE,ok:true,critical:[],warnings:[],lastEventAt:null,renderBound:false,renderBoundaryRevision:0,lastBoundaryAt:null};
   const now=()=>new Date().toISOString();
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function ownedScript(src){return /\/tag500\//.test(String(src||''));}
   function remember(kind,message,source,stack){
     const item={kind,message:String(message||'Unknown runtime error'),source:String(source||''),stack:String(stack||'').slice(0,1200),at:now()};
-    const list=kind==='warning'?runtime.warnings:runtime.errors;
+    const list=kind==='warning'?runtime.warnings:runtime.critical;
     const key=item.kind+'|'+item.message+'|'+item.source;
     if(!list.some(x=>(x.kind+'|'+x.message+'|'+x.source)===key)) list.unshift(item);
     list.splice(12);
-    runtime.lastErrorAt=item.at;
-    if(kind!=='warning'){runtime.ok=false;runtime.critical=true;}
+    runtime.lastEventAt=item.at;
+    runtime.ok=runtime.critical.length===0;
     paint();
-    try{window.dispatchEvent(new CustomEvent('tag500:runtime-safety',{detail:{ok:runtime.ok,critical:runtime.critical,item}}));}catch(_){ }
+    try{window.dispatchEvent(new CustomEvent('tag500:runtime-safety',{detail:{ok:runtime.ok,critical:runtime.critical.slice(-10),item}}));}catch(_){ }
   }
   window.TAG500RuntimeSafety=runtime;
   window.addEventListener('error',e=>{
@@ -37,9 +37,9 @@
     if(!host)return;
     let panel=host.querySelector('[data-runtime-safety]');
     if(!panel){panel=document.createElement('div');panel.dataset.runtimeSafety='1';panel.className='log-entry';host.prepend(panel);}
-    const status=runtime.critical?'FAIL-CLOSED':runtime.warnings.length?'تحذير':'سليم';
-    const cls=runtime.critical?'bad':runtime.warnings.length?'warn':'ok';
-    const latest=[...runtime.errors,...runtime.warnings].sort((a,b)=>Date.parse(b.at)-Date.parse(a.at))[0];
+    const status=runtime.critical.length?'FAIL-CLOSED':runtime.warnings.length?'تحذير':'سليم';
+    const cls=runtime.critical.length?'bad':runtime.warnings.length?'warn':'ok';
+    const latest=[...runtime.critical,...runtime.warnings].sort((a,b)=>Date.parse(b.at)-Date.parse(a.at))[0];
     panel.innerHTML=`<b class="${cls}">Runtime Safety · ${status}</b><small>${runtime.renderBound?'Render Boundary ✓':'Render Boundary: جارٍ الربط'} · إعادة ربط ${runtime.renderBoundaryRevision}${latest?` · ${esc(latest.message)}`:''}</small>`;
   }
   function wrapOutermost(){
