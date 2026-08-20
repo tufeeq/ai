@@ -1,0 +1,141 @@
+name: TAG Persistence Integrity
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["TAG5 Mover Snapshot"]
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tag-persistence-integrity-main
+  cancel-in-progress: true
+
+jobs:
+  correct:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Correct peak-referenced gain retention
+        run: |
+          python - <<'PY'
+          import json, pathlib
+
+          finviz_path = pathlib.Path('tag/data/finviz.json')
+          snapshots_path = pathlib.Path('tag/data/snapshots.json')
+
+          def load(path, default):
+              try:
+                  return json.loads(path.read_text(encoding='utf-8'))
+              except Exception:
+                  return default
+
+          def fnum(v):
+              try:
+                  return float(v)
+              except Exception:
+                  return None
+
+          payload = load(finviz_path, {})
+          rows = payload.get('rows') or payload.get('data') or []
+          corrected = 0
+          material = 0
+          raw_invalid = 0
+          by_ticker = {}
+
+          for row in rows:
+              pts = [fnum(v) for v in (row.get('_persistencePoints') or [])]
+              pts = [v for v in pts if v is not None]
+              if len(pts) < 2:
+                  continue
+              cur = pts[-1]
+              positive = [v for v in pts if v > 0]
+              if not positive:
+                  corrected_retention = 0.0 if cur <= 0 else None
+              else:
+                  peak = max(positive)
+                  corrected_retention = round(max(0.0, min(100.0, (cur / peak) * 100.0)), 1)
+
+              if corrected_retention is None:
+                  continue
+
+              raw = fnum(row.get('_gainRetentionPct'))
+              if raw is not None and (raw < 0 or raw > 100):
+                  raw_invalid += 1
+              if raw is None or abs(raw - corrected_retention) >= 0.05:
+                  corrected += 1
+              if raw is not None and abs(raw - corrected_retention) >= 5.0:
+                  material += 1
+
+              row['_gainRetentionPctRawLegacy'] = raw
+              row['_gainRetentionPct'] = corrected_retention
+              row['_gainRetentionMethod'] = 'CURRENT_GAIN_OVER_MAX_POSITIVE_GAIN_IN_CONTIGUOUS_PATH'
+              row['_gainRetentionSourceCorrected'] = True
+              ticker = str(row.get('Ticker') or '').upper()
+              if ticker:
+                  by_ticker[ticker] = {
+                      'gainRetentionPct': corrected_retention,
+                      'gainRetentionPctRawLegacy': raw,
+                      'gainRetentionMethod': row['_gainRetentionMethod'],
+                      'gainRetentionSourceCorrected': True,
+                  }
+
+          payload['persistenceMethod'] = 'CONTIGUOUS_UNIQUE_HOURLY_SESSION_BUCKETS_WITH_EXTENDED_FIELD_FREEZE_GATE_AND_PEAK_REFERENCED_GAIN_RETENTION'
+          payload['sourcePersistenceIntegrity'] = {
+              'state': 'PEAK_REFERENCED_CORRECTED',
+              'method': 'CURRENT_GAIN_OVER_MAX_POSITIVE_GAIN_IN_CONTIGUOUS_PATH',
+              'rowsCorrected': corrected,
+              'materialMismatches5ppOrMore': material,
+              'rawOutOfRangeCount': raw_invalid,
+          }
+          payload['rows'] = rows
+          payload['data'] = rows
+          finviz_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
+
+          snapshots = load(snapshots_path, [])
+          target_ts = payload.get('snapshotTimestampUTC') or payload.get('updatedAt')
+          target_bucket = payload.get('sessionBucket')
+          target_session = payload.get('session')
+          updated_snapshot = False
+          for snap in reversed(snapshots):
+              same = (
+                  (target_ts and snap.get('timestampUTC') == target_ts) or
+                  (snap.get('sessionBucket') == target_bucket and snap.get('session') == target_session)
+              )
+              if not same:
+                  continue
+              for mover in snap.get('topMovers', []):
+                  ticker = str(mover.get('Ticker') or '').upper()
+                  fix = by_ticker.get(ticker)
+                  if fix:
+                      mover.update(fix)
+              snap['persistenceMethod'] = payload['persistenceMethod']
+              snap['sourcePersistenceIntegrity'] = payload['sourcePersistenceIntegrity']
+              updated_snapshot = True
+              break
+
+          if updated_snapshot:
+              snapshots_path.write_text(json.dumps(snapshots, ensure_ascii=False, indent=2), encoding='utf-8')
+
+          print(f'Peak-referenced retention correction: rowsCorrected={corrected}, material5pp={material}, rawOutOfRange={raw_invalid}, snapshotUpdated={updated_snapshot}')
+          PY
+
+      - name: Commit corrected persistence data
+        run: |
+          git config user.name "TAG Persistence Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/finviz.json tag/data/snapshots.json
+          if git diff --cached --quiet; then
+            echo "No persistence correction needed"
+            exit 0
+          fi
+          git commit -m "Correct TAG gain retention at source"
+          git pull --rebase origin main
+          git push origin main
