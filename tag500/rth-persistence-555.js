@@ -25,12 +25,7 @@
   function trajectoryLabel(t){return{ACCELERATING:'يتسارع',BUILDING:'يبني',STABLE:'ثابت',FADING:'يتلاشى',NO_HISTORY:'غير كافٍ'}[t]||t;}
   function syncReleaseIdentity(){
     try{
-      document.body?.setAttribute('data-tag-release',BUILD);
-      const badge=document.querySelector('#versionBadge');if(badge)badge.textContent=BUILD;
-      document.title=`${BUILD} — منصة TAG500`;
-      const footer=document.querySelector('footer strong');if(footer)footer.textContent=BUILD;
-      const summary=document.querySelector('.release-box summary');if(summary)summary.textContent=`سجل الإصدارات · ${BUILD}`;
-      const note=document.querySelector('.release-note');if(note)note.textContent='TAG556: تصحيح Gain Retention المركزي ليقاس مقابل أعلى مكسب داخل المسار المتصل بدل أول bucket. هذا يمنع المسار الذي صنع قمة ثم بدأ يتلاشى من الظهور باحتفاظ مصطنع 100%. لا تغيير للـthresholds أو الأوزان، والتدريب يبقى محجوبًا حتى Final Snapshot Reconciliation.';
+      document.documentElement.dataset.rthPersistenceModule=BUILD;
     }catch(_){ }
   }
   const baseAnalyze=window.analyze;
@@ -81,6 +76,6 @@
   if(typeof baseRender==='function')window.render=function(){baseRender();queueMicrotask(render);};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>queueMicrotask(render));else queueMicrotask(render);
   syncReleaseIdentity();
-  window.TAG500RTHPersistence={build:BUILD,snapshot,correctedRetention,retentionMethod:'CURRENT_GAIN_OVER_MAX_POSITIVE_GAIN_IN_CONTIGUOUS_PATH'};
+  window.TAG500RTHPersistence={build:BUILD,snapshot,correctedRetention,retentionMethod:'CURRENT_GAIN_OVER_MAX_POSITIVE_GAIN_IN_CONTIGUOUS_PATH',releaseMutation:false};
   window.TAG500GainRetention={build:BUILD,correctedRetention,method:'CURRENT_GAIN_OVER_MAX_POSITIVE_GAIN_IN_CONTIGUOUS_PATH'};
 })();
