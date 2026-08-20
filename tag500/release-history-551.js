@@ -44,6 +44,8 @@
     ensureStyles();
     const current=String(data?.current||releaseFromPage());
     setRelease(current);
+    const note=box.querySelector('.release-note');
+    if(note&&data?.currentSummary)note.textContent=`${current}: ${String(data.currentSummary)}`;
     const releases=Array.isArray(data?.releases)?data.releases:[];
     let region=box.querySelector('[data-release-history]');
     if(!region){region=document.createElement('div');region.dataset.releaseHistory='1';box.appendChild(region);}
@@ -97,7 +99,7 @@
       if(currentMeta?.current&&!releases.some(r=>String(r.version)===String(currentMeta.current))){
         releases.push({version:String(currentMeta.current),date:String(currentMeta.updatedAt||'').slice(0,10),summary:String(currentMeta.summary||'')});
       }
-      render({...ledger,current,releases});
+      render({...ledger,current,releases,currentSummary:String(currentMeta?.summary||'')});
       await ensureReleaseLayers(current);
     }catch(e){
       ensureStyles();
