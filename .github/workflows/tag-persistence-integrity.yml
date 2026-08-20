@@ -97,34 +97,36 @@ jobs:
           }
           payload['rows'] = rows
           payload['data'] = rows
-          finviz_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
 
           snapshots = load(snapshots_path, [])
           target_ts = payload.get('snapshotTimestampUTC') or payload.get('updatedAt')
-          target_bucket = payload.get('sessionBucket')
-          target_session = payload.get('session')
           updated_snapshot = False
-          for snap in reversed(snapshots):
-              same = (
-                  (target_ts and snap.get('timestampUTC') == target_ts) or
-                  (snap.get('sessionBucket') == target_bucket and snap.get('session') == target_session)
-              )
-              if not same:
-                  continue
-              for mover in snap.get('topMovers', []):
-                  ticker = str(mover.get('Ticker') or '').upper()
-                  fix = by_ticker.get(ticker)
-                  if fix:
-                      mover.update(fix)
-              snap['persistenceMethod'] = payload['persistenceMethod']
-              snap['sourcePersistenceIntegrity'] = payload['sourcePersistenceIntegrity']
-              updated_snapshot = True
-              break
+          mirror_state = 'SKIPPED_NO_TARGET_TIMESTAMP' if not target_ts else 'EXACT_TIMESTAMP_NOT_FOUND'
+          if target_ts:
+              for snap in reversed(snapshots):
+                  snap_ts = snap.get('snapshotTimestampUTC') or snap.get('timestampUTC') or snap.get('updatedAt')
+                  if not snap_ts or snap_ts != target_ts:
+                      continue
+                  for mover in snap.get('topMovers', []):
+                      ticker = str(mover.get('Ticker') or '').upper()
+                      fix = by_ticker.get(ticker)
+                      if fix:
+                          mover.update(fix)
+                  snap['persistenceMethod'] = payload['persistenceMethod']
+                  snap['sourcePersistenceIntegrity'] = payload['sourcePersistenceIntegrity']
+                  snap['persistenceMirrorTimestampUTC'] = target_ts
+                  updated_snapshot = True
+                  mirror_state = 'EXACT_TIMESTAMP_MATCH'
+                  break
+
+          payload['sourcePersistenceIntegrity']['historyMirrorState'] = mirror_state
+          payload['sourcePersistenceIntegrity']['historyMirrorTimestampUTC'] = target_ts
+          finviz_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
 
           if updated_snapshot:
               snapshots_path.write_text(json.dumps(snapshots, ensure_ascii=False, indent=2), encoding='utf-8')
 
-          print(f'Peak-referenced retention correction: rowsCorrected={corrected}, material5pp={material}, rawOutOfRange={raw_invalid}, snapshotUpdated={updated_snapshot}')
+          print(f'Peak-referenced retention correction: rowsCorrected={corrected}, material5pp={material}, rawOutOfRange={raw_invalid}, snapshotUpdated={updated_snapshot}, mirrorState={mirror_state}, targetTimestamp={target_ts}')
           PY
 
       - name: Commit corrected persistence data
