@@ -1,0 +1,108 @@
+name: TAG Final AH Capture v2
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 20:00-20:10 ET in both daylight and standard time.
+    - cron: '0,5,10 0,1 * * 2-6'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tag-final-ah-capture-main
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify strict final-AH window
+        id: window
+        run: |
+          python - <<'PY'
+          import datetime, os
+          from zoneinfo import ZoneInfo
+          now=datetime.datetime.now(datetime.timezone.utc).astimezone(ZoneInfo('America/New_York'))
+          valid=(now.weekday()<5 and datetime.time(20,0)<=now.time()<=datetime.time(20,10,59))
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:
+              f.write(f"valid={'true' if valid else 'false'}\n")
+          print(f"ET={now.isoformat()} strictFinalWindow={valid}")
+          PY
+
+      - name: Fetch Finviz Elite final mover universes
+        if: steps.window.outputs.valid == 'true'
+        env:
+          FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
+        run: |
+          test -n "$FINVIZ_TOKEN" || (echo "FINVIZ_TOKEN secret is missing" && exit 1)
+          for SIGNAL in ta_topgainers ta_unusualvolume ta_mostactive; do
+            URL="https://elite.finviz.com/export/screener?s=${SIGNAL}&v=111&auth=${FINVIZ_TOKEN}"
+            curl --fail --silent --show-error --location --retry 5 --retry-delay 4 --retry-all-errors "$URL" -o "/tmp/final-${SIGNAL}.csv"
+            test -s "/tmp/final-${SIGNAL}.csv" || (echo "Finviz ${SIGNAL} returned empty" && exit 1)
+            sleep 2
+          done
+
+      - name: Write strict post-8pm final candidate
+        if: steps.window.outputs.valid == 'true'
+        run: |
+          python - <<'PY'
+          import csv, json, datetime, pathlib
+          from zoneinfo import ZoneInfo
+          signals=['ta_topgainers','ta_unusualvolume','ta_mostactive']
+          now_utc=datetime.datetime.now(datetime.timezone.utc)
+          now_et=now_utc.astimezone(ZoneInfo('America/New_York'))
+          if not (datetime.time(20,0)<=now_et.time()<=datetime.time(20,10,59)):
+              raise SystemExit('Outside strict 20:00-20:10:59 ET final window')
+          merged={}
+          for signal in signals:
+              with open(f'/tmp/final-{signal}.csv',newline='',encoding='utf-8-sig') as f:
+                  for row in csv.DictReader(f):
+                      ticker=(row.get('Ticker') or row.get('Symbol') or '').strip().upper()
+                      if not ticker: continue
+                      dst=merged.setdefault(ticker,{'Ticker':ticker,'_signals':[]})
+                      if signal not in dst['_signals']: dst['_signals'].append(signal)
+                      for k,v in row.items():
+                          if k and v not in (None,''): dst[k]=v
+          def pct(v):
+              try:return float(str(v or '0').replace('%','').replace(',',''))
+              except:return 0.0
+          rows=sorted(merged.values(),key=lambda r:pct(r.get('Change')),reverse=True)
+          payload={
+              'source':'Finviz Elite',
+              'capturePolicy':'STRICT_POST_20_00_ET',
+              'snapshotTimestampUTC':now_utc.isoformat(),
+              'snapshotTimestampET':now_et.isoformat(),
+              'session':'after-hours-finalization',
+              'sessionBucket':'AH4-FINAL',
+              'snapshotType':'final-candidate',
+              'finalCandidate':True,
+              'finalBoundaryRecognized':True,
+              'independentSourceCount':1,
+              'finalSnapshotReconciliation':'PENDING_SECOND_SOURCE',
+              'trainingEligible':False,
+              'count':len(rows),
+              'signals':signals,
+              'rows':rows,
+              'data':rows
+          }
+          p=pathlib.Path('tag/data/final-ah-candidate.json')
+          p.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(f"Captured {len(rows)} rows at {now_et.isoformat()}")
+          PY
+
+      - name: Commit strict final candidate
+        if: steps.window.outputs.valid == 'true'
+        run: |
+          git config user.name "TAG Final Capture Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/final-ah-candidate.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Capture strict TAG final AH candidate"
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*5)); done
+          exit 1
