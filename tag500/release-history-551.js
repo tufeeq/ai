@@ -70,6 +70,20 @@
       return na-nb;
     });
   }
+  async function ensureReleaseLayers(current){
+    const n=Number(String(current||'').replace(/\D/g,''))||0;
+    if(n<574||window.TAG500FinalSnapshotAuthority||document.querySelector('script[data-tag500-final-authority]'))return;
+    await new Promise((resolve,reject)=>{
+      const s=document.createElement('script');
+      s.src=`../tag500/final-snapshot-authority-574.js?v=${n}`;
+      s.dataset.tag500FinalAuthority=String(n);
+      s.onload=resolve;
+      s.onerror=()=>reject(new Error('FINAL_SNAPSHOT_AUTHORITY_LOAD_FAILED'));
+      document.body.appendChild(s);
+    });
+    window.dispatchEvent(new CustomEvent('tag500:runtime-ready',{detail:{layer:'finalSnapshotAuthority',build:current}}));
+    if(typeof loadData==='function') await loadData();
+  }
   async function load(){
     const box=host(); if(!box) return;
     try{
@@ -84,6 +98,7 @@
         releases.push({version:String(currentMeta.current),date:String(currentMeta.updatedAt||'').slice(0,10),summary:String(currentMeta.summary||'')});
       }
       render({...ledger,current,releases});
+      await ensureReleaseLayers(current);
     }catch(e){
       ensureStyles();
       let region=box.querySelector('[data-release-history]');
@@ -95,6 +110,6 @@
   applyReleaseIdentity();
   installFinalStateGate();
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',load); else load();
-  window.TAG500ReleaseHistory={get build(){return releaseFromPage();},load,render,mergeReleases,releaseAuthority:'current-release-then-ledger-plus-journal-then-page'};
+  window.TAG500ReleaseHistory={get build(){return releaseFromPage();},load,render,mergeReleases,ensureReleaseLayers,releaseAuthority:'current-release-then-ledger-plus-journal-then-page'};
   window.dispatchEvent(new CustomEvent('tag500:runtime-ready',{detail:{layer:'releaseHistoryAndStateFinalizer',build:releaseFromPage()}}));
 })();
