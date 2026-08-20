@@ -3,6 +3,7 @@
   const releaseFromPage=()=>String(document.body?.dataset?.tagRelease||document.documentElement?.dataset?.tagRelease||'TAG500');
   function setRelease(build){if(!build)return;document.body.dataset.tagRelease=build;document.title=`${build} — منصة TAG500`;const badge=document.querySelector('#versionBadge');if(badge)badge.textContent=build;const footer=document.querySelector('footer strong');if(footer)footer.textContent=build;const summary=document.querySelector('.release-box summary');if(summary)summary.textContent=`سجل الإصدارات · ${build}`;}
   const LEDGER_URL='../tag500/versions.json';
+  const JOURNAL_URL='../tag500/release-journal.json';
   const CURRENT_URL='../tag500/current-release.json';
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 
@@ -57,11 +58,27 @@
     input.addEventListener('input',paint);paint();
   }
   async function fetchJSON(url){const sep=url.includes('?')?'&':'?';const r=await fetch(url+sep+'ts='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status+' '+url);return r.json();}
+  function mergeReleases(base,journal){
+    const byVersion=new Map();
+    for(const r of [...(Array.isArray(base)?base:[]),...(Array.isArray(journal)?journal:[])]){
+      if(!r?.version)continue;
+      byVersion.set(String(r.version),r);
+    }
+    return [...byVersion.values()].sort((a,b)=>{
+      const na=Number(String(a.version||'').replace(/\D/g,''))||0;
+      const nb=Number(String(b.version||'').replace(/\D/g,''))||0;
+      return na-nb;
+    });
+  }
   async function load(){
     const box=host(); if(!box) return;
     try{
-      const [ledger,currentMeta]=await Promise.all([fetchJSON(LEDGER_URL),fetchJSON(CURRENT_URL).catch(()=>null)]);
-      const releases=Array.isArray(ledger?.releases)?ledger.releases.slice():[];
+      const [ledger,currentMeta,journal]=await Promise.all([
+        fetchJSON(LEDGER_URL),
+        fetchJSON(CURRENT_URL).catch(()=>null),
+        fetchJSON(JOURNAL_URL).catch(()=>({releases:[]}))
+      ]);
+      const releases=mergeReleases(ledger?.releases,journal?.releases);
       let current=String(currentMeta?.current||ledger?.current||releaseFromPage());
       if(currentMeta?.current&&!releases.some(r=>String(r.version)===String(currentMeta.current))){
         releases.push({version:String(currentMeta.current),date:String(currentMeta.updatedAt||'').slice(0,10),summary:String(currentMeta.summary||'')});
@@ -78,6 +95,6 @@
   applyReleaseIdentity();
   installFinalStateGate();
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',load); else load();
-  window.TAG500ReleaseHistory={get build(){return releaseFromPage();},load,render,releaseAuthority:'current-release-then-ledger-then-page'};
+  window.TAG500ReleaseHistory={get build(){return releaseFromPage();},load,render,mergeReleases,releaseAuthority:'current-release-then-ledger-plus-journal-then-page'};
   window.dispatchEvent(new CustomEvent('tag500:runtime-ready',{detail:{layer:'releaseHistoryAndStateFinalizer',build:releaseFromPage()}}));
 })();
