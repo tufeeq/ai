@@ -1,6 +1,6 @@
 'use strict';
 (function(){
-  const FALLBACK_BUILD='TAG533';
+  const FALLBACK_BUILD='TAG571';
   let mode='EXECUTIVE';
   function buildId(){return document.body?.dataset?.tagRelease||document.querySelector('#versionBadge')?.textContent?.trim()||FALLBACK_BUILD;}
   function actionCode(z){return z?.actionability?.code||'X';}
@@ -14,10 +14,12 @@
       ['actionability',window.TAG500Actionability],
       ['data-bridge',window.TAG500DataBridge||window.TAG500_DATA_BRIDGE],
       ['refresh-health',window.TAG500RefreshHealth],
-      ['session-clock',window.TAG500SessionClock]
+      ['session-clock',window.TAG500SessionClock],
+      ['runtime-safety',window.TAG500RuntimeSafety]
     ];
     const missing=required.filter(([,v])=>!v).map(([n])=>n);
-    return {ok:missing.length===0,missing,build:buildId()};
+    const critical=Array.isArray(window.TAG500RuntimeSafety?.critical)?window.TAG500RuntimeSafety.critical:[];
+    return {ok:missing.length===0&&window.TAG500RuntimeSafety?.ok!==false,missing,critical,build:buildId()};
   }
   function visible(z,healthOk){
     if(mode==='RESEARCH') return true;
@@ -50,7 +52,8 @@
     const lateOrigin=all.filter(z=>['LATE','VERY_LATE'].includes(z?.signalOrigin?.class)).length;
     const irrelevantNews=all.filter(z=>(z?.catalystNewsTimelineRawCount||0)>0&&(z?.catalystNewsTimeline||[]).length===0).length;
     const reasons=[];
-    if(!health.ok) reasons.push('Runtime ناقص: '+health.missing.join(', '));
+    if(!health.ok&&health.critical?.length) reasons.push(`Runtime error: ${health.critical.length} حرج`);
+    if(health.missing.length) reasons.push('Runtime ناقص: '+health.missing.join(', '));
     if(stale) reasons.push('البيانات قديمة — الترتيب التنفيذي متوقف');
     if(unverified) reasons.push(`${unverified} غير متحقق شرعيًا`);
     if(excluded) reasons.push(`${excluded} مستبعد شرعيًا`);
@@ -88,10 +91,14 @@
     document.querySelector('#runtime527Health')?.remove();
     let item=document.querySelector('#runtime533Health');
     if(log&&!item){item=document.createElement('div');item.id='runtime533Health';item.className='log-item';log.appendChild(item);}
-    if(item)item.innerHTML=health.ok?`Runtime ${health.build}: ✓ الطبقات المطلوبة محمّلة؛ هوية الإصدار مأخوذة من entrypoint ولا تستطيع overlay قديمة خفضها.`:`Runtime ${health.build}: ⚠ طبقات مفقودة: ${health.missing.join(', ')}. Executive Mode محجوب مؤقتًا دون تعديل z.valid.`;
+    if(item){
+      if(health.ok)item.innerHTML=`Runtime ${health.build}: ✓ الطبقات المطلوبة محمّلة ولا توجد أخطاء runtime حرجة.`;
+      else if(health.critical?.length)item.innerHTML=`Runtime ${health.build}: ⚠ FAIL-CLOSED بسبب ${health.critical.length} خطأ runtime حرج. Executive Mode محجوب دون تعديل z.valid.`;
+      else item.innerHTML=`Runtime ${health.build}: ⚠ طبقات مفقودة: ${health.missing.join(', ')}. Executive Mode محجوب مؤقتًا دون تعديل z.valid.`;
+    }
     if(!health.ok&&mode==='EXECUTIVE'){
       const top=document.querySelector('#topOpportunity');
-      if(top){top.classList.add('empty');top.textContent='تم حجب الفرص التنفيذية مؤقتًا: runtime غير مكتمل. لم يتم تغيير صلاحية الحالات الأصلية.';}
+      if(top){top.classList.add('empty');top.textContent='تم حجب الفرص التنفيذية مؤقتًا: runtime غير سليم. راجع سجل سلامة البيانات.';}
     }
   }
   function bind(){
@@ -104,5 +111,6 @@
   if(typeof baseRender==='function')window.render=function(){baseRender();queueMicrotask(bind);};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
   window.addEventListener('tag500:runtime-ready',apply);
+  window.addEventListener('tag500:runtime-safety',apply);
   window.TAG500ExecutiveView={build:buildId(),getMode:()=>mode,setMode:(m)=>{mode=m==='RESEARCH'?'RESEARCH':'EXECUTIVE';const s=document.querySelector('#viewMode533');if(s)s.value=mode;apply();},runtimeHealth,apply};
 })();
