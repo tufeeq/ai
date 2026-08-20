@@ -1,6 +1,6 @@
 'use strict';
 (function(){
-  const BUILD='TAG567';
+  const BUILD='TAG568';
   const arr=v=>Array.isArray(v)?v:[];
   const num=v=>{if(v===null||v===undefined||v==='')return null;const x=Number(String(v).replace(/[$,%\s,]/g,''));return Number.isFinite(x)?x:null;};
   const clamp01=v=>Number.isFinite(v)?Math.max(0,Math.min(1,v)):null;
@@ -13,7 +13,18 @@
     const positive=p.filter(v=>v>0);
     const peak=positive.length?Math.max(...positive):null;
     const current=p[p.length-1];
-    return Number.isFinite(peak)&&peak>0?clamp01(current/peak):null;
+    if(!Number.isFinite(peak)||peak<=0)return null;
+    if(!Number.isFinite(current)||current<=0)return 0;
+    return clamp01(current/peak);
+  }
+  function sourceRetentionIntegrity(rawPct,corrected){
+    if(!Number.isFinite(corrected))return{state:'UNVERIFIED',deltaPct:null,material:false};
+    if(!Number.isFinite(rawPct))return{state:'SOURCE_VALUE_MISSING',deltaPct:null,material:false};
+    const correctedPct=corrected*100;
+    const delta=Math.abs(rawPct-correctedPct);
+    const invalidRange=rawPct<0||rawPct>100;
+    const material=invalidRange||delta>=5;
+    return{state:material?'DATA_INTEGRITY_ERROR':'OK',deltaPct:Math.round(delta*10)/10,material,rawPct,correctedPct:Math.round(correctedPct*10)/10};
   }
   function trajectory(slope,retention,count){
     if(!Number.isFinite(count)||count<2)return'NO_HISTORY';
@@ -23,9 +34,7 @@
     return'STABLE';
   }
   function trajectoryLabel(t){return{ACCELERATING:'يتسارع',BUILDING:'يبني',STABLE:'ثابت',FADING:'يتلاشى',NO_HISTORY:'غير كافٍ'}[t]||t;}
-  function syncReleaseIdentity(){
-    try{ document.documentElement.dataset.rthPersistenceModule=BUILD; }catch(_){ }
-  }
+  function syncReleaseIdentity(){try{document.documentElement.dataset.rthPersistenceModule=BUILD;}catch(_){}}
   const baseAnalyze=window.analyze;
   if(typeof baseAnalyze==='function')window.analyze=function(x){
     const z=baseAnalyze(x);
@@ -35,17 +44,31 @@
       const rawLegacy=num(z?.raw?._gainRetentionPct);
       const retention=correctedRetention(t.points);
       if(Number.isFinite(retention)){
+        const integrity=sourceRetentionIntegrity(rawLegacy,retention);
         t.retentionLegacy=oldRetention;
         t.retentionRawLegacyPct=rawLegacy;
         t.retention=retention;
         t.retentionRawPct=Math.round(retention*1000)/10;
         t.retentionMethod='CURRENT_GAIN_OVER_MAX_POSITIVE_GAIN_IN_CONTIGUOUS_PATH';
         t.trajectory=trajectory(t.slope,retention,t.count);
+        t.sourceRetentionIntegrity=integrity;
         if(z.raw&&typeof z.raw==='object'){
           z.raw._gainRetentionPctLegacy=rawLegacy;
           z.raw._gainRetentionPct=t.retentionRawPct;
           z.raw._gainRetentionMethod='CURRENT_GAIN_OVER_MAX_POSITIVE_GAIN_IN_CONTIGUOUS_PATH';
           z.raw._gainRetentionIntegrity='NORMALIZED_AT_TAG500_BOUNDARY';
+          z.raw._sourcePersistenceIntegrity=integrity.state;
+          z.raw._sourceGainRetentionMismatchPct=integrity.deltaPct;
+          if(integrity.material){
+            z.raw._trainingEligible=false;
+            z.raw._dataIntegrityState='DATA_INTEGRITY_ERROR';
+          }
+        }
+        if(integrity.material){
+          z.trainingEligible=false;
+          z.dataIntegrityError=true;
+          z.reasons=(z.reasons||[]).filter(s=>!/^Source Gain Retention/.test(String(s)));
+          z.reasons.push(`Source Gain Retention mismatch ${integrity.deltaPct?.toFixed?.(1)??integrity.deltaPct}pp — training blocked`);
         }
         z.reasons=(z.reasons||[]).filter(s=>!/^Gain retention مركزي /.test(String(s))&&!/^المسار المركزي:/.test(String(s)));
         z.reasons.push(`Gain retention مركزي ${(retention*100).toFixed(0)}% من قمة المسار`);
@@ -59,6 +82,7 @@
     const centralAll=a.filter(z=>z?.temporal?.retentionMethod==='CURRENT_GAIN_OVER_MAX_POSITIVE_GAIN_IN_CONTIGUOUS_PATH');
     const rawNormalized=centralAll.filter(z=>z?.raw?._gainRetentionIntegrity==='NORMALIZED_AT_TAG500_BOUNDARY').length;
     const rawWasOver100=centralAll.filter(z=>Number.isFinite(z?.temporal?.retentionRawLegacyPct)&&z.temporal.retentionRawLegacyPct>100).length;
+    const sourceErrors=centralAll.filter(z=>z?.raw?._sourcePersistenceIntegrity==='DATA_INTEGRITY_ERROR').length;
     const rth=a.filter(z=>sourceSession(z)==='regular');
     const central=rth.filter(z=>z?.persistenceAuthority?.ok||z?.centralPersistence).length;
     const eligibleRows=rth.filter(eligible).length;
@@ -67,13 +91,13 @@
     const b=rth[0]?bucket(rth[0]):'—';
     const cadence=String(rth[0]?.raw?._cadenceStatus||'UNKNOWN');
     const continuity=String(rth[0]?.raw?._bucketContinuityStatus||'UNKNOWN');
-    return{count:rth.length,central,eligibleRows,corrected:corrected.length,materiallyLower,bucket:b,cadence,continuity,centralAll:centralAll.length,rawNormalized,rawWasOver100};
+    return{count:rth.length,central,eligibleRows,corrected:corrected.length,materiallyLower,bucket:b,cadence,continuity,centralAll:centralAll.length,rawNormalized,rawWasOver100,sourceErrors};
   }
   function render(){
     syncReleaseIdentity();
     const log=document.querySelector('#integrityLog');if(!log)return;
     const s=snapshot();
-    if(s.centralAll) log.insertAdjacentHTML('beforeend',`<div class="log-item">Gain Retention Integrity ${BUILD}: ${s.rawNormalized}/${s.centralAll} مسار مركزي طُبّع عند حدود TAG500 إلى current÷peak · ${s.rawWasOver100} قيمة خام كانت >100% وتم منعها من التسرب للطبقات اللاحقة. لا تغيير للـthresholds.</div>`);
+    if(s.centralAll)log.insertAdjacentHTML('beforeend',`<div class="log-item">Gain Retention Integrity ${BUILD}: ${s.rawNormalized}/${s.centralAll} مسار مركزي طُبّع إلى current÷peak · ${s.sourceErrors} حالة source mismatch محجوبة من التدريب · ${s.rawWasOver100} قيمة خام كانت >100%. لا تغيير للـthresholds.</div>`);
     if(!s.count)return;
     const warmup=s.bucket==='R09'||s.continuity==='INITIAL_BUCKET';
     const state=s.central>0?'ACTIVE':warmup?'WARMUP':'WAITING_CONTIGUOUS_BUCKET';
@@ -88,6 +112,6 @@
   if(typeof baseRender==='function')window.render=function(){baseRender();queueMicrotask(render);};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>queueMicrotask(render));else queueMicrotask(render);
   syncReleaseIdentity();
-  window.TAG500RTHPersistence={build:BUILD,snapshot,correctedRetention,retentionMethod:'CURRENT_GAIN_OVER_MAX_POSITIVE_GAIN_IN_CONTIGUOUS_PATH',rawBoundaryNormalization:true,releaseMutation:false};
-  window.TAG500GainRetention={build:BUILD,correctedRetention,method:'CURRENT_GAIN_OVER_MAX_POSITIVE_GAIN_IN_CONTIGUOUS_PATH',rawBoundaryNormalization:true};
+  window.TAG500RTHPersistence={build:BUILD,snapshot,correctedRetention,sourceRetentionIntegrity,retentionMethod:'CURRENT_GAIN_OVER_MAX_POSITIVE_GAIN_IN_CONTIGUOUS_PATH',rawBoundaryNormalization:true,sourceMismatchFailClosed:true,releaseMutation:false};
+  window.TAG500GainRetention={build:BUILD,correctedRetention,sourceRetentionIntegrity,method:'CURRENT_GAIN_OVER_MAX_POSITIVE_GAIN_IN_CONTIGUOUS_PATH',rawBoundaryNormalization:true,sourceMismatchFailClosed:true};
 })();
