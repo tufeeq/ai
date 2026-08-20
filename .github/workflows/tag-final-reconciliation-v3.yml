@@ -1,0 +1,109 @@
+name: TAG Final Snapshot Reconciliation v3
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run after the strict 20:00-20:10 ET capture window (EDT and EST).
+    - cron: '13 0,1 * * 2-6'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tag-final-reconciliation-v3-main
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sync latest final candidate
+        run: git pull --rebase origin main
+      - name: Reconcile strict candidate to nearest Yahoo timestamp
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime, urllib.parse, urllib.request, time
+          from zoneinfo import ZoneInfo
+
+          ET=ZoneInfo('America/New_York')
+          candidate_path=pathlib.Path('tag/data/final-ah-candidate.json')
+          out_path=pathlib.Path('tag/data/final-reconciliation-v3.json')
+
+          def load(p):
+              try:return json.loads(p.read_text(encoding='utf-8'))
+              except Exception:return {}
+          def num(v):
+              try:return float(str(v).replace(',','').replace('$','').replace('%',''))
+              except:return None
+          def dt(v):
+              try:
+                  x=datetime.datetime.fromisoformat(str(v).replace('Z','+00:00'))
+                  return x if x.tzinfo else x.replace(tzinfo=datetime.timezone.utc)
+              except:return None
+          def yahoo_nearest(ticker,candidate_dt):
+              q=urllib.parse.quote(ticker,safe='')
+              url=f'https://query1.finance.yahoo.com/v8/finance/chart/{q}?interval=1m&range=1d&includePrePost=true&events=div%2Csplits'
+              req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 TAG500-Reconciliation/3.0'})
+              try:
+                  with urllib.request.urlopen(req,timeout=12) as r:
+                      payload=json.loads(r.read().decode('utf-8'))
+                  result=((payload.get('chart') or {}).get('result') or [None])[0]
+                  if not result:return {'error':'NO_YAHOO_RESULT'}
+                  meta=result.get('meta') or {}; stamps=result.get('timestamp') or []
+                  quote=(((result.get('indicators') or {}).get('quote') or [{}])[0]); closes=quote.get('close') or []; vols=quote.get('volume') or []
+                  target=candidate_dt.astimezone(datetime.timezone.utc); bars=[]
+                  for i,ts in enumerate(stamps):
+                      if i>=len(closes) or closes[i] is None:continue
+                      z=datetime.datetime.fromtimestamp(ts,datetime.timezone.utc); zet=z.astimezone(ET)
+                      if zet.date()!=candidate_dt.astimezone(ET).date():continue
+                      if zet.time()<datetime.time(19,55):continue
+                      delta=abs((z-target).total_seconds())/60
+                      if delta>10:continue
+                      bars.append((delta,z,float(closes[i]),num(vols[i]) if i<len(vols) else None))
+                  if not bars:return {'error':'NO_ALIGNED_FINAL_BAR'}
+                  delta,z,price,barvol=min(bars,key=lambda x:(x[0],x[1]))
+                  prev=num(meta.get('previousClose') or meta.get('chartPreviousClose'))
+                  change=None if not(prev and price) else (price/prev-1)*100
+                  return {'price':price,'changePct':change,'barVolume':barvol,'timestampUTC':z.isoformat(),'previousClose':prev,'timestampDiffMinutes':round(delta,3),'selectionPolicy':'NEAREST_TIMESTAMP_TO_FINVIZ_CANDIDATE','volumeSemantic':'ONE_MINUTE_EXTENDED_HOURS_BAR_NOT_SESSION_CUMULATIVE'}
+              except Exception as ex:return {'error':type(ex).__name__+': '+str(ex)[:160]}
+
+          c=load(candidate_path); cts=dt(c.get('snapshotTimestampET') or c.get('snapshotTimestampUTC')); cet=cts.astimezone(ET) if cts else None
+          strict=bool(cet and c.get('finalCandidate') is True and c.get('session')=='after-hours-finalization' and datetime.time(20,0)<=cet.time()<=datetime.time(20,10,59))
+          rows=(c.get('rows') or c.get('data') or [])[:40]; results=[]; matched=conflict=missing=0
+          if strict:
+              for r in rows:
+                  t=str(r.get('Ticker') or r.get('Symbol') or '').upper()
+                  if not t:continue
+                  fp=num(r.get('Price'));fc=num(r.get('Change'));fv=num(r.get('Volume')); y=yahoo_nearest(t,cts)
+                  yp=num(y.get('price'));yc=num(y.get('changePct'));tsdiff=num(y.get('timestampDiffMinutes'))
+                  aligned=bool(tsdiff is not None and tsdiff<=10)
+                  pdiff=None if not(fp and yp) else abs(fp-yp)/max(abs(fp),abs(yp))*100
+                  cdiff=None if fc is None or yc is None else abs(fc-yc)
+                  ok=bool(aligned and pdiff is not None and pdiff<=2.0 and cdiff is not None and cdiff<=5.0)
+                  if ok:matched+=1
+                  elif yp is None or yc is None:missing+=1
+                  else:conflict+=1
+                  state='PRICE_CHANGE_RECONCILED_VOLUME_BLOCKED' if ok else ('SECOND_SOURCE_MISSING' if yp is None or yc is None else 'DATA_INTEGRITY_ERROR')
+                  reasons=[]
+                  if not aligned:reasons.append('SOURCE_TIMESTAMP_NOT_ALIGNED')
+                  if not ok:reasons.append('FINAL_PRICE_CHANGE_NOT_RECONCILED')
+                  reasons.append('SECOND_SOURCE_VOLUME_SEMANTIC_INCOMPATIBLE')
+                  results.append({'ticker':t,'finviz':{'price':fp,'changePct':fc,'volume':fv,'timestampET':c.get('snapshotTimestampET')},'yahoo':y,'timestampDiffMinutes':tsdiff,'priceDiffPct':None if pdiff is None else round(pdiff,3),'changeDiffPctPoints':None if cdiff is None else round(cdiff,3),'priceChangeReconciled':ok,'volumeReconciled':False,'state':state,'fieldLevelTrainingEligibility':{'finalPrice':ok,'finalChangePct':ok,'finalMoverOutcomeLabel':ok,'finalVolume':False,'volumeDerivedMetrics':False},'trainingEligible':False,'trainingBlockReasons':reasons})
+                  time.sleep(0.15)
+          outcome=sum(1 for x in results if x['fieldLevelTrainingEligibility']['finalMoverOutcomeLabel'])
+          payload={'generatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'schemaVersion':3,'matchingPolicy':'NEAREST_TIMESTAMP_TO_FINVIZ_CANDIDATE','sourceSnapshotTimestampET':c.get('snapshotTimestampET'),'sourceCapturePolicy':c.get('capturePolicy'),'snapshotType':'final-after-hours-close' if strict else 'blocked-no-strict-final-candidate','finalBoundaryRecognized':strict,'sources':['Finviz Elite strict 20:00+ capture','Yahoo Finance live chart nearest timestamp'],'independentSourceCount':2 if results else 1,'timestampAlignmentToleranceMinutes':10,'priceChangeTolerance':{'pricePct':2.0,'changePctPoints':5.0},'volumePolicy':'BLOCKED_UNTIL_INDEPENDENT_CUMULATIVE_EXTENDED_HOURS_VOLUME_SOURCE','finalSnapshotReconciliation':'PARTIAL_RECONCILIATION' if strict and matched else 'BLOCKED','outcomeTrainingEligible':bool(outcome>0),'trainingEligible':False,'counts':{'checked':len(results),'priceChangeMatched':matched,'conflicts':conflict,'secondSourceMissing':missing,'outcomeLabelsEligible':outcome,'volumeMatched':0},'rows':results}
+          out_path.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8'); print(json.dumps(payload['counts']))
+          PY
+      - name: Commit reconciliation v3
+        run: |
+          git config user.name "TAG Reconciliation Bot v3"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/final-reconciliation-v3.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Reconcile strict TAG final AH snapshot v3"
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*5)); done
+          exit 1
