@@ -1,0 +1,51 @@
+{
+  "updatedAt": "2026-08-21T17:03:20-04:00",
+  "champion": {
+    "version": "TAGX 0.5",
+    "status": "ACTIVE_BASELINE",
+    "discoveryUniverse": "general small-cap lane with RVOL > 0.5",
+    "notes": "Keep scores and thresholds unchanged until full-session authoritative ledger evidence exists."
+  },
+  "challengers": [
+    {
+      "id": "nano-low-float-universe-v1",
+      "status": "DEPLOYED_PENDING_FIRST_SCHEMA3_SNAPSHOT",
+      "hypothesis": "A dedicated low-float lane that does not require RVOL > 0.5 will capture structurally fragile stocks before relative-volume expansion makes them obvious.",
+      "changes": [
+        "Add nano_low_float lane: small-cap, average volume >100K, price <$10, float <20M, with no RVOL minimum.",
+        "Reserve up to 250 of the 750 proactive-universe slots for the low-float lane before filling from the existing general lane.",
+        "Persist _discoveryLanes per ticker and measure Top-20 Early Capture <10% and <20% separately for general vs nano_low_float.",
+        "Sort signal-ledger paths monotonically by timestamp to prevent backward slope/velocity reads."
+      ],
+      "acceptanceCriteria": {
+        "minimumFullSessions": 3,
+        "primary": "Increase Top-20 Early Capture @ <20% without material false-ignition increase versus champion.",
+        "secondary": [
+          "Increase Top-20 Early Capture @ <10%.",
+          "Reduce Universe Coverage Miss and Proactive Late rates.",
+          "Demonstrate incremental captures attributable specifically to nano_low_float.",
+          "Preserve data-field coverage and fail-closed integrity."
+        ]
+      },
+      "todayEvidence": {
+        "sessionClassification": "PARTIAL_SESSION_ONLY",
+        "ledgerFirstUsableTimestampET": "2026-08-21T16:26:22.926104-04:00",
+        "currentTop20EarlyUnder10": 0,
+        "currentTop20EarlyUnder20": 0,
+        "currentTop20CoverageMissCount": 7,
+        "examples": {
+          "HOWL": {"firstProactiveChangePct": 102.57, "classification": "PROACTIVE_LATE"},
+          "USDE": {"firstProactiveChangePct": 85.25, "classification": "PROACTIVE_LATE"},
+          "LSTA": {"firstProactiveChangePct": 38.39, "classification": "PROACTIVE_LATE"},
+          "RFAI": {"firstProactiveChangePct": null, "classification": "COVERAGE_MISS_IN_PARTIAL_LEDGER"}
+        },
+        "interpretation": "Today cannot validate Early-Capture performance because the authoritative ledger began after RTH close. It does validate the need to test universe expansion rather than retune scores."
+      },
+      "sourceCommits": {
+        "multiLaneDiscovery": "deployed on main",
+        "laneAttributionLedger": "527d5dce6b78f909b58032bb26e060a67090a67b"
+      }
+    }
+  ],
+  "versionPolicy": "Do not bump TAGX version until the challenger produces a real schemaVersion 3 discovery snapshot and passes measured champion/challenger evaluation."
+}
