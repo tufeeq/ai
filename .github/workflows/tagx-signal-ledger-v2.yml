@@ -1,0 +1,167 @@
+name: TAGX Signal Ledger v2
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '3-58/5 8-23 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-signal-ledger-v2-main
+  cancel-in-progress: true
+
+jobs:
+  ledger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: git pull --rebase origin main
+      - name: Build persistent proactive plus mover signal ledger
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime
+          from zoneinfo import ZoneInfo
+
+          ET=ZoneInfo('America/New_York')
+          now=datetime.datetime.now(datetime.timezone.utc)
+          now_et=now.astimezone(ET)
+          disc_path=pathlib.Path('tag/data/discovery.json')
+          mover_path=pathlib.Path('tag/data/finviz.json')
+          out=pathlib.Path('tag/data/tagx-signal-ledger.json')
+          if not disc_path.exists():
+              raise SystemExit('discovery.json unavailable')
+
+          discovery=json.loads(disc_path.read_text(encoding='utf-8'))
+          movers=json.loads(mover_path.read_text(encoding='utf-8')) if mover_path.exists() else {'rows':[]}
+          snap_et=str(discovery.get('snapshotTimestampET') or now_et.isoformat())
+          day=snap_et[:10]
+
+          try:
+              old=json.loads(out.read_text(encoding='utf-8')) if out.exists() else {}
+          except Exception:
+              old={}
+          if old.get('sessionDateET') != day:
+              old={'schemaVersion':2,'sessionDateET':day,'tickers':{},'snapshots':[]}
+          tickers=old.setdefault('tickers',{})
+
+          def f(v):
+              try:
+                  return float(str(v if v is not None else '').replace('%','').replace(',','').replace('$','').strip())
+              except Exception:
+                  return None
+          def rows(payload):
+              for k in ('rows','data','results','stocks','items','records','topMovers'):
+                  if isinstance(payload.get(k),list): return payload[k]
+              return []
+          def ticker(r):
+              return str(r.get('Ticker') or r.get('ticker') or r.get('Symbol') or r.get('symbol') or '').upper().strip()
+          def val(r,*keys):
+              for k in keys:
+                  if k in r and r.get(k) not in (None,''): return r.get(k)
+              return None
+          def point(r,source,ts):
+              return {
+                  'timestampET':ts,
+                  'source':source,
+                  'changePct':f(val(r,'Change','changePct','change','Change %')),
+                  'price':f(val(r,'Price','price','Last','last')),
+                  'volume':f(val(r,'Volume','volume','Vol')),
+                  'relativeVolume':f(val(r,'Relative Volume','RelativeVolume','relativeVolume','Rel Volume')),
+                  'avgVolume':f(val(r,'Average Volume','Avg Volume','avgVolume','averageVolume')),
+                  'float':f(val(r,'Float','float','Shares Float','sharesFloat')),
+              }
+
+          proactive_now=set()
+          mover_now=set()
+          for r in rows(discovery):
+              t=ticker(r)
+              if not t: continue
+              proactive_now.add(t)
+              p=point(r,'proactive',snap_et)
+              e=tickers.get(t) or {
+                  'ticker':t,'company':val(r,'Company','company','Name','name'),
+                  'sector':val(r,'Sector','sector'),'industry':val(r,'Industry','industry'),
+                  'firstSeenET':snap_et,'firstSource':'proactive','proactiveEver':True,
+                  'proactiveFirstSeenET':snap_et,'proactiveFirstChangePct':p['changePct'],
+                  'moverEver':False,'path':[]
+              }
+              if not e.get('proactiveEver'):
+                  e['proactiveFirstSeenET']=snap_et; e['proactiveFirstChangePct']=p['changePct']
+              e['proactiveEver']=True
+              e['lastSeenET']=snap_et; e['lastSource']='proactive'; e['lastChangePct']=p['changePct']; e['lastPrice']=p['price']; e['lastVolume']=p['volume']
+              path=e.setdefault('path',[])
+              if not path or path[-1].get('timestampET')!=snap_et or path[-1].get('source')!='proactive': path.append(p)
+              e['path']=path[-120:]
+              tickers[t]=e
+
+          mover_ts=str(movers.get('snapshotTimestampET') or movers.get('updatedAtET') or movers.get('updatedAt') or snap_et)
+          for r in rows(movers):
+              t=ticker(r)
+              if not t: continue
+              mover_now.add(t)
+              p=point(r,'movers',mover_ts)
+              e=tickers.get(t) or {
+                  'ticker':t,'company':val(r,'Company','company','Name','name'),
+                  'sector':val(r,'Sector','sector'),'industry':val(r,'Industry','industry'),
+                  'firstSeenET':mover_ts,'firstSource':'movers','proactiveEver':False,
+                  'moverEver':True,'moverFirstSeenET':mover_ts,'moverFirstChangePct':p['changePct'],'path':[]
+              }
+              if not e.get('moverEver'):
+                  e['moverFirstSeenET']=mover_ts; e['moverFirstChangePct']=p['changePct']
+              e['moverEver']=True
+              e['lastSeenET']=mover_ts; e['lastSource']='movers'; e['lastChangePct']=p['changePct']; e['lastPrice']=p['price']; e['lastVolume']=p['volume']
+              path=e.setdefault('path',[])
+              if not path or path[-1].get('timestampET')!=mover_ts or path[-1].get('source')!='movers': path.append(p)
+              e['path']=path[-120:]
+              tickers[t]=e
+
+          for e in tickers.values():
+              pc=e.get('proactiveFirstChangePct')
+              mc=e.get('moverFirstChangePct')
+              if e.get('proactiveEver') and pc is not None and pc < 10: cls='PROACTIVE_EARLY_LT10'
+              elif e.get('proactiveEver') and pc is not None and pc < 20: cls='PROACTIVE_EARLY_LT20'
+              elif e.get('proactiveEver'): cls='PROACTIVE_LATE'
+              elif e.get('moverEver') and mc is not None and mc >= 20: cls='UNIVERSE_COVERAGE_MISS_LATE'
+              elif e.get('moverEver'): cls='MOVER_ONLY_EARLY_OR_FORMING'
+              else: cls='UNKNOWN'
+              e['originClass']=cls
+              changes=[x.get('changePct') for x in e.get('path',[]) if isinstance(x.get('changePct'),(int,float))]
+              if changes: e['maxObservedChangePct']=max(changes)
+
+          current_mover_entries=[tickers[t] for t in mover_now if t in tickers]
+          miss=[e for e in current_mover_entries if not e.get('proactiveEver')]
+          late_miss=[e for e in miss if isinstance(e.get('moverFirstChangePct'),(int,float)) and e['moverFirstChangePct']>=20]
+          early_proactive=[e for e in current_mover_entries if e.get('proactiveEver') and isinstance(e.get('proactiveFirstChangePct'),(int,float)) and e['proactiveFirstChangePct']<20]
+
+          old['schemaVersion']=2
+          old['updatedAt']=now.isoformat()
+          old['snapshotTimestampET']=snap_et
+          old['session']=discovery.get('session')
+          old['tickers']=tickers
+          old['tickerCount']=len(tickers)
+          old['currentProactiveCount']=len(proactive_now)
+          old['currentMoverCount']=len(mover_now)
+          old['currentMoverProactiveEarlyUnder20']=len(early_proactive)
+          old['currentMoverCoverageMissCount']=len(miss)
+          old['currentMoverLateCoverageMissCount']=len(late_miss)
+          old['coverageAuditStatus']='INTRAPERIOD_DIAGNOSTIC_ONLY'
+          snaps=old.setdefault('snapshots',[])
+          snaps.append({'timestampET':snap_et,'proactiveCount':len(proactive_now),'moverCount':len(mover_now),'moverEarlyProactiveUnder20':len(early_proactive),'coverageMiss':len(miss),'lateCoverageMiss':len(late_miss)})
+          old['snapshots']=snaps[-250:]
+          out.write_text(json.dumps(old,ensure_ascii=False,indent=2),encoding='utf-8')
+          print('TAGX signal ledger',len(tickers),'mover misses',len(miss),'late misses',len(late_miss))
+          PY
+      - name: Commit signal ledger
+        run: |
+          git config user.name "TAGX Signal Ledger"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagx-signal-ledger.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Update TAGX signal ledger v2"
+          git pull --rebase origin main
+          git push origin main
