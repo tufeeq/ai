@@ -1,22 +1,23 @@
 {
-  "updatedAt": "2026-08-21T18:02:00-04:00",
+  "updatedAt": "2026-08-21T19:14:00-04:00",
   "champion": {
     "version": "TAGX 0.5",
     "status": "ACTIVE_BASELINE",
-    "discoveryUniverse": "general small-cap lane with RVOL > 0.5",
-    "notes": "Keep scores and thresholds unchanged until full-session authoritative ledger evidence exists."
+    "discoveryUniverse": "general small-cap lane plus deployed nano/low-float challenger lane",
+    "notes": "Keep scores and thresholds unchanged until at least three full-session authoritative-ledger samples exist. Current 2026-08-21 ledger is a late-session bootstrap sample only."
   },
   "challengers": [
     {
       "id": "nano-low-float-universe-v1",
-      "status": "DEPLOYED_SCHEMA3_CONFIRMED_LEDGER_VALIDATION_PENDING",
+      "status": "LIVE_LEDGER_BOOTSTRAP_VALIDATED_FULL_SESSION_VALIDATION_PENDING",
       "hypothesis": "A dedicated low-float lane that does not require RVOL > 0.5 will capture structurally fragile stocks before relative-volume expansion makes them obvious.",
       "changes": [
         "Add nano_low_float lane: small-cap, average volume >100K, price <$10, float <20M, with no RVOL minimum.",
         "Reserve up to 250 of the 750 proactive-universe slots for the low-float lane before filling from the existing general lane.",
         "Persist _discoveryLanes per ticker and measure Top-20 Early Capture <10% and <20% separately for general vs nano_low_float.",
         "Sort signal-ledger paths monotonically by timestamp to prevent backward slope/velocity reads.",
-        "Add a scheduled Signal Ledger v4 fallback because the workflow_run chain produced an empty ledger despite healthy discovery snapshots."
+        "Replace the unreliable workflow_run proof chain with a direct authoritative ledger writer scheduled every five minutes.",
+        "Retire the old workflow-run writer to prevent competing ledger authorities."
       ],
       "acceptanceCriteria": {
         "minimumFullSessions": 3,
@@ -29,29 +30,34 @@
         ]
       },
       "currentEvidence": {
-        "sessionClassification": "PARTIAL_SESSION_ONLY",
-        "schema3DiscoveryTimestampET": "2026-08-21T17:46:39.725967-04:00",
+        "sessionClassification": "PARTIAL_SESSION_BOOTSTRAP_INTRAPERIOD_ONLY",
+        "ledgerStatus": "POPULATED_SCHEMA4_END_TO_END_CONFIRMED",
+        "ledgerSnapshotET": "2026-08-21T18:58:42-04:00",
+        "reactiveSnapshotET": "2026-08-21T18:59:33-04:00",
+        "currentTop20Count": 20,
+        "currentTop20EarlyUnder10": 1,
+        "currentTop20EarlyUnder20": 1,
+        "currentTop20CoverageMissCount": 0,
+        "currentTop20LateCoverageMissCount": 19,
+        "knownEarlyExample": "ZNB was captured proactively around +9.12% before appearing in the current Top-20.",
         "universeCount": 750,
         "nanoLowFloatCount": 309,
         "nanoQuietRelVolUnder0_5": 200,
-        "generalCount": 550,
-        "earlyOriginCount": 738,
-        "lateOriginCount": 12,
         "fieldCoverage": {
           "relativeVolumePct": 100.0,
           "avgVolumePct": 100.0,
-          "floatPct": 98.8
+          "floatPct": 98.4
         },
-        "signalLedgerStatusBeforeFix": "EMPTY_FILE",
-        "marketContext": "Regular-session leaders were already highly extended; RFAI and HOWL were prominent examples, so this partial late-day sample cannot establish full-session Early-Capture performance.",
-        "interpretation": "The low-float lane is now demonstrably collecting quiet names before RVOL expansion, but the proof layer was broken. Fix the ledger authority before judging or retuning the model."
+        "interpretation": "The proof layer now works end-to-end and current Top-20 breadth coverage is high, but this ledger came online late in the session. The 1/20 early result and 19 late entries are bootstrap diagnostics, not a valid full-session Early-Capture Rate. Do not retune scores from this sample. The next full sessions must determine whether late origin is caused by discovery-lane selection timing or by data-source latency/filter mechanics."
       },
       "sourceCommits": {
         "multiLaneDiscovery": "deployed on main",
         "laneAttributionLedger": "527d5dce6b78f909b58032bb26e060a67090a67b",
-        "scheduledLedgerFallback": "5e18c5135c01a18e2fa2dc05a7472ff4adab2328"
+        "scheduledLedgerFallback": "5e18c5135c01a18e2fa2dc05a7472ff4adab2328",
+        "authoritativeDirectLedger": "f3b379cbc65544ef026ca969f131c7b3fb99328a",
+        "retiredCompetingWriter": "00f0c519b395a00ada762f7928304e0c6b3f47ae3"
       }
     }
   ],
-  "versionPolicy": "Do not bump TAGX version until authoritative ledger output exists and the challenger passes measured multi-session champion/challenger evaluation."
+  "versionPolicy": "Do not bump TAGX version merely because the ledger is now operational. Require actual tested product/model improvement and multi-session evidence before adopting a new champion."
 }
