@@ -1,0 +1,102 @@
+'use strict';
+(function(){
+  const RELEASE='TAGX-0.4';
+  const LEDGER='https://raw.githubusercontent.com/tufeeq/ai/main/tag/data/tagx-signal-ledger.json';
+  let ledger={tickers:{},updatedAt:null,coverageAuditStatus:'UNAVAILABLE'};
+  const baseTemporal=temporal;
+  const baseRender=render;
+  const baseLoad=load;
+
+  function safeNum(v){const z=Number(v);return Number.isFinite(z)?z:null}
+  function ledgerPath(ticker){
+    const e=ledger?.tickers?.[ticker]; if(!e)return null;
+    const path=(Array.isArray(e.path)?e.path:[]).map(p=>({
+      ts:Date.parse(p.timestampET||p.timestampUTC||''),
+      change:safeNum(p.changePct),volume:safeNum(p.volume),price:safeNum(p.price),
+      rvol:safeNum(p.relativeVolume),float:safeNum(p.float),source:p.source||'ledger'
+    })).filter(p=>Number.isFinite(p.ts)).sort((a,b)=>a.ts-b.ts);
+    return {e,path};
+  }
+  function calcTemporal(x){
+    const lp=ledgerPath(x.ticker);
+    if(!lp||!lp.path.length)return baseTemporal(x);
+    const {e,path}=lp;
+    const preferred=path.filter(p=>p.source==='proactive');
+    const first=preferred[0]||path[0];
+    const last=path[path.length-1];
+    const currentChange=Number.isFinite(x.change)?x.change:last.change;
+    const origin=safeNum(e.proactiveFirstChangePct)??(Number.isFinite(first.change)?first.change:x.change);
+    const firstTs=Date.parse(e.proactiveFirstSeenET||e.firstSeenET||'');
+    const originTs=Number.isFinite(firstTs)?firstTs:first.ts;
+    const elapsedMin=Math.max((Date.now()-originTs)/60000,1);
+    const pathHours=Math.max((last.ts-first.ts)/36e5,1/60);
+    const slope=path.length>=2&&Number.isFinite(first.change)&&Number.isFinite(last.change)?(last.change-first.change)/pathHours:null;
+    const velocity10=Number.isFinite(origin)&&Number.isFinite(currentChange)?(currentChange-origin)/(elapsedMin/10):null;
+    const changes=path.map(p=>p.change).filter(Number.isFinite);
+    if(Number.isFinite(currentChange))changes.push(currentChange);
+    const peak=changes.length?Math.max(...changes):null;
+    const retention=Number.isFinite(peak)&&peak>0&&Number.isFinite(currentChange)?clamp(currentChange/peak*100):null;
+    const firstPro=preferred[0]||first;
+    const volumeVelocity=Number.isFinite(x.volume)&&Number.isFinite(firstPro.volume)?Math.max(0,(x.volume-firstPro.volume)/elapsedMin):null;
+    const volumeGrowth=Number.isFinite(x.volume)&&Number.isFinite(firstPro.volume)&&firstPro.volume>0?x.volume/firstPro.volume:null;
+    return {
+      origin,firstTs:originTs,slope,velocity10,retention,volumeVelocity,volumeGrowth,
+      points:path.length,originAuthority:'SIGNAL_LEDGER_V3_TOP20',
+      originClass:e.originClass||'UNKNOWN',proactiveEver:Boolean(e.proactiveEver),
+      moverEver:Boolean(e.moverEver),moverFirstRank:safeNum(e.moverFirstRank),
+      lastTop20Rank:safeNum(e.lastTop20Rank)
+    };
+  }
+  temporal=calcTemporal;
+
+  function coverageLine(){
+    const total=Number(ledger?.currentTop20Count||0);
+    const e10=Number(ledger?.currentTop20ProactiveEarlyUnder10||0);
+    const e20=Number(ledger?.currentTop20ProactiveEarlyUnder20||0);
+    const miss=Number(ledger?.currentTop20CoverageMissCount||0);
+    const late=Number(ledger?.currentTop20LateCoverageMissCount||0);
+    if(!total)return '<div class="signal">Top‑20 Audit: ينتظر أول لقطة v3؛ لا توجد نسبة صالحة للحساب بعد.</div>';
+    const r10=Math.round(e10/total*100),r20=Math.round(e20/total*100);
+    return `<div class="signal"><b>Top‑20 Early Coverage (intraperiod): &lt;10% ${r10}% · &lt;20% ${r20}%</b> · ${e10}/${total} و ${e20}/${total} · coverage misses ${miss} · late misses ${late}</div>`;
+  }
+  function top20Line(){
+    const arr=Array.isArray(ledger?.currentTop20)?ledger.currentTop20:[];
+    if(!arr.length)return '';
+    const chips=arr.slice(0,10).map(z=>{
+      const c=z.originClass||'UNKNOWN';
+      const cls=c==='PROACTIVE_EARLY_LT10'||c==='PROACTIVE_EARLY_LT20'?'good':c==='UNIVERSE_COVERAGE_MISS_LATE'||c==='PROACTIVE_LATE'?'warn':'';
+      const origin=Number.isFinite(safeNum(z.proactiveFirstChangePct))?` @${safeNum(z.proactiveFirstChangePct).toFixed(1)}%`:'';
+      return `<span class="badge ${cls}">#${z.rank} ${z.ticker}${origin}</span>`;
+    }).join(' ');
+    return `<div class="signal"><b>Top‑10 من معيار الاختبار الحالي:</b> ${chips}</div>`;
+  }
+  render=function(){
+    baseRender();
+    const h=document.querySelector('#decisionHealth');
+    if(h){
+      h.insertAdjacentHTML('afterbegin',coverageLine()+top20Line());
+      h.insertAdjacentHTML('beforeend',`<div class="signal">Ground truth: ${ledger?.groundTruthDefinition||'UNAVAILABLE'} · ${ledger?.coverageAuditStatus||'UNAVAILABLE'} · reactive feed خارج Top‑20 = context فقط، وليس mover truth.</div>`);
+    }
+    const badgeEl=document.querySelector('.eyebrow'); if(badgeEl)badgeEl.textContent='TAGX 0.4 · TOP‑20 GROUND‑TRUTH AUDIT';
+    document.title='TAGX 0.4 — Early Discovery Engine';
+  };
+
+  async function fetchLedger(){
+    try{
+      const r=await fetch(LEDGER+'?v='+Date.now(),{cache:'no-store'});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const p=await r.json();
+      if(Number(p?.schemaVersion)!==3)throw new Error('waiting for ledger schema v3');
+      if(p?.groundTruthDefinition!=='CURRENT_REACTIVE_TOP20_BY_POSITIVE_CHANGE')throw new Error('invalid mover ground-truth definition');
+      ledger=p; state.signalLedger=p;
+      return true;
+    }catch(err){
+      ledger={tickers:{},updatedAt:null,coverageAuditStatus:'LEDGER_V3_PENDING',error:String(err.message||err)};
+      state.signalLedger=ledger; return false;
+    }
+  }
+  load=async function(){await fetchLedger();return baseLoad()};
+  const btn=document.querySelector('#refresh'); if(btn)btn.onclick=load;
+  fetchLedger().then(()=>{if(Array.isArray(state.rows)&&state.rows.length)render()});
+  window.TAGX_SIGNAL_LEDGER={release:RELEASE,get:()=>ledger};
+})();
