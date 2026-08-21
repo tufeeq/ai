@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "champion": "TAGX-0.2",
+  "updatedAt": "2026-08-21T12:57:00-04:00",
+  "entries": [
+    {
+      "id": "CH-2026-08-21-RVOL-FLOAT",
+      "status": "PUBLISHED_AWAITING_DATA_VALIDATION",
+      "type": "DATA_PIPELINE_CHALLENGER",
+      "problem": "The proactive universe was exported from Finviz custom view 151 and often lacked Relative Volume, Average Volume and Float, forcing TAGX to score early-regime candidates with missing liquidity/float evidence.",
+      "change": "Proactive discovery now merges Finviz Performance view 141, Ownership view 131 and Overview view 111 by ticker. The output adds Rel Volume, Avg Volume, Float, Outstanding and Short Float plus fieldCoverage diagnostics and fail-closed coverage checks.",
+      "baseline": {
+        "discoveryRows": 750,
+        "sourceView": 151,
+        "relativeVolumeCoverage": "not reliably present",
+        "floatCoverage": "not reliably present"
+      },
+      "acceptance": {
+        "relativeVolumePctMin": 80,
+        "avgVolumePctMin": 80,
+        "floatPct": "measure, do not assume",
+        "noThresholdRetuneUntilValidated": true,
+        "promoteToNewTAGXVersionOnlyAfterSuccessfulSnapshot": true
+      },
+      "marketCheck": {
+        "referenceTimeET": "2026-08-21T11:53:00-04:00",
+        "publicTopMovers": ["INDP", "PCLA", "USDE", "WYHG", "AIFU"],
+        "observation": "Current external mover lists confirm that mover truth and proactive discovery coverage must be audited separately; absence from the proactive ledger is a universe-coverage miss, not a ranking miss."
+      },
+      "scoringChanged": false,
+      "thresholdsChanged": false,
+      "trainingTruthChanged": false
+    }
+  ]
+}
