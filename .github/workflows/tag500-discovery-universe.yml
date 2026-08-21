@@ -32,17 +32,26 @@ jobs:
           set -euo pipefail
           test -n "$FINVIZ_TOKEN" || (echo "FINVIZ_TOKEN secret is missing" && exit 1)
           mkdir -p tag/data
-          FILTERS="cap_smallunder,sh_avgvol_o100,sh_price_u20,sh_relvol_o0.5"
-          BASE="https://elite.finviz.com/export/screener?f=${FILTERS}&auth=${FINVIZ_TOKEN}"
-          # Performance: Avg Volume + Relative Volume + Price/Change/Volume.
-          curl --fail --silent --show-error --location --retry 5 --retry-delay 5 --retry-all-errors "${BASE}&v=141" -o /tmp/tagx-performance.csv
-          # Ownership: Float + Avg Volume + Price/Change/Volume.
-          curl --fail --silent --show-error --location --retry 5 --retry-delay 5 --retry-all-errors "${BASE}&v=131" -o /tmp/tagx-ownership.csv
-          # Overview: Company/Sector/Industry metadata for compliance and UX.
-          curl --fail --silent --show-error --location --retry 5 --retry-delay 5 --retry-all-errors "${BASE}&v=111" -o /tmp/tagx-overview.csv
-          test -s /tmp/tagx-performance.csv
-          test -s /tmp/tagx-ownership.csv
-          test -s /tmp/tagx-overview.csv
+
+          # General discovery lane: liquid small caps already showing at least mild participation.
+          GENERAL_FILTERS="cap_smallunder,sh_avgvol_o100,sh_price_u20,sh_relvol_o0.5"
+          GENERAL_BASE="https://elite.finviz.com/export/screener?f=${GENERAL_FILTERS}&auth=${FINVIZ_TOKEN}"
+
+          # Nano/low-float lane: deliberately removes the RVOL gate. The purpose is to keep
+          # structurally fragile names in view BEFORE relative volume becomes obvious.
+          # Confirmation still happens downstream; inclusion here is not a trade signal.
+          NANO_FILTERS="cap_smallunder,sh_avgvol_o100,sh_price_u10,sh_float_u20"
+          NANO_BASE="https://elite.finviz.com/export/screener?f=${NANO_FILTERS}&auth=${FINVIZ_TOKEN}"
+
+          for lane in general nano; do
+            if [ "$lane" = "general" ]; then BASE="$GENERAL_BASE"; else BASE="$NANO_BASE"; fi
+            curl --fail --silent --show-error --location --retry 5 --retry-delay 5 --retry-all-errors "${BASE}&v=141" -o "/tmp/tagx-${lane}-performance.csv"
+            curl --fail --silent --show-error --location --retry 5 --retry-delay 5 --retry-all-errors "${BASE}&v=131" -o "/tmp/tagx-${lane}-ownership.csv"
+            curl --fail --silent --show-error --location --retry 5 --retry-delay 5 --retry-all-errors "${BASE}&v=111" -o "/tmp/tagx-${lane}-overview.csv"
+            test -s "/tmp/tagx-${lane}-performance.csv"
+            test -s "/tmp/tagx-${lane}-ownership.csv"
+            test -s "/tmp/tagx-${lane}-overview.csv"
+          done
 
       - name: Build enriched proactive discovery snapshot
         run: |
@@ -69,14 +78,21 @@ jobs:
               for v in vals:
                   if v not in (None,''): return v
               return ''
+          def load_lane(lane):
+              perf=read_csv(f'/tmp/tagx-{lane}-performance.csv')
+              own=read_csv(f'/tmp/tagx-{lane}-ownership.csv')
+              overview=read_csv(f'/tmp/tagx-{lane}-overview.csv')
+              return (
+                  {ticker(r):r for r in perf if ticker(r)},
+                  {ticker(r):r for r in own if ticker(r)},
+                  {ticker(r):r for r in overview if ticker(r)},
+              )
 
-          perf=read_csv('/tmp/tagx-performance.csv')
-          own=read_csv('/tmp/tagx-ownership.csv')
-          overview=read_csv('/tmp/tagx-overview.csv')
-          pmap={ticker(r):r for r in perf if ticker(r)}
-          omap={ticker(r):r for r in own if ticker(r)}
-          vmap={ticker(r):r for r in overview if ticker(r)}
-          universe=sorted(set(pmap)|set(omap)|set(vmap))
+          gp,go,gv=load_lane('general')
+          np,no,nv=load_lane('nano')
+          general=set(gp)|set(go)|set(gv)
+          nano=set(np)|set(no)|set(nv)
+          universe=sorted(general|nano)
 
           out_path=pathlib.Path('tag/data/discovery.json')
           try: prior=json.loads(out_path.read_text(encoding='utf-8')) if out_path.exists() else {}
@@ -86,26 +102,34 @@ jobs:
 
           rows=[]
           for t in universe:
-              pr,ow,ov=pmap.get(t,{}),omap.get(t,{}),vmap.get(t,{})
+              lanes=[]
+              if t in general: lanes.append('general')
+              if t in nano: lanes.append('nano_low_float')
+              pr=gp.get(t) or np.get(t) or {}
+              ow=go.get(t) or no.get(t) or {}
+              ov=gv.get(t) or nv.get(t) or {}
+              # Fill any missing field from the second lane if a ticker belongs to both.
+              npr,no2,nv2=np.get(t,{}),no.get(t,{}),nv.get(t,{})
               old=prior_map.get(t,{})
               row={
                   'Ticker':t,
-                  'Company':choose(ov.get('Company'),old.get('Company')),
-                  'Sector':choose(ov.get('Sector'),old.get('Sector')),
-                  'Industry':choose(ov.get('Industry'),old.get('Industry')),
-                  'Country':choose(ov.get('Country'),old.get('Country')),
-                  'Market Cap':choose(ov.get('Market Cap'),ow.get('Market Cap'),old.get('Market Cap')),
-                  'Price':choose(pr.get('Price'),ow.get('Price'),ov.get('Price')),
-                  'Change':choose(pr.get('Change'),ow.get('Change'),ov.get('Change')),
-                  'Volume':choose(pr.get('Volume'),ow.get('Volume'),ov.get('Volume')),
-                  'Avg Volume':choose(pr.get('Avg Volume'),pr.get('Average Volume'),ow.get('Avg Volume'),ow.get('Average Volume')),
-                  'Rel Volume':choose(pr.get('Rel Volume'),pr.get('Relative Volume')),
-                  'Float':choose(ow.get('Float'),ow.get('Shares Float')),
-                  'Outstanding':choose(ow.get('Outstanding'),ow.get('Shares Outstanding')),
-                  'Short Float':choose(ow.get('Short Float')),
+                  'Company':choose(ov.get('Company'),nv2.get('Company'),old.get('Company')),
+                  'Sector':choose(ov.get('Sector'),nv2.get('Sector'),old.get('Sector')),
+                  'Industry':choose(ov.get('Industry'),nv2.get('Industry'),old.get('Industry')),
+                  'Country':choose(ov.get('Country'),nv2.get('Country'),old.get('Country')),
+                  'Market Cap':choose(ov.get('Market Cap'),ow.get('Market Cap'),nv2.get('Market Cap'),no2.get('Market Cap'),old.get('Market Cap')),
+                  'Price':choose(pr.get('Price'),npr.get('Price'),ow.get('Price'),no2.get('Price'),ov.get('Price'),nv2.get('Price')),
+                  'Change':choose(pr.get('Change'),npr.get('Change'),ow.get('Change'),no2.get('Change'),ov.get('Change'),nv2.get('Change')),
+                  'Volume':choose(pr.get('Volume'),npr.get('Volume'),ow.get('Volume'),no2.get('Volume'),ov.get('Volume'),nv2.get('Volume')),
+                  'Avg Volume':choose(pr.get('Avg Volume'),pr.get('Average Volume'),npr.get('Avg Volume'),npr.get('Average Volume'),ow.get('Avg Volume'),no2.get('Avg Volume')),
+                  'Rel Volume':choose(pr.get('Rel Volume'),pr.get('Relative Volume'),npr.get('Rel Volume'),npr.get('Relative Volume')),
+                  'Float':choose(ow.get('Float'),ow.get('Shares Float'),no2.get('Float'),no2.get('Shares Float')),
+                  'Outstanding':choose(ow.get('Outstanding'),ow.get('Shares Outstanding'),no2.get('Outstanding'),no2.get('Shares Outstanding')),
+                  'Short Float':choose(ow.get('Short Float'),no2.get('Short Float')),
               }
-              row['_signals']=['pre_move_universe']
+              row['_signals']=['pre_move_universe'] + (['nano_low_float_watch'] if 'nano_low_float' in lanes else [])
               row['_discoveryUniverse']=True
+              row['_discoveryLanes']=lanes
               row['_snapshotTimestampUTC']=now_utc.isoformat()
               row['_snapshotTimestampET']=now_et.isoformat()
               row['_session']=session
@@ -119,27 +143,51 @@ jobs:
 
           def relvol(r): return f(r.get('Rel Volume')) or 0.0
           def chg(r): return abs(f(r.get('Change')) or 0.0)
-          # Keep the highest relative-volume names, but do not reward an already-large price move.
-          rows.sort(key=lambda r:(relvol(r),-chg(r)),reverse=True)
-          rows=rows[:750]
+          def flt(r):
+              v=f(r.get('Float'))
+              return v if v is not None else 1e9
+
+          # Reserve capacity for quiet low-float names so the general RVOL ranking cannot
+          # crowd them out before they wake up. De-duplicate while preserving lane intent.
+          general_rows=[r for r in rows if 'general' in r['_discoveryLanes']]
+          nano_rows=[r for r in rows if 'nano_low_float' in r['_discoveryLanes']]
+          general_rows.sort(key=lambda r:(relvol(r),-chg(r)),reverse=True)
+          # Low-float lane prioritizes structural fragility first, then mild participation;
+          # it intentionally does not require an already-large price move.
+          nano_rows.sort(key=lambda r:(-flt(r),relvol(r),-chg(r)),reverse=True)
+          selected=[]; seen=set()
+          for r in nano_rows[:250]:
+              selected.append(r); seen.add(r['Ticker'])
+          for r in general_rows:
+              if r['Ticker'] in seen: continue
+              selected.append(r); seen.add(r['Ticker'])
+              if len(selected)>=750: break
+          rows=selected[:750]
+
           early=sum(1 for r in rows if (f(r.get('_firstObservedChange')) is not None and f(r.get('_firstObservedChange'))<20))
           late=sum(1 for r in rows if (f(r.get('_firstObservedChange')) is not None and f(r.get('_firstObservedChange'))>=20))
+          nano_count=sum(1 for r in rows if 'nano_low_float' in r.get('_discoveryLanes',[]))
+          nano_quiet=sum(1 for r in rows if 'nano_low_float' in r.get('_discoveryLanes',[]) and (f(r.get('Rel Volume')) or 0)<0.5)
           field_coverage={
               'relativeVolumePct':round(100*sum(1 for r in rows if f(r.get('Rel Volume')) is not None)/len(rows),1) if rows else 0,
               'avgVolumePct':round(100*sum(1 for r in rows if f(r.get('Avg Volume')) is not None)/len(rows),1) if rows else 0,
               'floatPct':round(100*sum(1 for r in rows if f(r.get('Float')) is not None)/len(rows),1) if rows else 0,
           }
           payload={
-              'schemaVersion':2,
-              'source':'Finviz Elite proactive small-cap universe (Performance+Ownership+Overview)',
+              'schemaVersion':3,
+              'source':'Finviz Elite proactive multi-lane small-cap universe',
               'sourceType':'PROACTIVE_DISCOVERY',
-              'filters':['cap_smallunder','sh_avgvol_o100','sh_price_u20','sh_relvol_o0.5'],
+              'filters':{
+                  'general':['cap_smallunder','sh_avgvol_o100','sh_price_u20','sh_relvol_o0.5'],
+                  'nano_low_float':['cap_smallunder','sh_avgvol_o100','sh_price_u10','sh_float_u20'],
+              },
               'views':[141,131,111],
               'updatedAt':now_utc.isoformat(),
               'snapshotTimestampUTC':now_utc.isoformat(),
               'snapshotTimestampET':now_et.isoformat(),
               'session':session,
               'count':len(rows),
+              'laneCounts':{'nanoLowFloat':nano_count,'nanoQuietRelVolUnder0_5':nano_quiet,'general':sum(1 for r in rows if 'general' in r.get('_discoveryLanes',[]))},
               'earlyOriginCount':early,
               'lateOriginCount':late,
               'fieldCoverage':field_coverage,
@@ -148,7 +196,7 @@ jobs:
               'rows':rows,
           }
           out_path.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8')
-          print('rows',len(rows),'fieldCoverage',field_coverage)
+          print('rows',len(rows),'laneCounts',payload['laneCounts'],'fieldCoverage',field_coverage)
           if rows and field_coverage['relativeVolumePct']<80:
               raise SystemExit('Relative Volume coverage below 80%; fail closed')
           if rows and field_coverage['avgVolumePct']<80:
@@ -161,6 +209,6 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add tag/data/discovery.json
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Refresh TAGX enriched proactive discovery universe"
+          git commit -m "Refresh TAGX multi-lane proactive discovery universe"
           git pull --rebase origin main
           git push origin main
