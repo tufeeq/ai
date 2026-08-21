@@ -52,14 +52,23 @@ jobs:
           def f(v):
               try: return float(str(v if v is not None else '').replace('%','').replace(',','').replace('$','').strip())
               except Exception: return None
+          def lane_list(r):
+              v=r.get('_discoveryLanes')
+              if isinstance(v,list) and v: return [str(x) for x in v]
+              return ['general_legacy']
           def point(r,source,ts,rank=None):
               p={'timestampET':ts,'source':source,'changePct':f(val(r,'Change','changePct','change','Change %')),
                  'price':f(val(r,'Price','price','Last','last')),'volume':f(val(r,'Volume','volume','Vol')),
                  'relativeVolume':f(val(r,'Rel Volume','Relative Volume','relativeVolume')),
                  'avgVolume':f(val(r,'Avg Volume','Average Volume','avgVolume')),
                  'float':f(val(r,'Float','float','Shares Float','sharesFloat'))}
+              if source=='proactive': p['discoveryLanes']=lane_list(r)
               if rank is not None: p['top20Rank']=rank
               return p
+          def sort_path(path):
+              # A discovery cycle may append proactive before a slightly older reactive timestamp.
+              # Keep the stored trajectory monotonic so slope/velocity consumers cannot read it backwards.
+              return sorted(path[-200:], key=lambda p:str(p.get('timestampET') or ''))
 
           try: old=json.loads(out.read_text(encoding='utf-8')) if out.exists() and out.stat().st_size else {}
           except Exception: old={}
@@ -72,17 +81,23 @@ jobs:
               t=ticker(r)
               if not t: continue
               proactive_now.add(t)
+              lanes=lane_list(r)
               p=point(r,'proactive',snap_et)
               e=tickers.get(t) or {'ticker':t,'company':val(r,'Company','company'),'sector':val(r,'Sector','sector'),
                   'industry':val(r,'Industry','industry'),'firstSeenET':snap_et,'firstSource':'proactive','proactiveEver':True,
-                  'proactiveFirstSeenET':snap_et,'proactiveFirstChangePct':p['changePct'],'moverEver':False,'path':[]}
+                  'proactiveFirstSeenET':snap_et,'proactiveFirstChangePct':p['changePct'],'proactiveFirstLanes':lanes,
+                  'proactiveLanesEver':lanes[:],'moverEver':False,'path':[]}
               if not e.get('proactiveEver'):
-                  e['proactiveFirstSeenET']=snap_et; e['proactiveFirstChangePct']=p['changePct']
-              e['proactiveEver']=True; e['lastSeenET']=snap_et; e['lastSource']='proactive'
+                  e['proactiveFirstSeenET']=snap_et; e['proactiveFirstChangePct']=p['changePct']; e['proactiveFirstLanes']=lanes
+              e['proactiveEver']=True
+              ever=set(e.get('proactiveLanesEver') or [])
+              ever.update(lanes); e['proactiveLanesEver']=sorted(ever)
+              if not e.get('proactiveFirstLanes'): e['proactiveFirstLanes']=lanes
+              e['lastSeenET']=snap_et; e['lastSource']='proactive'
               e['lastChangePct']=p['changePct']; e['lastPrice']=p['price']; e['lastVolume']=p['volume']
               path=e.setdefault('path',[])
               if not path or path[-1].get('timestampET')!=snap_et or path[-1].get('source')!='proactive': path.append(p)
-              e['path']=path[-200:]; tickers[t]=e
+              e['path']=sort_path(path); tickers[t]=e
 
           rts=str(reactive.get('snapshotTimestampET') or reactive.get('updatedAtET') or reactive.get('updatedAt') or snap_et)
           rr=[]
@@ -105,7 +120,7 @@ jobs:
               e['lastSeenET']=rts; e['lastSource']=source; e['lastChangePct']=p['changePct']; e['lastPrice']=p['price']; e['lastVolume']=p['volume']
               path=e.setdefault('path',[])
               if not path or path[-1].get('timestampET')!=rts or path[-1].get('source')!=source: path.append(p)
-              e['path']=path[-200:]; tickers[t]=e
+              e['path']=sort_path(path); tickers[t]=e
 
           for e in tickers.values():
               pc=e.get('proactiveFirstChangePct'); mc=e.get('moverFirstChangePct')
@@ -126,22 +141,38 @@ jobs:
           e20=[e for e in cur if e.get('proactiveEver') and isinstance(e.get('proactiveFirstChangePct'),(int,float)) and e['proactiveFirstChangePct']<20]
           miss=[e for e in cur if not e.get('proactiveEver')]
           lmiss=[e for e in miss if isinstance(e.get('moverFirstChangePct'),(int,float)) and e['moverFirstChangePct']>=20]
+
+          # Champion/challenger attribution: measure what the new low-float lane contributes
+          # separately from the established general lane. A ticker can belong to both; this is
+          # attribution, not an attempt to force mutually-exclusive credit.
+          lane_attr={}
+          for lane in ('general','nano_low_float','general_legacy'):
+              captured=[e for e in cur if lane in (e.get('proactiveFirstLanes') or [])]
+              under10=[e for e in captured if isinstance(e.get('proactiveFirstChangePct'),(int,float)) and e['proactiveFirstChangePct']<10]
+              under20=[e for e in captured if isinstance(e.get('proactiveFirstChangePct'),(int,float)) and e['proactiveFirstChangePct']<20]
+              lane_attr[lane]={'currentTop20Captured':len(captured),'earlyUnder10':len(under10),'earlyUnder20':len(under20),
+                               'tickersUnder20':[e.get('ticker') for e in under20]}
+
           now=datetime.datetime.now(datetime.timezone.utc).isoformat()
           old.update({'schemaVersion':4,'ledgerAuthority':'PROACTIVE_DISCOVERY_WORKFLOW_RUN','updatedAt':now,
               'snapshotTimestampET':snap_et,'reactiveSnapshotTimestampET':rts,'session':discovery.get('session'),'tickers':tickers,
               'tickerCount':len(tickers),'currentProactiveCount':len(proactive_now),'groundTruthDefinition':'CURRENT_REACTIVE_TOP20_BY_POSITIVE_CHANGE',
               'currentTop20Count':len(cur),'currentTop20ProactiveEarlyUnder10':len(e10),'currentTop20ProactiveEarlyUnder20':len(e20),
               'currentTop20CoverageMissCount':len(miss),'currentTop20LateCoverageMissCount':len(lmiss),
+              'currentTop20LaneAttribution':lane_attr,
               'coverageAuditStatus':'INTRAPERIOD_TOP20_DIAGNOSTIC_ONLY',
               'currentTop20':[{'rank':i+1,'ticker':t,'changePct':ch,'proactiveEver':bool(tickers.get(t,{}).get('proactiveEver')),
-                               'proactiveFirstChangePct':tickers.get(t,{}).get('proactiveFirstChangePct'),'originClass':tickers.get(t,{}).get('originClass')}
+                               'proactiveFirstChangePct':tickers.get(t,{}).get('proactiveFirstChangePct'),
+                               'proactiveFirstLanes':tickers.get(t,{}).get('proactiveFirstLanes'),
+                               'originClass':tickers.get(t,{}).get('originClass')}
                               for i,(ch,t,_) in enumerate(top20)]})
           snaps=old.setdefault('snapshots',[])
           snaps.append({'timestampET':snap_et,'reactiveTimestampET':rts,'proactiveCount':len(proactive_now),'top20Count':len(cur),
-                        'top20EarlyProactiveUnder10':len(e10),'top20EarlyProactiveUnder20':len(e20),'coverageMiss':len(miss),'lateCoverageMiss':len(lmiss)})
+                        'top20EarlyProactiveUnder10':len(e10),'top20EarlyProactiveUnder20':len(e20),'coverageMiss':len(miss),
+                        'lateCoverageMiss':len(lmiss),'laneAttribution':lane_attr})
           old['snapshots']=snaps[-300:]
           out.write_text(json.dumps(old,ensure_ascii=False,indent=2),encoding='utf-8')
-          print('TAGX v4', 'top20',len(cur),'early<10',len(e10),'early<20',len(e20),'miss',len(miss),'late',len(lmiss))
+          print('TAGX v4', 'top20',len(cur),'early<10',len(e10),'early<20',len(e20),'miss',len(miss),'late',len(lmiss),'lanes',lane_attr)
           PY
       - name: Commit ledger
         run: |
