@@ -1,0 +1,228 @@
+name: TAGX Signal Ledger v3
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '3-58/5 8-23 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-signal-ledger-v3-main
+  cancel-in-progress: true
+
+jobs:
+  ledger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: git pull --rebase origin main
+      - name: Build proactive plus Top-20 mover signal ledger
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime
+          from zoneinfo import ZoneInfo
+
+          ET=ZoneInfo('America/New_York')
+          now=datetime.datetime.now(datetime.timezone.utc)
+          now_et=now.astimezone(ET)
+          disc_path=pathlib.Path('tag/data/discovery.json')
+          reactive_path=pathlib.Path('tag/data/finviz.json')
+          out=pathlib.Path('tag/data/tagx-signal-ledger.json')
+          if not disc_path.exists():
+              raise SystemExit('discovery.json unavailable')
+
+          discovery=json.loads(disc_path.read_text(encoding='utf-8'))
+          reactive=json.loads(reactive_path.read_text(encoding='utf-8')) if reactive_path.exists() else {'rows':[]}
+          snap_et=str(discovery.get('snapshotTimestampET') or now_et.isoformat())
+          day=snap_et[:10]
+
+          try:
+              old=json.loads(out.read_text(encoding='utf-8')) if out.exists() else {}
+          except Exception:
+              old={}
+          if old.get('sessionDateET') != day:
+              old={'schemaVersion':3,'sessionDateET':day,'tickers':{},'snapshots':[]}
+          elif old.get('schemaVersion') != 3:
+              migrated={}
+              for t,e in (old.get('tickers') or {}).items():
+                  if not isinstance(e,dict) or not e.get('proactiveEver'):
+                      continue
+                  e=dict(e)
+                  e['moverEver']=False
+                  for k in ('moverFirstSeenET','moverFirstChangePct','moverFirstRank'):
+                      e.pop(k,None)
+                  e['path']=[p for p in (e.get('path') or []) if p.get('source')=='proactive']
+                  migrated[t]=e
+              old={'schemaVersion':3,'sessionDateET':day,'tickers':migrated,'snapshots':[]}
+          tickers=old.setdefault('tickers',{})
+
+          def f(v):
+              try:
+                  return float(str(v if v is not None else '').replace('%','').replace(',','').replace('$','').strip())
+              except Exception:
+                  return None
+          def rows(payload):
+              if isinstance(payload,list): return payload
+              for k in ('rows','data','results','stocks','items','records','topMovers'):
+                  if isinstance(payload.get(k),list): return payload[k]
+              return []
+          def ticker(r):
+              return str(r.get('Ticker') or r.get('ticker') or r.get('Symbol') or r.get('symbol') or '').upper().strip()
+          def val(r,*keys):
+              for k in keys:
+                  if k in r and r.get(k) not in (None,''): return r.get(k)
+              return None
+          def point(r,source,ts,rank=None):
+              p={
+                  'timestampET':ts,
+                  'source':source,
+                  'changePct':f(val(r,'Change','changePct','change','Change %')),
+                  'price':f(val(r,'Price','price','Last','last')),
+                  'volume':f(val(r,'Volume','volume','Vol')),
+                  'relativeVolume':f(val(r,'Relative Volume','RelativeVolume','relativeVolume','Rel Volume')),
+                  'avgVolume':f(val(r,'Average Volume','Avg Volume','avgVolume','averageVolume')),
+                  'float':f(val(r,'Float','float','Shares Float','sharesFloat')),
+              }
+              if rank is not None: p['top20Rank']=rank
+              return p
+
+          proactive_now=set()
+          for r in rows(discovery):
+              t=ticker(r)
+              if not t: continue
+              proactive_now.add(t)
+              p=point(r,'proactive',snap_et)
+              e=tickers.get(t) or {
+                  'ticker':t,'company':val(r,'Company','company','Name','name'),
+                  'sector':val(r,'Sector','sector'),'industry':val(r,'Industry','industry'),
+                  'firstSeenET':snap_et,'firstSource':'proactive','proactiveEver':True,
+                  'proactiveFirstSeenET':snap_et,'proactiveFirstChangePct':p['changePct'],
+                  'moverEver':False,'path':[]
+              }
+              if not e.get('proactiveEver'):
+                  e['proactiveFirstSeenET']=snap_et; e['proactiveFirstChangePct']=p['changePct']
+              e['proactiveEver']=True
+              e['lastSeenET']=snap_et; e['lastSource']='proactive'
+              e['lastChangePct']=p['changePct']; e['lastPrice']=p['price']; e['lastVolume']=p['volume']
+              path=e.setdefault('path',[])
+              if not path or path[-1].get('timestampET')!=snap_et or path[-1].get('source')!='proactive':
+                  path.append(p)
+              e['path']=path[-160:]
+              tickers[t]=e
+
+          reactive_ts=str(reactive.get('snapshotTimestampET') or reactive.get('updatedAtET') or reactive.get('updatedAt') or snap_et)
+          reactive_rows=[]
+          for r in rows(reactive):
+              ch=f(val(r,'Change','changePct','change','Change %'))
+              t=ticker(r)
+              if not t or ch is None: continue
+              reactive_rows.append((ch,t,r))
+          positive=sorted((x for x in reactive_rows if x[0]>0), key=lambda x:x[0], reverse=True)
+          top20=positive[:20]
+          top20_rank={t:i+1 for i,(_,t,_) in enumerate(top20)}
+          top20_set=set(top20_rank)
+
+          for ch,t,r in reactive_rows:
+              if t not in tickers and t not in top20_set:
+                  continue
+              e=tickers.get(t)
+              if e is None:
+                  rank=top20_rank[t]
+                  p=point(r,'top20_mover',reactive_ts,rank)
+                  e={
+                      'ticker':t,'company':val(r,'Company','company','Name','name'),
+                      'sector':val(r,'Sector','sector'),'industry':val(r,'Industry','industry'),
+                      'firstSeenET':reactive_ts,'firstSource':'top20_mover','proactiveEver':False,
+                      'moverEver':True,'moverFirstSeenET':reactive_ts,'moverFirstChangePct':p['changePct'],
+                      'moverFirstRank':rank,'path':[p]
+                  }
+                  tickers[t]=e
+                  continue
+
+              rank=top20_rank.get(t)
+              source='top20_mover' if rank else 'reactive_context'
+              p=point(r,source,reactive_ts,rank)
+              if rank:
+                  if not e.get('moverEver'):
+                      e['moverFirstSeenET']=reactive_ts
+                      e['moverFirstChangePct']=p['changePct']
+                      e['moverFirstRank']=rank
+                  e['moverEver']=True
+                  e['lastTop20Rank']=rank
+              e['lastSeenET']=reactive_ts; e['lastSource']=source
+              e['lastChangePct']=p['changePct']; e['lastPrice']=p['price']; e['lastVolume']=p['volume']
+              path=e.setdefault('path',[])
+              if not path or path[-1].get('timestampET')!=reactive_ts or path[-1].get('source')!=source:
+                  path.append(p)
+              e['path']=path[-160:]
+              tickers[t]=e
+
+          for e in tickers.values():
+              pc=e.get('proactiveFirstChangePct')
+              mc=e.get('moverFirstChangePct')
+              if e.get('moverEver'):
+                  if e.get('proactiveEver') and pc is not None and pc < 10: cls='PROACTIVE_EARLY_LT10'
+                  elif e.get('proactiveEver') and pc is not None and pc < 20: cls='PROACTIVE_EARLY_LT20'
+                  elif e.get('proactiveEver'): cls='PROACTIVE_LATE'
+                  elif mc is not None and mc >= 20: cls='UNIVERSE_COVERAGE_MISS_LATE'
+                  else: cls='MOVER_ONLY_EARLY_OR_FORMING'
+              elif e.get('proactiveEver'):
+                  cls='PROACTIVE_NOT_TOP20_YET'
+              else:
+                  cls='UNKNOWN'
+              e['originClass']=cls
+              changes=[x.get('changePct') for x in e.get('path',[]) if isinstance(x.get('changePct'),(int,float))]
+              if changes: e['maxObservedChangePct']=max(changes)
+
+          current_top20=[tickers[t] for _,t,_ in top20 if t in tickers]
+          miss=[e for e in current_top20 if not e.get('proactiveEver')]
+          late_miss=[e for e in miss if isinstance(e.get('moverFirstChangePct'),(int,float)) and e['moverFirstChangePct']>=20]
+          early10=[e for e in current_top20 if e.get('proactiveEver') and isinstance(e.get('proactiveFirstChangePct'),(int,float)) and e['proactiveFirstChangePct']<10]
+          early20=[e for e in current_top20 if e.get('proactiveEver') and isinstance(e.get('proactiveFirstChangePct'),(int,float)) and e['proactiveFirstChangePct']<20]
+
+          old['schemaVersion']=3
+          old['updatedAt']=now.isoformat()
+          old['snapshotTimestampET']=snap_et
+          old['reactiveSnapshotTimestampET']=reactive_ts
+          old['session']=discovery.get('session')
+          old['tickers']=tickers
+          old['tickerCount']=len(tickers)
+          old['currentProactiveCount']=len(proactive_now)
+          old['groundTruthDefinition']='CURRENT_REACTIVE_TOP20_BY_POSITIVE_CHANGE'
+          old['currentTop20Count']=len(current_top20)
+          old['currentTop20ProactiveEarlyUnder10']=len(early10)
+          old['currentTop20ProactiveEarlyUnder20']=len(early20)
+          old['currentTop20CoverageMissCount']=len(miss)
+          old['currentTop20LateCoverageMissCount']=len(late_miss)
+          old['currentTop20']=[
+              {'rank':i+1,'ticker':t,'changePct':ch,'proactiveEver':bool(tickers.get(t,{}).get('proactiveEver')),
+               'proactiveFirstChangePct':tickers.get(t,{}).get('proactiveFirstChangePct'),
+               'originClass':tickers.get(t,{}).get('originClass')}
+              for i,(ch,t,_) in enumerate(top20)
+          ]
+          old['coverageAuditStatus']='INTRAPERIOD_TOP20_DIAGNOSTIC_ONLY'
+          snaps=old.setdefault('snapshots',[])
+          snaps.append({
+              'timestampET':snap_et,'reactiveTimestampET':reactive_ts,
+              'proactiveCount':len(proactive_now),'top20Count':len(current_top20),
+              'top20EarlyProactiveUnder10':len(early10),'top20EarlyProactiveUnder20':len(early20),
+              'coverageMiss':len(miss),'lateCoverageMiss':len(late_miss)
+          })
+          old['snapshots']=snaps[-250:]
+          out.write_text(json.dumps(old,ensure_ascii=False,indent=2),encoding='utf-8')
+          print('TAGX v3 top20',len(current_top20),'early<10',len(early10),'early<20',len(early20),'miss',len(miss),'late miss',len(late_miss))
+          PY
+      - name: Commit signal ledger
+        run: |
+          git config user.name "TAGX Signal Ledger"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagx-signal-ledger.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Update TAGX Top-20 signal ledger v3"
+          git pull --rebase origin main
+          git push origin main
