@@ -1,0 +1,135 @@
+name: TAG500 Proactive Discovery Universe
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 8-23 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tag500-proactive-discovery-main
+  cancel-in-progress: true
+
+jobs:
+  discovery:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Sync latest main
+        run: git pull --rebase origin main
+
+      - name: Fetch pre-move Finviz universe
+        env:
+          FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
+        run: |
+          test -n "$FINVIZ_TOKEN" || (echo "FINVIZ_TOKEN secret is missing" && exit 1)
+          mkdir -p tag/data
+          URL="https://elite.finviz.com/export/screener?f=cap_smallunder,sh_avgvol_o100,sh_price_u20,sh_relvol_o0.5&v=151&auth=${FINVIZ_TOKEN}"
+          curl --fail --silent --show-error --location \
+            --retry 5 --retry-delay 5 --retry-all-errors \
+            "$URL" -o /tmp/tag500-discovery.csv
+          test -s /tmp/tag500-discovery.csv || (echo "Finviz proactive universe returned empty" && exit 1)
+
+      - name: Build proactive discovery snapshot
+        run: |
+          python - <<'PY'
+          import csv, json, datetime, pathlib
+          from zoneinfo import ZoneInfo
+
+          now_utc = datetime.datetime.now(datetime.timezone.utc)
+          now_et = now_utc.astimezone(ZoneInfo('America/New_York'))
+          day = now_et.date().isoformat()
+          if now_et.weekday() >= 5:
+              raise SystemExit('Weekend: no discovery snapshot')
+          if datetime.time(4,0) <= now_et.time() < datetime.time(9,30):
+              session='pre-market'
+          elif datetime.time(9,30) <= now_et.time() < datetime.time(16,0):
+              session='regular'
+          elif datetime.time(16,0) <= now_et.time() <= datetime.time(20,0):
+              session='after-hours'
+          else:
+              raise SystemExit('Outside U.S. trading sessions')
+
+          def pct(v):
+              try: return float(str(v or '0').replace('%','').replace(',',''))
+              except: return 0.0
+          def num(v):
+              try: return float(str(v or '0').replace(',','').replace('$',''))
+              except: return 0.0
+
+          out_path=pathlib.Path('tag/data/discovery.json')
+          try:
+              prior=json.loads(out_path.read_text(encoding='utf-8')) if out_path.exists() else {}
+          except Exception:
+              prior={}
+          prior_day=str(prior.get('snapshotTimestampET',''))[:10]
+          prior_map={str(r.get('Ticker') or '').upper():r for r in prior.get('rows',[]) if r.get('Ticker')} if prior_day==day else {}
+
+          with open('/tmp/tag500-discovery.csv', newline='', encoding='utf-8-sig') as f:
+              rows=list(csv.DictReader(f))
+
+          normalized=[]
+          for row in rows:
+              t=(row.get('Ticker') or row.get('Symbol') or '').strip().upper()
+              if not t: continue
+              old=prior_map.get(t,{})
+              ch=row.get('Change')
+              row['Ticker']=t
+              row['_signals']=['pre_move_universe']
+              row['_discoveryUniverse']=True
+              row['_snapshotTimestampUTC']=now_utc.isoformat()
+              row['_snapshotTimestampET']=now_et.isoformat()
+              row['_session']=session
+              row['_firstObservedTimestampUTC']=old.get('_firstObservedTimestampUTC',now_utc.isoformat())
+              row['_firstObservedTimestampET']=old.get('_firstObservedTimestampET',now_et.isoformat())
+              row['_firstObservedChange']=old.get('_firstObservedChange',ch)
+              row['_firstObservedVolume']=old.get('_firstObservedVolume',row.get('Volume'))
+              first=pct(row['_firstObservedChange'])
+              row['_originClass']='EARLY' if first < 8 else ('FORMING' if first < 20 else 'LATE')
+              normalized.append(row)
+
+          # Keep the universe useful and bounded: prioritize higher relative volume, then lower absolute move.
+          def relvol(r): return num(r.get('Rel Volume') or r.get('Relative Volume'))
+          normalized.sort(key=lambda r:(relvol(r), -abs(pct(r.get('Change')))), reverse=True)
+          normalized=normalized[:750]
+          early=sum(1 for r in normalized if pct(r.get('_firstObservedChange')) < 20)
+          late=sum(1 for r in normalized if pct(r.get('_firstObservedChange')) >= 20)
+          payload={
+              'source':'Finviz Elite proactive small-cap universe',
+              'sourceType':'PROACTIVE_DISCOVERY',
+              'filters':['cap_smallunder','sh_avgvol_o100','sh_price_u20','sh_relvol_o0.5'],
+              'view':151,
+              'updatedAt':now_utc.isoformat(),
+              'snapshotTimestampUTC':now_utc.isoformat(),
+              'snapshotTimestampET':now_et.isoformat(),
+              'session':session,
+              'count':len(normalized),
+              'earlyOriginCount':early,
+              'lateOriginCount':late,
+              'executionEligibility':'SEPARATE_SHARIA_AND_DATA_GATES_REQUIRED',
+              'trainingEligible':False,
+              'rows':normalized
+          }
+          out_path.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(f'Wrote {len(normalized)} proactive discovery rows; early-origin={early}; late-origin={late}')
+          PY
+
+      - name: Commit proactive discovery data
+        run: |
+          git config user.name "TAG500 Discovery Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/discovery.json
+          if git diff --cached --quiet; then
+            echo "No discovery data change"
+            exit 0
+          fi
+          git commit -m "Refresh TAG500 proactive discovery universe"
+          git pull --rebase origin main
+          git push origin main
