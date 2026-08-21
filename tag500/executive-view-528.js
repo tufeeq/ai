@@ -1,7 +1,10 @@
 'use strict';
 (function(){
-  const FALLBACK_BUILD='TAG571';
+  const FALLBACK_BUILD='TAG581';
   let mode='EXECUTIVE';
+  let discoveryLoaded=false;
+  let discoveryLoading=false;
+  let discoveryMeta={state:'PENDING',count:0,early:0,late:0,error:null};
   function buildId(){return document.body?.dataset?.tagRelease||document.querySelector('#versionBadge')?.textContent?.trim()||FALLBACK_BUILD;}
   function actionCode(z){return z?.actionability?.code||'X';}
   function runtimeHealth(){
@@ -61,11 +64,80 @@
     if(incomplete) reasons.push(`${incomplete} ناقص المدخلات`);
     if(lateOrigin) reasons.push(`${lateOrigin} ظهر متأخرًا`);
     if(irrelevantNews) reasons.push(`${irrelevantNews} نتائج أخبار غير مرتبطة تم حجبها`);
-    if(!shown&&verified===0) reasons.unshift('لا توجد أسهم VERIFIED في التغذية الحالية');
+    if(!shown&&verified===0) reasons.unshift('التوصيات التنفيذية = 0 لأن التغذية الحالية لا تحتوي حالة Sharia VERIFIED؛ رادار الاكتشاف السوقي يبقى فعالًا للبحث ولا يتجاوز البوابة الشرعية');
     return reasons.length?reasons.join(' · '):'لا توجد عوائق رئيسية ظاهرة';
   }
+  function ensureDiscoveryPanel(){
+    if(document.querySelector('#discoveryFirst581')) return document.querySelector('#discoveryFirst581');
+    const anchor=document.querySelector('#opportunities');if(!anchor)return null;
+    const sec=document.createElement('section');sec.className='panel';sec.id='discoveryFirst581';
+    sec.innerHTML='<div class="section-head"><div><h3>رادار الاكتشاف قبل الحركة</h3><p>كون استباقي مستقل عن Top Gainers. يعرض إشارات سوقية مبكرة حتى لو كانت الشرعية غير متحققة؛ لا تتحول إلى توصية تنفيذية قبل Sharia VERIFIED وبقية بوابات البيانات.</p></div><button type="button" class="primary" id="refreshDiscovery581">تحديث الرادار</button></div><div id="discoveryStatus581" class="connector-status">جاري تحميل الكون الاستباقي…</div><div id="discoveryCards581" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px"></div>';
+    anchor.parentNode.insertBefore(sec,anchor);
+    sec.querySelector('#refreshDiscovery581')?.addEventListener('click',()=>loadDiscovery(true));
+    return sec;
+  }
+  function firstChange(z){
+    const raw=z?.raw||{};
+    const v=raw._firstObservedChange??raw.firstObservedChange??z?.signalOrigin?.firstChange;
+    if(typeof v==='number')return Number.isFinite(v)?v:null;
+    const n=parseFloat(String(v??'').replace('%','').replace(',',''));
+    return Number.isFinite(n)?n:null;
+  }
+  function discoveryDecision(z){
+    const fc=firstChange(z);
+    if(z?.sharia==='EXCLUDED') return {label:'مستبعد شرعيًا',cls:'neg'};
+    if((Number.isFinite(fc)&&fc>=20)||['LATE','EXHAUSTION'].includes(z?.stage)||['LATE','VERY_LATE'].includes(z?.signalOrigin?.class)) return {label:'متأخر — لا تطارد',cls:'neg'};
+    if(z?.sharia==='VERIFIED'&&['A','B'].includes(actionCode(z))) return {label:'مؤهل تنفيذيًا',cls:'pos'};
+    if(z?.dataComplete&&['DISCOVERY','IGNITION'].includes(z?.stage)) return {label:'مراقبة مبكرة — ينتظر التحقق الشرعي',cls:'pos'};
+    return {label:'بحث — مدخلات غير مكتملة',cls:''};
+  }
+  function renderDiscoveryPanel(){
+    const sec=ensureDiscoveryPanel();if(!sec)return;
+    const status=sec.querySelector('#discoveryStatus581'),cards=sec.querySelector('#discoveryCards581');
+    const all=window.analyzed||window.TAG500State?.analyzed||[];
+    const proactive=all.filter(z=>z?.raw?._discoveryUniverse===true||z?.raw?._signals?.includes?.('pre_move_universe'));
+    const early=proactive.filter(z=>{const fc=firstChange(z);return (!Number.isFinite(fc)||fc<20)&&z?.dataComplete&&['DISCOVERY','IGNITION'].includes(z?.stage);});
+    const ranked=early.slice().sort((a,b)=>{
+      const ai=a.stage==='IGNITION'?1:0,bi=b.stage==='IGNITION'?1:0;
+      return (bi-ai)||((b.score??-1)-(a.score??-1))||((a.changePct??999)-(b.changePct??999));
+    }).slice(0,8);
+    if(discoveryMeta.state==='ERROR'){
+      status.className='connector-status err';status.textContent='تعذر تحميل الكون الاستباقي: '+discoveryMeta.error+' · سيبقى المسح التفاعلي الحالي فقط.';
+    }else if(discoveryMeta.state==='OK'){
+      status.className='connector-status ok';status.textContent=`الكون الاستباقي: ${discoveryMeta.count} سهم · أصل <20%: ${discoveryMeta.early} · دخل متأخرًا: ${discoveryMeta.late} · ظاهر كإشارة مبكرة الآن: ${early.length}`;
+    }else status.textContent='جاري تحميل الكون الاستباقي…';
+    cards.innerHTML=ranked.map(z=>{const d=discoveryDecision(z),fc=firstChange(z);return `<article class="release-box" style="margin:0"><div style="display:flex;justify-content:space-between;gap:8px"><strong style="font-size:18px">${esc(z.ticker)}</strong><span class="${d.cls}">${esc(d.label)}</span></div><div class="release-meta"><span class="release-chip">${esc(z.stage)}</span><span class="release-chip">TAG ${Number.isFinite(z.score)?z.score.toFixed(0):'—'}</span><span class="release-chip">الآن ${fmtPct(z.changePct)}</span><span class="release-chip">أول رصد ${Number.isFinite(fc)?fmtPct(fc):'—'}</span></div><p class="release-note">${esc((z.reasons||[]).slice(0,3).join(' · ')||'تحول سوقي مبكر قيد المراقبة')}</p></article>`;}).join('')||'<div class="release-note">لا توجد حاليًا إشارة مبكرة مكتملة داخل الكون الاستباقي. هذا أفضل من عرض سهم دخل بعد الانفجار كتوصية.</div>';
+  }
+  async function loadDiscovery(force=false){
+    if(discoveryLoading||(!force&&discoveryLoaded))return;
+    discoveryLoading=true;ensureDiscoveryPanel();
+    try{
+      const r=await fetch('./data/discovery.json?ts='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);
+      const p=await r.json(),recs=Array.isArray(p?.rows)?p.rows:[];
+      if(!recs.length)throw new Error('NO_PROACTIVE_ROWS');
+      const current=Array.isArray(rows)?rows:[];
+      const byTicker=new Map(current.map(x=>[x.ticker,x]));
+      for(const raw of recs){
+        const n=normalizeRecord(raw);if(!n)continue;
+        const old=byTicker.get(n.ticker);
+        if(old){
+          for(const k of ['avgVolume','float','price','volume','changePct','prevClose'])if(!Number.isFinite(old[k])&&Number.isFinite(n[k]))old[k]=n[k];
+          old.raw={...(old.raw||{}),...raw,_discoveryUniverse:true};
+        }else{
+          n.raw={...(n.raw||{}),...raw,_discoveryUniverse:true};
+          current.push(n);byTicker.set(n.ticker,n);
+        }
+      }
+      if(typeof volumePercentiles==='function')volumePercentiles(current);
+      discoveryMeta={state:'OK',count:Number(p.count||recs.length),early:Number(p.earlyOriginCount||0),late:Number(p.lateOriginCount||0),updatedAt:p.updatedAt||null,error:null};
+      discoveryLoaded=true;
+      if(typeof render==='function')render();
+    }catch(e){
+      discoveryMeta={state:'ERROR',count:0,early:0,late:0,error:e.message};discoveryLoaded=true;renderDiscoveryPanel();
+    }finally{discoveryLoading=false;}
+  }
   function apply(){
-    paintVersion();ensureControls();
+    paintVersion();ensureControls();ensureDiscoveryPanel();
     const select=document.querySelector('#viewMode533');if(select)mode=select.value||mode;
     const all=window.analyzed||[];
     const map=new Map(all.map(z=>[z.ticker,z]));
@@ -100,9 +172,11 @@
       const top=document.querySelector('#topOpportunity');
       if(top){top.classList.add('empty');top.textContent='تم حجب الفرص التنفيذية مؤقتًا: runtime غير سليم. راجع سجل سلامة البيانات.';}
     }
+    renderDiscoveryPanel();
+    if(!discoveryLoaded&&!discoveryLoading)queueMicrotask(()=>loadDiscovery(false));
   }
   function bind(){
-    ensureControls();paintVersion();
+    ensureControls();ensureDiscoveryPanel();paintVersion();
     const s=document.querySelector('#viewMode533');
     if(s&&!s.dataset.bound533){s.dataset.bound533='1';s.addEventListener('change',()=>{mode=s.value;apply();});}
     apply();
@@ -112,5 +186,6 @@
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
   window.addEventListener('tag500:runtime-ready',apply);
   window.addEventListener('tag500:runtime-safety',apply);
-  window.TAG500ExecutiveView={build:buildId(),getMode:()=>mode,setMode:(m)=>{mode=m==='RESEARCH'?'RESEARCH':'EXECUTIVE';const s=document.querySelector('#viewMode533');if(s)s.value=mode;apply();},runtimeHealth,apply};
+  window.addEventListener('tag500:state-final',renderDiscoveryPanel);
+  window.TAG500ExecutiveView={build:buildId(),getMode:()=>mode,setMode:(m)=>{mode=m==='RESEARCH'?'RESEARCH':'EXECUTIVE';const s=document.querySelector('#viewMode533');if(s)s.value=mode;apply();},runtimeHealth,apply,loadDiscovery,get discoveryMeta(){return discoveryMeta;}};
 })();
