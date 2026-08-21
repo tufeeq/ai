@@ -1,0 +1,80 @@
+name: TAGX Discovery Ledger
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '2-57/5 8-23 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-discovery-ledger-main
+  cancel-in-progress: true
+
+jobs:
+  ledger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: git pull --rebase origin main
+      - name: Preserve proactive discovery history
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime
+          from zoneinfo import ZoneInfo
+          src=pathlib.Path('tag/data/discovery.json')
+          if not src.exists(): raise SystemExit('discovery.json not available yet')
+          p=json.loads(src.read_text(encoding='utf-8'))
+          snap_et=str(p.get('snapshotTimestampET') or '')
+          day=snap_et[:10]
+          if not day: raise SystemExit('missing snapshot date')
+          out=pathlib.Path('tag/data/discovery-ledger.json')
+          try: old=json.loads(out.read_text(encoding='utf-8')) if out.exists() else {}
+          except Exception: old={}
+          if old.get('sessionDateET')!=day:
+              old={'schemaVersion':1,'sessionDateET':day,'tickers':{},'snapshots':[]}
+          tickers=old.setdefault('tickers',{})
+          def f(v):
+              try:return float(str(v or '').replace('%','').replace(',','').replace('$',''))
+              except:return None
+          for r in p.get('rows',[]):
+              t=str(r.get('Ticker') or '').upper().strip()
+              if not t: continue
+              cur=f(r.get('Change')); v=f(r.get('Volume')); px=f(r.get('Price'))
+              e=tickers.get(t)
+              if not e:
+                  e={'ticker':t,'company':r.get('Company'),'sector':r.get('Sector'),'industry':r.get('Industry'),
+                     'firstSeenET':r.get('_firstObservedTimestampET') or snap_et,
+                     'firstSeenUTC':r.get('_firstObservedTimestampUTC') or p.get('snapshotTimestampUTC'),
+                     'firstChangePct':f(r.get('_firstObservedChange')),
+                     'firstVolume':f(r.get('_firstObservedVolume')),
+                     'firstPrice':px,'maxChangePct':cur,'maxVolume':v,'observations':0}
+              e['lastSeenET']=snap_et; e['lastSeenUTC']=p.get('snapshotTimestampUTC'); e['lastChangePct']=cur; e['lastVolume']=v; e['lastPrice']=px
+              e['observations']=int(e.get('observations') or 0)+1
+              if cur is not None: e['maxChangePct']=cur if e.get('maxChangePct') is None else max(e['maxChangePct'],cur)
+              if v is not None: e['maxVolume']=v if e.get('maxVolume') is None else max(e['maxVolume'],v)
+              first=e.get('firstChangePct'); e['originClass']='EARLY' if first is not None and first<8 else ('FORMING' if first is not None and first<20 else ('LATE' if first is not None else 'UNKNOWN'))
+              tickers[t]=e
+          snaps=old.setdefault('snapshots',[])
+          snaps.append({'timestampET':snap_et,'timestampUTC':p.get('snapshotTimestampUTC'),'session':p.get('session'),'count':p.get('count')})
+          old['snapshots']=snaps[-250:]
+          old['updatedAt']=datetime.datetime.now(datetime.timezone.utc).isoformat()
+          old['tickerCount']=len(tickers)
+          old['earlyUnder10Count']=sum(1 for x in tickers.values() if x.get('firstChangePct') is not None and x['firstChangePct']<10)
+          old['earlyUnder20Count']=sum(1 for x in tickers.values() if x.get('firstChangePct') is not None and x['firstChangePct']<20)
+          out.write_text(json.dumps(old,ensure_ascii=False,indent=2),encoding='utf-8')
+          print('ledger tickers',len(tickers))
+          PY
+      - name: Commit ledger
+        run: |
+          git config user.name "TAGX Discovery Ledger"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/discovery-ledger.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Update TAGX discovery ledger"
+          git pull --rebase origin main
+          git push origin main
