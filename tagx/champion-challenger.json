@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-21T17:03:20-04:00",
+  "updatedAt": "2026-08-21T18:02:00-04:00",
   "champion": {
     "version": "TAGX 0.5",
     "status": "ACTIVE_BASELINE",
@@ -9,13 +9,14 @@
   "challengers": [
     {
       "id": "nano-low-float-universe-v1",
-      "status": "DEPLOYED_PENDING_FIRST_SCHEMA3_SNAPSHOT",
+      "status": "DEPLOYED_SCHEMA3_CONFIRMED_LEDGER_VALIDATION_PENDING",
       "hypothesis": "A dedicated low-float lane that does not require RVOL > 0.5 will capture structurally fragile stocks before relative-volume expansion makes them obvious.",
       "changes": [
         "Add nano_low_float lane: small-cap, average volume >100K, price <$10, float <20M, with no RVOL minimum.",
         "Reserve up to 250 of the 750 proactive-universe slots for the low-float lane before filling from the existing general lane.",
         "Persist _discoveryLanes per ticker and measure Top-20 Early Capture <10% and <20% separately for general vs nano_low_float.",
-        "Sort signal-ledger paths monotonically by timestamp to prevent backward slope/velocity reads."
+        "Sort signal-ledger paths monotonically by timestamp to prevent backward slope/velocity reads.",
+        "Add a scheduled Signal Ledger v4 fallback because the workflow_run chain produced an empty ledger despite healthy discovery snapshots."
       ],
       "acceptanceCriteria": {
         "minimumFullSessions": 3,
@@ -27,25 +28,30 @@
           "Preserve data-field coverage and fail-closed integrity."
         ]
       },
-      "todayEvidence": {
+      "currentEvidence": {
         "sessionClassification": "PARTIAL_SESSION_ONLY",
-        "ledgerFirstUsableTimestampET": "2026-08-21T16:26:22.926104-04:00",
-        "currentTop20EarlyUnder10": 0,
-        "currentTop20EarlyUnder20": 0,
-        "currentTop20CoverageMissCount": 7,
-        "examples": {
-          "HOWL": {"firstProactiveChangePct": 102.57, "classification": "PROACTIVE_LATE"},
-          "USDE": {"firstProactiveChangePct": 85.25, "classification": "PROACTIVE_LATE"},
-          "LSTA": {"firstProactiveChangePct": 38.39, "classification": "PROACTIVE_LATE"},
-          "RFAI": {"firstProactiveChangePct": null, "classification": "COVERAGE_MISS_IN_PARTIAL_LEDGER"}
+        "schema3DiscoveryTimestampET": "2026-08-21T17:46:39.725967-04:00",
+        "universeCount": 750,
+        "nanoLowFloatCount": 309,
+        "nanoQuietRelVolUnder0_5": 200,
+        "generalCount": 550,
+        "earlyOriginCount": 738,
+        "lateOriginCount": 12,
+        "fieldCoverage": {
+          "relativeVolumePct": 100.0,
+          "avgVolumePct": 100.0,
+          "floatPct": 98.8
         },
-        "interpretation": "Today cannot validate Early-Capture performance because the authoritative ledger began after RTH close. It does validate the need to test universe expansion rather than retune scores."
+        "signalLedgerStatusBeforeFix": "EMPTY_FILE",
+        "marketContext": "Regular-session leaders were already highly extended; RFAI and HOWL were prominent examples, so this partial late-day sample cannot establish full-session Early-Capture performance.",
+        "interpretation": "The low-float lane is now demonstrably collecting quiet names before RVOL expansion, but the proof layer was broken. Fix the ledger authority before judging or retuning the model."
       },
       "sourceCommits": {
         "multiLaneDiscovery": "deployed on main",
-        "laneAttributionLedger": "527d5dce6b78f909b58032bb26e060a67090a67b"
+        "laneAttributionLedger": "527d5dce6b78f909b58032bb26e060a67090a67b",
+        "scheduledLedgerFallback": "5e18c5135c01a18e2fa2dc05a7472ff4adab2328"
       }
     }
   ],
-  "versionPolicy": "Do not bump TAGX version until the challenger produces a real schemaVersion 3 discovery snapshot and passes measured champion/challenger evaluation."
+  "versionPolicy": "Do not bump TAGX version until authoritative ledger output exists and the challenger passes measured multi-session champion/challenger evaluation."
 }
