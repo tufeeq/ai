@@ -1,0 +1,163 @@
+name: TAGX Final Session Evaluation
+
+on:
+  workflow_run:
+    workflows: ["TAG Final Snapshot Reconciliation v4"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-final-session-evaluation-main
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Sync final reconciliation and signal ledger
+        run: git pull --rebase origin main
+
+      - name: Build fail-closed Top-20 TAGX session evaluation
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime, statistics
+
+          REC=pathlib.Path('tag/data/final-reconciliation-v4.json')
+          LED=pathlib.Path('tag/data/tagx-signal-ledger.json')
+          OUT=pathlib.Path('tag/data/tagx-session-evaluations.json')
+
+          def load(p):
+              try:return json.loads(p.read_text(encoding='utf-8'))
+              except Exception:return {}
+          def num(v):
+              try:return float(v)
+              except:return None
+          def pct(n,d): return None if not d else round(100*n/d,1)
+
+          rec=load(REC); led=load(LED)
+          session_date=rec.get('reconciliationSessionDateET')
+          same_session=bool(session_date and rec.get('sameSessionDateVerified') is True)
+          rec_schema=rec.get('schemaVersion')==4 and rec.get('matchingPolicy')=='NEAREST_TIMESTAMP_TO_FINVIZ_CANDIDATE'
+          ledger_ok=bool(
+              led.get('schemaVersion')==4 and
+              led.get('ledgerAuthority')=='PROACTIVE_DISCOVERY_WORKFLOW_RUN' and
+              led.get('sessionDateET')==session_date and
+              isinstance(led.get('tickers'),dict) and
+              len(led.get('tickers') or {})>0
+          )
+
+          rows=[]
+          for r in rec.get('rows') or []:
+              fz=r.get('finviz') or {}; ch=num(fz.get('changePct'))
+              t=str(r.get('ticker') or '').upper().strip()
+              if t and ch is not None and ch>0: rows.append((ch,t,r))
+          top20=sorted(rows,key=lambda x:x[0],reverse=True)[:20]
+
+          eval_ready=bool(same_session and rec_schema and ledger_ok and len(top20)==20)
+          tickers=led.get('tickers') or {}
+          details=[]; early=late=missed=unverified=early10=0
+          for rank,(ch,t,r) in enumerate(top20,1):
+              e=tickers.get(t) or {}
+              final_verified=bool(r.get('priceChangeReconciled') is True and (r.get('fieldLevelTrainingEligibility') or {}).get('finalMoverOutcomeLabel') is True)
+              first=num(e.get('proactiveFirstChangePct'))
+              if not eval_ready or not final_verified:
+                  status='Data-Unverified'; unverified+=1
+              elif e.get('proactiveEver') and first is not None and first<20:
+                  status='Predicted Early'; early+=1
+                  if first<10: early10+=1
+              elif e.get('proactiveEver'):
+                  status='Detected Late'; late+=1
+              else:
+                  status='Missed'; missed+=1
+              maxmove=num(e.get('maxObservedChangePct'))
+              remaining=None if first is None else round(ch-first,2)
+              details.append({
+                  'rank':rank,'ticker':t,'finalChangePct':round(ch,3),'status':status,
+                  'proactiveFirstSeenET':e.get('proactiveFirstSeenET'),
+                  'proactiveFirstChangePct':first,
+                  'discoveryLanes':e.get('proactiveFirstLanes') or [],
+                  'maxObservedChangePct':maxmove,
+                  'remainingUpsidePctPointsAtFirstAlert':remaining,
+                  'finalPriceChangeReconciled':final_verified,
+                  'originClass':e.get('originClass'),
+              })
+
+          verified_den=early+late+missed
+          raw_rate=pct(early,20) if len(top20)==20 else None
+          adjusted=pct(early,verified_den)
+          raw10=pct(early10,20) if len(top20)==20 else None
+          status='FINAL_EVALUATION_READY' if eval_ready else 'DATA_UNVERIFIED_EVALUATION_BLOCKED'
+          blockers=[]
+          if not same_session: blockers.append('FINAL_RECONCILIATION_NOT_SAME_SESSION')
+          if not rec_schema: blockers.append('FINAL_RECONCILIATION_SCHEMA_OR_POLICY_INVALID')
+          if not ledger_ok: blockers.append('AUTHORITATIVE_LEDGER_UNAVAILABLE_OR_SESSION_MISMATCH')
+          if len(top20)!=20: blockers.append('FINAL_RECONCILED_POSITIVE_TOP20_INCOMPLETE')
+
+          old=load(OUT)
+          hist=[x for x in (old.get('history') or []) if x.get('sessionDateET')!=session_date]
+          entry={
+              'sessionDateET':session_date,
+              'generatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'evaluationStatus':status,
+              'blockers':blockers,
+              'benchmark':'FINAL_RECONCILED_TOP20_POSITIVE_MOVERS',
+              'top20Count':len(top20),
+              'counts':{'predictedEarly':early,'predictedEarlyUnder10':early10,'detectedLate':late,'missed':missed,'dataUnverified':unverified},
+              'earlyCaptureRatePct':raw_rate,
+              'earlyCaptureUnder10RatePct':raw10,
+              'adjustedEarlyCaptureRatePct':adjusted,
+              'details':details,
+          }
+          hist.append(entry); hist=hist[-60:]
+
+          eligible=[x for x in hist if x.get('evaluationStatus')=='FINAL_EVALUATION_READY' and isinstance(x.get('earlyCaptureRatePct'),(int,float))]
+          def trend(n,field):
+              vals=[x.get(field) for x in eligible[-n:] if isinstance(x.get(field),(int,float))]
+              if not vals:return {'sessions':0,'averagePct':None,'direction':'NO_DATA'}
+              avg=round(sum(vals)/len(vals),1)
+              if len(vals)<2: direction='BASELINE'
+              else:
+                  half=max(1,len(vals)//2); a=sum(vals[:half])/half; b=sum(vals[half:])/(len(vals)-half)
+                  direction='UP' if b>a+2 else ('DOWN' if b<a-2 else 'FLAT')
+              return {'sessions':len(vals),'averagePct':avg,'direction':direction}
+
+          payload={
+              'schemaVersion':1,
+              'current':entry,
+              'trends':{
+                  'earlyCapture5':trend(5,'earlyCaptureRatePct'),
+                  'earlyCapture20':trend(20,'earlyCaptureRatePct'),
+                  'adjusted5':trend(5,'adjustedEarlyCaptureRatePct'),
+                  'adjusted20':trend(20,'adjustedEarlyCaptureRatePct'),
+              },
+              'history':hist,
+              'trainingPolicy':'NO_THRESHOLD_RETUNE_FROM_SINGLE_SESSION; REQUIRE_MULTI_SESSION_CHAMPION_CHALLENGER_EVIDENCE',
+          }
+          OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps({'status':status,'top20':len(top20),'early':early,'late':late,'missed':missed,'unverified':unverified,'rate':raw_rate,'adjusted':adjusted,'blockers':blockers},ensure_ascii=False))
+          PY
+
+      - name: Commit final TAGX evaluation
+        run: |
+          git config user.name "TAGX Evaluation Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagx-session-evaluations.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Evaluate TAGX final Top-20 early capture"
+          for i in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep $((i*5))
+          done
+          exit 1
