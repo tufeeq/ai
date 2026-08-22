@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """TAGX challenger: derive pre-ignition velocity features from consecutive discovery snapshots.
 
-This module is intentionally fail-closed. It never invents missing values and does not
-turn a velocity feature into an actionable trade recommendation. It produces telemetry
-for champion/challenger evaluation.
+Fail-closed shadow telemetry only. No execution recommendation is produced here.
+Finviz screener Float/Outstanding fields in the TAGX export are expressed in millions
+when supplied as plain decimals (e.g. 0.49 == 0.49M shares).
 """
 from __future__ import annotations
 
@@ -35,6 +35,19 @@ def number(value: Any) -> float | None:
     return x * _SUFFIX.get(suffix, 1.0)
 
 
+def finviz_shares(value: Any) -> float | None:
+    """Normalize TAGX Finviz Float/Outstanding export values to absolute shares."""
+    if value is None:
+        return None
+    raw = str(value).strip()
+    x = number(value)
+    if x is None:
+        return None
+    if re.search(r"[KMBT]\s*$", raw, re.I):
+        return x
+    return x * 1_000_000.0
+
+
 def parse_ts(value: Any) -> dt.datetime | None:
     if not value:
         return None
@@ -62,11 +75,7 @@ def build(current: dict[str, Any], prior: dict[str, Any]) -> dict[str, Any]:
     if elapsed <= 0 or elapsed > 30:
         raise ValueError(f"invalid snapshot interval: {elapsed:.2f} minutes")
 
-    prior_rows = {
-        str(r.get("Ticker") or "").upper(): r
-        for r in prior.get("rows", [])
-        if r.get("Ticker")
-    }
+    prior_rows = {str(r.get("Ticker") or "").upper(): r for r in prior.get("rows", []) if r.get("Ticker")}
     output = []
     for row in current.get("rows", []):
         ticker = str(row.get("Ticker") or "").upper()
@@ -78,14 +87,12 @@ def build(current: dict[str, Any], prior: dict[str, Any]) -> dict[str, Any]:
         chg, pchg = number(row.get("Change")), number(old.get("Change"))
         rv, prv = number(row.get("Rel Volume")), number(old.get("Rel Volume"))
         price, pprice = number(row.get("Price")), number(old.get("Price"))
-        flt = number(row.get("Float"))
+        flt = finviz_shares(row.get("Float"))
 
         volume_delta = None if vol is None or pvol is None else max(0.0, vol - pvol)
         change_delta = None if chg is None or pchg is None else chg - pchg
         relvol_delta = None if rv is None or prv is None else rv - prv
-        price_delta_pct = None
-        if price is not None and pprice not in (None, 0):
-            price_delta_pct = (price / pprice - 1.0) * 100.0
+        price_delta_pct = None if price is None or pprice in (None, 0) else (price / pprice - 1.0) * 100.0
 
         float_turnover = None
         interval_float_capture = None
@@ -95,11 +102,10 @@ def build(current: dict[str, Any], prior: dict[str, Any]) -> dict[str, Any]:
             if volume_delta is not None:
                 interval_float_capture = volume_delta / flt
 
-        # Pure telemetry score: designed to rank candidates for evaluation, not execution.
-        components = []
         vv = safe_rate(volume_delta, elapsed)
         cv = safe_rate(change_delta, elapsed)
         rvv = safe_rate(relvol_delta, elapsed)
+        components = []
         if vv is not None:
             components.append(min(35.0, 7.0 * math.log10(max(vv, 1.0))))
         if cv is not None and cv > 0:
@@ -124,7 +130,7 @@ def build(current: dict[str, Any], prior: dict[str, Any]) -> dict[str, Any]:
             "relativeVolume": rv,
             "relativeVolumeDelta": None if relvol_delta is None else round(relvol_delta, 5),
             "relativeVolumeVelocityPerMin": rvv,
-            "float": flt,
+            "floatShares": flt,
             "floatTurnover": None if float_turnover is None else round(float_turnover, 6),
             "intervalFloatCapture": None if interval_float_capture is None else round(interval_float_capture, 6),
             "velocityScore": velocity_score,
