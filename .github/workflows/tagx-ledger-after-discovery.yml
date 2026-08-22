@@ -1,0 +1,32 @@
+name: TAGX Ledger After Discovery
+
+on:
+  workflow_run:
+    workflows: ["TAGX Proactive Discovery Universe"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: tagx-ledger-after-discovery-main
+  cancel-in-progress: true
+
+jobs:
+  dispatch-ledger:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch authoritative ledger on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          echo "Triggering TAGX authoritative ledger after successful discovery refresh"
+          gh workflow run tagx-authoritative-ledger.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main
