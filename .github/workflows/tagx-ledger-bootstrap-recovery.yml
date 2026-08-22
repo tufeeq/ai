@@ -1,0 +1,136 @@
+name: TAGX Ledger Bootstrap Recovery
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tagx-ledger-bootstrap-recovery.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-ledger-bootstrap-recovery-main
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: git pull --rebase origin main
+      - name: Recover authoritative ledger only when empty
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime
+          HIST=pathlib.Path('tag/data/discovery-ledger.json')
+          MOV=pathlib.Path('tag/data/finviz.json')
+          OUT=pathlib.Path('tag/data/tagx-signal-ledger.json')
+          def load(p):
+              try:return json.loads(p.read_text(encoding='utf-8'))
+              except:return {}
+          def rows(p):
+              if isinstance(p,list):return p
+              if not isinstance(p,dict):return []
+              for k in ('rows','data','results','stocks','items','records','topMovers'):
+                  if isinstance(p.get(k),list):return p[k]
+              return []
+          def tkr(r):return str(r.get('Ticker') or r.get('ticker') or r.get('Symbol') or r.get('symbol') or '').upper().strip()
+          def f(v):
+              try:return float(str(v if v is not None else '').replace('%','').replace(',','').replace('$','').strip())
+              except:return None
+          def pick(r,*ks):
+              for k in ks:
+                  if r.get(k) not in (None,''):return r.get(k)
+              return None
+          current=load(OUT)
+          if isinstance(current.get('tickers'),dict) and len(current['tickers'])>0:
+              print('Authoritative ledger already populated; recovery skipped')
+              raise SystemExit(0)
+          hist=load(HIST); mov=load(MOV)
+          day=hist.get('sessionDateET')
+          if not day or not isinstance(hist.get('tickers'),dict) or not hist['tickers']:
+              raise SystemExit('No discovery-ledger history available for recovery')
+          tickers={}
+          for t,h in hist['tickers'].items():
+              t=str(t).upper(); first=f(h.get('firstChangePct'))
+              e={
+                  'ticker':t,'company':h.get('company'),'sector':h.get('sector'),'industry':h.get('industry'),
+                  'firstSeenET':h.get('firstSeenET'),'firstSource':'proactive_recovered',
+                  'proactiveEver':True,'proactiveFirstSeenET':h.get('firstSeenET'),
+                  'proactiveFirstChangePct':first,'proactiveFirstLanes':['recovered_discovery_ledger'],
+                  'proactiveLanesEver':['recovered_discovery_ledger'],'moverEver':False,
+                  'lastSeenET':h.get('lastSeenET'),'lastSource':'proactive_recovered',
+                  'lastChangePct':f(h.get('lastChangePct')),'lastPrice':f(h.get('lastPrice')),'lastVolume':f(h.get('lastVolume')),
+                  'maxObservedChangePct':f(h.get('maxChangePct')),'path':[],'recoveryProvenance':'discovery-ledger.json'
+              }
+              if h.get('firstSeenET'):
+                  e['path'].append({'timestampET':h.get('firstSeenET'),'source':'proactive_recovered','changePct':first,'price':f(h.get('firstPrice')),'volume':f(h.get('firstVolume'))})
+              if h.get('lastSeenET') and h.get('lastSeenET')!=h.get('firstSeenET'):
+                  e['path'].append({'timestampET':h.get('lastSeenET'),'source':'proactive_recovered','changePct':f(h.get('lastChangePct')),'price':f(h.get('lastPrice')),'volume':f(h.get('lastVolume'))})
+              tickers[t]=e
+          rr=[]
+          for r in rows(mov):
+              t=tkr(r); ch=f(pick(r,'Change','changePct','change','Change %'))
+              if t and ch is not None:rr.append((ch,t,r))
+          top20=sorted((x for x in rr if x[0]>0),key=lambda x:x[0],reverse=True)[:20]
+          react_et=str(mov.get('snapshotTimestampET') or mov.get('updatedAtET') or mov.get('updatedAt') or '') if isinstance(mov,dict) else ''
+          for rank,(ch,t,r) in enumerate(top20,1):
+              e=tickers.get(t)
+              if not e:
+                  e={'ticker':t,'company':pick(r,'Company','company'),'sector':pick(r,'Sector','sector'),'industry':pick(r,'Industry','industry'),
+                     'firstSeenET':react_et,'firstSource':'top20_mover','proactiveEver':False,'moverEver':False,'path':[]}
+              if not e.get('moverEver'):
+                  e['moverFirstSeenET']=react_et;e['moverFirstChangePct']=ch;e['moverFirstRank']=rank
+              e['moverEver']=True;e['lastTop20Rank']=rank
+              e['path'].append({'timestampET':react_et,'source':'top20_mover','changePct':ch,'price':f(pick(r,'Price','price','Last','last')),'volume':f(pick(r,'Volume','volume','Vol')),'top20Rank':rank})
+              tickers[t]=e
+          for e in tickers.values():
+              pc=e.get('proactiveFirstChangePct'); mc=e.get('moverFirstChangePct')
+              if e.get('moverEver'):
+                  if e.get('proactiveEver') and isinstance(pc,(int,float)) and pc<10:cls='PROACTIVE_EARLY_LT10'
+                  elif e.get('proactiveEver') and isinstance(pc,(int,float)) and pc<20:cls='PROACTIVE_EARLY_LT20'
+                  elif e.get('proactiveEver'):cls='PROACTIVE_LATE'
+                  elif isinstance(mc,(int,float)) and mc>=20:cls='UNIVERSE_COVERAGE_MISS_LATE'
+                  else:cls='MOVER_ONLY_EARLY_OR_FORMING'
+              else:cls='PROACTIVE_NOT_TOP20_YET' if e.get('proactiveEver') else 'UNKNOWN'
+              e['originClass']=cls
+          cur=[tickers[t] for _,t,_ in top20 if t in tickers]
+          e10=sum(1 for e in cur if e.get('proactiveEver') and isinstance(e.get('proactiveFirstChangePct'),(int,float)) and e['proactiveFirstChangePct']<10)
+          e20=sum(1 for e in cur if e.get('proactiveEver') and isinstance(e.get('proactiveFirstChangePct'),(int,float)) and e['proactiveFirstChangePct']<20)
+          miss=sum(1 for e in cur if not e.get('proactiveEver'))
+          late=sum(1 for e in cur if (not e.get('proactiveEver')) or not isinstance(e.get('proactiveFirstChangePct'),(int,float)) or e['proactiveFirstChangePct']>=20)
+          payload={
+              'schemaVersion':4,'ledgerAuthority':'PROACTIVE_DISCOVERY_WORKFLOW_RUN','sessionDateET':day,
+              'updatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'snapshotTimestampET':hist.get('snapshots',[])[-1].get('timestampET') if hist.get('snapshots') else None,
+              'reactiveSnapshotTimestampET':react_et,'recoveryMode':True,'recoverySource':'discovery-ledger.json',
+              'tickers':tickers,'tickerCount':len(tickers),'groundTruthDefinition':'CURRENT_REACTIVE_TOP20_BY_POSITIVE_CHANGE',
+              'currentTop20Count':len(cur),'currentTop20ProactiveEarlyUnder10':e10,'currentTop20ProactiveEarlyUnder20':e20,
+              'currentTop20CoverageMissCount':miss,'currentTop20LateCoverageMissCount':late,
+              'coverageAuditStatus':'RECOVERED_INTRAPERIOD_DIAGNOSTIC_ONLY',
+              'currentTop20':[{'rank':i+1,'ticker':t,'changePct':ch,'proactiveEver':bool(tickers.get(t,{}).get('proactiveEver')),
+                               'proactiveFirstChangePct':tickers.get(t,{}).get('proactiveFirstChangePct'),
+                               'proactiveFirstLanes':tickers.get(t,{}).get('proactiveFirstLanes'),
+                               'originClass':tickers.get(t,{}).get('originClass')} for i,(ch,t,_) in enumerate(top20)],
+              'snapshots':[]
+          }
+          OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8')
+          print('Recovered ledger',len(tickers),'tickers; top20',len(cur),'early<10',e10,'early<20',e20,'miss',miss,'late',late)
+          PY
+      - name: Commit recovered ledger
+        run: |
+          git config user.name "TAGX Ledger Recovery"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagx-signal-ledger.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Recover TAGX signal ledger from discovery history"
+          for i in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep $((i*5))
+          done
+          exit 1
