@@ -1,0 +1,63 @@
+name: TAGX Technical Enrichment
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/10 8-23 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-technical-enrichment-main
+  cancel-in-progress: true
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: git pull --rebase origin main
+      - name: Fetch Finviz technical view
+        env:
+          FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$FINVIZ_TOKEN"
+          mkdir -p tag/data
+          curl --fail --silent --show-error --location --retry 4 --retry-delay 4 \
+            "https://elite.finviz.com/export.ashx?v=171&auth=${FINVIZ_TOKEN}" -o /tmp/technical.csv
+          test -s /tmp/technical.csv
+      - name: Build technical dataset
+        run: |
+          python - <<'PY'
+          import csv,json,datetime,pathlib
+          rows=[]
+          with open('/tmp/technical.csv',newline='',encoding='utf-8-sig') as f:
+              for r in csv.DictReader(f):
+                  t=(r.get('Ticker') or r.get('Symbol') or '').strip().upper()
+                  if not t: continue
+                  r['Ticker']=t
+                  rows.append(r)
+          out={
+            'source':'Finviz Elite technical view',
+            'view':171,
+            'updatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            'count':len(rows),
+            'rows':rows
+          }
+          pathlib.Path('tag/data/technical.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          print('technical rows',len(rows))
+          PY
+      - name: Commit
+        run: |
+          git config user.name "TAGX Technical Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/technical.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Refresh TAGX technical history"
+          git pull --rebase origin main
+          git push origin main
