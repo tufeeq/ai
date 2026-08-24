@@ -1,0 +1,97 @@
+name: TAGX Reactive Recovery
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 8-23 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tag5-market-data-main
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sync latest main
+        run: git pull --rebase origin main
+      - name: Recover empty reactive feed from proactive universe
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime
+          from zoneinfo import ZoneInfo
+
+          FIN=pathlib.Path('tag/data/finviz.json')
+          DISC=pathlib.Path('tag/data/discovery.json')
+          if FIN.exists() and FIN.stat().st_size > 2:
+              try:
+                  cur=json.loads(FIN.read_text(encoding='utf-8'))
+                  if isinstance(cur,dict) and (cur.get('rows') or cur.get('data')):
+                      print('Reactive feed is healthy; no recovery needed')
+                      raise SystemExit(0)
+              except json.JSONDecodeError:
+                  pass
+          if not DISC.exists() or DISC.stat().st_size < 10:
+              raise SystemExit('Discovery feed unavailable; fail closed')
+          d=json.loads(DISC.read_text(encoding='utf-8'))
+          rows=d.get('rows') or d.get('data') or []
+          if not rows:
+              raise SystemExit('Discovery feed empty; fail closed')
+          src_ts=d.get('snapshotTimestampUTC') or d.get('updatedAt')
+          if not src_ts:
+              raise SystemExit('Discovery timestamp unavailable')
+          try:
+              src_dt=datetime.datetime.fromisoformat(src_ts.replace('Z','+00:00'))
+          except Exception:
+              raise SystemExit('Discovery timestamp invalid')
+          now=datetime.datetime.now(datetime.timezone.utc)
+          age=(now-src_dt).total_seconds()/60
+          if age > 25:
+              raise SystemExit(f'Discovery too stale for degraded reactive recovery: {age:.1f}m')
+          def f(v):
+              try:return float(str(v or '0').replace('%','').replace(',','').replace('$',''))
+              except:return -999.0
+          ordered=sorted(rows,key=lambda r:f(r.get('Change') or r.get('change')),reverse=True)
+          positives=[r for r in ordered if f(r.get('Change') or r.get('change'))>0]
+          top=positives[:120]
+          et=src_dt.astimezone(ZoneInfo('America/New_York'))
+          payload={
+            'source':'TAGX_DEGRADED_REACTIVE_PROXY_FROM_DISCOVERY',
+            'sourceType':'SAME_SOURCE_DEGRADED_FALLBACK',
+            'independentSourceCount':0,
+            'updatedAt':src_dt.isoformat(),
+            'snapshotTimestampUTC':src_dt.isoformat(),
+            'snapshotTimestampET':et.isoformat(),
+            'session':d.get('session'),
+            'sessionBucket':d.get('sessionBucket'),
+            'snapshotType':'intraperiod-degraded-proxy',
+            'finalCandidate':False,
+            'finalSnapshotReconciliation':'NOT_ELIGIBLE_SAME_SOURCE_PROXY',
+            'dataIntegrityState':'DEGRADED_RESEARCH_ONLY',
+            'trainingBlockReasons':['REACTIVE_SOURCE_EMPTY','SAME_SOURCE_PROXY','NO_INDEPENDENT_GROUND_TRUTH'],
+            'trainingEligible':False,
+            'cadenceStatus':'DEGRADED_PROXY',
+            'count':len(top),
+            'groundTruthEligible':False,
+            'rows':top,
+            'data':top
+          }
+          FIN.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(f'Recovered degraded reactive proxy with {len(top)} positive rows; age={age:.1f}m')
+          PY
+      - name: Commit only when recovery changed data
+        run: |
+          git config user.name "TAGX Reactive Recovery"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/finviz.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Recover empty TAGX reactive feed from proactive universe"
+          git pull --rebase origin main
+          git push origin main
