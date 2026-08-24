@@ -1,0 +1,92 @@
+name: TAGX Transition Challenger
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 8-23 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-transition-challenger-main
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sync latest data
+        run: git pull --rebase origin main
+      - name: Build transition challenger
+        run: |
+          python - <<'PY'
+          import json, pathlib, math, datetime
+          LED=pathlib.Path('tag/data/tagx-signal-ledger.json')
+          OUT=pathlib.Path('tag/data/tagx-transition-challenger.json')
+          if not LED.exists(): raise SystemExit('ledger unavailable')
+          d=json.loads(LED.read_text(encoding='utf-8'))
+          if d.get('schemaVersion') != 4: raise SystemExit('ledger schema mismatch')
+          def dt(s):
+              try: return datetime.datetime.fromisoformat(str(s).replace('Z','+00:00'))
+              except Exception: return None
+          def clamp(v,a=0,b=100): return max(a,min(b,v))
+          def num(v): return v if isinstance(v,(int,float)) and math.isfinite(v) else None
+          react_ts=dt(d.get('reactiveSnapshotTimestampET'))
+          candidates=[]
+          for t,e in (d.get('tickers') or {}).items():
+              pp=[p for p in (e.get('path') or []) if p.get('source')=='proactive' and num(p.get('changePct')) is not None]
+              if len(pp)<2: continue
+              pp=sorted(pp,key=lambda p:str(p.get('timestampET') or ''))
+              a,b=pp[-2],pp[-1]
+              ta,tb=dt(a.get('timestampET')),dt(b.get('timestampET'))
+              if not ta or not tb or tb<=ta: continue
+              mins=max((tb-ta).total_seconds()/60,1)
+              ch0,ch1=num(a.get('changePct')),num(b.get('changePct'))
+              v0,v1=num(a.get('volume')),num(b.get('volume'))
+              rv0,rv1=num(a.get('relativeVolume')),num(b.get('relativeVolume'))
+              fl=num(b.get('float')) or num(a.get('float'))
+              price=num(b.get('price'))
+              change_velocity=(ch1-ch0)/mins*10
+              volume_multiple=(v1/max(v0,1)) if v1 is not None and v0 is not None else None
+              relvol_delta=(rv1-rv0) if rv1 is not None and rv0 is not None else None
+              float_capture=(v1/(fl*1_000_000)) if v1 is not None and fl and fl>0 else None
+              cv=clamp(50+change_velocity*7)
+              va=clamp(math.log2(max(volume_multiple,0.01))*18+45) if volume_multiple is not None else 35
+              rd=clamp(45+(relvol_delta or 0)*22)
+              fc=clamp((float_capture or 0)*180)
+              frag=100 if fl is not None and fl<=5 else 78 if fl is not None and fl<=10 else 58 if fl is not None and fl<=20 else 30
+              late_penalty=35 if ch1>=30 else 22 if ch1>=20 else 8 if ch1>=10 else 0
+              score=clamp(.28*cv+.26*va+.20*rd+.16*fc+.10*frag-late_penalty)
+              lead=None
+              if react_ts and tb: lead=(react_ts-tb).total_seconds()/60
+              candidates.append({'ticker':t,'score':round(score,1),'changePct':round(ch1,2),'price':price,'firstChangePct':e.get('proactiveFirstChangePct'),'changeVelocityPctPtsPer10m':round(change_velocity,3),'volumeMultiple':round(volume_multiple,3) if volume_multiple is not None else None,'relativeVolumeDelta':round(relvol_delta,3) if relvol_delta is not None else None,'floatCapture':round(float_capture,4) if float_capture is not None else None,'floatMillions':fl,'lanes':e.get('proactiveLanesEver') or e.get('proactiveFirstLanes') or [],'leadMinutesToReactiveSnapshot':round(lead,1) if lead is not None else None,'currentTop20':bool(e.get('lastTop20Rank')),'currentTop20Rank':e.get('lastTop20Rank'),'originClass':e.get('originClass')})
+          candidates.sort(key=lambda x:x['score'],reverse=True)
+          top20set={x.get('ticker') for x in (d.get('currentTop20') or [])}
+          valid_benchmark=bool(react_ts and candidates and all((x.get('leadMinutesToReactiveSnapshot') or 0)>=5 for x in candidates[:1]))
+          top20chall=candidates[:20]
+          hits=[x for x in top20chall if x['ticker'] in top20set]
+          captured_ranks={x['ticker']:i+1 for i,x in enumerate(candidates) if x['ticker'] in top20set}
+          current=d.get('currentTop20') or []
+          early20=[x for x in current if isinstance(x.get('proactiveFirstChangePct'),(int,float)) and x['proactiveFirstChangePct']<20]
+          early10=[x for x in current if isinstance(x.get('proactiveFirstChangePct'),(int,float)) and x['proactiveFirstChangePct']<10]
+          out={'schemaVersion':1,'generatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'sessionDateET':d.get('sessionDateET'),'proactiveSnapshotTimestampET':d.get('snapshotTimestampET'),'reactiveSnapshotTimestampET':d.get('reactiveSnapshotTimestampET'),'mode':'CHALLENGER_RESEARCH_ONLY','scorePolicy':'PRE_TOP20_TRANSITION_V1','benchmarkEligible':valid_benchmark,'benchmarkReason':'proactive snapshot leads reactive snapshot by >=5 minutes' if valid_benchmark else 'insufficient clean lead separation','currentTop20Count':len(current),'currentTop20EarlyUnder10':len(early10),'currentTop20EarlyUnder20':len(early20),'challengerPrecisionAt20':round(len(hits)/20,3) if valid_benchmark else None,'challengerHitsAt20':[x['ticker'] for x in hits],'capturedTop20ChallengerRanks':captured_ranks,'topCandidates':candidates[:30],'notes':['Research-only challenger; never overrides Sharia/Data gates.','Uses only proactive points timestamped before the reactive benchmark; no future features in score.','Promotion requires >=3 complete sessions and false-ignition comparison versus current champion.']}
+          OUT.write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          print('TAGX transition challenger', 'eligible',valid_benchmark,'hits@20',len(hits),'early<20',len(early20))
+          PY
+      - name: Commit challenger artifact
+        run: |
+          git config user.name "TAGX Transition Challenger"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagx-transition-challenger.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Update TAGX transition challenger"
+          for i in 1 2 3; do
+            if git push origin main; then exit 0; fi
+            git pull --rebase origin main
+          done
+          exit 1
