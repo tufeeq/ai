@@ -1,0 +1,148 @@
+name: TAGX Ranking Quality Audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '5 22 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-ranking-quality-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Build quality-weighted ranking audit
+        run: |
+          python - <<'PY'
+          import json, math, statistics
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          replay_path=Path('tag/data/tagx-missed-mover-replay.json')
+          quality_path=Path('tag/data/tagx-replay-quality.json')
+          out_path=Path('tag/data/tagx-ranking-quality-audit.json')
+
+          def load(path):
+              try:
+                  return json.loads(path.read_text())
+              except Exception:
+                  return None
+
+          replay=load(replay_path)
+          quality=load(quality_path)
+          if not replay or not isinstance(replay.get('cases'), list):
+              raise SystemExit('Replay artifact missing/invalid; fail closed')
+
+          features=['priceVelocityPctPtsPer10m','relativeVolumeDeltaPer10m','floatCapture','floatCaptureDeltaPer10m','range60mPctPoints','relativeVolume','changePct']
+          windows=[60,30,15,5]
+
+          def dt(s):
+              if not s: return None
+              try: return datetime.fromisoformat(str(s).replace('Z','+00:00'))
+              except Exception: return None
+
+          def median(xs):
+              xs=[x for x in xs if isinstance(x,(int,float)) and math.isfinite(x)]
+              return statistics.median(xs) if xs else None
+
+          def quantile(xs,q):
+              xs=sorted(x for x in xs if isinstance(x,(int,float)) and math.isfinite(x))
+              if not xs:return None
+              if len(xs)==1:return xs[0]
+              p=(len(xs)-1)*q
+              lo=int(math.floor(p)); hi=int(math.ceil(p))
+              if lo==hi:return xs[lo]
+              return xs[lo]*(hi-p)+xs[hi]*(p-lo)
+
+          rows=[]
+          for c in replay['cases']:
+              cohort=c.get('cohort')
+              is_winner=cohort=='RTH_TOP20' and str(c.get('classification','')).startswith('PREDICTED_EARLY')
+              is_control=cohort=='FALSE_POSITIVE'
+              if not (is_winner or is_control):
+                  continue
+              ev=dt(c.get('eventTimestampET'))
+              if not ev: continue
+              for w in windows:
+                  r=(c.get('replay') or {}).get(f'T-{w}') or {}
+                  ft=dt(r.get('featureTimestampET'))
+                  if not ft: continue
+                  cutoff=ev.timestamp()-w*60
+                  age=(cutoff-ft.timestamp())/60
+                  credible=(age>=-0.25 and age<=15)
+                  row={'ticker':c.get('ticker'),'group':'WINNER' if is_winner else 'FALSE_POSITIVE','window':w,'featureAgeToCutoffMin':round(age,3),'credible':credible}
+                  for f in features: row[f]=r.get(f)
+                  rows.append(row)
+
+          audit={}
+          for w in windows:
+              wr=[r for r in rows if r['window']==w and r['credible']]
+              W=[r for r in wr if r['group']=='WINNER']; F=[r for r in wr if r['group']=='FALSE_POSITIVE']
+              fstats={}
+              for f in features:
+                  a=[r.get(f) for r in W]; b=[r.get(f) for r in F]
+                  ma,mb=median(a),median(b)
+                  if ma is None or mb is None:
+                      sep=None; direction='INSUFFICIENT'
+                  else:
+                      pool=[x for x in a+b if isinstance(x,(int,float)) and math.isfinite(x)]
+                      iqr=(quantile(pool,.75)-quantile(pool,.25)) if len(pool)>=4 else None
+                      denom=iqr if iqr and abs(iqr)>1e-12 else max(abs(ma),abs(mb),1.0)
+                      sep=(ma-mb)/denom
+                      direction='HIGHER_IN_WINNERS' if sep>0 else 'LOWER_IN_WINNERS' if sep<0 else 'NEUTRAL'
+                  fstats[f]={'winnerMedian':ma,'falsePositiveMedian':mb,'robustSeparationIQR':round(sep,4) if isinstance(sep,(int,float)) else None,'direction':direction}
+              audit[f'T-{w}']={'credibleWinners':len(W),'credibleFalsePositives':len(F),'winnerCrediblePct':round(100*len(W)/max(1,len([r for r in rows if r['window']==w and r['group']=='WINNER'])),1),'controlCrediblePct':round(100*len(F)/max(1,len([r for r in rows if r['window']==w and r['group']=='FALSE_POSITIVE'])),1),'features':fstats}
+
+          # Select only windows with usable coverage on both cohorts. This is an evaluation gate, not a trading threshold.
+          usable=[]
+          for k,v in audit.items():
+              if v['credibleWinners']>=5 and v['credibleFalsePositives']>=5 and v['winnerCrediblePct']>=40 and v['controlCrediblePct']>=40:
+                  usable.append(k)
+
+          # Gate funnel inspired by production-equivalent scanner diagnostics: expose what separates cohorts, never auto-promote weights.
+          strongest=[]
+          for w in usable:
+              for f,s in audit[w]['features'].items():
+                  z=s.get('robustSeparationIQR')
+                  if isinstance(z,(int,float)):
+                      strongest.append({'window':w,'feature':f,'separation':abs(z),'signedSeparation':z,'direction':s['direction']})
+          strongest=sorted(strongest,key=lambda x:x['separation'],reverse=True)[:8]
+
+          out={
+            'schemaVersion':1,
+            'evaluationType':'QUALITY_WEIGHTED_RANKING_AUDIT_RESEARCH_ONLY',
+            'sessionDateET':replay.get('sessionDateET'),
+            'generatedAtUTC':datetime.now(timezone.utc).isoformat(),
+            'causalityContract':'Only point-in-time replay rows whose feature timestamp is no more than 15 minutes older than the named cutoff are eligible for ranking-separation evidence.',
+            'promotionPolicy':'No score/threshold change from this artifact alone. Require >=3 full sessions, stable direction, lead >=5m, and no material false-positive increase.',
+            'usableWindows':usable,
+            'windowAudit':audit,
+            'strongestCurrentSeparators':strongest,
+            'trainingEligible':False,
+            'promotionEligible':False,
+            'sourceArtifacts':{'replay':str(replay_path),'quality':str(quality_path) if quality else None}
+          }
+          out_path.write_text(json.dumps(out,indent=2,ensure_ascii=False)+'\n')
+          print(json.dumps({'usableWindows':usable,'strongest':strongest[:4]},indent=2))
+          PY
+
+      - name: Commit audit artifact
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tag/data/tagx-ranking-quality-audit.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'TAGX: update quality-weighted ranking audit'
+          git pull --rebase origin main
+          git push origin main
