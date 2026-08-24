@@ -5,6 +5,8 @@ on:
   workflow_run:
     workflows: ["TAG5 Mover Snapshot"]
     types: [completed]
+  schedule:
+    - cron: '*/5 * * * *'
 
 permissions:
   contents: write
@@ -15,13 +17,16 @@ concurrency:
 
 jobs:
   correct:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
+
+      - name: Sync latest main
+        run: git pull --rebase origin main
 
       - name: Correct peak-referenced gain retention
         run: |
@@ -81,10 +86,10 @@ jobs:
               ticker = str(row.get('Ticker') or '').upper()
               if ticker:
                   by_ticker[ticker] = {
-                      'gainRetentionPct': corrected_retention,
-                      'gainRetentionPctRawLegacy': raw,
-                      'gainRetentionMethod': row['_gainRetentionMethod'],
-                      'gainRetentionSourceCorrected': True,
+                      '_gainRetentionPct': corrected_retention,
+                      '_gainRetentionPctRawLegacy': raw,
+                      '_gainRetentionMethod': row['_gainRetentionMethod'],
+                      '_gainRetentionSourceCorrected': True,
                   }
 
           payload['persistenceMethod'] = 'CONTIGUOUS_UNIQUE_HOURLY_SESSION_BUCKETS_WITH_EXTENDED_FIELD_FREEZE_GATE_AND_PEAK_REFERENCED_GAIN_RETENTION'
@@ -121,8 +126,17 @@ jobs:
 
           payload['sourcePersistenceIntegrity']['historyMirrorState'] = mirror_state
           payload['sourcePersistenceIntegrity']['historyMirrorTimestampUTC'] = target_ts
-          finviz_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
 
+          # Fail closed if any corrected source value is still outside 0..100.
+          post_invalid = []
+          for row in rows:
+              v = fnum(row.get('_gainRetentionPct'))
+              if v is not None and not (0.0 <= v <= 100.0):
+                  post_invalid.append((row.get('Ticker'), v))
+          if post_invalid:
+              raise SystemExit(f'GAIN_RETENTION_INTEGRITY_FAILURE: {post_invalid[:10]}')
+
+          finviz_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
           if updated_snapshot:
               snapshots_path.write_text(json.dumps(snapshots, ensure_ascii=False, indent=2), encoding='utf-8')
 
@@ -138,6 +152,6 @@ jobs:
             echo "No persistence correction needed"
             exit 0
           fi
-          git commit -m "Correct TAG gain retention at source"
+          git commit -m "Harden TAG gain retention integrity"
           git pull --rebase origin main
           git push origin main
