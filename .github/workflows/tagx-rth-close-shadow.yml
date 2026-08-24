@@ -32,9 +32,11 @@ jobs:
           import json, pathlib, datetime
           S=pathlib.Path('tag/data/snapshots.json')
           L=pathlib.Path('tag/data/tagx-signal-ledger.json')
+          T=pathlib.Path('tag/data/tagx-transition-challenger-v3.json')
           O=pathlib.Path('tag/data/tagx-rth-close-shadow.json')
           if not S.exists() or not L.exists(): raise SystemExit('required inputs missing')
           snapshots=json.loads(S.read_text(encoding='utf-8')); ledger=json.loads(L.read_text(encoding='utf-8'))
+          transition=json.loads(T.read_text(encoding='utf-8')) if T.exists() and T.stat().st_size else {}
           day=ledger.get('sessionDateET')
           if not day: raise SystemExit('ledger session date missing')
           def rows(p):
@@ -68,7 +70,11 @@ jobs:
               t=tkr(r); ch=num(r.get('Change') if r.get('Change') is not None else r.get('changePct'))
               if t and ch is not None and ch>0: ranked.append((ch,t,r))
           top=sorted(ranked,reverse=True)[:20]
+          transition_top=[str(x.get('ticker') or '').upper() for x in (transition.get('topCandidates') or [])[:20] if x.get('ticker')]
+          transition_set=set(transition_top)
+          close_set={t for _,t,_ in top}
           details=[]; c={'predictedEarlyUnder10':0,'predictedEarlyUnder20':0,'detectedLate':0,'missed':0,'dataUnverified':0}
+          rank_captured_early20=0
           for rank,(ch,t,r) in enumerate(top,1):
               e=(ledger.get('tickers') or {}).get(t,{})
               pe=e.get('proactiveEver'); pc=e.get('proactiveFirstChangePct'); pts=e.get('proactiveFirstSeenET')
@@ -82,23 +88,28 @@ jobs:
                   cls='MISSED_UNIVERSE'; c['missed']+=1
               else:
                   cls='DATA_UNVERIFIED'; c['dataUnverified']+=1
-              details.append({'rank':rank,'ticker':t,'rthCloseShadowChangePct':ch,'classification':cls,'proactiveFirstSeenET':pts,'proactiveFirstChangePct':pc,'originClass':e.get('originClass'),'firstLanes':e.get('proactiveFirstLanes')})
+              ranked_v3=t in transition_set
+              if cls in ('PREDICTED_EARLY_LT10','PREDICTED_EARLY_LT20') and ranked_v3: rank_captured_early20+=1
+              details.append({'rank':rank,'ticker':t,'rthCloseShadowChangePct':ch,'classification':cls,'proactiveFirstSeenET':pts,'proactiveFirstChangePct':pc,'originClass':e.get('originClass'),'firstLanes':e.get('proactiveFirstLanes'),'transitionV3Top20':ranked_v3})
           denom=max(1,len(top)-c['dataUnverified'])
-          out={'schemaVersion':2,'evaluationType':'RTH_CLOSE_SHADOW_RESEARCH_ONLY','sessionDateET':day,'generatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'sourceSnapshotET':snap,'sourceSession':'regular','benchmark':'LAST_SAME_SESSION_REGULAR_SNAPSHOT_TOP20_POSITIVE','top20Count':len(top),'counts':c,'earlyCaptureUnder10Pct':round(100*c['predictedEarlyUnder10']/denom,1),'earlyCaptureUnder20Pct':round(100*c['predictedEarlyUnder20']/denom,1),'adjustedDenominator':denom,'details':details,'trainingEligible':False,'groundTruthEligible':False,'promotionEligible':False,'notes':'Operational RTH-close shadow only. Explicitly excludes after-hours snapshots. Must be replaced/validated by Final Snapshot Reconciliation before training, threshold retuning, or champion promotion.'}
+          v3_hits=len(close_set.intersection(transition_set))
+          early20=max(0,c['predictedEarlyUnder20'])
+          out={'schemaVersion':3,'evaluationType':'RTH_CLOSE_SHADOW_RESEARCH_ONLY','sessionDateET':day,'generatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'sourceSnapshotET':snap,'sourceSession':'regular','benchmark':'LAST_SAME_SESSION_REGULAR_SNAPSHOT_TOP20_POSITIVE','top20Count':len(top),'counts':c,'earlyCaptureUnder10Pct':round(100*c['predictedEarlyUnder10']/denom,1),'earlyCaptureUnder20Pct':round(100*c['predictedEarlyUnder20']/denom,1),'adjustedDenominator':denom,'rankingAudit':{'transitionV3ArtifactAvailable':bool(transition_top),'transitionV3Top20VsRthCloseHits':v3_hits,'transitionV3ClosePrecisionAt20Pct':round(100*v3_hits/max(1,len(transition_top)),1) if transition_top else None,'earlyUnder20AlsoRankedByTransitionV3':rank_captured_early20,'earlyUnder20RankingMissCount':max(0,early20-rank_captured_early20),'earlyUnder20RankingCapturePct':round(100*rank_captured_early20/max(1,early20),1) if early20 else None,'interpretation':'Separates discovery coverage from ranking quality. High early capture with low ranking capture indicates ranking/validation debt, not universe debt.'},'details':details,'trainingEligible':False,'groundTruthEligible':False,'promotionEligible':False,'notes':'Operational RTH-close shadow only. Explicitly excludes after-hours snapshots. Must be replaced/validated by Final Snapshot Reconciliation before training, threshold retuning, or champion promotion.'}
           O.write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
-          print('RTH close shadow',day,snap,'Top20',len(top),'EC10',out['earlyCaptureUnder10Pct'],'EC20',out['earlyCaptureUnder20Pct'])
+          print('RTH close shadow',day,snap,'Top20',len(top),'EC10',out['earlyCaptureUnder10Pct'],'EC20',out['earlyCaptureUnder20Pct'],'V3 close hits',v3_hits,'ranking early20',rank_captured_early20,'/',early20)
           PY
       - name: Validate fail-closed contract
         run: |
           python - <<'PY'
           import json
           p=json.load(open('tag/data/tagx-rth-close-shadow.json',encoding='utf-8'))
-          assert p['schemaVersion']==2
+          assert p['schemaVersion']==3
           assert p['evaluationType']=='RTH_CLOSE_SHADOW_RESEARCH_ONLY'
           assert p['sourceSession']=='regular'
           assert p['trainingEligible'] is False and p['groundTruthEligible'] is False and p['promotionEligible'] is False
           assert 0 <= p['top20Count'] <= 20
           assert 0 <= p['earlyCaptureUnder10Pct'] <= 100 and 0 <= p['earlyCaptureUnder20Pct'] <= 100
+          ra=p['rankingAudit']; assert ra['earlyUnder20RankingMissCount']>=0
           print('shadow contract OK')
           PY
       - name: Commit shadow evaluation
