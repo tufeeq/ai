@@ -1,0 +1,81 @@
+name: TAGX Replay Quality Audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '18 21 * * 1-5'
+  push:
+    branches: [main]
+    paths:
+      - 'tag/data/tagx-missed-mover-replay.json'
+      - '.github/workflows/tagx-replay-quality.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-replay-quality-main
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: git pull --rebase origin main
+      - name: Audit point-in-time window freshness
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime, statistics
+          I=pathlib.Path('tag/data/tagx-missed-mover-replay.json'); O=pathlib.Path('tag/data/tagx-replay-quality.json')
+          if not I.exists(): raise SystemExit('replay artifact missing')
+          p=json.loads(I.read_text(encoding='utf-8'))
+          def dt(s):
+              try:return datetime.datetime.fromisoformat(str(s).replace('Z','+00:00'))
+              except:return None
+          def med(a): return round(statistics.median(a),3) if a else None
+          rows=[]; summary={}
+          for cohort,key in [('RTH_TOP20','cases'),('FALSE_POSITIVE','falsePositiveControls')]:
+              cases=p.get(key) or []
+              for mins in p.get('windowsMinutes') or [60,30,15,5]:
+                  ages=[]; fresh=[]; metrics={k:[] for k in ['priceVelocityPctPtsPer10m','relativeVolumeDeltaPer10m','floatCapture','floatCaptureDeltaPer10m','range60mPctPoints']}
+                  for c in cases:
+                      ev=dt(c.get('eventTimestampET')); z=(c.get('replay') or {}).get(f'T-{mins}')
+                      if not ev or not z: continue
+                      ft=dt(z.get('featureTimestampET')); cutoff=ev-datetime.timedelta(minutes=mins)
+                      if not ft: continue
+                      age=max(0,(cutoff-ft).total_seconds()/60); ages.append(age)
+                      if age<=15:fresh.append(age)
+                      for k in metrics:
+                          v=z.get(k)
+                          if isinstance(v,(int,float)):metrics[k].append(v)
+                  summary[f'{cohort}_T-{mins}']={'available':len(ages),'freshWithin15m':len(fresh),'freshPct':round(100*len(fresh)/len(ages),1) if ages else None,'medianFeatureAgeToCutoffMin':med(ages),'medianFeatures':{k:med(v) for k,v in metrics.items()}}
+          out={'schemaVersion':1,'evaluationType':'REPLAY_CADENCE_AND_COHORT_QUALITY_RESEARCH_ONLY','sessionDateET':p.get('sessionDateET'),'generatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'freshnessRule':'A replay point is cadence-credible for its named window only when featureAgeToCutoff <=15 minutes. Older points remain causal but are not treated as precise T-window evidence.','summary':summary,'trainingEligible':False,'promotionEligible':False}
+          O.write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(summary,indent=2))
+          PY
+      - name: Validate
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('tag/data/tagx-replay-quality.json'))
+          assert p['schemaVersion']==1 and p['trainingEligible'] is False and p['promotionEligible'] is False
+          for x in p['summary'].values():
+              if x['freshPct'] is not None: assert 0<=x['freshPct']<=100
+          print('replay quality contract OK')
+          PY
+      - name: Commit audit
+        run: |
+          git config user.name "TAGX Replay Quality"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagx-replay-quality.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Update TAGX replay cadence quality"
+          for i in 1 2 3; do
+            if git push origin main; then exit 0; fi
+            git pull --rebase origin main
+          done
+          exit 1
