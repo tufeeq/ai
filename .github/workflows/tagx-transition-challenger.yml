@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 0
       - name: Sync latest data
         run: git pull --rebase origin main
-      - name: Build transition challenger
+      - name: Build transition challenger v2
         run: |
           python - <<'PY'
           import json, pathlib, math, datetime
@@ -36,13 +36,26 @@ jobs:
               except Exception: return None
           def clamp(v,a=0,b=100): return max(a,min(b,v))
           def num(v): return v if isinstance(v,(int,float)) and math.isfinite(v) else None
+
           react_ts=dt(d.get('reactiveSnapshotTimestampET'))
+          CLEAN_LEAD_MINUTES=5
           candidates=[]
+          rejected_for_lead=0
+          rejected_for_history=0
+
           for t,e in (d.get('tickers') or {}).items():
               pp=[p for p in (e.get('path') or []) if p.get('source')=='proactive' and num(p.get('changePct')) is not None]
-              if len(pp)<2: continue
-              pp=sorted(pp,key=lambda p:str(p.get('timestampET') or ''))
-              a,b=pp[-2],pp[-1]
+              pp=sorted(pp,key=lambda p: dt(p.get('timestampET')) or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc))
+              if react_ts:
+                  cutoff=react_ts-datetime.timedelta(minutes=CLEAN_LEAD_MINUTES)
+                  clean=[p for p in pp if (dt(p.get('timestampET')) and dt(p.get('timestampET'))<=cutoff)]
+              else:
+                  clean=[]
+              if len(clean)<2:
+                  if pp: rejected_for_lead += 1
+                  else: rejected_for_history += 1
+                  continue
+              a,b=clean[-2],clean[-1]
               ta,tb=dt(a.get('timestampET')),dt(b.get('timestampET'))
               if not ta or not tb or tb<=ta: continue
               mins=max((tb-ta).total_seconds()/60,1)
@@ -62,21 +75,65 @@ jobs:
               frag=100 if fl is not None and fl<=5 else 78 if fl is not None and fl<=10 else 58 if fl is not None and fl<=20 else 30
               late_penalty=35 if ch1>=30 else 22 if ch1>=20 else 8 if ch1>=10 else 0
               score=clamp(.28*cv+.26*va+.20*rd+.16*fc+.10*frag-late_penalty)
-              lead=None
-              if react_ts and tb: lead=(react_ts-tb).total_seconds()/60
-              candidates.append({'ticker':t,'score':round(score,1),'changePct':round(ch1,2),'price':price,'firstChangePct':e.get('proactiveFirstChangePct'),'changeVelocityPctPtsPer10m':round(change_velocity,3),'volumeMultiple':round(volume_multiple,3) if volume_multiple is not None else None,'relativeVolumeDelta':round(relvol_delta,3) if relvol_delta is not None else None,'floatCapture':round(float_capture,4) if float_capture is not None else None,'floatMillions':fl,'lanes':e.get('proactiveLanesEver') or e.get('proactiveFirstLanes') or [],'leadMinutesToReactiveSnapshot':round(lead,1) if lead is not None else None,'currentTop20':bool(e.get('lastTop20Rank')),'currentTop20Rank':e.get('lastTop20Rank'),'originClass':e.get('originClass')})
+              lead=(react_ts-tb).total_seconds()/60 if react_ts and tb else None
+              candidates.append({
+                  'ticker':t,'score':round(score,1),'changePct':round(ch1,2),'price':price,
+                  'firstChangePct':e.get('proactiveFirstChangePct'),
+                  'changeVelocityPctPtsPer10m':round(change_velocity,3),
+                  'volumeMultiple':round(volume_multiple,3) if volume_multiple is not None else None,
+                  'relativeVolumeDelta':round(relvol_delta,3) if relvol_delta is not None else None,
+                  'floatCapture':round(float_capture,4) if float_capture is not None else None,
+                  'floatMillions':fl,'lanes':e.get('proactiveLanesEver') or e.get('proactiveFirstLanes') or [],
+                  'featureTimestampET':b.get('timestampET'),
+                  'previousFeatureTimestampET':a.get('timestampET'),
+                  'leadMinutesToReactiveSnapshot':round(lead,1) if lead is not None else None,
+                  'currentTop20':bool(e.get('lastTop20Rank')),'currentTop20Rank':e.get('lastTop20Rank'),
+                  'originClass':e.get('originClass')
+              })
+
           candidates.sort(key=lambda x:x['score'],reverse=True)
           top20set={x.get('ticker') for x in (d.get('currentTop20') or [])}
-          valid_benchmark=bool(react_ts and candidates and all((x.get('leadMinutesToReactiveSnapshot') or 0)>=5 for x in candidates[:1]))
           top20chall=candidates[:20]
+          all_clean=bool(top20chall) and all((x.get('leadMinutesToReactiveSnapshot') or 0)>=CLEAN_LEAD_MINUTES for x in top20chall)
+          valid_benchmark=bool(react_ts and all_clean)
           hits=[x for x in top20chall if x['ticker'] in top20set]
           captured_ranks={x['ticker']:i+1 for i,x in enumerate(candidates) if x['ticker'] in top20set}
           current=d.get('currentTop20') or []
           early20=[x for x in current if isinstance(x.get('proactiveFirstChangePct'),(int,float)) and x['proactiveFirstChangePct']<20]
           early10=[x for x in current if isinstance(x.get('proactiveFirstChangePct'),(int,float)) and x['proactiveFirstChangePct']<10]
-          out={'schemaVersion':1,'generatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'sessionDateET':d.get('sessionDateET'),'proactiveSnapshotTimestampET':d.get('snapshotTimestampET'),'reactiveSnapshotTimestampET':d.get('reactiveSnapshotTimestampET'),'mode':'CHALLENGER_RESEARCH_ONLY','scorePolicy':'PRE_TOP20_TRANSITION_V1','benchmarkEligible':valid_benchmark,'benchmarkReason':'proactive snapshot leads reactive snapshot by >=5 minutes' if valid_benchmark else 'insufficient clean lead separation','currentTop20Count':len(current),'currentTop20EarlyUnder10':len(early10),'currentTop20EarlyUnder20':len(early20),'challengerPrecisionAt20':round(len(hits)/20,3) if valid_benchmark else None,'challengerHitsAt20':[x['ticker'] for x in hits],'capturedTop20ChallengerRanks':captured_ranks,'topCandidates':candidates[:30],'notes':['Research-only challenger; never overrides Sharia/Data gates.','Uses only proactive points timestamped before the reactive benchmark; no future features in score.','Promotion requires >=3 complete sessions and false-ignition comparison versus current champion.']}
+          leads=[x['leadMinutesToReactiveSnapshot'] for x in top20chall if isinstance(x.get('leadMinutesToReactiveSnapshot'),(int,float))]
+          out={
+              'schemaVersion':2,
+              'generatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'sessionDateET':d.get('sessionDateET'),
+              'proactiveSnapshotTimestampET':d.get('snapshotTimestampET'),
+              'reactiveSnapshotTimestampET':d.get('reactiveSnapshotTimestampET'),
+              'mode':'CHALLENGER_RESEARCH_ONLY',
+              'scorePolicy':'PRE_TOP20_TRANSITION_V2_CLEAN_LEAD_CUT',
+              'cleanLeadMinutesRequired':CLEAN_LEAD_MINUTES,
+              'benchmarkEligible':valid_benchmark,
+              'benchmarkReason':'all challenger features are timestamped >=5 minutes before reactive benchmark' if valid_benchmark else 'insufficient clean pre-reactive history',
+              'candidateCount':len(candidates),
+              'rejectedForLeadHistory':rejected_for_lead,
+              'rejectedNoProactiveHistory':rejected_for_history,
+              'medianLeadMinutesTop20':round(sorted(leads)[len(leads)//2],1) if leads else None,
+              'minimumLeadMinutesTop20':round(min(leads),1) if leads else None,
+              'currentTop20Count':len(current),
+              'currentTop20EarlyUnder10':len(early10),
+              'currentTop20EarlyUnder20':len(early20),
+              'challengerPrecisionAt20':round(len(hits)/20,3) if valid_benchmark else None,
+              'challengerHitsAt20':[x['ticker'] for x in hits],
+              'capturedTop20ChallengerRanks':captured_ranks,
+              'topCandidates':candidates[:30],
+              'notes':[
+                  'Research-only challenger; never overrides Sharia/Data gates.',
+                  'V2 uses only proactive features timestamped at least 5 minutes before the reactive Top-20 snapshot.',
+                  'No future/reactive feature enters the challenger score.',
+                  'Promotion requires >=3 complete sessions plus false-ignition comparison versus current champion.'
+              ]
+          }
           OUT.write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
-          print('TAGX transition challenger', 'eligible',valid_benchmark,'hits@20',len(hits),'early<20',len(early20))
+          print('TAGX transition challenger v2','eligible',valid_benchmark,'candidates',len(candidates),'hits@20',len(hits),'early<20',len(early20),'minLead',out['minimumLeadMinutesTop20'])
           PY
       - name: Commit challenger artifact
         run: |
@@ -84,7 +141,7 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add tag/data/tagx-transition-challenger.json
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Update TAGX transition challenger"
+          git commit -m "Update TAGX transition challenger v2"
           for i in 1 2 3; do
             if git push origin main; then exit 0; fi
             git pull --rebase origin main
