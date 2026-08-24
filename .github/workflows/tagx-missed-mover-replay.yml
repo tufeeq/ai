@@ -1,0 +1,128 @@
+name: TAGX Missed-Mover Replay
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '12 21 * * 1-5'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tagx-missed-mover-replay.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-missed-mover-replay-main
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sync latest main
+        run: git pull --rebase origin main
+      - name: Build causal T-60/T-30/T-15/T-5 replay
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime, math
+          L=pathlib.Path('tag/data/tagx-signal-ledger.json')
+          C=pathlib.Path('tag/data/tagx-rth-close-shadow.json')
+          T=pathlib.Path('tag/data/tagx-transition-challenger-v3.json')
+          O=pathlib.Path('tag/data/tagx-missed-mover-replay.json')
+          if not L.exists() or not C.exists(): raise SystemExit('required inputs missing')
+          ledger=json.loads(L.read_text(encoding='utf-8')); close=json.loads(C.read_text(encoding='utf-8'))
+          transition=json.loads(T.read_text(encoding='utf-8')) if T.exists() and T.stat().st_size else {}
+          day=ledger.get('sessionDateET'); assert ledger.get('schemaVersion')==4
+          if day!=close.get('sessionDateET'): raise SystemExit('session mismatch')
+          def dt(s):
+              try:return datetime.datetime.fromisoformat(str(s).replace('Z','+00:00'))
+              except:return None
+          def f(v):
+              try:return float(v)
+              except:return None
+          def clean_path(e):
+              out=[]
+              for p in e.get('path') or []:
+                  z=dt(p.get('timestampET'))
+                  if not z or str(p.get('source'))!='proactive': continue
+                  ch=f(p.get('changePct')); vol=f(p.get('volume')); rv=f(p.get('relativeVolume')); fl=f(p.get('float')); pr=f(p.get('price'))
+                  out.append({'ts':z,'timestampET':p.get('timestampET'),'changePct':ch,'price':pr,'volume':vol,'relativeVolume':rv,'floatMillions':fl,'lanes':p.get('discoveryLanes') or []})
+              return sorted(out,key=lambda x:x['ts'])
+          def crossing(path):
+              for p in path:
+                  if p['changePct'] is not None and p['changePct']>=20:return p['ts'],'FIRST_PROACTIVE_GE20'
+              return dt(close.get('sourceSnapshotET')),'RTH_CLOSE_FALLBACK'
+          def at_or_before(path,cut):
+              a=[p for p in path if p['ts']<=cut]
+              return a[-1] if a else None
+          def features(path,cut):
+              pts=[p for p in path if p['ts']<=cut]
+              if not pts:return None
+              cur=pts[-1]; prev=pts[-2] if len(pts)>1 else None
+              dmin=max((cur['ts']-prev['ts']).total_seconds()/60,1) if prev else None
+              pvel=((cur['changePct']-prev['changePct'])/(dmin/10)) if prev and cur['changePct'] is not None and prev['changePct'] is not None else None
+              vdel=((cur['volume']-prev['volume'])/(dmin/10)) if prev and cur['volume'] is not None and prev['volume'] is not None else None
+              rvdel=((cur['relativeVolume']-prev['relativeVolume'])/(dmin/10)) if prev and cur['relativeVolume'] is not None and prev['relativeVolume'] is not None else None
+              fl=cur['floatMillions']; cap=(cur['volume']/(fl*1e6)) if cur['volume'] is not None and fl and fl>0 else None
+              pcap=(prev['volume']/(prev['floatMillions']*1e6)) if prev and prev['volume'] is not None and prev['floatMillions'] and prev['floatMillions']>0 else None
+              capdel=((cap-pcap)/(dmin/10)) if cap is not None and pcap is not None and dmin else None
+              w=[p['changePct'] for p in pts if (cur['ts']-p['ts']).total_seconds()<=3600 and p['changePct'] is not None]
+              exp=(max(w)-min(w)) if len(w)>=2 else None
+              return {'featureTimestampET':cur['timestampET'],'changePct':cur['changePct'],'price':cur['price'],'volume':cur['volume'],'relativeVolume':cur['relativeVolume'],'floatMillions':fl,'lanes':cur['lanes'],'priceVelocityPctPtsPer10m':round(pvel,4) if pvel is not None else None,'deltaVolumePer10m':round(vdel,2) if vdel is not None else None,'relativeVolumeDeltaPer10m':round(rvdel,4) if rvdel is not None else None,'floatCapture':round(cap,6) if cap is not None else None,'floatCaptureDeltaPer10m':round(capdel,6) if capdel is not None else None,'range60mPctPoints':round(exp,3) if exp is not None else None,'pointsAvailable':len(pts)}
+          top=close.get('details') or []
+          false_pos=[]
+          close_set={str(x.get('ticker') or '').upper() for x in top}
+          for x in (transition.get('topCandidates') or [])[:20]:
+              t=str(x.get('ticker') or '').upper()
+              if t and t not in close_set:false_pos.append(t)
+          cases=[]
+          for d in top:
+              ticker=str(d.get('ticker') or '').upper(); e=(ledger.get('tickers') or {}).get(ticker,{})
+              path=clean_path(e); event,authority=crossing(path)
+              windows={}
+              if event:
+                  for mins in (60,30,15,5):
+                      windows[f'T-{mins}']=features(path,event-datetime.timedelta(minutes=mins))
+              cases.append({'ticker':ticker,'cohort':'RTH_TOP20','closeRank':d.get('rank'),'rthCloseShadowChangePct':d.get('rthCloseShadowChangePct'),'classification':d.get('classification'),'eventTimestampET':event.isoformat() if event else None,'eventAuthority':authority,'replay':windows})
+          fp_cases=[]
+          for ticker in false_pos[:20]:
+              e=(ledger.get('tickers') or {}).get(ticker,{}); path=clean_path(e)
+              if not path: continue
+              event=path[-1]['ts']; windows={}
+              for mins in (60,30,15,5):windows[f'T-{mins}']=features(path,event-datetime.timedelta(minutes=mins))
+              fp_cases.append({'ticker':ticker,'cohort':'TRANSITION_V3_FALSE_POSITIVE','eventTimestampET':event.isoformat(),'eventAuthority':'LAST_PROACTIVE_POINT_FOR_NEGATIVE_CONTROL','replay':windows})
+          out={'schemaVersion':1,'evaluationType':'MISSED_MOVER_POINT_IN_TIME_REPLAY_RESEARCH_ONLY','sessionDateET':day,'generatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'windowsMinutes':[60,30,15,5],'top20CaseCount':len(cases),'falsePositiveControlCount':len(fp_cases),'causalityContract':'Each replay feature is computed only from proactive ledger points timestamped at or before its cutoff. No later/reactive feature may enter the replay window.','cases':cases,'falsePositiveControls':fp_cases,'trainingEligible':False,'groundTruthEligible':False,'promotionEligible':False,'notes':'Use to identify feature separation between early Top-20 winners and challenger false positives. Final Reconciliation and >=3 sessions are required before scoring promotion.'}
+          O.write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          print('replay',day,'top20',len(cases),'negative controls',len(fp_cases))
+          PY
+      - name: Validate fail-closed replay contract
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('tag/data/tagx-missed-mover-replay.json',encoding='utf-8'))
+          assert p['schemaVersion']==1 and p['evaluationType']=='MISSED_MOVER_POINT_IN_TIME_REPLAY_RESEARCH_ONLY'
+          assert p['windowsMinutes']==[60,30,15,5]
+          assert p['trainingEligible'] is False and p['groundTruthEligible'] is False and p['promotionEligible'] is False
+          assert p['top20CaseCount']<=20
+          for case in p['cases']:
+              for _,z in case['replay'].items():
+                  if z is not None: assert z['pointsAvailable']>=1
+          print('causal replay contract OK')
+          PY
+      - name: Commit replay artifact
+        run: |
+          git config user.name "TAGX Replay Engine"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagx-missed-mover-replay.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Update TAGX missed-mover replay"
+          for i in 1 2 3; do
+            if git push origin main; then exit 0; fi
+            git pull --rebase origin main
+          done
+          exit 1
