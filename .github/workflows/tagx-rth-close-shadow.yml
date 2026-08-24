@@ -30,31 +30,47 @@ jobs:
         run: |
           python - <<'PY'
           import json, pathlib, datetime
-          F=pathlib.Path('tag/data/finviz.json')
+          S=pathlib.Path('tag/data/snapshots.json')
           L=pathlib.Path('tag/data/tagx-signal-ledger.json')
           O=pathlib.Path('tag/data/tagx-rth-close-shadow.json')
-          if not F.exists() or not L.exists(): raise SystemExit('required inputs missing')
-          f=json.loads(F.read_text(encoding='utf-8')); l=json.loads(L.read_text(encoding='utf-8'))
+          if not S.exists() or not L.exists(): raise SystemExit('required inputs missing')
+          snapshots=json.loads(S.read_text(encoding='utf-8')); ledger=json.loads(L.read_text(encoding='utf-8'))
+          day=ledger.get('sessionDateET')
+          if not day: raise SystemExit('ledger session date missing')
           def rows(p):
               if isinstance(p,list): return p
+              if not isinstance(p,dict): return []
               for k in ('rows','data','results','stocks','items','records','topMovers'):
                   if isinstance(p.get(k),list): return p[k]
               return []
+          def walk(x,out):
+              if isinstance(x,list):
+                  for v in x: walk(v,out)
+              elif isinstance(x,dict):
+                  rs=rows(x)
+                  if rs: out.append(x)
+                  for k,v in x.items():
+                      if k not in ('rows','data','results','stocks','items','records','topMovers') and isinstance(v,(dict,list)): walk(v,out)
+          def stamp(p): return str(p.get('snapshotTimestampET') or p.get('updatedAtET') or p.get('timestampET') or p.get('updatedAt') or p.get('snapshotTimestampUTC') or '')
+          def regular(p):
+              s=str(p.get('session') or p.get('sessionBucket') or p.get('bucket') or '').lower()
+              return ('regular' in s) or s=='rth' or s.startswith('r')
           def tkr(r): return str(r.get('Ticker') or r.get('ticker') or r.get('Symbol') or r.get('symbol') or '').upper().strip()
           def num(v):
               try:return float(str(v).replace('%','').replace(',','').replace('$','').strip())
               except:return None
-          snap=str(f.get('snapshotTimestampET') or f.get('updatedAt') or '')
-          day=snap[:10]
-          if not day or l.get('sessionDateET')!=day: raise SystemExit('same-session contract failed')
+          candidates=[]; walk(snapshots,candidates)
+          rth=[p for p in candidates if stamp(p)[:10]==day and regular(p)]
+          if not rth: raise SystemExit('no same-session regular snapshot found')
+          source=max(rth,key=lambda p:stamp(p)); snap=stamp(source)
           ranked=[]
-          for r in rows(f):
+          for r in rows(source):
               t=tkr(r); ch=num(r.get('Change') if r.get('Change') is not None else r.get('changePct'))
               if t and ch is not None and ch>0: ranked.append((ch,t,r))
           top=sorted(ranked,reverse=True)[:20]
           details=[]; c={'predictedEarlyUnder10':0,'predictedEarlyUnder20':0,'detectedLate':0,'missed':0,'dataUnverified':0}
           for rank,(ch,t,r) in enumerate(top,1):
-              e=(l.get('tickers') or {}).get(t,{})
+              e=(ledger.get('tickers') or {}).get(t,{})
               pe=e.get('proactiveEver'); pc=e.get('proactiveFirstChangePct'); pts=e.get('proactiveFirstSeenET')
               if pe and isinstance(pc,(int,float)) and pc<10:
                   cls='PREDICTED_EARLY_LT10'; c['predictedEarlyUnder10']+=1; c['predictedEarlyUnder20']+=1
@@ -66,18 +82,20 @@ jobs:
                   cls='MISSED_UNIVERSE'; c['missed']+=1
               else:
                   cls='DATA_UNVERIFIED'; c['dataUnverified']+=1
-              details.append({'rank':rank,'ticker':t,'closeShadowChangePct':ch,'classification':cls,'proactiveFirstSeenET':pts,'proactiveFirstChangePct':pc,'originClass':e.get('originClass'),'firstLanes':e.get('proactiveFirstLanes')})
+              details.append({'rank':rank,'ticker':t,'rthCloseShadowChangePct':ch,'classification':cls,'proactiveFirstSeenET':pts,'proactiveFirstChangePct':pc,'originClass':e.get('originClass'),'firstLanes':e.get('proactiveFirstLanes')})
           denom=max(1,len(top)-c['dataUnverified'])
-          out={'schemaVersion':1,'evaluationType':'RTH_CLOSE_SHADOW_RESEARCH_ONLY','sessionDateET':day,'generatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'sourceSnapshotET':snap,'benchmark':'LATEST_POST_RTH_REACTIVE_TOP20_POSITIVE','top20Count':len(top),'counts':c,'earlyCaptureUnder10Pct':round(100*c['predictedEarlyUnder10']/denom,1),'earlyCaptureUnder20Pct':round(100*c['predictedEarlyUnder20']/denom,1),'adjustedDenominator':denom,'details':details,'trainingEligible':False,'groundTruthEligible':False,'promotionEligible':False,'notes':'Operational close-shadow only. Must be replaced/validated by Final Snapshot Reconciliation before training, threshold retuning, or champion promotion.'}
+          out={'schemaVersion':2,'evaluationType':'RTH_CLOSE_SHADOW_RESEARCH_ONLY','sessionDateET':day,'generatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'sourceSnapshotET':snap,'sourceSession':'regular','benchmark':'LAST_SAME_SESSION_REGULAR_SNAPSHOT_TOP20_POSITIVE','top20Count':len(top),'counts':c,'earlyCaptureUnder10Pct':round(100*c['predictedEarlyUnder10']/denom,1),'earlyCaptureUnder20Pct':round(100*c['predictedEarlyUnder20']/denom,1),'adjustedDenominator':denom,'details':details,'trainingEligible':False,'groundTruthEligible':False,'promotionEligible':False,'notes':'Operational RTH-close shadow only. Explicitly excludes after-hours snapshots. Must be replaced/validated by Final Snapshot Reconciliation before training, threshold retuning, or champion promotion.'}
           O.write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
-          print('RTH close shadow',day,'Top20',len(top),'EC10',out['earlyCaptureUnder10Pct'],'EC20',out['earlyCaptureUnder20Pct'])
+          print('RTH close shadow',day,snap,'Top20',len(top),'EC10',out['earlyCaptureUnder10Pct'],'EC20',out['earlyCaptureUnder20Pct'])
           PY
       - name: Validate fail-closed contract
         run: |
           python - <<'PY'
           import json
           p=json.load(open('tag/data/tagx-rth-close-shadow.json',encoding='utf-8'))
+          assert p['schemaVersion']==2
           assert p['evaluationType']=='RTH_CLOSE_SHADOW_RESEARCH_ONLY'
+          assert p['sourceSession']=='regular'
           assert p['trainingEligible'] is False and p['groundTruthEligible'] is False and p['promotionEligible'] is False
           assert 0 <= p['top20Count'] <= 20
           assert 0 <= p['earlyCaptureUnder10Pct'] <= 100 and 0 <= p['earlyCaptureUnder20Pct'] <= 100
