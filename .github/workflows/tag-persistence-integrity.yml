@@ -6,7 +6,7 @@ on:
     workflows: ["TAG5 Mover Snapshot"]
     types: [completed]
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '1-59/5 * * * *'
 
 permissions:
   contents: write
@@ -127,7 +127,6 @@ jobs:
           payload['sourcePersistenceIntegrity']['historyMirrorState'] = mirror_state
           payload['sourcePersistenceIntegrity']['historyMirrorTimestampUTC'] = target_ts
 
-          # Fail closed if any corrected source value is still outside 0..100.
           post_invalid = []
           for row in rows:
               v = fnum(row.get('_gainRetentionPct'))
