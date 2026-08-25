@@ -3,7 +3,7 @@ name: TAGX Cold-Start Audit
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: ["TAGX Proactive Discovery Universe"]
+    workflows: ["TAGX Proactive Discovery Universe", "TAGX Fast Discovery Lane"]
     types: [completed]
     branches: [main]
   schedule:
@@ -32,7 +32,7 @@ jobs:
       - name: Sync latest main
         run: git pull --rebase origin main
 
-      - name: Measure discovery vs reactive cold-start
+      - name: Measure standard and fast discovery cold-start
         run: |
           python - <<'PY'
           import json, pathlib, datetime
@@ -48,40 +48,50 @@ jobs:
           def parse(s):
               try:return datetime.datetime.fromisoformat(str(s).replace('Z','+00:00')).astimezone(datetime.timezone.utc)
               except Exception:return None
+          def earliest(rows, keys):
+              vals=[]
+              for r in rows or []:
+                  t=None
+                  for k in keys:
+                      t=parse(r.get(k))
+                      if t: break
+                  if t and t.astimezone(et).date().isoformat()==day: vals.append(t)
+              return min(vals) if vals else None
+          def lag(a,b):
+              if not a or not b:return None
+              return (b-a).total_seconds()/60
 
           d=load('tag/data/discovery.json')
+          f=load('tag/data/discovery-fast.json')
           m=load('tag/data/finviz.json')
 
-          discovery_ts=parse(d.get('snapshotTimestampUTC') or d.get('updatedAt'))
-          mover_first=[]
-          for r in m.get('rows',[]):
-              t=parse(r.get('_firstObservedTimestampUTC'))
-              if t and t.astimezone(et).date().isoformat()==day:
-                  mover_first.append(t)
-          mover_first_ts=min(mover_first) if mover_first else None
+          mover_first=earliest(m.get('rows',[]),['_firstObservedTimestampUTC'])
+          standard_first=earliest(d.get('rows',[]),['_firstObservedTimestampUTC']) or parse(d.get('snapshotTimestampUTC') or d.get('updatedAt'))
+          fast_first=earliest(f.get('rows',[]),['_firstFastObservedTimestampUTC','_firstObservedTimestampUTC']) or parse(f.get('snapshotTimestampUTC') or f.get('updatedAt'))
 
-          discovery_first=[]
-          for r in d.get('rows',[]):
-              t=parse(r.get('_firstObservedTimestampUTC'))
-              if t and t.astimezone(et).date().isoformat()==day:
-                  discovery_first.append(t)
-          discovery_first_ts=min(discovery_first) if discovery_first else discovery_ts
-
-          lag=None
-          if mover_first_ts and discovery_first_ts:
-              lag=(discovery_first_ts-mover_first_ts).total_seconds()/60
+          std_lag=lag(mover_first,standard_first)
+          fast_lag=lag(mover_first,fast_first)
+          candidates=[x for x in [std_lag,fast_lag] if x is not None]
+          best=min(candidates) if candidates else None
+          authority='fast_discovery' if fast_lag is not None and (std_lag is None or fast_lag<=std_lag) else ('standard_discovery' if std_lag is not None else None)
 
           out={
-              'schemaVersion':1,
+              'schemaVersion':2,
               'sessionDateET':day,
               'updatedAt':now.isoformat(),
-              'reactiveFirstObservedUTC':mover_first_ts.isoformat() if mover_first_ts else None,
-              'discoveryFirstObservedUTC':discovery_first_ts.isoformat() if discovery_first_ts else None,
-              'coldStartLagMinutes':round(lag,2) if lag is not None else None,
+              'reactiveFirstObservedUTC':mover_first.isoformat() if mover_first else None,
+              'standardDiscoveryFirstObservedUTC':standard_first.isoformat() if standard_first else None,
+              'fastDiscoveryFirstObservedUTC':fast_first.isoformat() if fast_first else None,
+              'standardColdStartLagMinutes':round(std_lag,2) if std_lag is not None else None,
+              'fastColdStartLagMinutes':round(fast_lag,2) if fast_lag is not None else None,
+              'bestColdStartLagMinutes':round(best,2) if best is not None else None,
+              'bestOperationalLane':authority,
               'targetLagMinutes':8,
-              'status':'PASS' if lag is not None and lag<=8 else ('FAIL' if lag is not None else 'DATA_UNVERIFIED'),
-              'discoverySnapshotUTC':discovery_ts.isoformat() if discovery_ts else None,
-              'discoveryCount':d.get('count',len(d.get('rows',[]))),
+              'status':'PASS' if best is not None and best<=8 else ('FAIL' if best is not None else 'DATA_UNVERIFIED'),
+              'standardDiscoverySnapshotUTC':d.get('snapshotTimestampUTC') or d.get('updatedAt'),
+              'fastDiscoverySnapshotUTC':f.get('snapshotTimestampUTC') or f.get('updatedAt'),
+              'standardDiscoveryCount':d.get('count',len(d.get('rows',[]))),
+              'fastDiscoveryCount':f.get('count',len(f.get('rows',[]))),
               'moverCount':m.get('count',len(m.get('rows',[]))),
               'trainingEligible':False,
               'purpose':'Operational cadence metric only; never used as market truth or model label.'
@@ -97,6 +107,6 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add tag/data/tagx-coldstart-audit.json
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Measure TAGX discovery cold-start lag"
+          git commit -m "Measure TAGX standard and fast discovery cold-start lag"
           git pull --rebase origin main
           git push origin main
