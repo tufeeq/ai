@@ -29,10 +29,10 @@ jobs:
       - name: Sync latest main
         run: git pull --rebase origin main
 
-      - name: Append same-session compact checkpoint
+      - name: Append same-session compact checkpoint with transition deltas
         run: |
           python - <<'PY'
-          import json, pathlib, datetime
+          import json, pathlib, datetime, statistics
           from zoneinfo import ZoneInfo
 
           src=pathlib.Path('tag/data/discovery.json')
@@ -54,57 +54,86 @@ jobs:
           def f(v):
               try:return float(str(v or '').replace('%','').replace(',','').replace('$',''))
               except:return None
-          compact=[]
-          for r in rows:
-              t=str(r.get('Ticker') or r.get('ticker') or '').upper().strip()
-              if not t: continue
-              compact.append([
-                  t,
-                  f(r.get('Price')),
-                  f(r.get('Change')),
-                  f(r.get('Volume')),
-                  f(r.get('Rel Volume')),
-                  f(r.get('Float')),
-                  r.get('_discoveryLanes') or [],
-              ])
-          if not compact: raise SystemExit('no compact rows')
+          def safe_delta(a,b): return (a-b) if a is not None and b is not None else None
+          def capture(volume,float_m):
+              return volume/(float_m*1_000_000) if volume is not None and float_m not in (None,0) else None
 
           try: old=json.loads(out.read_text(encoding='utf-8')) if out.exists() else {}
           except Exception: old={}
           if old.get('sessionDateET')!=day:
               old={
-                  'schemaVersion':1,
+                  'schemaVersion':2,
                   'sessionDateET':day,
                   'authority':'PROACTIVE_DISCOVERY_SAME_SESSION_CHECKPOINTS',
-                  'fieldOrder':['ticker','price','changePct','volume','relativeVolume','floatMillions','lanes'],
+                  'fieldOrder':['ticker','price','changePct','volume','relativeVolume','floatMillions','lanes','deltaMinutes','changeDelta','volumeDelta','relativeVolumeDelta','floatCapture','floatCaptureDeltaPer10m','priceVelocityPer10m'],
                   'snapshots':[]
               }
+          else:
+              old['schemaVersion']=2
+              old['fieldOrder']=['ticker','price','changePct','volume','relativeVolume','floatMillions','lanes','deltaMinutes','changeDelta','volumeDelta','relativeVolumeDelta','floatCapture','floatCaptureDeltaPer10m','priceVelocityPer10m']
+
           snaps=old.setdefault('snapshots',[])
           stamp=source_dt.astimezone(datetime.timezone.utc).isoformat()
-          # Do not duplicate the same discovery generation when both workflow_run and cron fire.
           if snaps and snaps[-1].get('sourceSnapshotUTC')==stamp:
               raise SystemExit('checkpoint already recorded')
+
+          prev={}
+          prev_dt=None
+          if snaps:
+              last=snaps[-1]
+              try: prev_dt=datetime.datetime.fromisoformat(last['sourceSnapshotUTC'].replace('Z','+00:00'))
+              except Exception: prev_dt=None
+              order=old.get('fieldOrder') or []
+              # Previous schema may have only seven base fields. We only need indices 0..5.
+              for rr in last.get('rows') or []:
+                  if isinstance(rr,list) and rr: prev[str(rr[0]).upper()]=rr
+          delta_min=(source_dt.astimezone(datetime.timezone.utc)-prev_dt).total_seconds()/60 if prev_dt else None
+          if delta_min is not None and delta_min<=0: delta_min=None
+
+          compact=[]
+          transition_eligible=0
+          for r in rows:
+              t=str(r.get('Ticker') or r.get('ticker') or '').upper().strip()
+              if not t: continue
+              price=f(r.get('Price')); change=f(r.get('Change')); volume=f(r.get('Volume')); rel=f(r.get('Rel Volume')); fl=f(r.get('Float')); lanes=r.get('_discoveryLanes') or []
+              pr=prev.get(t)
+              p_change=f(pr[2]) if pr and len(pr)>2 else None
+              p_volume=f(pr[3]) if pr and len(pr)>3 else None
+              p_rel=f(pr[4]) if pr and len(pr)>4 else None
+              p_fl=f(pr[5]) if pr and len(pr)>5 else fl
+              cur_cap=capture(volume,fl)
+              prev_cap=capture(p_volume,p_fl)
+              change_delta=safe_delta(change,p_change)
+              volume_delta=safe_delta(volume,p_volume)
+              rel_delta=safe_delta(rel,p_rel)
+              cap_delta=safe_delta(cur_cap,prev_cap)
+              cap_per10=(cap_delta*(10/delta_min)) if cap_delta is not None and delta_min and delta_min<=20 else None
+              price_vel10=(change_delta*(10/delta_min)) if change_delta is not None and delta_min and delta_min<=20 else None
+              if price_vel10 is not None and cap_per10 is not None: transition_eligible+=1
+              compact.append([t,price,change,volume,rel,fl,lanes,round(delta_min,3) if delta_min else None,change_delta,volume_delta,rel_delta,cur_cap,cap_per10,price_vel10])
+          if not compact: raise SystemExit('no compact rows')
+
           snaps.append({
               'sourceSnapshotUTC':stamp,
               'sourceSnapshotET':et.isoformat(),
               'capturedAtUTC':now.isoformat(),
               'count':len(compact),
+              'transitionEligibleCount':transition_eligible,
               'rows':compact,
           })
-          # One trading day only; bound storage even if cadence becomes denser than expected.
           old['snapshots']=snaps[-220:]
           old['updatedAtUTC']=now.isoformat()
           old['snapshotCount']=len(old['snapshots'])
-          gaps=[]
-          times=[]
+          gaps=[]; times=[]
           for s in old['snapshots']:
               try: times.append(datetime.datetime.fromisoformat(s['sourceSnapshotUTC'].replace('Z','+00:00')))
               except: pass
           for a,b in zip(times,times[1:]): gaps.append((b-a).total_seconds()/60)
           old['cadence']={
-              'medianGapMin':round(sorted(gaps)[len(gaps)//2],2) if gaps else None,
+              'medianGapMin':round(statistics.median(gaps),2) if gaps else None,
               'maxGapMin':round(max(gaps),2) if gaps else None,
               'gapsOver15m':sum(1 for g in gaps if g>15),
+              'transitionEligiblePct':round(100*transition_eligible/len(compact),1) if compact else 0,
           }
           out.write_text(json.dumps(old,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
           print('checkpoint',day,stamp,'rows',len(compact),'snapshots',len(old['snapshots']),'cadence',old['cadence'])
@@ -116,6 +145,6 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add tag/data/tagx-feature-checkpoints.json
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Capture TAGX dense same-session feature checkpoint"
+          git commit -m "Capture TAGX dense transition checkpoint"
           git pull --rebase origin main
           git push origin main
