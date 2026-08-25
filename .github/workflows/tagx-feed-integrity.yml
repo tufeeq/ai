@@ -1,0 +1,99 @@
+name: TAGX Feed Integrity Gate
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["TAG5 Mover Snapshot", "TAGX Fast Discovery Lane"]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: '3,8,13,18,23,28,33,38,43,48,53,58 8-23 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-feed-integrity-main
+  cancel-in-progress: true
+
+jobs:
+  validate-and-recover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 80
+
+      - name: Sync latest main
+        run: git pull --rebase origin main
+
+      - name: Validate feeds and restore last-good if needed
+        run: |
+          python - <<'PY'
+          import json, pathlib, subprocess, datetime
+          from zoneinfo import ZoneInfo
+
+          now=datetime.datetime.now(datetime.timezone.utc)
+          et=now.astimezone(ZoneInfo('America/New_York'))
+          specs=[
+            ('reactive','tag/data/finviz.json',['rows','data'],1),
+            ('fast','tag/data/discovery-fast.json',['rows'],1),
+            ('discovery','tag/data/discovery.json',['rows'],1),
+          ]
+          health={'schemaVersion':1,'updatedAt':now.isoformat(),'timestampET':et.isoformat(),'feeds':{}}
+
+          def valid_bytes(raw, row_keys, min_rows):
+            if not raw or not raw.strip(): return False,None,'EMPTY_FILE'
+            try: p=json.loads(raw)
+            except Exception as e: return False,None,f'INVALID_JSON:{type(e).__name__}'
+            rows=[]
+            for k in row_keys:
+              if isinstance(p.get(k),list): rows=p[k]; break
+            count=len(rows)
+            if count<min_rows: return False,p,f'EMPTY_ROWS:{count}'
+            ts=p.get('snapshotTimestampUTC') or p.get('updatedAt')
+            if not ts: return False,p,'TIMESTAMP_MISSING'
+            return True,p,'OK'
+
+          def last_good(path,row_keys,min_rows):
+            commits=subprocess.run(['git','log','--format=%H','-n','50','--',path],capture_output=True,text=True,check=True).stdout.splitlines()
+            for sha in commits[1:]:
+              r=subprocess.run(['git','show',f'{sha}:{path}'],capture_output=True,text=True)
+              if r.returncode: continue
+              ok,p,reason=valid_bytes(r.stdout,row_keys,min_rows)
+              if ok: return sha,r.stdout,p
+            return None,None,None
+
+          for name,path,row_keys,min_rows in specs:
+            f=pathlib.Path(path)
+            raw=f.read_text(encoding='utf-8') if f.exists() else ''
+            ok,p,reason=valid_bytes(raw,row_keys,min_rows)
+            item={'status':'HEALTHY' if ok else 'INVALID','reason':reason,'recovered':False}
+            if ok:
+              item.update({'count':len(next((p[k] for k in row_keys if isinstance(p.get(k),list)),[])),'sourceTimestamp':p.get('snapshotTimestampUTC') or p.get('updatedAt')})
+            else:
+              sha,oldraw,oldp=last_good(path,row_keys,min_rows)
+              if oldraw:
+                f.parent.mkdir(parents=True,exist_ok=True)
+                f.write_text(oldraw,encoding='utf-8')
+                rows=next((oldp[k] for k in row_keys if isinstance(oldp.get(k),list)),[])
+                item.update({'status':'DEGRADED_LAST_GOOD','recovered':True,'recoveredFromCommit':sha,'count':len(rows),'sourceTimestamp':oldp.get('snapshotTimestampUTC') or oldp.get('updatedAt'),'note':'Original timestamp preserved; consumers must treat stale data as Research Only.'})
+              else:
+                item['status']='UNRECOVERABLE'
+            health['feeds'][name]=item
+
+          health['overall']='HEALTHY' if all(v['status']=='HEALTHY' for v in health['feeds'].values()) else 'DEGRADED'
+          hp=pathlib.Path('tag/data/feed-health.json');hp.parent.mkdir(parents=True,exist_ok=True);hp.write_text(json.dumps(health,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(health,indent=2))
+          PY
+
+      - name: Commit integrity state
+        run: |
+          git config user.name "TAGX Integrity Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/finviz.json tag/data/discovery-fast.json tag/data/discovery.json tag/data/feed-health.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Protect TAGX market feeds with last-good integrity gate"
+          git pull --rebase origin main
+          git push origin main
