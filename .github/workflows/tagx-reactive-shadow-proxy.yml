@@ -1,0 +1,94 @@
+name: TAGX Reactive Shadow Proxy
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["TAG500 Proactive Discovery Universe", "TAGX Proactive Discovery Universe"]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: '2,7,12,17,22,27,32,37,42,47,52,57 8-23 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-reactive-shadow-main
+  cancel-in-progress: true
+
+jobs:
+  build-shadow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: git pull --rebase origin main
+      - name: Build fail-closed reactive shadow
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime
+          from zoneinfo import ZoneInfo
+          now=datetime.datetime.now(datetime.timezone.utc)
+          def load(path):
+            try:
+              raw=pathlib.Path(path).read_text(encoding='utf-8')
+              return json.loads(raw) if raw.strip() else None
+            except Exception:
+              return None
+          def rows(p):
+            if not isinstance(p,dict): return []
+            for k in ('rows','data','topMovers'):
+              if isinstance(p.get(k),list): return p[k]
+            return []
+          def pct(v):
+            try:return float(str(v or '0').replace('%','').replace(',',''))
+            except:return 0.0
+          reactive=load('tag/data/finviz.json')
+          rr=rows(reactive)
+          discovery=load('tag/data/discovery.json')
+          dr=rows(discovery)
+          dts=(discovery or {}).get('snapshotTimestampUTC') or (discovery or {}).get('updatedAt')
+          age=None
+          try: age=(now-datetime.datetime.fromisoformat(dts.replace('Z','+00:00'))).total_seconds()/60
+          except: pass
+          state='NOT_NEEDED' if rr else 'UNAVAILABLE'
+          shadow=[]
+          if not rr and dr and age is not None and age<=25:
+            positives=[r for r in dr if pct(r.get('Change'))>0]
+            positives.sort(key=lambda r:pct(r.get('Change')),reverse=True)
+            shadow=positives[:20]
+            state='SAME_SOURCE_DEGRADED_SHADOW'
+          out={
+            'schemaVersion':1,
+            'updatedAt':now.isoformat(),
+            'timestampET':now.astimezone(ZoneInfo('America/New_York')).isoformat(),
+            'state':state,
+            'sourceType':'REACTIVE_SHADOW_PROXY',
+            'sourceAuthority':'PROACTIVE_DISCOVERY_ONLY',
+            'sourceTimestamp':dts,
+            'sourceAgeMinutes':round(age,2) if age is not None else None,
+            'reactiveFeedRows':len(rr),
+            'discoveryRows':len(dr),
+            'count':len(shadow),
+            'top20Proxy':shadow,
+            'independentSourceCount':0,
+            'trainingEligible':False,
+            'groundTruthEligible':False,
+            'finalReconciliationEligible':False,
+            'usage':'DISPLAY_AND_DIAGNOSTIC_ONLY',
+            'warnings':['NOT_AN_INDEPENDENT_SOURCE','DO_NOT_USE_FOR_EARLY_CAPTURE_GROUND_TRUTH'] if shadow else []
+          }
+          p=pathlib.Path('tag/data/reactive-shadow.json');p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps({k:out[k] for k in ('state','reactiveFeedRows','discoveryRows','count','sourceAgeMinutes')},indent=2))
+          PY
+      - name: Commit shadow state
+        run: |
+          git config user.name "TAGX Shadow Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/reactive-shadow.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data: maintain fail-closed TAGX reactive shadow"
+          git pull --rebase origin main
+          git push origin main
