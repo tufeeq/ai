@@ -1,0 +1,162 @@
+name: TAGX Transition Challenger v4
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 8-23 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-transition-challenger-v4-main
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sync latest data
+        run: git pull --rebase origin main
+      - name: Build transition challenger v4
+        run: |
+          python - <<'PY'
+          import json, pathlib, math, datetime
+          LED=pathlib.Path('tag/data/tagx-signal-ledger.json')
+          OUT=pathlib.Path('tag/data/tagx-transition-challenger-v4.json')
+          if not LED.exists(): raise SystemExit('ledger unavailable')
+          d=json.loads(LED.read_text(encoding='utf-8'))
+          if d.get('schemaVersion') != 4: raise SystemExit('ledger schema mismatch')
+          def dt(s):
+              try: return datetime.datetime.fromisoformat(str(s).replace('Z','+00:00'))
+              except Exception: return None
+          def clamp(v,a=0,b=100): return max(a,min(b,v))
+          def num(v): return v if isinstance(v,(int,float)) and math.isfinite(v) else None
+
+          react_ts=dt(d.get('reactiveSnapshotTimestampET'))
+          CLEAN_LEAD_MINUTES=5
+          MIN_DELTA_VOLUME=1000
+          MIN_DOLLAR_VOLUME_PER_10M=10000
+          MIN_CHANGE_VELOCITY=0.25
+          MIN_FLOAT_CAPTURE_10M=0.0005
+          MIN_RELVOL_DELTA=0.03
+          candidates=[]
+          rejected_for_lead=0
+          rejected_for_history=0
+          rejected_direction=0
+          rejected_liquidity=0
+
+          for t,e in (d.get('tickers') or {}).items():
+              pp=[p for p in (e.get('path') or []) if p.get('source')=='proactive' and num(p.get('changePct')) is not None]
+              pp=sorted(pp,key=lambda p: dt(p.get('timestampET')) or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc))
+              if not react_ts: continue
+              cutoff=react_ts-datetime.timedelta(minutes=CLEAN_LEAD_MINUTES)
+              clean=[p for p in pp if dt(p.get('timestampET')) and dt(p.get('timestampET'))<=cutoff]
+              if len(clean)<2:
+                  if pp: rejected_for_lead += 1
+                  else: rejected_for_history += 1
+                  continue
+              a,b=clean[-2],clean[-1]
+              ta,tb=dt(a.get('timestampET')),dt(b.get('timestampET'))
+              if not ta or not tb or tb<=ta: continue
+              mins=max((tb-ta).total_seconds()/60,1)
+              ch0,ch1=num(a.get('changePct')),num(b.get('changePct'))
+              v0,v1=num(a.get('volume')),num(b.get('volume'))
+              rv0,rv1=num(a.get('relativeVolume')),num(b.get('relativeVolume'))
+              fl=num(b.get('float')) or num(a.get('float'))
+              price=num(b.get('price'))
+              if ch0 is None or ch1 is None: continue
+
+              change_velocity=(ch1-ch0)/mins*10
+              delta_volume=max((v1 or 0)-(v0 or 0),0)
+              delta_volume_10m=delta_volume*(10/mins)
+              dollar_volume_10m=(delta_volume_10m*price) if price and price>0 else None
+              delta_float_capture_10m=(delta_volume/(fl*1_000_000))*(10/mins) if fl and fl>0 else None
+              relvol_delta=max((rv1-rv0),0) if rv1 is not None and rv0 is not None else None
+
+              direction_ok=bool(ch1>-3 and change_velocity>=MIN_CHANGE_VELOCITY and delta_volume>0)
+              liquidity_ok=bool(
+                  delta_volume>=MIN_DELTA_VOLUME and
+                  dollar_volume_10m is not None and dollar_volume_10m>=MIN_DOLLAR_VOLUME_PER_10M and
+                  ((delta_float_capture_10m is not None and delta_float_capture_10m>=MIN_FLOAT_CAPTURE_10M) or
+                   (relvol_delta is not None and relvol_delta>=MIN_RELVOL_DELTA))
+              )
+              rank_eligible=direction_ok and liquidity_ok
+              if not direction_ok: rejected_direction += 1
+              elif not liquidity_ok: rejected_liquidity += 1
+
+              price_accel=clamp(45+change_velocity*7)
+              dollar_liquidity=clamp(math.log10(1+max(dollar_volume_10m or 0,0))*18)
+              volume_derivative=clamp(30+math.log2(1+max((delta_float_capture_10m or 0)*100,0))*22)
+              relvol_accel=clamp(35+(relvol_delta or 0)*16)
+              float_capture=clamp((delta_float_capture_10m or 0)*450)
+              frag=100 if fl is not None and fl<=5 else 78 if fl is not None and fl<=10 else 58 if fl is not None and fl<=20 else 30
+              compression_expand=90 if abs(ch0)<=5 and 0<=ch1<12 and change_velocity>0 else 60 if 0<=ch1<20 and change_velocity>0 else 25
+              late_penalty=45 if ch1>=30 else 28 if ch1>=20 else 12 if ch1>=10 else 0
+              negative_penalty=35 if ch1<0 else 0
+              score=clamp(.22*price_accel+.20*dollar_liquidity+.18*volume_derivative+.14*relvol_accel+.10*float_capture+.09*frag+.07*compression_expand-late_penalty-negative_penalty)
+              lead=(react_ts-tb).total_seconds()/60
+              candidates.append({
+                  'ticker':t,'score':round(score,1),'rankEligible':rank_eligible,'liquidityQualified':liquidity_ok,
+                  'changePct':round(ch1,2),'price':price,'firstChangePct':e.get('proactiveFirstChangePct'),
+                  'changeVelocityPctPtsPer10m':round(change_velocity,3),'deltaVolume':round(delta_volume,1),
+                  'deltaVolumePer10m':round(delta_volume_10m,1),'deltaDollarVolumePer10m':round(dollar_volume_10m,1) if dollar_volume_10m is not None else None,
+                  'deltaFloatCapturePer10m':round(delta_float_capture_10m,6) if delta_float_capture_10m is not None else None,
+                  'relativeVolumeDelta':round(relvol_delta,3) if relvol_delta is not None else None,
+                  'floatMillions':fl,'lanes':e.get('proactiveLanesEver') or e.get('proactiveFirstLanes') or [],
+                  'featureTimestampET':b.get('timestampET'),'previousFeatureTimestampET':a.get('timestampET'),
+                  'leadMinutesToReactiveSnapshot':round(lead,1),'currentTop20':bool(e.get('lastTop20Rank')),
+                  'currentTop20Rank':e.get('lastTop20Rank'),'originClass':e.get('originClass')
+              })
+
+          eligible=sorted([x for x in candidates if x['rankEligible']],key=lambda x:x['score'],reverse=True)
+          top20set={x.get('ticker') for x in (d.get('currentTop20') or [])}
+          top20chall=eligible[:20]
+          valid_benchmark=bool(react_ts and top20chall and all(x['leadMinutesToReactiveSnapshot']>=CLEAN_LEAD_MINUTES for x in top20chall))
+          hits=[x for x in top20chall if x['ticker'] in top20set]
+          current=d.get('currentTop20') or []
+          early20=[x for x in current if isinstance(x.get('proactiveFirstChangePct'),(int,float)) and x['proactiveFirstChangePct']<20]
+          early10=[x for x in current if isinstance(x.get('proactiveFirstChangePct'),(int,float)) and x['proactiveFirstChangePct']<10]
+          leads=[x['leadMinutesToReactiveSnapshot'] for x in top20chall]
+          out={
+              'schemaVersion':4,'generatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'sessionDateET':d.get('sessionDateET'),'reactiveSnapshotTimestampET':d.get('reactiveSnapshotTimestampET'),
+              'mode':'CHALLENGER_RESEARCH_ONLY','scorePolicy':'PRE_TOP20_TRANSITION_V4_LIQUIDITY_QUALIFIED',
+              'cleanLeadMinutesRequired':CLEAN_LEAD_MINUTES,
+              'liquidityPolicy':{'minDeltaVolume':MIN_DELTA_VOLUME,'minDollarVolumePer10m':MIN_DOLLAR_VOLUME_PER_10M,'minChangeVelocityPctPtsPer10m':MIN_CHANGE_VELOCITY,'minFloatCapturePer10m':MIN_FLOAT_CAPTURE_10M,'minRelativeVolumeDelta':MIN_RELVOL_DELTA},
+              'benchmarkEligible':valid_benchmark,
+              'benchmarkReason':'clean lead + direction + liquidity qualification passed' if valid_benchmark else 'insufficient clean liquidity-qualified candidates',
+              'candidateCount':len(candidates),'rankEligibleCount':len(eligible),'rejectedForLeadHistory':rejected_for_lead,
+              'rejectedNoProactiveHistory':rejected_for_history,'rejectedDirection':rejected_direction,'rejectedLiquidity':rejected_liquidity,
+              'medianLeadMinutesTop20':round(sorted(leads)[len(leads)//2],1) if leads else None,
+              'minimumLeadMinutesTop20':round(min(leads),1) if leads else None,
+              'currentTop20Count':len(current),'currentTop20EarlyUnder10':len(early10),'currentTop20EarlyUnder20':len(early20),
+              'challengerPrecisionAt20':round(len(hits)/20,3) if valid_benchmark else None,
+              'challengerHitsAt20':[x['ticker'] for x in hits],'topCandidates':eligible[:30],
+              'notes':[
+                  'Research only; no execution authority and no score-champion changes.',
+                  'Adds absolute delta-dollar-volume qualification so tiny-share prints cannot rank highly from price velocity alone.',
+                  'Requires either measurable float capture or RVOL acceleration in addition to direction and dollar liquidity.',
+                  'All score features precede the reactive benchmark by at least five minutes.',
+                  'Promotion requires >=3 complete sessions with better Precision@20/Top4 hit rate, >=5m lead and no material Early-Capture regression.'
+              ]
+          }
+          OUT.write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          print('TAGX transition challenger v4','eligible',valid_benchmark,'ranked',len(eligible),'hits@20',len(hits),'precision',out['challengerPrecisionAt20'],'liquidityRejected',rejected_liquidity)
+          PY
+      - name: Commit challenger artifact
+        run: |
+          git config user.name "TAGX Transition Challenger v4"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagx-transition-challenger-v4.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Update TAGX transition challenger v4"
+          for i in 1 2 3; do
+            if git push origin main; then exit 0; fi
+            git pull --rebase origin main
+          done
+          exit 1
