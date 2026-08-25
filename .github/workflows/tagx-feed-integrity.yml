@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-          fetch-depth: 80
+          fetch-depth: 0
 
       - name: Sync latest main
         run: git pull --rebase origin main
@@ -41,12 +41,13 @@ jobs:
             ('fast','tag/data/discovery-fast.json',['rows'],1),
             ('discovery','tag/data/discovery.json',['rows'],1),
           ]
-          health={'schemaVersion':1,'updatedAt':now.isoformat(),'timestampET':et.isoformat(),'feeds':{}}
+          health={'schemaVersion':2,'updatedAt':now.isoformat(),'timestampET':et.isoformat(),'feeds':{},'recoveryPolicy':'FULL_HISTORY_LAST_GOOD_PRESERVE_SOURCE_TIMESTAMP'}
 
           def valid_bytes(raw, row_keys, min_rows):
             if not raw or not raw.strip(): return False,None,'EMPTY_FILE'
             try: p=json.loads(raw)
             except Exception as e: return False,None,f'INVALID_JSON:{type(e).__name__}'
+            if not isinstance(p,dict): return False,p,'NOT_OBJECT'
             rows=[]
             for k in row_keys:
               if isinstance(p.get(k),list): rows=p[k]; break
@@ -56,14 +57,21 @@ jobs:
             if not ts: return False,p,'TIMESTAMP_MISSING'
             return True,p,'OK'
 
+          def history_shas(path):
+            # Full history is intentional: at 5-minute cadence, 50 commits can represent
+            # only a few hours and can all be invalid during a prolonged producer fault.
+            r=subprocess.run(['git','log','--format=%H','--',path],capture_output=True,text=True,check=True)
+            return r.stdout.splitlines()
+
           def last_good(path,row_keys,min_rows):
-            commits=subprocess.run(['git','log','--format=%H','-n','50','--',path],capture_output=True,text=True,check=True).stdout.splitlines()
-            for sha in commits[1:]:
+            checked=0
+            for sha in history_shas(path)[1:]:
+              checked += 1
               r=subprocess.run(['git','show',f'{sha}:{path}'],capture_output=True,text=True)
               if r.returncode: continue
               ok,p,reason=valid_bytes(r.stdout,row_keys,min_rows)
-              if ok: return sha,r.stdout,p
-            return None,None,None
+              if ok: return sha,r.stdout,p,checked
+            return None,None,None,checked
 
           for name,path,row_keys,min_rows in specs:
             f=pathlib.Path(path)
@@ -73,12 +81,13 @@ jobs:
             if ok:
               item.update({'count':len(next((p[k] for k in row_keys if isinstance(p.get(k),list)),[])),'sourceTimestamp':p.get('snapshotTimestampUTC') or p.get('updatedAt')})
             else:
-              sha,oldraw,oldp=last_good(path,row_keys,min_rows)
+              sha,oldraw,oldp,checked=last_good(path,row_keys,min_rows)
+              item['historyCommitsChecked']=checked
               if oldraw:
                 f.parent.mkdir(parents=True,exist_ok=True)
                 f.write_text(oldraw,encoding='utf-8')
                 rows=next((oldp[k] for k in row_keys if isinstance(oldp.get(k),list)),[])
-                item.update({'status':'DEGRADED_LAST_GOOD','recovered':True,'recoveredFromCommit':sha,'count':len(rows),'sourceTimestamp':oldp.get('snapshotTimestampUTC') or oldp.get('updatedAt'),'note':'Original timestamp preserved; consumers must treat stale data as Research Only.'})
+                item.update({'status':'DEGRADED_LAST_GOOD','recovered':True,'recoveredFromCommit':sha,'count':len(rows),'sourceTimestamp':oldp.get('snapshotTimestampUTC') or oldp.get('updatedAt'),'note':'Original timestamp preserved; consumers must treat stale data as Research Only. Recovery searched full file history.'})
               else:
                 item['status']='UNRECOVERABLE'
             health['feeds'][name]=item
@@ -94,6 +103,6 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add tag/data/finviz.json tag/data/discovery-fast.json tag/data/discovery.json tag/data/feed-health.json
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Protect TAGX market feeds with last-good integrity gate"
+          git commit -m "Protect TAGX market feeds with full-history last-good recovery"
           git pull --rebase origin main
           git push origin main
