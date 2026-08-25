@@ -1,0 +1,164 @@
+name: TAGX Live Extended Quotes
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 * * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-live-quotes-main
+  cancel-in-progress: true
+
+jobs:
+  refresh-live-quotes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Sync latest main
+        run: git pull --rebase origin main
+
+      - name: Build live pre-market / regular / after-hours quotes
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime, urllib.request, urllib.parse, time
+          from zoneinfo import ZoneInfo
+
+          src = pathlib.Path('tag/data/finviz.json')
+          if not src.exists():
+              raise SystemExit('tag/data/finviz.json missing')
+
+          payload = json.loads(src.read_text(encoding='utf-8'))
+          source_rows = payload.get('rows') or payload.get('data') or []
+          tickers = []
+          for row in source_rows:
+              t = str(row.get('Ticker') or row.get('ticker') or row.get('Symbol') or '').strip().upper()
+              if t and t not in tickers:
+                  tickers.append(t)
+          tickers = tickers[:200]
+
+          ET = ZoneInfo('America/New_York')
+          now_utc = datetime.datetime.now(datetime.timezone.utc)
+          now_et = now_utc.astimezone(ET)
+
+          def session_for(dt):
+              tm = dt.time()
+              if dt.weekday() >= 5:
+                  return 'closed'
+              if datetime.time(4,0) <= tm < datetime.time(9,30):
+                  return 'pre-market'
+              if datetime.time(9,30) <= tm < datetime.time(16,0):
+                  return 'regular'
+              if datetime.time(16,0) <= tm <= datetime.time(20,0):
+                  return 'after-hours'
+              return 'closed'
+
+          def get_chart(symbol):
+              url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + urllib.parse.quote(symbol) + '?interval=1m&range=1d&includePrePost=true&events=div%2Csplits'
+              req = urllib.request.Request(url, headers={'User-Agent':'Mozilla/5.0 TAGX/1.0','Accept':'application/json'})
+              with urllib.request.urlopen(req, timeout=12) as r:
+                  return json.loads(r.read().decode('utf-8'))
+
+          quotes = {}
+          errors = []
+          for i, ticker in enumerate(tickers):
+              try:
+                  data = get_chart(ticker)
+                  result = ((data.get('chart') or {}).get('result') or [None])[0]
+                  if not result:
+                      raise ValueError('empty chart result')
+                  meta = result.get('meta') or {}
+                  timestamps = result.get('timestamp') or []
+                  indicators = result.get('indicators') or {}
+                  quote = (indicators.get('quote') or [{}])[0]
+                  closes = quote.get('close') or []
+                  volumes = quote.get('volume') or []
+
+                  points = []
+                  for idx, ts in enumerate(timestamps):
+                      if idx >= len(closes) or closes[idx] is None:
+                          continue
+                      dt = datetime.datetime.fromtimestamp(ts, datetime.timezone.utc).astimezone(ET)
+                      points.append({
+                          'timestamp': ts,
+                          'timestampET': dt.isoformat(),
+                          'session': session_for(dt),
+                          'price': float(closes[idx]),
+                          'volume': int(volumes[idx]) if idx < len(volumes) and volumes[idx] is not None else None,
+                      })
+                  if not points:
+                      raise ValueError('no priced points')
+
+                  latest = points[-1]
+                  regular_pts = [p for p in points if p['session'] == 'regular']
+                  pre_pts = [p for p in points if p['session'] == 'pre-market']
+                  post_pts = [p for p in points if p['session'] == 'after-hours']
+
+                  regular_price = float(meta.get('regularMarketPrice')) if meta.get('regularMarketPrice') is not None else (regular_pts[-1]['price'] if regular_pts else None)
+                  prev_close = meta.get('previousClose')
+                  if prev_close is None:
+                      prev_close = meta.get('chartPreviousClose')
+                  prev_close = float(prev_close) if prev_close is not None else None
+
+                  pre_price = pre_pts[-1]['price'] if pre_pts else None
+                  post_price = post_pts[-1]['price'] if post_pts else None
+                  pre_volume = sum(p['volume'] or 0 for p in pre_pts) if pre_pts else None
+                  post_volume = sum(p['volume'] or 0 for p in post_pts) if post_pts else None
+
+                  def pct(price, base):
+                      return ((price-base)/base*100.0) if price is not None and base not in (None,0) else None
+
+                  quotes[ticker] = {
+                      'ticker': ticker,
+                      'price': latest['price'],
+                      'session': latest['session'],
+                      'timestampET': latest['timestampET'],
+                      'regularMarketPrice': regular_price,
+                      'preMarketPrice': pre_price,
+                      'afterHoursPrice': post_price,
+                      'previousClose': prev_close,
+                      'changePct': pct(latest['price'], prev_close),
+                      'preMarketChangePct': pct(pre_price, prev_close),
+                      'afterHoursChangePct': pct(post_price, regular_price),
+                      'preMarketVolume': pre_volume,
+                      'afterHoursVolume': post_volume,
+                      'source': 'Yahoo Finance chart 1m includePrePost',
+                  }
+              except Exception as e:
+                  errors.append({'ticker': ticker, 'error': str(e)[:180]})
+              if i and i % 40 == 0:
+                  time.sleep(1)
+
+          out = {
+              'source': 'Yahoo Finance chart API',
+              'updatedAtUTC': now_utc.isoformat(),
+              'updatedAtET': now_et.isoformat(),
+              'marketClockSession': session_for(now_et),
+              'count': len(quotes),
+              'requested': len(tickers),
+              'quotes': quotes,
+              'errors': errors[:30],
+          }
+          pathlib.Path('tag/data/live-quotes.json').write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding='utf-8')
+          print(f"Live quotes: {len(quotes)}/{len(tickers)}; session={out['marketClockSession']}")
+          PY
+
+      - name: Commit live quote feed
+        run: |
+          git config user.name "TAGX Live Quote Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/live-quotes.json
+          if git diff --cached --quiet; then
+            echo "No live quote change"
+            exit 0
+          fi
+          git commit -m "Refresh TAGX live extended-hours quotes"
+          git pull --rebase origin main
+          git push origin main
