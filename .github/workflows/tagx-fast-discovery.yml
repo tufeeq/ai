@@ -1,0 +1,110 @@
+name: TAGX Fast Discovery Lane
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["TAG5 Mover Snapshot"]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: '1,6,11,16,21,26,31,36,41,46,51,56 8-23 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-fast-discovery-main
+  cancel-in-progress: true
+
+jobs:
+  fast-discovery:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Sync latest main
+        run: git pull --rebase origin main
+
+      - name: Guard U.S. session
+        id: guard
+        run: |
+          python - <<'PY'
+          import datetime, os
+          from zoneinfo import ZoneInfo
+          et=datetime.datetime.now(datetime.timezone.utc).astimezone(ZoneInfo('America/New_York'))
+          mins=et.hour*60+et.minute
+          active=et.weekday()<5 and 240<=mins<=1200
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f: f.write(f'active={str(active).lower()}\n')
+          print('ET',et.isoformat(),'active',active)
+          PY
+
+      - name: Fetch lightweight proactive lanes
+        if: steps.guard.outputs.active == 'true'
+        env:
+          FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
+        run: |
+          test -n "$FINVIZ_TOKEN" || (echo "FINVIZ_TOKEN missing" && exit 1)
+          for SPEC in \
+            "general|cap_smallunder,sh_avgvol_o100,sh_price_u20,sh_relvol_o0.5" \
+            "nano_low_float|cap_smallunder,sh_avgvol_o100,sh_price_u10,sh_float_u20"; do
+            NAME="${SPEC%%|*}"; FILTERS="${SPEC#*|}"
+            URL="https://elite.finviz.com/export.ashx?v=141&f=${FILTERS}&auth=${FINVIZ_TOKEN}"
+            curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --retry-all-errors "$URL" -o "/tmp/tagx-${NAME}.csv"
+            test -s "/tmp/tagx-${NAME}.csv" || exit 1
+          done
+
+      - name: Build fast discovery trace
+        if: steps.guard.outputs.active == 'true'
+        run: |
+          python - <<'PY'
+          import csv,json,datetime,pathlib
+          from zoneinfo import ZoneInfo
+          now=datetime.datetime.now(datetime.timezone.utc); et=now.astimezone(ZoneInfo('America/New_York'))
+          out=pathlib.Path('tag/data/discovery-fast.json')
+          try: old=json.loads(out.read_text()) if out.exists() else {}
+          except: old={}
+          same_day=str(old.get('sessionDateET') or '')==et.date().isoformat()
+          prev={str(x.get('Ticker') or '').upper():x for x in (old.get('rows') or [])} if same_day else {}
+          merged={}; lanes={}
+          for name in ('general','nano_low_float'):
+            with open(f'/tmp/tagx-{name}.csv',newline='',encoding='utf-8-sig') as f:
+              for r in csv.DictReader(f):
+                t=str(r.get('Ticker') or r.get('Symbol') or '').strip().upper()
+                if not t: continue
+                if t not in merged: merged[t]=dict(r)
+                lanes.setdefault(t,[]).append(name)
+          rows=[]
+          def p(v):
+            try:return float(str(v or '').replace('%','').replace(',',''))
+            except:return None
+          for t,r in merged.items():
+            oldr=prev.get(t,{})
+            r['Ticker']=t; r['_fastDiscoveryLanes']=lanes.get(t,[])
+            r['_snapshotTimestampUTC']=now.isoformat();r['_snapshotTimestampET']=et.isoformat()
+            r['_firstFastObservedTimestampUTC']=oldr.get('_firstFastObservedTimestampUTC',now.isoformat())
+            r['_firstFastObservedTimestampET']=oldr.get('_firstFastObservedTimestampET',et.isoformat())
+            r['_firstFastObservedChange']=oldr.get('_firstFastObservedChange',r.get('Change'))
+            r['_firstFastObservedVolume']=oldr.get('_firstFastObservedVolume',r.get('Volume'))
+            rows.append(r)
+          rows.sort(key=lambda x:(p(x.get('Change')) if p(x.get('Change')) is not None else -999),reverse=True)
+          payload={'schemaVersion':1,'source':'Finviz Elite TAGX lightweight proactive lane','sourceType':'FAST_PROACTIVE_DISCOVERY','sessionDateET':et.date().isoformat(),'updatedAt':now.isoformat(),'snapshotTimestampUTC':now.isoformat(),'snapshotTimestampET':et.isoformat(),'session':'pre-market' if et.hour<9 or (et.hour==9 and et.minute<30) else ('regular' if et.hour<16 else 'after-hours'),'count':len(rows),'trainingEligible':False,'groundTruthEligible':False,'purpose':'COLD_START_AND_CADENCE_CHALLENGER','rows':rows}
+          out.parent.mkdir(parents=True,exist_ok=True);out.write_text(json.dumps(payload,ensure_ascii=False,indent=2))
+          print('fast discovery rows',len(rows))
+          PY
+
+      - name: Commit fast discovery trace
+        if: steps.guard.outputs.active == 'true'
+        run: |
+          git config user.name "TAGX Fast Discovery Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/discovery-fast.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Refresh TAGX fast discovery trace"
+          git pull --rebase origin main
+          git push origin main
