@@ -1,0 +1,102 @@
+name: TAGX Cold-Start Audit
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["TAGX Proactive Discovery Universe"]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: '15,45 8-10 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-coldstart-audit-main
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Sync latest main
+        run: git pull --rebase origin main
+
+      - name: Measure discovery vs reactive cold-start
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime
+          from zoneinfo import ZoneInfo
+
+          et=ZoneInfo('America/New_York')
+          now=datetime.datetime.now(datetime.timezone.utc)
+          day=now.astimezone(et).date().isoformat()
+
+          def load(path):
+              try:return json.loads(pathlib.Path(path).read_text(encoding='utf-8'))
+              except Exception:return {}
+          def parse(s):
+              try:return datetime.datetime.fromisoformat(str(s).replace('Z','+00:00')).astimezone(datetime.timezone.utc)
+              except Exception:return None
+
+          d=load('tag/data/discovery.json')
+          m=load('tag/data/finviz.json')
+
+          discovery_ts=parse(d.get('snapshotTimestampUTC') or d.get('updatedAt'))
+          mover_first=[]
+          for r in m.get('rows',[]):
+              t=parse(r.get('_firstObservedTimestampUTC'))
+              if t and t.astimezone(et).date().isoformat()==day:
+                  mover_first.append(t)
+          mover_first_ts=min(mover_first) if mover_first else None
+
+          discovery_first=[]
+          for r in d.get('rows',[]):
+              t=parse(r.get('_firstObservedTimestampUTC'))
+              if t and t.astimezone(et).date().isoformat()==day:
+                  discovery_first.append(t)
+          discovery_first_ts=min(discovery_first) if discovery_first else discovery_ts
+
+          lag=None
+          if mover_first_ts and discovery_first_ts:
+              lag=(discovery_first_ts-mover_first_ts).total_seconds()/60
+
+          out={
+              'schemaVersion':1,
+              'sessionDateET':day,
+              'updatedAt':now.isoformat(),
+              'reactiveFirstObservedUTC':mover_first_ts.isoformat() if mover_first_ts else None,
+              'discoveryFirstObservedUTC':discovery_first_ts.isoformat() if discovery_first_ts else None,
+              'coldStartLagMinutes':round(lag,2) if lag is not None else None,
+              'targetLagMinutes':8,
+              'status':'PASS' if lag is not None and lag<=8 else ('FAIL' if lag is not None else 'DATA_UNVERIFIED'),
+              'discoverySnapshotUTC':discovery_ts.isoformat() if discovery_ts else None,
+              'discoveryCount':d.get('count',len(d.get('rows',[]))),
+              'moverCount':m.get('count',len(m.get('rows',[]))),
+              'trainingEligible':False,
+              'purpose':'Operational cadence metric only; never used as market truth or model label.'
+          }
+          p=pathlib.Path('tag/data/tagx-coldstart-audit.json')
+          p.write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(out,indent=2))
+          PY
+
+      - name: Commit audit artifact
+        run: |
+          git config user.name "TAGX Audit Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagx-coldstart-audit.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Measure TAGX discovery cold-start lag"
+          git pull --rebase origin main
+          git push origin main
