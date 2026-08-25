@@ -1,0 +1,29 @@
+{
+  "timestampET": "2026-08-25T17:00:00-04:00",
+  "focus": "reactive-feed resilience + streaming/replay alternatives",
+  "candidates": [
+    {
+      "repo": "londonstrategicedge/lse-data",
+      "purpose": "live websocket + same-provider historical replay",
+      "layer": ["real-time market data ingestion", "WebSocket/streaming feeds", "event replay"],
+      "maturityScore": 72,
+      "integrationScore": 74,
+      "dataDependencyScore": 48,
+      "latencySuitability": "promising but unbenchmarked",
+      "license": "MIT client; provider data terms apply",
+      "securityNotes": "requires external API key; treat provider claims and timestamps as untrusted until benchmarked; never mix replay ticks with live features without explicit replay flag",
+      "maintenance": "active in July 2026; newest commit checked 2026-07-20",
+      "docsTests": "README is detailed; repository is small and requires deeper test/CI verification before sandbox use",
+      "dataRequirements": "London Strategic Edge account/key; commercial external data dependency",
+      "lookAheadRisk": "medium: replay-then-live is useful but must preserve replay flag and point-in-time cutoff",
+      "decision": "Borrow Pattern / Sandbox Challenger",
+      "reason": "Same schema for live + historical and replay-to-live handoff could improve TAGX reconnect/backfill and T-5/T-15 reconstruction, but external data claims and latency are not independently validated."
+    }
+  ],
+  "existingPreferredPatterns": [
+    "alpaca-py official streaming challenger",
+    "NautilusTrader event/replay architecture",
+    "Databento point-in-time replay pattern"
+  ],
+  "productionDependenciesAdded": false
+}
