@@ -36,6 +36,9 @@ jobs:
               except Exception: return None
           def clamp(v,a=0,b=100): return max(a,min(b,v))
           def num(v): return v if isinstance(v,(int,float)) and math.isfinite(v) else None
+          def ticker_of(x):
+              if not isinstance(x,dict): return None
+              return x.get('ticker') or x.get('Ticker') or x.get('symbol') or x.get('Symbol')
 
           react_ts=dt(d.get('reactiveSnapshotTimestampET'))
           CLEAN_LEAD_MINUTES=5
@@ -114,39 +117,51 @@ jobs:
               })
 
           eligible=sorted([x for x in candidates if x['rankEligible']],key=lambda x:x['score'],reverse=True)
-          top20set={x.get('ticker') for x in (d.get('currentTop20') or [])}
+          current=d.get('currentTop20') or []
+          top20set={str(ticker_of(x)).upper() for x in current if ticker_of(x)}
+          # Fallback authority: ledger ticker state is the canonical source for current Top-20 rank.
+          if not top20set:
+              top20set={str(t).upper() for t,e in (d.get('tickers') or {}).items() if e.get('lastTop20Rank')}
           top20chall=eligible[:20]
           valid_benchmark=bool(react_ts and top20chall and all(x['leadMinutesToReactiveSnapshot']>=CLEAN_LEAD_MINUTES for x in top20chall))
-          hits=[x for x in top20chall if x['ticker'] in top20set]
-          current=d.get('currentTop20') or []
+          hits=[x for x in top20chall if str(x['ticker']).upper() in top20set]
           early20=[x for x in current if isinstance(x.get('proactiveFirstChangePct'),(int,float)) and x['proactiveFirstChangePct']<20]
           early10=[x for x in current if isinstance(x.get('proactiveFirstChangePct'),(int,float)) and x['proactiveFirstChangePct']<10]
           leads=[x['leadMinutesToReactiveSnapshot'] for x in top20chall]
+          denom=len(top20chall)
+          # Evaluation-integrity invariant: candidate annotations and benchmark membership must agree.
+          annotated_hits={str(x['ticker']).upper() for x in top20chall if x.get('currentTop20')}
+          computed_hits={str(x['ticker']).upper() for x in hits}
+          membership_consistent=(annotated_hits==computed_hits)
           out={
               'schemaVersion':4,'generatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),
               'sessionDateET':d.get('sessionDateET'),'reactiveSnapshotTimestampET':d.get('reactiveSnapshotTimestampET'),
               'mode':'CHALLENGER_RESEARCH_ONLY','scorePolicy':'PRE_TOP20_TRANSITION_V4_LIQUIDITY_QUALIFIED',
               'cleanLeadMinutesRequired':CLEAN_LEAD_MINUTES,
               'liquidityPolicy':{'minDeltaVolume':MIN_DELTA_VOLUME,'minDollarVolumePer10m':MIN_DOLLAR_VOLUME_PER_10M,'minChangeVelocityPctPtsPer10m':MIN_CHANGE_VELOCITY,'minFloatCapturePer10m':MIN_FLOAT_CAPTURE_10M,'minRelativeVolumeDelta':MIN_RELVOL_DELTA},
-              'benchmarkEligible':valid_benchmark,
-              'benchmarkReason':'clean lead + direction + liquidity qualification passed' if valid_benchmark else 'insufficient clean liquidity-qualified candidates',
+              'benchmarkEligible':bool(valid_benchmark and membership_consistent),
+              'benchmarkReason':'clean lead + direction + liquidity qualification + membership consistency passed' if valid_benchmark and membership_consistent else ('TOP20_MEMBERSHIP_INCONSISTENT' if valid_benchmark and not membership_consistent else 'insufficient clean liquidity-qualified candidates'),
               'candidateCount':len(candidates),'rankEligibleCount':len(eligible),'rejectedForLeadHistory':rejected_for_lead,
               'rejectedNoProactiveHistory':rejected_for_history,'rejectedDirection':rejected_direction,'rejectedLiquidity':rejected_liquidity,
               'medianLeadMinutesTop20':round(sorted(leads)[len(leads)//2],1) if leads else None,
               'minimumLeadMinutesTop20':round(min(leads),1) if leads else None,
               'currentTop20Count':len(current),'currentTop20EarlyUnder10':len(early10),'currentTop20EarlyUnder20':len(early20),
-              'challengerPrecisionAt20':round(len(hits)/20,3) if valid_benchmark else None,
-              'challengerHitsAt20':[x['ticker'] for x in hits],'topCandidates':eligible[:30],
+              'challengerPrecisionAt20':round(len(hits)/denom,3) if valid_benchmark and membership_consistent and denom else None,
+              'challengerHitsAt20':[x['ticker'] for x in hits],
+              'evaluationIntegrity':{'top20SetCount':len(top20set),'annotatedHits':[x for x in sorted(annotated_hits)],'computedHits':[x for x in sorted(computed_hits)],'membershipConsistent':membership_consistent,'precisionDenominator':denom},
+              'topCandidates':eligible[:30],
               'notes':[
                   'Research only; no execution authority and no score-champion changes.',
                   'Adds absolute delta-dollar-volume qualification so tiny-share prints cannot rank highly from price velocity alone.',
                   'Requires either measurable float capture or RVOL acceleration in addition to direction and dollar liquidity.',
                   'All score features precede the reactive benchmark by at least five minutes.',
+                  'Evaluation integrity now normalizes ticker/symbol schemas, falls back to canonical lastTop20Rank, and fails closed on membership disagreement.',
+                  'Precision denominator is the actual challenger Top-K size rather than a hard-coded 20.',
                   'Promotion requires >=3 complete sessions with better Precision@20/Top4 hit rate, >=5m lead and no material Early-Capture regression.'
               ]
           }
           OUT.write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
-          print('TAGX transition challenger v4','eligible',valid_benchmark,'ranked',len(eligible),'hits@20',len(hits),'precision',out['challengerPrecisionAt20'],'liquidityRejected',rejected_liquidity)
+          print('TAGX transition challenger v4','eligible',out['benchmarkEligible'],'ranked',len(eligible),'hits@20',len(hits),'precision',out['challengerPrecisionAt20'],'membershipConsistent',membership_consistent,'liquidityRejected',rejected_liquidity)
           PY
       - name: Commit challenger artifact
         run: |
