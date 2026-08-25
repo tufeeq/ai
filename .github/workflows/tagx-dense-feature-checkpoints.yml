@@ -1,0 +1,121 @@
+name: TAGX Dense Feature Checkpoints
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["TAGX Proactive Discovery Universe"]
+    types: [completed]
+  schedule:
+    - cron: '*/5 8-23 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-dense-feature-checkpoints-main
+  cancel-in-progress: true
+
+jobs:
+  checkpoint:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Sync latest main
+        run: git pull --rebase origin main
+
+      - name: Append same-session compact checkpoint
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime
+          from zoneinfo import ZoneInfo
+
+          src=pathlib.Path('tag/data/discovery.json')
+          out=pathlib.Path('tag/data/tagx-feature-checkpoints.json')
+          if not src.exists(): raise SystemExit('discovery.json missing')
+          d=json.loads(src.read_text(encoding='utf-8'))
+          rows=d.get('rows') or []
+          source_ts=d.get('snapshotTimestampUTC') or d.get('updatedAt')
+          if not rows or not source_ts: raise SystemExit('discovery snapshot incomplete')
+          try: source_dt=datetime.datetime.fromisoformat(str(source_ts).replace('Z','+00:00'))
+          except Exception: raise SystemExit('invalid discovery timestamp')
+          now=datetime.datetime.now(datetime.timezone.utc)
+          age=(now-source_dt.astimezone(datetime.timezone.utc)).total_seconds()/60
+          if age>20: raise SystemExit(f'discovery snapshot stale: {age:.1f}m')
+          et=source_dt.astimezone(ZoneInfo('America/New_York'))
+          day=et.date().isoformat()
+          if et.weekday()>=5: raise SystemExit('weekend')
+
+          def f(v):
+              try:return float(str(v or '').replace('%','').replace(',','').replace('$',''))
+              except:return None
+          compact=[]
+          for r in rows:
+              t=str(r.get('Ticker') or r.get('ticker') or '').upper().strip()
+              if not t: continue
+              compact.append([
+                  t,
+                  f(r.get('Price')),
+                  f(r.get('Change')),
+                  f(r.get('Volume')),
+                  f(r.get('Rel Volume')),
+                  f(r.get('Float')),
+                  r.get('_discoveryLanes') or [],
+              ])
+          if not compact: raise SystemExit('no compact rows')
+
+          try: old=json.loads(out.read_text(encoding='utf-8')) if out.exists() else {}
+          except Exception: old={}
+          if old.get('sessionDateET')!=day:
+              old={
+                  'schemaVersion':1,
+                  'sessionDateET':day,
+                  'authority':'PROACTIVE_DISCOVERY_SAME_SESSION_CHECKPOINTS',
+                  'fieldOrder':['ticker','price','changePct','volume','relativeVolume','floatMillions','lanes'],
+                  'snapshots':[]
+              }
+          snaps=old.setdefault('snapshots',[])
+          stamp=source_dt.astimezone(datetime.timezone.utc).isoformat()
+          # Do not duplicate the same discovery generation when both workflow_run and cron fire.
+          if snaps and snaps[-1].get('sourceSnapshotUTC')==stamp:
+              raise SystemExit('checkpoint already recorded')
+          snaps.append({
+              'sourceSnapshotUTC':stamp,
+              'sourceSnapshotET':et.isoformat(),
+              'capturedAtUTC':now.isoformat(),
+              'count':len(compact),
+              'rows':compact,
+          })
+          # One trading day only; bound storage even if cadence becomes denser than expected.
+          old['snapshots']=snaps[-220:]
+          old['updatedAtUTC']=now.isoformat()
+          old['snapshotCount']=len(old['snapshots'])
+          gaps=[]
+          times=[]
+          for s in old['snapshots']:
+              try: times.append(datetime.datetime.fromisoformat(s['sourceSnapshotUTC'].replace('Z','+00:00')))
+              except: pass
+          for a,b in zip(times,times[1:]): gaps.append((b-a).total_seconds()/60)
+          old['cadence']={
+              'medianGapMin':round(sorted(gaps)[len(gaps)//2],2) if gaps else None,
+              'maxGapMin':round(max(gaps),2) if gaps else None,
+              'gapsOver15m':sum(1 for g in gaps if g>15),
+          }
+          out.write_text(json.dumps(old,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
+          print('checkpoint',day,stamp,'rows',len(compact),'snapshots',len(old['snapshots']),'cadence',old['cadence'])
+          PY
+
+      - name: Commit checkpoint ledger
+        run: |
+          git config user.name "TAGX Checkpoint Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagx-feature-checkpoints.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Capture TAGX dense same-session feature checkpoint"
+          git pull --rebase origin main
+          git push origin main
