@@ -106,16 +106,18 @@ jobs:
             parts=[(participation,.45),(displacement,.27),(quiet_score,.18),(lane_score,.10)]
             valid=[(v,w) for v,w in parts if v is not None]
             pattern=sum(v*w for v,w in valid)/sum(w for _,w in valid) if valid else 0
-            latent=bool(quiet and vol_exp is not None and vol_exp>=4 and (cur_vol or 0)>=2500 and (move_first is None or move_first<18))
+            price_holding=(move_first is None or (-2<=move_first<18))
+            current_holding=(cur_change is None or cur_change>-4)
+            latent=bool(quiet and vol_exp is not None and vol_exp>=4 and (cur_vol or 0)>=2500 and price_holding and current_holding)
             r['_volumeExpansionFromFirst']=round(vol_exp,2) if vol_exp is not None else None
             r['_moveFromFirstPct']=round(move_first,2) if move_first is not None else None
             r['_quietBase']=quiet
             r['_latentIgnition']=latent
             r['_earlyPatternScore']=round(pattern,2)
-            r['_patternVersion']='quiet-base-participation-v1'
+            r['_patternVersion']='quiet-base-participation-v1.1'
             rows.append(r)
           rows.sort(key=lambda x:(1 if x.get('_latentIgnition') else 0,p(x.get('_earlyPatternScore')) or 0,p(x.get('Change')) or -999),reverse=True)
-          payload={'schemaVersion':2,'source':'Finviz Elite TAGX lightweight proactive lane','sourceType':'FAST_PROACTIVE_DISCOVERY','sessionDateET':et.date().isoformat(),'updatedAt':now.isoformat(),'snapshotTimestampUTC':now.isoformat(),'snapshotTimestampET':et.isoformat(),'session':'pre-market' if et.hour<9 or (et.hour==9 and et.minute<30) else ('regular' if et.hour<16 else 'after-hours'),'count':len(rows),'trainingEligible':False,'groundTruthEligible':False,'purpose':'COLD_START_AND_CADENCE_CHALLENGER','rankingMethod':'QUIET_BASE_PARTICIPATION_ACCELERATION','rows':rows}
+          payload={'schemaVersion':2,'source':'Finviz Elite TAGX lightweight proactive lane','sourceType':'FAST_PROACTIVE_DISCOVERY','sessionDateET':et.date().isoformat(),'updatedAt':now.isoformat(),'snapshotTimestampUTC':now.isoformat(),'snapshotTimestampET':et.isoformat(),'session':'pre-market' if et.hour<9 or (et.hour==9 and et.minute<30) else ('regular' if et.hour<16 else 'after-hours'),'count':len(rows),'trainingEligible':False,'groundTruthEligible':False,'purpose':'COLD_START_AND_CADENCE_CHALLENGER','rankingMethod':'QUIET_BASE_PARTICIPATION_ACCELERATION_V1_1','rows':rows}
           out.parent.mkdir(parents=True,exist_ok=True);out.write_text(json.dumps(payload,ensure_ascii=False,indent=2))
           print('fast discovery rows',len(rows),'latent ignition',sum(1 for r in rows if r.get('_latentIgnition')))
           PY
