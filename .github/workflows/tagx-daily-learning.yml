@@ -26,155 +26,87 @@ jobs:
           fetch-depth: 0
       - name: Sync latest main
         run: git pull --rebase origin main
-      - name: Compare first 10–30 minutes of winners vs failures
+      - name: Compare first 10–30 minutes of genuinely early winners vs failures
         run: |
           python - <<'PY'
           import json, pathlib, statistics, datetime, math
-
-          LEDGER=pathlib.Path('tag/data/tagx-signal-ledger.json')
-          OUT=pathlib.Path('tag/data/daily-learning.json')
-          HIST=pathlib.Path('tag/data/daily-learning-history.json')
-          if not LEDGER.exists() or not LEDGER.stat().st_size:
-              raise SystemExit('tagx-signal-ledger.json unavailable')
-          ledger=json.loads(LEDGER.read_text(encoding='utf-8'))
-          day=ledger.get('sessionDateET')
-
+          LEDGER=pathlib.Path('tag/data/tagx-signal-ledger.json'); OUT=pathlib.Path('tag/data/daily-learning.json'); HIST=pathlib.Path('tag/data/daily-learning-history.json')
+          if not LEDGER.exists() or not LEDGER.stat().st_size: raise SystemExit('tagx-signal-ledger.json unavailable')
+          ledger=json.loads(LEDGER.read_text(encoding='utf-8')); day=ledger.get('sessionDateET')
           def f(v):
               try:
-                  x=float(v)
-                  return x if math.isfinite(x) else None
-              except Exception:return None
+                  x=float(v); return x if math.isfinite(x) else None
+              except:return None
           def ts(v):
-              if not v:return None
-              try:return datetime.datetime.fromisoformat(str(v).replace('Z','+00:00'))
-              except Exception:return None
+              try:return datetime.datetime.fromisoformat(str(v).replace('Z','+00:00')) if v else None
+              except:return None
           def median(vals):
-              vals=[x for x in vals if isinstance(x,(int,float)) and math.isfinite(x)]
-              return round(statistics.median(vals),3) if vals else None
+              vals=[x for x in vals if isinstance(x,(int,float)) and math.isfinite(x)]; return round(statistics.median(vals),3) if vals else None
           def pct(vals,p):
               vals=sorted(x for x in vals if isinstance(x,(int,float)) and math.isfinite(x))
               if not vals:return None
               if len(vals)==1:return round(vals[0],3)
-              k=(len(vals)-1)*p
-              lo=int(k); hi=min(lo+1,len(vals)-1); w=k-lo
+              k=(len(vals)-1)*p; lo=int(k); hi=min(lo+1,len(vals)-1); w=k-lo
               return round(vals[lo]*(1-w)+vals[hi]*w,3)
-          def point_at(path, first_dt, minutes):
-              target=first_dt+datetime.timedelta(minutes=minutes)
-              pts=[]
+          def point_at(path,first_dt,minutes):
+              target=first_dt+datetime.timedelta(minutes=minutes); pts=[]
               for q in path:
                   qt=ts(q.get('timestampET'))
-                  if qt and first_dt<=qt<=target:
-                      pts.append((qt,q))
+                  if qt and first_dt<=qt<=target: pts.append((qt,q))
               return max(pts,key=lambda z:z[0])[1] if pts else None
           def metrics(e):
               path=sorted((q for q in e.get('path',[]) if ts(q.get('timestampET'))),key=lambda q:ts(q.get('timestampET')))
-              if not path:return None
               proactive=[q for q in path if q.get('source')=='proactive']
-              first=proactive[0] if proactive else path[0]
-              first_dt=ts(first.get('timestampET'))
-              if not first_dt:return None
-              p10=point_at(path,first_dt,10) or first
-              p30=point_at(path,first_dt,30) or p10
-              fv=f(first.get('volume')); fp=f(first.get('price')); fc=f(first.get('changePct'))
+              if not proactive:return None
+              first=proactive[0]; first_dt=ts(first.get('timestampET')); fv=f(first.get('volume')); fp=f(first.get('price')); fc=f(first.get('changePct'))
+              if not first_dt or fc is None:return None
+              p10=point_at(path,first_dt,10) or first; p30=point_at(path,first_dt,30) or p10
               def snap(q):
                   v=f(q.get('volume')); p=f(q.get('price')); c=f(q.get('changePct'))
-                  return {
-                    'volumeExpansion': (v/fv if v is not None and fv and fv>0 else None),
-                    'priceMovePct': ((p-fp)/fp*100 if p is not None and fp and fp>0 else None),
-                    'changeAccelerationPts': (c-fc if c is not None and fc is not None else None),
-                    'changePct':c,'volume':v,'price':p
-                  }
-              return {'ticker':e.get('ticker'),'firstChangePct':fc,'firstVolume':fv,'firstPrice':fp,
-                      'maxObservedChangePct':f(e.get('maxObservedChangePct')),'firstSeenET':first.get('timestampET'),
-                      'm10':snap(p10),'m30':snap(p30),'originClass':e.get('originClass')}
-
+                  return {'volumeExpansion':(v/fv if v is not None and fv and fv>0 else None),'priceMovePct':((p-fp)/fp*100 if p is not None and fp and fp>0 else None),'changeAccelerationPts':(c-fc if c is not None else None),'changePct':c,'volume':v,'price':p}
+              return {'ticker':e.get('ticker'),'firstChangePct':fc,'firstVolume':fv,'firstPrice':fp,'maxObservedChangePct':f(e.get('maxObservedChangePct')),'firstSeenET':first.get('timestampET'),'m10':snap(p10),'m30':snap(p30),'originClass':e.get('originClass')}
           rows=[]
           for e in (ledger.get('tickers') or {}).values():
               m=metrics(e)
               if m and m['maxObservedChangePct'] is not None: rows.append(m)
-
-          winners=[r for r in rows if r['maxObservedChangePct']>=50]
+          all_winners=[r for r in rows if r['maxObservedChangePct']>=50]
           explosive=[r for r in rows if r['maxObservedChangePct']>=100]
-          failures=[r for r in rows if r['maxObservedChangePct']<10]
-          mid=[r for r in rows if 10<=r['maxObservedChangePct']<50]
-
+          early=[r for r in rows if -10<=r['firstChangePct']<10]
+          winners=[r for r in early if r['maxObservedChangePct']>=50]
+          failures=[r for r in early if r['maxObservedChangePct']<10]
+          mid=[r for r in early if 10<=r['maxObservedChangePct']<50]
+          late_winners=[r for r in all_winners if r not in winners]
           def group(g):
-              return {
-                'count':len(g),
-                'firstChangeAbsMedian':median([abs(r['firstChangePct']) for r in g if r['firstChangePct'] is not None]),
-                'firstVolumeMedian':median([r['firstVolume'] for r in g]),
-                'volumeExpansion10mMedian':median([r['m10']['volumeExpansion'] for r in g]),
-                'volumeExpansion30mMedian':median([r['m30']['volumeExpansion'] for r in g]),
-                'priceMove10mMedianPct':median([r['m10']['priceMovePct'] for r in g]),
-                'priceMove30mMedianPct':median([r['m30']['priceMovePct'] for r in g]),
-                'changeAcceleration10mMedianPts':median([r['m10']['changeAccelerationPts'] for r in g]),
-                'changeAcceleration30mMedianPts':median([r['m30']['changeAccelerationPts'] for r in g])
-              }
+              return {'count':len(g),'firstChangeAbsMedian':median([abs(r['firstChangePct']) for r in g]),'firstVolumeMedian':median([r['firstVolume'] for r in g]),'volumeExpansion10mMedian':median([r['m10']['volumeExpansion'] for r in g]),'volumeExpansion30mMedian':median([r['m30']['volumeExpansion'] for r in g]),'priceMove10mMedianPct':median([r['m10']['priceMovePct'] for r in g]),'priceMove30mMedianPct':median([r['m30']['priceMovePct'] for r in g]),'changeAcceleration10mMedianPts':median([r['m10']['changeAccelerationPts'] for r in g]),'changeAcceleration30mMedianPts':median([r['m30']['changeAccelerationPts'] for r in g])}
           gw,gf,gm=group(winners),group(failures),group(mid)
-
           reconciliation=None
           for name in ('final-reconciliation-v4.json','final-reconciliation-v3.json','final-reconciliation-v2.json','final-reconciliation.json'):
               p=pathlib.Path('tag/data')/name
               try:
                   x=json.loads(p.read_text(encoding='utf-8'))
-                  if x.get('trainingEligible') and (not day or str(x.get('sessionDateET') or x.get('sourceSnapshotTimestampET') or '').startswith(str(day))):
-                      reconciliation=x;break
-              except Exception:pass
-          reconciled=bool(reconciliation)
-          sample_ok=len(winners)>=5 and len(failures)>=25
-          promotion_eligible=bool(reconciled and sample_ok)
-
-          winner_quiet=[abs(r['firstChangePct']) for r in winners if r['firstChangePct'] is not None]
-          winner_v10=[r['m10']['volumeExpansion'] for r in winners if r['m10']['volumeExpansion'] is not None]
-          winner_v30=[r['m30']['volumeExpansion'] for r in winners if r['m30']['volumeExpansion'] is not None]
-          proposed={
-            'quietBaseAbsPctMax': max(2.0,min(8.0,pct(winner_quiet,.75))) if winner_quiet else 4.0,
-            'volumeExpansion10mMin': max(2.0,min(12.0,pct(winner_v10,.35))) if winner_v10 else 4.0,
-            'volumeExpansion30mMin': max(3.0,min(25.0,pct(winner_v30,.35))) if winner_v30 else 6.0,
-            'status':'PROMOTION_ELIGIBLE' if promotion_eligible else 'OBSERVE_ONLY'
-          }
-
-          def delta(a,b):
-              return round(a-b,3) if isinstance(a,(int,float)) and isinstance(b,(int,float)) else None
-          signal_edges={
-            'volumeExpansion10m':delta(gw['volumeExpansion10mMedian'],gf['volumeExpansion10mMedian']),
-            'volumeExpansion30m':delta(gw['volumeExpansion30mMedian'],gf['volumeExpansion30mMedian']),
-            'priceMove10mPct':delta(gw['priceMove10mMedianPct'],gf['priceMove10mMedianPct']),
-            'priceMove30mPct':delta(gw['priceMove30mMedianPct'],gf['priceMove30mMedianPct']),
-            'changeAcceleration10mPts':delta(gw['changeAcceleration10mMedianPts'],gf['changeAcceleration10mMedianPts']),
-            'changeAcceleration30mPts':delta(gw['changeAcceleration30mMedianPts'],gf['changeAcceleration30mMedianPts'])
-          }
-          strongest=sorted(((v,k) for k,v in signal_edges.items() if isinstance(v,(int,float))),reverse=True)[:3]
-
-          payload={
-            'schemaVersion':1,'sessionDateET':day,'generatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            'method':'FIRST_10_30_MIN_WINNERS_VS_FAILURES','winnerDefinition':'maxObservedChangePct >= 50',
-            'explosiveDefinition':'maxObservedChangePct >= 100','failureDefinition':'maxObservedChangePct < 10',
-            'counts':{'eligible':len(rows),'winners50':len(winners),'explosive100':len(explosive),'mid10to50':len(mid),'failuresUnder10':len(failures)},
-            'winners':gw,'failures':gf,'mid':gm,'signalEdges':signal_edges,
-            'strongestEdges':[{'metric':k,'winnerMinusFailure':v} for v,k in strongest],
-            'proposedThresholds':proposed,'promotionEligible':promotion_eligible,
-            'promotionGuard':{'sampleAdequate':sample_ok,'finalOutcomeReconciled':reconciled,'rule':'No automatic threshold promotion without >=5 winners, >=25 failures and reconciled final outcomes.'},
-            'topWinners':sorted(winners,key=lambda r:r['maxObservedChangePct'],reverse=True)[:10],
-            'topExplosive':sorted(explosive,key=lambda r:r['maxObservedChangePct'],reverse=True)[:10]
-          }
-          OUT.parent.mkdir(parents=True,exist_ok=True)
+                  if x.get('trainingEligible') and (not day or str(x.get('sessionDateET') or x.get('sourceSnapshotTimestampET') or '').startswith(str(day))): reconciliation=x; break
+              except: pass
+          reconciled=bool(reconciliation); sample_ok=len(winners)>=5 and len(failures)>=25; promotion_eligible=bool(reconciled and sample_ok)
+          quiet=[abs(r['firstChangePct']) for r in winners]; v10=[r['m10']['volumeExpansion'] for r in winners if r['m10']['volumeExpansion'] is not None]; v30=[r['m30']['volumeExpansion'] for r in winners if r['m30']['volumeExpansion'] is not None]
+          proposed={'quietBaseAbsPctMax':max(2.0,min(8.0,pct(quiet,.75))) if quiet else 4.0,'volumeExpansion10mMin':max(1.25,min(10.0,pct(v10,.35))) if v10 else 3.0,'volumeExpansion30mMin':max(1.5,min(20.0,pct(v30,.35))) if v30 else 4.0,'status':'PROMOTION_ELIGIBLE' if promotion_eligible else 'OBSERVE_ONLY'}
+          def delta(a,b):return round(a-b,3) if isinstance(a,(int,float)) and isinstance(b,(int,float)) else None
+          edges={'volumeExpansion10m':delta(gw['volumeExpansion10mMedian'],gf['volumeExpansion10mMedian']),'volumeExpansion30m':delta(gw['volumeExpansion30mMedian'],gf['volumeExpansion30mMedian']),'priceMove10mPct':delta(gw['priceMove10mMedianPct'],gf['priceMove10mMedianPct']),'priceMove30mPct':delta(gw['priceMove30mMedianPct'],gf['priceMove30mMedianPct']),'changeAcceleration10mPts':delta(gw['changeAcceleration10mMedianPts'],gf['changeAcceleration10mMedianPts']),'changeAcceleration30mPts':delta(gw['changeAcceleration30mMedianPts'],gf['changeAcceleration30mMedianPts'])}
+          strongest=sorted(((abs(v),v,k) for k,v in edges.items() if isinstance(v,(int,float))),reverse=True)[:3]
+          payload={'schemaVersion':2,'sessionDateET':day,'generatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'method':'FIRST_10_30_MIN_GENUINELY_EARLY_WINNERS_VS_FAILURES','earlyCohortDefinition':'proactive first change >= -10% and < +10%','winnerDefinition':'early cohort AND maxObservedChangePct >= 50','explosiveDefinition':'maxObservedChangePct >= 100','failureDefinition':'early cohort AND maxObservedChangePct < 10','counts':{'eligibleProactive':len(rows),'earlyCohort':len(early),'allWinners50':len(all_winners),'earlyWinners50':len(winners),'explosive100':len(explosive),'lateWinnersExcludedFromTraining':len(late_winners),'earlyMid10to50':len(mid),'earlyFailuresUnder10':len(failures)},'winners':gw,'failures':gf,'mid':gm,'signalEdges':edges,'strongestEdges':[{'metric':k,'winnerMinusFailure':v} for _,v,k in strongest],'proposedThresholds':proposed,'promotionEligible':promotion_eligible,'promotionGuard':{'sampleAdequate':sample_ok,'finalOutcomeReconciled':reconciled,'rule':'Train only on proactive captures inside [-10%, +10%). No automatic threshold promotion without >=5 early winners, >=25 early failures and reconciled final outcomes.'},'topWinners':sorted(winners,key=lambda r:r['maxObservedChangePct'],reverse=True)[:10],'lateWinnersReference':sorted(late_winners,key=lambda r:r['maxObservedChangePct'],reverse=True)[:10],'topExplosive':sorted(explosive,key=lambda r:r['maxObservedChangePct'],reverse=True)[:10]}
           OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8')
-          try: hist=json.loads(HIST.read_text(encoding='utf-8')) if HIST.exists() else {'schemaVersion':1,'sessions':[]}
-          except Exception: hist={'schemaVersion':1,'sessions':[]}
-          sessions=[x for x in hist.get('sessions',[]) if x.get('sessionDateET')!=day]
-          sessions.append({'sessionDateET':day,'generatedAtUTC':payload['generatedAtUTC'],'counts':payload['counts'],'signalEdges':signal_edges,'proposedThresholds':proposed,'promotionEligible':promotion_eligible})
-          hist['sessions']=sessions[-60:]
+          try:hist=json.loads(HIST.read_text(encoding='utf-8')) if HIST.exists() else {'schemaVersion':2,'sessions':[]}
+          except:hist={'schemaVersion':2,'sessions':[]}
+          sessions=[x for x in hist.get('sessions',[]) if x.get('sessionDateET')!=day]; sessions.append({'sessionDateET':day,'generatedAtUTC':payload['generatedAtUTC'],'counts':payload['counts'],'signalEdges':edges,'proposedThresholds':proposed,'promotionEligible':promotion_eligible}); hist['schemaVersion']=2;hist['sessions']=sessions[-60:]
           HIST.write_text(json.dumps(hist,ensure_ascii=False,indent=2),encoding='utf-8')
-          print('daily learning',day,payload['counts'],'promotionEligible',promotion_eligible,'strongest',payload['strongestEdges'])
+          print('early learning',day,payload['counts'],'promotionEligible',promotion_eligible,'strongest',payload['strongestEdges'])
           PY
       - name: Validate learning contract
         run: |
           python - <<'PY'
           import json
           p=json.load(open('tag/data/daily-learning.json',encoding='utf-8'))
-          assert p['schemaVersion']==1
-          assert p['method']=='FIRST_10_30_MIN_WINNERS_VS_FAILURES'
+          assert p['schemaVersion']==2
+          assert p['method']=='FIRST_10_30_MIN_GENUINELY_EARLY_WINNERS_VS_FAILURES'
           assert 'promotionGuard' in p and 'proposedThresholds' in p
           print('learning contract OK',p['counts'])
           PY
@@ -184,7 +116,7 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add tag/data/daily-learning.json tag/data/daily-learning-history.json
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Update TAGX daily early-pattern learning"
+          git commit -m "Update TAGX genuinely early pattern learning"
           for i in 1 2 3; do
             if git push origin main; then exit 0; fi
             git pull --rebase origin main
