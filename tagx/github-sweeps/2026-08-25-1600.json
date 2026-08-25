@@ -1,0 +1,26 @@
+{
+  "timestampET": "2026-08-25T16:00:00-04:00",
+  "focus": "online learning / drift detection / evaluation integrity",
+  "candidate": {
+    "repo": "online-ml/river",
+    "purpose": "Prequential delayed-label learning, online anomaly/drift detection and progressive validation for TAGX challenger scoring",
+    "layer": "Online Learning / Drift Detection / Model Evaluation",
+    "maturityScore": 95,
+    "integrationScore": 79,
+    "dataDependencyScore": 90,
+    "latencySuitability": "EXCELLENT",
+    "license": "BSD-3-Clause",
+    "maintenance": "Release 0.26.1 prepared 2026-08-21; same-day CI/Python compatibility and release-runner fixes observed.",
+    "docsTests": "README documents predict_one/learn_one prequential pattern, progressive validation, drift/anomaly detection; repository exposes active CI/docs.",
+    "securityNotes": "No market credentials required for offline challenger use. Development builds may require Rust/Cargo; production hot path should pin wheels/version and avoid unnecessary extras.",
+    "lookAheadRisk": "HIGH if learn_one receives same-session future outcomes; LOW only with reconciled delayed labels and immutable signal-time feature snapshots.",
+    "decision": "Borrow Pattern / Sandbox Challenger",
+    "integrationPlan": "Do not add production dependency. Prototype delayed-label prequential scoring offline after Final Snapshot Reconciliation; compare false-positive rate, Precision@20 and Time-to-Detection against the fixed TAGX score champion over >=3 complete sessions."
+  },
+  "directFindingThisCycle": {
+    "component": "TAGX Transition Challenger v4 evaluator",
+    "finding": "Evaluation artifact reported Precision@20=0 and no hits while a displayed top-ranked candidate (WLDS) was itself annotated currentTop20=true. This is an evaluation-integrity contradiction, not a model result.",
+    "action": "Patched evaluator to normalize ticker/symbol keys, fall back to canonical lastTop20Rank, use the actual Top-K denominator, and fail closed when candidate annotations disagree with benchmark membership.",
+    "productionDependencyAdded": false
+  }
+}
