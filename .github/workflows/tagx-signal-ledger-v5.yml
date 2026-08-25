@@ -1,0 +1,154 @@
+name: TAGX Signal Ledger v5 Atomic
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '2-57/5 8-23 * * 1-5'
+  push:
+    branches: [main]
+    paths:
+      - 'tag/data/discovery.json'
+      - 'tag/data/discovery-fast.json'
+      - 'tag/data/finviz.json'
+      - '.github/workflows/tagx-signal-ledger-v5.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-signal-ledger-v5-main
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sync
+        run: git pull --rebase origin main
+      - name: Build atomic v5 ledger
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime, os
+          STD=pathlib.Path('tag/data/discovery.json')
+          FAST=pathlib.Path('tag/data/discovery-fast.json')
+          REACT=pathlib.Path('tag/data/finviz.json')
+          OUT=pathlib.Path('tag/data/tagx-signal-ledger-v5.json')
+          TMP=OUT.with_suffix('.json.tmp')
+
+          def load(p):
+              try:
+                  if p.exists() and p.stat().st_size: return json.loads(p.read_text(encoding='utf-8'))
+              except Exception as e: print('invalid',p,e)
+              return {}
+          def rows(p):
+              if isinstance(p,list): return p
+              if isinstance(p,dict):
+                  for k in ('rows','data','results','stocks','items','records','topMovers'):
+                      if isinstance(p.get(k),list): return p[k]
+              return []
+          def ts(p): return str(p.get('snapshotTimestampET') or p.get('updatedAtET') or p.get('snapshotTimestampUTC') or p.get('updatedAt') or '') if isinstance(p,dict) else ''
+          def ticker(r): return str(r.get('Ticker') or r.get('ticker') or r.get('Symbol') or r.get('symbol') or '').upper().strip()
+          def f(v):
+              try:return float(str(v if v is not None else '').replace('%','').replace(',','').replace('$','').strip())
+              except:return None
+          def val(r,*keys):
+              for k in keys:
+                  if r.get(k) not in (None,''): return r.get(k)
+              return None
+          def point(r,source,stamp):
+              return {'timestampET':stamp,'source':source,'changePct':f(val(r,'Change','change','changePct','Change %')),'price':f(val(r,'Price','price','Last','last')),'volume':f(val(r,'Volume','volume','Vol')),'relativeVolume':f(val(r,'Rel Volume','Relative Volume','relVolume','relativeVolume')),'float':f(val(r,'Float','float','Shares Float','sharesFloat'))}
+
+          std,fast,react=load(STD),load(FAST),load(REACT)
+          feeds=[('standard',std),('fast',fast)]
+          valid=[(name,p) for name,p in feeds if rows(p) and ts(p)]
+          if not valid: raise SystemExit('no proactive feed available; refusing empty ledger write')
+          day=max((ts(p)[:10] for _,p in valid if ts(p)),default='')
+          if not day: raise SystemExit('no session date')
+          try: old=load(OUT)
+          except: old={}
+          if old.get('sessionDateET')!=day or old.get('schemaVersion')!=5: old={'schemaVersion':5,'sessionDateET':day,'tickers':{},'snapshots':[]}
+          tickers=old.setdefault('tickers',{})
+
+          for source,payload in valid:
+              stamp=ts(payload)
+              for r in rows(payload):
+                  t=ticker(r)
+                  if not t: continue
+                  p=point(r,source,stamp); e=tickers.setdefault(t,{'ticker':t,'path':[],'proactiveEver':True})
+                  first_key='firstFastSeenET' if source=='fast' else 'firstStandardSeenET'
+                  first_ch='firstFastChangePct' if source=='fast' else 'firstStandardChangePct'
+                  if not e.get(first_key): e[first_key]=stamp; e[first_ch]=p['changePct']
+                  if not e.get('firstSeenET') or stamp<e['firstSeenET']:
+                      e['firstSeenET']=stamp; e['firstSource']=source; e['firstChangePct']=p['changePct']
+                  sig=(p['timestampET'],p['source'])
+                  if not any((q.get('timestampET'),q.get('source'))==sig for q in e['path'][-12:]): e['path'].append(p)
+                  e['path']=sorted(e['path'][-600:],key=lambda q:str(q.get('timestampET') or ''))
+                  e['lastSeenET']=stamp; e['lastSource']=source; e['lastChangePct']=p['changePct']; e['lastPrice']=p['price']; e['lastVolume']=p['volume']
+
+          react_stamp=ts(react); react_rows=rows(react); reactive_valid=bool(react_rows and react_stamp and react_stamp[:10]==day)
+          top=[]
+          if reactive_valid:
+              arr=[]
+              for r in react_rows:
+                  t=ticker(r); ch=f(val(r,'Change','change','changePct','Change %'))
+                  if t and ch is not None and ch>0: arr.append((ch,t,r))
+              top=sorted(arr,reverse=True,key=lambda x:x[0])[:20]
+              for rank,(ch,t,r) in enumerate(top,1):
+                  e=tickers.setdefault(t,{'ticker':t,'path':[],'proactiveEver':False})
+                  if not e.get('moverFirstSeenET'): e['moverFirstSeenET']=react_stamp; e['moverFirstChangePct']=ch
+                  e['moverEver']=True; e['lastTop20Rank']=rank
+                  p=point(r,'top20_mover',react_stamp); p['top20Rank']=rank
+                  sig=(p['timestampET'],p['source'],rank)
+                  if not any((q.get('timestampET'),q.get('source'),q.get('top20Rank'))==sig for q in e['path'][-12:]): e['path'].append(p)
+
+          current=[]
+          for rank,(ch,t,r) in enumerate(top,1):
+              e=tickers[t]; fc=e.get('firstChangePct')
+              cls='PREDICTED_EARLY_LT10' if isinstance(fc,(int,float)) and fc<10 else 'PREDICTED_EARLY_LT20' if isinstance(fc,(int,float)) and fc<20 else 'DETECTED_LATE' if e.get('proactiveEver') else 'MISSED'
+              e['originClass']=cls; current.append({'rank':rank,'ticker':t,'changePct':ch,'firstChangePct':fc,'originClass':cls,'firstSource':e.get('firstSource')})
+          e10=sum(1 for x in current if isinstance(x.get('firstChangePct'),(int,float)) and x['firstChangePct']<10)
+          e20=sum(1 for x in current if isinstance(x.get('firstChangePct'),(int,float)) and x['firstChangePct']<20)
+          miss=sum(1 for x in current if x['originClass']=='MISSED')
+
+          # After-hours continuation diagnostics use only already-observed paths; never training truth.
+          ah=[]
+          if str(std.get('session','')).lower().startswith('after'):
+              for t,e in tickers.items():
+                  path=[q for q in e.get('path',[]) if isinstance(q.get('changePct'),(int,float))]
+                  if len(path)>=2:
+                      first,last=path[0],path[-1]; peak=max(q['changePct'] for q in path)
+                      retention=(last['changePct']/peak*100) if peak>0 else None
+                      ah.append({'ticker':t,'firstChangePct':first['changePct'],'lastChangePct':last['changePct'],'gainRetentionPct':max(0,min(100,retention)) if retention is not None else None,'points':len(path)})
+              ah=sorted(ah,key=lambda x:x.get('lastChangePct') or -999,reverse=True)[:50]
+
+          out={'schemaVersion':5,'ledgerAuthority':'TAGX_ATOMIC_MULTI_FEED_V5','sessionDateET':day,'updatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'standardTimestampET':ts(std) or None,'fastTimestampET':ts(fast) or None,'reactiveTimestampET':react_stamp or None,'reactiveFeedValid':reactive_valid,'trainingEligible':False,'groundTruthEligible':False,'tickerCount':len(tickers),'tickers':tickers,'currentTop20':current,'currentTop20Count':len(current),'earlyCaptureUnder10':e10,'earlyCaptureUnder20':e20,'coverageMissCount':miss,'afterHoursContinuationDiagnostic':ah,'snapshots':(old.get('snapshots') or [])[-399:]+[{'timestampET':max((ts(p) for _,p in valid),default=None),'top20Count':len(current),'earlyUnder10':e10 if reactive_valid else None,'earlyUnder20':e20 if reactive_valid else None,'reactiveValid':reactive_valid}]}
+          assert out['tickerCount']>0
+          assert out['schemaVersion']==5
+          TMP.write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          check=json.loads(TMP.read_text(encoding='utf-8'))
+          assert check['tickerCount']>0 and check['ledgerAuthority']=='TAGX_ATOMIC_MULTI_FEED_V5'
+          os.replace(TMP,OUT)
+          print('v5 ledger',out['tickerCount'],'tickers top20',len(current),'early<20',e20,'reactive',reactive_valid)
+          PY
+      - name: Validate non-empty output
+        run: |
+          test -s tag/data/tagx-signal-ledger-v5.json
+          python - <<'PY'
+          import json
+          p=json.load(open('tag/data/tagx-signal-ledger-v5.json'))
+          assert p['schemaVersion']==5 and p['tickerCount']>0
+          print('v5 contract OK',p['tickerCount'])
+          PY
+      - name: Commit v5 ledger
+        run: |
+          git config user.name "TAGX Signal Ledger v5"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagx-signal-ledger-v5.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Update TAGX atomic signal ledger v5"
+          for i in 1 2 3; do git push origin main && exit 0 || true; git pull --rebase origin main; done
+          exit 1
