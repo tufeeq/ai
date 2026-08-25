@@ -33,7 +33,9 @@
     const quietScore=quietBase?88:(fc!==null&&Math.abs(fc)<=8?58:25);
     const vals=[[participation,.45],[displacement,.28],[quietScore,.17],[persistence,.10]].filter(([v])=>v!==null);
     const patternScore=vals.length?vals.reduce((s,[v,w])=>s+v*w,0)/vals.reduce((s,[,w])=>s+w,0):null;
-    const latentIgnition=quietBase&&volumeExpansion!==null&&volumeExpansion>=4&&cv>=2500&&(moveFromFirst===null||moveFromFirst<18);
+    const priceHolding=moveFromFirst===null||(moveFromFirst>=-2&&moveFromFirst<18);
+    const currentHolding=n(x.changePct)===null||n(x.changePct)>-4;
+    const latentIgnition=quietBase&&volumeExpansion!==null&&volumeExpansion>=4&&cv>=2500&&priceHolding&&currentHolding;
     return {volumeExpansion,moveFromFirst,quietBase,participation,displacement,persistence,patternScore,latentIgnition};
   }
 
