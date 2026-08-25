@@ -1,0 +1,112 @@
+name: TAGX Source Retention Authority v2
+
+on:
+  workflow_run:
+    workflows: ["TAG5 Mover Snapshot"]
+    types: [completed]
+  schedule:
+    - cron: '2-57/5 * * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-source-retention-authority-main
+  cancel-in-progress: true
+
+jobs:
+  repair:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sync main
+        run: git pull --rebase origin main
+      - name: Enforce peak-referenced retention at source
+        run: |
+          python - <<'PY'
+          import json, pathlib, math
+          p=pathlib.Path('tag/data/finviz.json')
+          if not p.exists():
+              raise SystemExit('finviz.json missing')
+          data=json.loads(p.read_text(encoding='utf-8'))
+          rows=data.get('rows') or data.get('topMovers') or []
+          if not isinstance(rows,list) or not rows:
+              raise SystemExit('finviz rows missing/empty; refuse to write')
+          corrected=0; invalid_raw=0; mismatches=0
+          def f(v):
+              try:return float(str(v).replace('%','').replace(',',''))
+              except:return None
+          for r in rows:
+              pts=[f(x) for x in (r.get('_persistencePoints') or [])]
+              pts=[x for x in pts if x is not None and math.isfinite(x)]
+              cur=f(r.get('Change'))
+              raw=f(r.get('_gainRetentionPct'))
+              if raw is not None and (raw < 0 or raw > 100): invalid_raw += 1
+              positives=[x for x in pts if x > 0]
+              if cur is not None and cur > 0 and cur not in positives: positives.append(cur)
+              corrected_value=None
+              if cur is not None and positives:
+                  peak=max(positives)
+                  if peak > 0:
+                      corrected_value=max(0.0,min(100.0,cur/peak*100.0))
+              if corrected_value is not None:
+                  cv=round(corrected_value,1)
+                  if raw is None or abs(raw-cv)>=0.05:
+                      mismatches += 1
+                  r['_gainRetentionRawPct']=raw
+                  r['_gainRetentionPct']=cv
+                  r['_gainRetentionAuthority']='PEAK_REFERENCED_SOURCE_V2'
+                  r['_gainRetentionPeakPct']=round(max(positives),2)
+                  corrected += 1
+              else:
+                  r['_gainRetentionPct']=None
+                  r['_gainRetentionAuthority']='INSUFFICIENT_POSITIVE_PEAK'
+          bad=[r.get('Ticker') for r in rows if f(r.get('_gainRetentionPct')) is not None and not (0 <= f(r.get('_gainRetentionPct')) <= 100)]
+          if bad:
+              raise SystemExit('retention invariant failed: '+','.join(bad[:20]))
+          data['gainRetentionAuthority']='PEAK_REFERENCED_SOURCE_V2'
+          data['gainRetentionIntegrity']={
+              'correctedRows':corrected,
+              'invalidRawRows':invalid_raw,
+              'mismatchRows':mismatches,
+              'invariant':'0<=GainRetention<=100; current_gain/max_positive_gain_in_contiguous_path'
+          }
+          p.write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8')
+          # Mirror corrected values to matching latest snapshot when possible.
+          sp=pathlib.Path('tag/data/snapshots.json')
+          if sp.exists():
+              try:
+                  hist=json.loads(sp.read_text(encoding='utf-8'))
+                  if isinstance(hist,list) and hist:
+                      stamp=data.get('snapshotTimestampUTC') or data.get('updatedAt')
+                      curmap={str(r.get('Ticker','')).upper():r for r in rows}
+                      for snap in reversed(hist):
+                          if (snap.get('timestampUTC')==stamp or snap.get('snapshotTimestampUTC')==stamp):
+                              movers=snap.get('topMovers') or snap.get('rows') or []
+                              for m in movers:
+                                  x=curmap.get(str(m.get('Ticker','')).upper())
+                                  if x:
+                                      m['_gainRetentionPct']=x.get('_gainRetentionPct')
+                                      m['_gainRetentionAuthority']=x.get('_gainRetentionAuthority')
+                                      m['_gainRetentionPeakPct']=x.get('_gainRetentionPeakPct')
+                              snap['gainRetentionAuthority']='PEAK_REFERENCED_SOURCE_V2'
+                              break
+                      sp.write_text(json.dumps(hist,ensure_ascii=False,indent=2),encoding='utf-8')
+              except Exception as e:
+                  print('snapshot mirror warning:',e)
+          print(json.dumps(data['gainRetentionIntegrity']))
+          PY
+      - name: Commit corrected source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tag/data/finviz.json tag/data/snapshots.json || true
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data: enforce peak-referenced gain retention authority"
+          git pull --rebase origin main
+          git push origin main
