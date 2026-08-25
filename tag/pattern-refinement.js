@@ -2,7 +2,8 @@
 
 (function(){
   const state={ledger:null,loaded:false};
-  const baseAnalyze=window.analyze;
+  const baseAnalyze=typeof analyze==='function'?analyze:null;
+  const baseRender=typeof render==='function'?render:null;
 
   function n(v){const x=Number(v);return Number.isFinite(x)?x:null;}
   function cap(v,a=0,b=100){return Math.max(a,Math.min(b,v));}
@@ -22,8 +23,7 @@
 
   function patternMetrics(x){
     const fv=n(x.firstVolume), fp=n(x.firstPrice), fc=n(x.firstChangePct);
-    const cv=n(x.volume), cp=n(x.price);
-    const obs=n(x.discoveryObservations);
+    const cv=n(x.volume), cp=n(x.price), obs=n(x.discoveryObservations);
     const volumeExpansion=fv!==null&&fv>0&&cv!==null?cv/fv:null;
     const moveFromFirst=fp!==null&&fp>0&&cp!==null?(cp-fp)/fp*100:null;
     const quietBase=fc!==null&&Math.abs(fc)<=4;
@@ -37,8 +37,8 @@
     return {volumeExpansion,moveFromFirst,quietBase,participation,displacement,persistence,patternScore,latentIgnition};
   }
 
-  if(typeof baseAnalyze==='function'){
-    window.analyze=function(x){
+  if(baseAnalyze){
+    analyze=function(x){
       const b=baseAnalyze(x);
       const p=patternMetrics(b);
       let score=b.score,early=b.early,ignition=b.ignition,stage=b.stage;
@@ -47,7 +47,7 @@
         if(Number.isFinite(ignition)) ignition=cap(ignition*.68+p.patternScore*.32);
         if(Number.isFinite(score)) score=cap(score*.78+p.patternScore*.22);
       }
-      if(p.latentIgnition && b.valid && !['LATE','EXHAUSTION'].includes(stage)){
+      if(p.latentIgnition&&b.valid&&!['LATE','EXHAUSTION'].includes(stage)){
         ignition=Math.max(Number.isFinite(ignition)?ignition:0,66);
         score=Math.max(Number.isFinite(score)?score:0,60);
         stage='IGNITION';
@@ -60,47 +60,43 @@
     };
   }
 
+  function decoratePatternUI(){
+    if(!Array.isArray(analyzed)) return;
+    const byTicker=new Map(analyzed.map(x=>[x.ticker,x]));
+    document.querySelectorAll('#scannerBody tr[data-ticker]').forEach(tr=>{
+      const x=byTicker.get(tr.dataset.ticker); if(!x) return;
+      tr.classList.toggle('pattern-ignition',!!x.latentIgnition);
+      const tickerCell=tr.querySelector('td.ticker');
+      if(tickerCell&&x.latentIgnition&&!tickerCell.querySelector('.pattern-dot')) tickerCell.insertAdjacentHTML('beforeend',' <span class="pattern-dot" title="تسارع مبكر">●</span>');
+    });
+    const top=document.querySelector('#topOpportunity');
+    const best=analyzed.filter(x=>x.valid&&Number.isFinite(x.patternScore)).sort((a,b)=>b.patternScore-a.patternScore)[0];
+    if(top){
+      top.querySelector('.pattern-note')?.remove();
+      if(best&&best.patternScore>=55) top.insertAdjacentHTML('beforeend',`<div class="pattern-note"><b>بصمة الحركة المبكرة</b><span>${best.patternScore.toFixed(0)}/100</span><small>${best.quietBase?'قاعدة هادئة · ':''}${Number.isFinite(best.volumeExpansion)?'توسع حجم '+best.volumeExpansion.toFixed(1)+'× · ':''}${Number.isFinite(best.moveFromFirst)?'من أول رصد '+(best.moveFromFirst>=0?'+':'')+best.moveFromFirst.toFixed(1)+'%':''}</small></div>`);
+    }
+  }
+
+  if(baseRender){
+    render=function(){
+      const v=baseRender.apply(this,arguments);
+      queueMicrotask(decoratePatternUI);
+      return v;
+    };
+  }
+
   async function loadLedger(){
     try{
       const r=await fetch(`./data/discovery-ledger.json?v=${Date.now()}`,{cache:'no-store'});
       if(!r.ok) throw new Error(`HTTP ${r.status}`);
       const payload=await r.json();
       const tickers=payload&&payload.tickers?payload.tickers:{};
-      if(Array.isArray(window.rows)){
-        for(const row of window.rows) enrichRow(row,tickers[row.ticker]);
+      if(Array.isArray(rows)){
+        for(const row of rows) enrichRow(row,tickers[row.ticker]);
         state.ledger=payload;state.loaded=true;
-        if(typeof window.render==='function') window.render();
-        decoratePatternUI();
+        if(typeof render==='function') render();
       }
     }catch(e){console.warn('TAGX pattern ledger unavailable',e);}
-  }
-
-  function decoratePatternUI(){
-    if(!Array.isArray(window.analyzed)) return;
-    const byTicker=new Map(window.analyzed.map(x=>[x.ticker,x]));
-    document.querySelectorAll('#scannerBody tr[data-ticker]').forEach(tr=>{
-      const x=byTicker.get(tr.dataset.ticker); if(!x) return;
-      if(x.latentIgnition) tr.classList.add('pattern-ignition');
-      else tr.classList.remove('pattern-ignition');
-      const tickerCell=tr.querySelector('td.ticker');
-      if(tickerCell&&x.latentIgnition&&!tickerCell.querySelector('.pattern-dot')){
-        tickerCell.insertAdjacentHTML('beforeend',' <span class="pattern-dot" title="تسارع مبكر">●</span>');
-      }
-    });
-    const top=document.querySelector('#topOpportunity');
-    const best=window.analyzed.filter(x=>x.valid&&Number.isFinite(x.patternScore)).sort((a,b)=>b.patternScore-a.patternScore)[0];
-    if(top&&best&&best.patternScore>=55){
-      top.insertAdjacentHTML('beforeend',`<div class="pattern-note"><b>بصمة الحركة المبكرة</b><span>${best.patternScore.toFixed(0)}/100</span><small>${best.quietBase?'قاعدة هادئة · ':''}${Number.isFinite(best.volumeExpansion)?'توسع حجم '+best.volumeExpansion.toFixed(1)+'× · ':''}${Number.isFinite(best.moveFromFirst)?'من أول رصد '+(best.moveFromFirst>=0?'+':'')+best.moveFromFirst.toFixed(1)+'%':''}</small></div>`);
-    }
-  }
-
-  const originalRender=window.render;
-  if(typeof originalRender==='function'){
-    window.render=function(){
-      const v=originalRender.apply(this,arguments);
-      queueMicrotask(decoratePatternUI);
-      return v;
-    };
   }
 
   function boot(){setTimeout(loadLedger,1600);setInterval(loadLedger,5*60*1000);}
