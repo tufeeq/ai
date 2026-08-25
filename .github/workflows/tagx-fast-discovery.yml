@@ -84,6 +84,7 @@ jobs:
             try:return float(str(v or '').replace('%','').replace(',','').replace('$',''))
             except:return None
           def clamp(v,a=0,b=100): return max(a,min(b,v))
+          repaired_first_price=0
           for t,r in merged.items():
             oldr=prev.get(t,{})
             r['Ticker']=t; r['_fastDiscoveryLanes']=lanes.get(t,[])
@@ -96,6 +97,22 @@ jobs:
 
             first_change=p(r.get('_firstFastObservedChange')); first_vol=p(r.get('_firstFastObservedVolume')); first_price=p(r.get('_firstFastObservedPrice'))
             cur_change=p(r.get('Change')); cur_vol=p(r.get('Volume')); cur_price=p(r.get('Price'))
+
+            # Legacy repair: first-price was introduced after first-change/time existed for some
+            # same-day rows, so it could be seeded with a much later current price. When the stored
+            # first price is effectively the current price but the two change-vs-prev-close values
+            # materially differ, reconstruct the point-in-time first price from the common prior close.
+            legacy_inconsistent=(first_price is not None and cur_price is not None and first_change is not None and cur_change is not None and abs(first_price-cur_price)/max(abs(cur_price),1e-9)<=0.002 and abs(cur_change-first_change)>=3 and (1+cur_change/100)>0 and (1+first_change/100)>0)
+            if legacy_inconsistent:
+              derived=cur_price*(1+first_change/100)/(1+cur_change/100)
+              if derived>0:
+                first_price=derived
+                r['_firstFastObservedPrice']=round(derived,6)
+                r['_firstFastObservedPriceAuthority']='DERIVED_FROM_COMMON_PREV_CLOSE_LEGACY_REPAIR'
+                repaired_first_price+=1
+            else:
+              r['_firstFastObservedPriceAuthority']=oldr.get('_firstFastObservedPriceAuthority','OBSERVED_IMMUTABLE')
+
             vol_exp=(cur_vol/first_vol) if first_vol and first_vol>0 and cur_vol is not None else None
             move_first=((cur_price-first_price)/first_price*100) if first_price and first_price>0 and cur_price is not None else None
             quiet=first_change is not None and abs(first_change)<=4
@@ -114,12 +131,12 @@ jobs:
             r['_quietBase']=quiet
             r['_latentIgnition']=latent
             r['_earlyPatternScore']=round(pattern,2)
-            r['_patternVersion']='quiet-base-participation-v1.1'
+            r['_patternVersion']='quiet-base-participation-v1.2-first-price-integrity'
             rows.append(r)
           rows.sort(key=lambda x:(1 if x.get('_latentIgnition') else 0,p(x.get('_earlyPatternScore')) or 0,p(x.get('Change')) or -999),reverse=True)
-          payload={'schemaVersion':2,'source':'Finviz Elite TAGX lightweight proactive lane','sourceType':'FAST_PROACTIVE_DISCOVERY','sessionDateET':et.date().isoformat(),'updatedAt':now.isoformat(),'snapshotTimestampUTC':now.isoformat(),'snapshotTimestampET':et.isoformat(),'session':'pre-market' if et.hour<9 or (et.hour==9 and et.minute<30) else ('regular' if et.hour<16 else 'after-hours'),'count':len(rows),'trainingEligible':False,'groundTruthEligible':False,'purpose':'COLD_START_AND_CADENCE_CHALLENGER','rankingMethod':'QUIET_BASE_PARTICIPATION_ACCELERATION_V1_1','rows':rows}
+          payload={'schemaVersion':3,'source':'Finviz Elite TAGX lightweight proactive lane','sourceType':'FAST_PROACTIVE_DISCOVERY','sessionDateET':et.date().isoformat(),'updatedAt':now.isoformat(),'snapshotTimestampUTC':now.isoformat(),'snapshotTimestampET':et.isoformat(),'session':'pre-market' if et.hour<9 or (et.hour==9 and et.minute<30) else ('regular' if et.hour<16 else 'after-hours'),'count':len(rows),'trainingEligible':False,'groundTruthEligible':False,'purpose':'COLD_START_AND_CADENCE_CHALLENGER','rankingMethod':'QUIET_BASE_PARTICIPATION_ACCELERATION_V1_2_FIRST_PRICE_INTEGRITY','firstPriceIntegrity':{'legacyRowsRepaired':repaired_first_price,'policy':'FIRST_PRICE_IMMUTABLE; legacy inconsistency derived only from common previous-close identity'},'rows':rows}
           out.parent.mkdir(parents=True,exist_ok=True);out.write_text(json.dumps(payload,ensure_ascii=False,indent=2))
-          print('fast discovery rows',len(rows),'latent ignition',sum(1 for r in rows if r.get('_latentIgnition')))
+          print('fast discovery rows',len(rows),'latent ignition',sum(1 for r in rows if r.get('_latentIgnition')),'first price repaired',repaired_first_price)
           PY
 
       - name: Commit fast discovery trace
