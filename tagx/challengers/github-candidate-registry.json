@@ -1,0 +1,82 @@
+{
+  "updatedAtUTC": "2026-08-26T14:01:00Z",
+  "policy": {
+    "productionDependencyAutoInstall": false,
+    "requiredBeforeIntegration": ["sandbox", "benchmark", "license review", "security review", "data-cost review", "look-ahead-bias review"],
+    "scores": "0-100; higher is better except securityRisk where higher is worse"
+  },
+  "candidates": [
+    {
+      "repo": "alpacahq/alpaca-py",
+      "purpose": "official REST/WebSocket/SSE market-data and paper-trading SDK",
+      "layer": ["real-time market data ingestion", "WebSocket/streaming feeds", "paper trading", "broker adapters"],
+      "maturityScore": 91,
+      "integrationScore": 72,
+      "dataDependencyScore": 45,
+      "latencySuitability": 92,
+      "securityRisk": 32,
+      "license": "Apache-2.0",
+      "maintenance": "active; pushed 2026-08-24",
+      "docsTests": "official SDK with documentation/examples; runtime model validation",
+      "dataRequirements": "Alpaca account/API keys; feed entitlements and plan determine coverage/latency",
+      "securityNotes": "keys must remain in secrets; never expose broker permissions to frontend; market-data and trading credentials should be separated",
+      "biasNotes": "stream events are suitable for live features; replay must preserve event timestamps and avoid consolidated-bar look-ahead",
+      "decision": "BORROW_PATTERN",
+      "nextTest": "sandbox StockDataStream adapter benchmark for trade/quote arrival latency and disconnect recovery before any production dependency"
+    },
+    {
+      "repo": "jadchaar/sec-edgar-downloader",
+      "purpose": "SEC EDGAR filing retrieval by ticker/CIK",
+      "layer": ["SEC/EDGAR parsing", "dilution/financing detection", "fresh catalyst"],
+      "maturityScore": 84,
+      "integrationScore": 83,
+      "dataDependencyScore": 94,
+      "latencySuitability": 58,
+      "securityRisk": 18,
+      "license": "MIT",
+      "maintenance": "maintained; pushed 2026-06-22; CI/tests/docs present",
+      "docsTests": "README documents fair-access user-agent, broad filing support, unit/integration/lint/doc test flows",
+      "dataRequirements": "public SEC EDGAR; requires compliant user-agent and rate discipline",
+      "securityNotes": "low privilege; validate downloaded content and isolate parser from untrusted HTML",
+      "biasNotes": "filing acceptance/publish timestamp must be stored and used as event time; do not use later amended content at earlier replay timestamps",
+      "decision": "INTEGRATE_CHALLENGER",
+      "nextTest": "benchmark 8-K/6-K/S-1/S-3/424B/144 freshness and ticker mapping against current SEC pipeline; promote only if recall improves without SEC rate failures"
+    },
+    {
+      "repo": "OpenBB-finance/OpenBB",
+      "purpose": "multi-provider financial data platform and agent-facing data normalization patterns",
+      "layer": ["data reconciliation", "orchestration", "provider abstraction", "observability"],
+      "maturityScore": 94,
+      "integrationScore": 52,
+      "dataDependencyScore": 42,
+      "latencySuitability": 48,
+      "securityRisk": 38,
+      "license": "NOASSERTION / project-specific; legal review required",
+      "maintenance": "active large project; repo updated 2026-08-26, pushed 2026-07-30",
+      "docsTests": "large documented platform with provider extension architecture",
+      "dataRequirements": "varies by provider; many useful feeds require external credentials/subscriptions",
+      "securityNotes": "large dependency surface; provider credentials and extension supply-chain require strict sandboxing",
+      "biasNotes": "normalization can obscure source timestamp semantics; preserve raw provider timestamps alongside normalized values",
+      "decision": "BORROW_PATTERN",
+      "nextTest": "borrow provider-adapter/result-standardization pattern only; do not add full dependency to TAGX"
+    },
+    {
+      "repo": "polakowo/vectorbt",
+      "purpose": "vectorized event/backtest experimentation and parameter sweeps",
+      "layer": ["backtesting/event replay", "model evaluation", "champion/challenger"],
+      "maturityScore": 80,
+      "integrationScore": 68,
+      "dataDependencyScore": 98,
+      "latencySuitability": 25,
+      "securityRisk": 24,
+      "license": "NOASSERTION in GitHub metadata; review repository license before use",
+      "maintenance": "active community; pushed 2026-08-02",
+      "docsTests": "mature backtesting ecosystem; suited to offline parameter sweeps rather than live ingestion",
+      "dataRequirements": "data agnostic; quality depends entirely on supplied event history",
+      "securityNotes": "moderate scientific Python dependency surface",
+      "biasNotes": "high look-ahead risk if intraperiod features are reconstructed from final bars; only use timestamped snapshots/events",
+      "decision": "BORROW_PATTERN",
+      "nextTest": "prototype replay metrics externally; no production dependency until license and timestamp semantics are verified"
+    }
+  ]
+}
