@@ -1,0 +1,54 @@
+{
+  "runET": "2026-08-26T06:00:00-04:00",
+  "focus": "extended-hours freshness, streaming challengers, SEC catalyst timing",
+  "observedGap": {
+    "discoverySnapshotET": "2026-08-26T05:31:46.223309-04:00",
+    "extendedHoursSnapshotET": "2026-08-26T04:59:29.038996-04:00",
+    "finding": "Extended-hours capture lagged materially behind Discovery during pre-market; freshness became the dominant reliability risk for ranking."
+  },
+  "candidates": [
+    {
+      "repo": "alpacahq/alpaca-py",
+      "purpose": "official WebSocket/streaming market-data and broker adapter challenger",
+      "layer": ["real-time market data ingestion", "WebSocket/streaming feeds", "paper trading", "broker adapters"],
+      "maturityScore": 9,
+      "integrationScore": 7,
+      "dataDependencyScore": 4,
+      "latencySuitability": "HIGH with suitable Alpaca data entitlement",
+      "license": "Apache-2.0",
+      "maintenance": "active; repository pushed 2026-08-24",
+      "securityNotes": "Requires API credentials and entitlement controls; secrets must stay outside client/GitHub Pages runtime.",
+      "lookAheadRisk": "LOW for live stream; replay logic still requires event-time discipline",
+      "decision": "BUILD_SANDBOX",
+      "reason": "Best current official streaming challenger, but production adoption requires credentialed benchmark versus current public-data pipeline."
+    },
+    {
+      "repo": "dgunning/edgartools",
+      "purpose": "SEC current-filings parsing and catalyst/dilution timing challenger",
+      "layer": ["SEC/EDGAR parsing", "Fresh Catalyst", "Dilution/Financing", "Catalyst Clock"],
+      "maturityScore": 9,
+      "integrationScore": 8,
+      "dataDependencyScore": 9,
+      "latencySuitability": "MEDIUM-HIGH for filing events; subject to SEC access etiquette/rate limits",
+      "license": "MIT",
+      "maintenance": "active; 2026 changelog includes robustness fixes and typed 6-K/S-1/F-1 support",
+      "securityNotes": "Public SEC data; enforce user-agent identity/rate limits and never infer catalyst time from download time when filing timestamp exists.",
+      "lookAheadRisk": "MEDIUM in backtests unless acceptance/filing timestamp is used",
+      "decision": "BUILD_SANDBOX",
+      "reason": "Strong fit for Catalyst Clock and financing-risk extraction without replacing current production parser until benchmarked."
+    }
+  ],
+  "productionChange": {
+    "component": ".github/workflows/tagx-extended-hours-native.yml",
+    "type": "freshness-first capture optimization",
+    "changes": [
+      "shift cron away from :00/:05 congestion to 2-57/5",
+      "reduce candidate set from 180 to 120",
+      "increase workers from 10 to 20",
+      "reduce per-request timeout from 10s to 6s",
+      "add 3-minute job timeout and capture-policy telemetry"
+    ],
+    "expectedEffect": "Lower capture wall-clock time and reduce risk that a new five-minute run cancels an unfinished prior run before extended-hours.json is committed.",
+    "measurementPlan": "Compare extended-hours snapshot age and successRatePct over subsequent pre-market cycles; do not alter ranking thresholds until multi-cycle evidence is available."
+  }
+}
