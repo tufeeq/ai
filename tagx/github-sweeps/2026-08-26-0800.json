@@ -1,0 +1,85 @@
+{
+  "runET": "2026-08-26T08:00:00-04:00",
+  "focus": "multi-horizon persistence, velocity sanity, extended-hours false-positive control",
+  "marketObservation": {
+    "extendedHoursSnapshotET": "2026-08-26T07:47:12.556759-04:00",
+    "largestObserved": [
+      {"ticker":"DAIC","sessionChangePct":250.867,"velocity15mPct":-1.621,"interpretation":"already late/exhausted; not an early opportunity"},
+      {"ticker":"CRE","sessionChangePct":163.963,"velocity15mPct":167.984,"interpretation":"extreme single-window dislocation requiring sanity/quality criticism"},
+      {"ticker":"AIXI","sessionChangePct":149.104,"velocity15mPct":-3.398,"interpretation":"large prior move with current deterioration"},
+      {"ticker":"YYGH","sessionChangePct":76.538,"velocity15mPct":-4.509,"interpretation":"large prior move with current deterioration"},
+      {"ticker":"SMTK","sessionChangePct":23.411,"velocity15mPct":3.399,"interpretation":"near late boundary; useful control for persistence rather than chase"},
+      {"ticker":"CDTG","sessionChangePct":10.239,"velocity15mPct":-12.259,"interpretation":"positive session move but sharp short-window reversal; should be challenged, not promoted"}
+    ],
+    "finding": "The current 15-minute velocity feature is useful but insufficient by itself. Multiple movers show strong session gains while short-window momentum is deteriorating, and CRE demonstrates an extreme velocity print that needs a data-quality/sanity layer. The next improvement should measure multi-horizon persistence and bar-quality before a velocity-driven Wake-Up is trusted.",
+    "externalContext": "Public pre-market sources confirm an active pre-market session on Aug 26, 2026; Barchart documents pre-market movers and volume as authenticity context, while broader market coverage shows a relatively flat index backdrop. TAGX therefore remains focused on small-cap idiosyncratic regime shifts rather than index direction."
+  },
+  "candidates": [
+    {
+      "repo": "alpacahq/alpaca-py",
+      "purpose": "official streaming market-data/news and paper-trading challenger",
+      "layer": ["real-time market data ingestion","WebSocket/streaming feeds","news/catalyst extraction","paper trading","broker adapters"],
+      "maturityScore": 9,
+      "integrationScore": 7,
+      "dataDependencyScore": 4,
+      "latencySuitability": "HIGH with appropriate stock-data entitlement",
+      "license": "Apache-2.0",
+      "maintenance": "active; pushed 2026-08-24; updated 2026-08-25",
+      "docsTests": "README confirms REST, WebSocket and SSE clients, StockDataStream/NewsDataStream, sandbox keys, and pydantic runtime validation.",
+      "securityNotes": "Requires API credentials; never expose keys in GitHub Pages. Run only server-side/sandbox. Entitlement and feed coverage must be benchmarked against current public feeds.",
+      "lookAheadRisk": "LOW live; MEDIUM replay unless event-time and processing-time are stored separately.",
+      "decision": "BUILD_SANDBOX",
+      "reason": "Strongest candidate for replacing polling latency, but not production until coverage/cost/latency benchmark proves improvement."
+    },
+    {
+      "repo": "dgunning/edgartools",
+      "purpose": "SEC/EDGAR catalyst, dilution, insider and financing challenger",
+      "layer": ["SEC/EDGAR parsing","Fresh Catalyst","Dilution/Financing","Catalyst Clock","institutional/insider public filings"],
+      "maturityScore": 9,
+      "integrationScore": 8,
+      "dataDependencyScore": 8,
+      "latencySuitability": "MEDIUM-HIGH for filing-driven catalysts; SEC publication latency remains external",
+      "license": "MIT",
+      "maintenance": "active; pushed 2026-08-26; repository reports CI/regression tests and 1000+ tests",
+      "docsTests": "README documents typed 8-K, Form 4, 13F, S-1, Form D and Form 144 parsing, rate limiting, caching, ticker/CIK lookup and production pipelines.",
+      "securityNotes": "Requires compliant SEC identity/user-agent. Main risk is parser/schema drift and rate-limit behavior, not secrets.",
+      "lookAheadRisk": "LOW if filing acceptance/publication timestamp is preserved; HIGH if later amended facts are backfilled into earlier replay states.",
+      "decision": "BUILD_SANDBOX",
+      "reason": "Best current challenger for Catalyst Clock and financing/dilution attribution; benchmark event timestamp accuracy before integration."
+    },
+    {
+      "repo": "nautechsystems/nautilus_trader",
+      "purpose": "deterministic event replay and research/live parity pattern source",
+      "layer": ["backtesting/event replay","agent orchestration","data reconciliation","paper trading","risk controls"],
+      "maturityScore": 10,
+      "integrationScore": 4,
+      "dataDependencyScore": 7,
+      "latencySuitability": "HIGH engine capability; excessive integration weight for current TAGX architecture",
+      "license": "LGPL-3.0",
+      "maintenance": "very active; pushed 2026-08-26",
+      "docsTests": "README describes deterministic event-driven time model, identical research/live semantics, nanosecond backtesting, modular REST/WebSocket adapters and hardened security practices.",
+      "securityNotes": "Large Rust/Python dependency surface; licensing and operational complexity must be reviewed before embedding.",
+      "lookAheadRisk": "LOW when using its deterministic event-time model correctly; excellent pattern source for replay discipline.",
+      "decision": "BORROW_PATTERN",
+      "reason": "Adopt deterministic event/replay semantics and event-time discipline, not the full engine dependency."
+    }
+  ],
+  "productionChange": {
+    "component": ".github/workflows/tagx-extended-hours.yml",
+    "commit": "601c5d6b33fa9988b93b0eb3ef3a9bcda87e1636",
+    "type": "data-quality and persistence feature expansion",
+    "changes": [
+      "extended-hours schema upgraded to v3",
+      "capture priceVelocity5mPct, priceVelocity15mPct and priceVelocity30mPct",
+      "compute normalized 30-minute persistenceSlope5mPct",
+      "compute persistencePass so velocity-driven reversal logic can require multi-horizon confirmation",
+      "compute maxSingleBarMove30mPct and velocityQuality HIGH/MEDIUM/LOW to detect sparse or dislocated prints",
+      "retain extended-hours volume fields when Yahoo provides usable volume",
+      "parallelize up to 20 workers with 6-second per-symbol timeout and 4-minute job ceiling"
+    ],
+    "expectedEffect": "Reduce false-positive Wake-Up signals driven by a single transient 15-minute burst or suspicious sparse-bar dislocation while preserving earlier regime-shift detection when momentum persists across horizons.",
+    "measurementPlan": "Keep current champion ranking unchanged until schema-v3 observations accumulate. Compare challenger persistencePass against zero-crossing rate, subsequent max move, false-positive rate and Time-to-Detection over multiple sessions before promoting it into execution thresholds."
+  },
+  "versionDecision": "NO_VERSION_BUMP",
+  "reason": "This cycle changes the data/critic layer and begins measurement; production ranking thresholds are intentionally unchanged until multi-session evidence exists."
+}
