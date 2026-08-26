@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "reviewedAtUTC": "2026-08-26T21:12:00Z",
+  "cycle": "AFTER_HOURS_NATIVE_DISCOVERY",
+  "candidate": {
+    "repo": "massive-com/client-python",
+    "purpose": "Official Python REST/WebSocket client for Massive market data (formerly Polygon), including wildcard stock streaming suitable for broad after-hours discovery and trade-level event ingestion.",
+    "layers": [
+      "real-time market data ingestion",
+      "WebSocket/streaming feeds",
+      "market scanners",
+      "trades-per-minute",
+      "order flow",
+      "data reconciliation"
+    ],
+    "maturityScore": 93,
+    "integrationScore": 78,
+    "dataDependencyScore": 32,
+    "latencySuitability": "HIGH with appropriate market-data entitlement; WebSocket wildcard subscriptions can remove the polling/universe-preselection blind spot.",
+    "license": "MIT",
+    "maintenance": "Official maintained client; recent 2026 maintenance observed during this sweep.",
+    "docsTests": "README and core examples document REST and WebSocket clients, including wildcard stock subscriptions. Production integration still requires a sandbox reconnect/backpressure benchmark.",
+    "securityNotes": "Requires API credentials and market-data entitlement. Keys must remain server-side; never expose them in GitHub Pages/browser code. Add reconnect, rate-limit, backpressure and malformed-event guards.",
+    "lookAheadBiasRisk": "LOW for live streaming when exchange/event timestamps are preserved; historical backfill must remain causally separated from signal-time state.",
+    "decision": "BUILD_CHALLENGER",
+    "integrationPlan": "Sandbox a Massive wildcard WebSocket adapter against current Yahoo polling. Compare p50/p95 Time-to-Detection, AH symbol coverage, trade/TPM availability, reconnect recovery, event ordering, operating cost and false-positive lift. Do not add to production until benchmarked.",
+    "productionDependencyAdded": false
+  }
+}
