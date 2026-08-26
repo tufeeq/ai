@@ -1,0 +1,48 @@
+name: TAGX Challenger Catalyst Bridge
+
+on:
+  push:
+    branches:
+      - tagx/challenger-catalyst-bridge-v1
+    paths:
+      - 'tagx/challengers/**'
+      - 'tag/data/discovery.json'
+      - 'tag/data/enrichment.json'
+      - '.github/workflows/tagx-challenger-catalyst-bridge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile challenger
+        run: python -m py_compile tagx/challengers/catalyst_bridge_v1.py
+      - name: Run against current snapshot
+        run: |
+          python tagx/challengers/catalyst_bridge_v1.py --output /tmp/catalyst-bridge.json
+          python - <<'PY'
+          import json
+          p=json.load(open('/tmp/catalyst-bridge.json'))
+          assert p['challenger']=='catalyst-bridge-v1'
+          assert p['policy']['productionEligible'] is False
+          assert p['policy']['shariaGateRequiredBeforePromotion'] is True
+          assert all(r['trace']['productionEligible'] is False for r in p['rows'])
+          print(json.dumps(p['stats'], indent=2))
+          PY
+      - name: Guard against look-ahead promotion
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('/tmp/catalyst-bridge.json'))
+          bad=[r for r in p['rows'] if r['stage']=='LATE' and r['action']=='CHALLENGER_RESCUE']
+          assert not bad, bad
+          print('late-promotion guard: PASS')
+          PY
