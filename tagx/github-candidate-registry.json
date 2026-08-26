@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAtUTC": "2026-08-26T16:59:01Z",
+  "updatedAtUTC": "2026-08-26T20:02:49Z",
   "scoreSemantics": {
     "maturityScore": "0-100, higher is more mature/maintained/tested",
     "integrationScore": "0-100, higher is easier and safer to integrate into TAGX",
@@ -125,6 +125,23 @@
       "decision": "BORROW_PATTERN",
       "integrationPlan": "Borrow score-history/factor-breakdown/edge-snapshot patterns only. Do not use its Yahoo/RSS crawler as TAGX early-ingestion dependency.",
       "lastReviewedUTC": "2026-08-26T16:59:01Z"
+    },
+    {
+      "repo": "ml4t/backtest",
+      "purpose": "MIT event-driven backtesting engine with point-in-time correctness, causal lifecycle, quote-aware execution, risk controls and replayable config/result snapshots.",
+      "layers": ["backtesting/event replay", "Missed-Mover Replay", "model evaluation", "risk controls", "observability/logging", "champion/challenger benchmarking"],
+      "maturityScore": 89,
+      "integrationScore": 58,
+      "dataDependencyScore": 82,
+      "latencySuitability": "HIGH for deterministic replay correctness; NOT a live market-data ingestion layer",
+      "license": "MIT",
+      "maintenance": "Created 2025-11; repo metadata pushed 2026-08-21 and recent verified maintenance commits in August 2026.",
+      "docsTests": "README documents point-in-time correctness/no look-ahead, quote-aware fills, reproducible config snapshots, cross-framework parity evidence and release performance baselines. pyproject enforces tests with branch coverage floor 84 and supports Python >=3.12.",
+      "securityNotes": "No market/broker credential requirement for replay. Dependency surface includes polars, pandas, numpy, PyYAML and ml4t-specs; isolate in sandbox because TAGX current challenger workflows use Python 3.11 while this package requires >=3.12.",
+      "lookAheadBiasRisk": "LOW when causal lifecycle and event-time inputs are preserved; still requires strict separation of final mover labels from signal-time replay data.",
+      "decision": "BUILD_CHALLENGER",
+      "integrationPlan": "Sandbox only: reproduce T-60/T-30/T-15/T-5 Missed-Mover Replay using point-in-time inputs and compare classification parity, runtime, memory and audit exports against TAGX native replay before any dependency decision.",
+      "lastReviewedUTC": "2026-08-26T20:02:49Z"
     }
   ]
 }
