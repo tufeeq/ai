@@ -26,27 +26,33 @@ jobs:
         run: |
           python - <<'PY'
           import json, pathlib, urllib.request, urllib.parse, datetime, re, time
+          from zoneinfo import ZoneInfo
           UA='Mozilla/5.0 TAGXResearch/1.0'
+          ET=ZoneInfo('America/New_York')
           def load(path):
               try:return json.loads(pathlib.Path(path).read_text(encoding='utf-8'))
               except:return {}
           def pct(v):
               try:return float(str(v or 0).replace('%','').replace(',',''))
               except:return 0.0
+          now=datetime.datetime.now(datetime.timezone.utc); et=now.astimezone(ET); minute=et.hour*60+et.minute
+          session='pre-market' if 240<=minute<570 else ('after-hours' if 960<=minute<1200 else 'closed')
           pools=[]
           for p in ['tag/data/discovery-fast.json','tag/data/discovery.json','tag/data/finviz.json']:
-              j=load(p); rs=j.get('rows') or j.get('data') or []
-              pools += rs
+              j=load(p); pools += (j.get('rows') or j.get('data') or [])
           by={}
           for r in pools:
               t=str(r.get('Ticker') or r.get('Symbol') or '').strip().upper()
               if not re.match(r'^[A-Z][A-Z0-9.\-]{0,9}$',t):continue
               old=by.get(t)
               if old is None or abs(pct(r.get('Change')))>abs(pct(old.get('Change'))):by[t]=r
-          ranked=sorted(by.values(),key=lambda r:(abs(pct(r.get('Change'))),pct(r.get('Rel Volume')),float(str(r.get('Volume') or 0).replace(',','') or 0)),reverse=True)[:180]
-          now=datetime.datetime.now(datetime.timezone.utc)
-          out={'updatedAt':now.isoformat(),'source':'Yahoo Finance chart includePrePost=true','rows':{},'count':0,'failClosed':True}
-          for r in ranked:
+          def volnum(v):
+              try:return float(str(v or 0).replace(',',''))
+              except:return 0.0
+          ranked=sorted(by.values(),key=lambda r:(abs(pct(r.get('Change'))),pct(r.get('Rel Volume')),volnum(r.get('Volume'))),reverse=True)[:180]
+          out={'updatedAtUTC':now.isoformat(),'session':session,'source':'Yahoo Finance chart includePrePost=true','dataConfidence':'UNAVAILABLE' if session=='closed' else 'LIMITED','rows':{},'count':0,'failClosed':True}
+          if session!='closed':
+            for r in ranked:
               t=str(r.get('Ticker') or r.get('Symbol')).upper()
               try:
                   url='https://query1.finance.yahoo.com/v8/finance/chart/'+urllib.parse.quote(t)+'?interval=5m&range=1d&includePrePost=true'
@@ -55,27 +61,32 @@ jobs:
                   res=(j.get('chart',{}).get('result') or [None])[0]
                   if not res:continue
                   meta=res.get('meta',{}); ts=res.get('timestamp') or []; q=((res.get('indicators',{}).get('quote') or [{}])[0]); closes=q.get('close') or []; vols=q.get('volume') or []
-                  bars=[(a,b,c or 0) for a,b,c in zip(ts,closes,vols) if b is not None]
+                  bars=[(a,float(b),float(c or 0)) for a,b,c in zip(ts,closes,vols) if b is not None]
                   if not bars:continue
-                  last_ts,last_px,last_vol=bars[-1]
-                  prev=meta.get('chartPreviousClose') or meta.get('previousClose')
+                  period=(meta.get('currentTradingPeriod') or {}).get('regular') or {}; rstart=period.get('start'); rend=period.get('end')
+                  last_ts,last_px,_=bars[-1]; prev=meta.get('chartPreviousClose') or meta.get('previousClose')
                   if not prev:continue
-                  cutoff=last_ts-15*60
-                  recent=[b for b in bars if b[0]>=cutoff]
-                  p15=recent[0][1] if recent else last_px
-                  velocity=((last_px/p15)-1)*100 if p15 else None
-                  recent_vol=sum(float(b[2] or 0) for b in recent)
-                  prior=[b for b in bars if cutoff-15*60<=b[0]<cutoff]
-                  prior_vol=sum(float(b[2] or 0) for b in prior)
-                  vaccel=(recent_vol/prior_vol) if prior_vol>0 else None
-                  change=((last_px/prev)-1)*100
-                  out['rows'][t]={'ticker':t,'last':last_px,'previousClose':prev,'changePct':round(change,3),'velocity15mPct':round(velocity,3) if velocity is not None else None,'volume15m':recent_vol,'volumeAccel15m':round(vaccel,3) if vaccel is not None else None,'timestampUTC':datetime.datetime.fromtimestamp(last_ts,datetime.timezone.utc).isoformat(),'baselineChangePct':pct(r.get('Change')),'source':'Yahoo Finance chart'}
+                  regular=[b for b in bars if rstart and rend and rstart<=b[0]<=rend]
+                  regular_close=regular[-1][1] if regular else prev
+                  if session=='pre-market':
+                      extbars=[b for b in bars if rstart and b[0]<rstart]
+                      anchor=prev
+                  else:
+                      extbars=[b for b in bars if rend and b[0]>rend]
+                      anchor=regular_close
+                  if not extbars:continue
+                  last_ts,last_px,_=extbars[-1]
+                  cutoff=last_ts-15*60; recent=[b for b in extbars if b[0]>=cutoff]; prior=[b for b in extbars if cutoff-15*60<=b[0]<cutoff]
+                  p15=recent[0][1] if recent else last_px; velocity=((last_px/p15)-1)*100 if p15 else None
+                  recent_vol=sum(b[2] for b in recent); prior_vol=sum(b[2] for b in prior); vaccel=(recent_vol/prior_vol) if prior_vol>0 else None
+                  extvol=sum(b[2] for b in extbars); sch=((last_px/anchor)-1)*100 if anchor else None; daych=((last_px/prev)-1)*100 if prev else None
+                  out['rows'][t]={'ticker':t,'last':last_px,'sessionChangePct':round(sch,3) if sch is not None else None,'changeVsPreviousClosePct':round(daych,3) if daych is not None else None,'priceVelocity15mPct':round(velocity,3) if velocity is not None else None,'volume15m':recent_vol,'volumeAcceleration15m':round(vaccel,3) if vaccel is not None else None,'extendedVolume':extvol,'timestampUTC':datetime.datetime.fromtimestamp(last_ts,datetime.timezone.utc).isoformat(),'baselineChangePct':pct(r.get('Change')),'source':'Yahoo Finance chart'}
               except Exception:
                   pass
               time.sleep(.03)
-          out['count']=len(out['rows'])
+          out['count']=len(out['rows']); out['dataConfidence']='MEDIUM' if out['count']>=20 else ('LOW' if out['count'] else 'UNAVAILABLE')
           pathlib.Path('tag/data/extended-hours.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
-          print('extended rows',out['count'])
+          print(json.dumps({'session':session,'rows':out['count'],'confidence':out['dataConfidence']}))
           PY
       - name: Commit snapshot
         run: |
