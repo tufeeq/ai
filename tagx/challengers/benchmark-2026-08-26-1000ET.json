@@ -1,0 +1,105 @@
+{
+  "asOfET": "2026-08-26T10:00:00-04:00",
+  "status": "INTRAPERIOD_RESEARCH_ONLY",
+  "externalMoverBoard": {
+    "source": "StockTitan movers board",
+    "sourceTimestampET": "2026-08-26T09:10:25-04:00",
+    "url": "https://www.stocktitan.net/rankings/stock-movers-today",
+    "note": "Alert-board coverage, not final market breadth; final truth requires end-of-session reconciliation."
+  },
+  "tagxDiscoverySnapshot": {
+    "timestampET": "2026-08-26T09:30:26.300358-04:00",
+    "count": 698,
+    "source": "tag/data/discovery.json"
+  },
+  "verifiedCases": [
+    {
+      "ticker": "CRE",
+      "moverBoardChangePct": 145,
+      "moverRank": 1,
+      "discoveryAt0930": "MISSED",
+      "enrichmentAt0910UTC": "PRESENT",
+      "freshCatalystET": "2026-08-26T07:40:00-04:00",
+      "gap": "fresh-catalyst symbol existed in enrichment/news lane but did not enter standard discovery universe",
+      "challengerHypothesis": "Catalyst Bridge could create a pre-discovery watch event at news arrival, then require price/volume confirmation before promotion.",
+      "proofStatus": "COUNTERFACTUAL_ONLY_NEEDS_T_MINUS_REPLAY"
+    },
+    {
+      "ticker": "YYGH",
+      "moverBoardChangePct": 70,
+      "moverRank": 2,
+      "discoveryAt0930": "PRESENT",
+      "firstObservedClass": "EARLY",
+      "gap": "capture existed, but mover became extreme; evaluate time-to-detection and exhaustion transition rather than adding sensitivity",
+      "proofStatus": "CAPTURED_NEEDS_SIGNAL_LEDGER_TIMING"
+    },
+    {
+      "ticker": "SOAR",
+      "moverBoardChangePct": 70,
+      "moverRank": 3,
+      "discoveryAt0930": "MISSED",
+      "freshCatalystET": "2026-08-26T08:00:00-04:00",
+      "gap": "fresh merger catalyst plus extreme volume did not appear in standard discovery snapshot",
+      "proofStatus": "MISSED_NEEDS_ENRICHMENT_UNIVERSE_EXPANSION"
+    },
+    {
+      "ticker": "DAIC",
+      "moverBoardChangePct": 55,
+      "moverRank": 4,
+      "discoveryAt0930": "MISSED",
+      "freshCatalystET": null,
+      "gap": "no-news/high-velocity mover; requires no-news momentum and turnover lane rather than catalyst requirement",
+      "proofStatus": "MISSED_NEEDS_NO_NEWS_REPLAY"
+    },
+    {
+      "ticker": "VCIG",
+      "moverBoardChangePct": 52,
+      "moverRank": 5,
+      "discoveryAt0930": "MISSED",
+      "freshCatalystET": "2026-08-26T08:32:00-04:00",
+      "gap": "fresh catalyst arrived before open but symbol absent standard discovery",
+      "proofStatus": "MISSED_NEEDS_CATALYST_BRIDGE_REPLAY"
+    },
+    {
+      "ticker": "SMTK",
+      "moverBoardChangePct": 22,
+      "moverRank": 9,
+      "discoveryAt0930": "PRESENT",
+      "firstObservedChangePct": 25.68,
+      "firstObservedClass": "LATE",
+      "gap": "discovered only after move was already obvious; should count Detected Late, not Early",
+      "proofStatus": "DETECTED_LATE"
+    },
+    {
+      "ticker": "MSS",
+      "moverBoardChangePct": 20,
+      "moverRank": 12,
+      "discoveryAt0930": "MISSED",
+      "freshCatalystET": "2026-08-26T09:00:00-04:00",
+      "gap": "fresh financing-overhang-removal catalyst should be eligible for immediate catalyst watch lane",
+      "proofStatus": "MISSED_NEEDS_CATALYST_BRIDGE_REPLAY"
+    },
+    {
+      "ticker": "ZCMD",
+      "moverBoardChangePct": 10,
+      "moverRank": 20,
+      "discoveryAt0930": "PRESENT",
+      "firstObservedChangePct": 2.56,
+      "firstObservedClass": "EARLY",
+      "gap": "use as positive control for low-float/volume early capture",
+      "proofStatus": "EARLY_POSITIVE_CONTROL"
+    }
+  ],
+  "cycleDecision": {
+    "productionChange": false,
+    "challenger": "catalyst-bridge-v1",
+    "reason": "Multiple fresh-catalyst top movers were absent from the standard discovery universe, while CRE proves enrichment can contain a symbol that Discovery missed. This justifies a separate challenger union lane, not a production threshold change.",
+    "successCriteria": [
+      "reduce Missed among fresh-catalyst Top-20 cases",
+      "median catalyst-to-watch latency <= 5 minutes when source event is available",
+      "no promotion without Sharia Gate and data reconciliation",
+      "false-positive rate measured over >= 5 sessions before merge",
+      "T-5/T-15/T-30/T-60 replay uses only timestamp-available data"
+    ]
+  }
+}
