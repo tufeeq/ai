@@ -1,0 +1,65 @@
+{
+  "updatedAtUTC": "2026-08-26T09:02:00Z",
+  "purpose": "TAGX GitHub Intelligence Sweep registry",
+  "candidates": [
+    {
+      "repo": "alpacahq/alpaca-py",
+      "purpose": "Real-time US equities WebSocket market data and paper/broker adapter",
+      "layer": ["real-time market data ingestion", "WebSocket/streaming feeds", "paper trading", "broker adapters"],
+      "maturityScore": 94,
+      "integrationScore": 82,
+      "dataDependencyScore": 45,
+      "latencySuitability": "HIGH if entitled feed is available",
+      "license": "Apache-2.0",
+      "maintenance": "Active; pushed 2026-08-24; official Alpaca SDK",
+      "securityNotes": "Requires API credentials and strict secret handling; sandbox/paper keys available. Do not expose keys to browser.",
+      "lookAheadRisk": "LOW for live streaming; historical benchmarking must pin event timestamps and feed entitlement.",
+      "decision": "BUILD_SANDBOX",
+      "reason": "Strong official StockDataStream pattern, typed validation, documented WebSocket/SSE clients. Production integration depends on data entitlement and benchmark against current Yahoo/Finviz cadence."
+    },
+    {
+      "repo": "dgunning/edgartools",
+      "purpose": "SEC/EDGAR parsing, filings, financials and catalyst extraction",
+      "layer": ["SEC/EDGAR parsing", "catalyst extraction", "dilution/financing detection", "data reconciliation"],
+      "maturityScore": 92,
+      "integrationScore": 86,
+      "dataDependencyScore": 72,
+      "latencySuitability": "MEDIUM-HIGH for filing-triggered catalyst path",
+      "license": "MIT",
+      "maintenance": "Active; 5.4x releases in 2026 and public 6.0 roadmap",
+      "securityNotes": "Must identify SEC requests correctly and rate-limit; parse untrusted filing HTML in isolated process if expanded to rendering.",
+      "lookAheadRisk": "LOW if filing acceptance/filed timestamps are preserved; HIGH if later XBRL facts are backfilled into earlier snapshots.",
+      "decision": "BUILD_SANDBOX",
+      "reason": "Best candidate for Catalyst Clock and dilution/financing challenger, but must benchmark parsing latency and timestamp fidelity before production."
+    },
+    {
+      "repo": "Dharshan2004/market-replay",
+      "purpose": "Deterministic timestamped event capture/replay pattern",
+      "layer": ["backtesting/event replay", "Missed-Mover Replay", "model evaluation"],
+      "maturityScore": 56,
+      "integrationScore": 70,
+      "dataDependencyScore": 35,
+      "latencySuitability": "Pattern suitable; current implementation is Binance-specific",
+      "license": "UNVERIFIED",
+      "maintenance": "Recent repository, lightweight scope",
+      "securityNotes": "No production dependency recommended until license/tests are verified.",
+      "lookAheadRisk": "LOW if recv timestamps and sequence order are retained",
+      "decision": "BORROW_PATTERN",
+      "reason": "Useful JSONL event-log plus monotonic replay architecture for TAGX T-5/T-15/T-30/T-60 reconstruction, but not directly suitable for US equities ingestion."
+    },
+    {
+      "repo": "quarkfin/qf-lib",
+      "purpose": "Event-driven backtesting and explicit look-ahead-bias controls",
+      "layer": ["backtesting/event replay", "model evaluation", "risk controls"],
+      "maturityScore": 78,
+      "integrationScore": 48,
+      "dataDependencyScore": 50,
+      "latencySuitability": "LOW for live scanner; useful research pattern",
+      "license": "Apache-2.0",
+      "securityNotes": "Large framework dependency surface; avoid direct production coupling.",
+      "lookAheadRisk": "Explicit prevention patterns documented",
+      "decision": "BORROW_PATTERN",
+      "reason": "Adopt event-time and anti-look-ahead design concepts rather than integrate the full framework."
+    }
+  ]
+}
