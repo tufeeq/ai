@@ -1,0 +1,22 @@
+{
+  "reviewedAtET": "2026-08-26T19:00:00-04:00",
+  "candidates": [
+    {
+      "repo": "alpacahq/alpaca-py",
+      "purpose": "Official REST/WebSocket/SSE SDK for live stock/news data and paper trading.",
+      "layers": ["real-time market data ingestion", "WebSocket/streaming feeds", "paper trading", "broker adapters", "data validation"],
+      "maturityScore": 89,
+      "integrationScore": 75,
+      "dataDependencyScore": 45,
+      "latencySuitability": "HIGH with live entitlement",
+      "license": "Apache-2.0",
+      "maintenance": "Repository updated 2026-08-25 and pushed 2026-08-24 at review; official maintained SDK.",
+      "docsTests": "README documents StockDataStream/NewsDataStream plus typed request models and pydantic runtime validation; code search confirmed StockDataStream implementation under alpaca/data/live/stock.py.",
+      "securityNotes": "API keys required; credentials must remain server-side and never be embedded in GitHub Pages.",
+      "lookAheadBiasRisk": "LOW for live stream; historical backfill must retain event-time separation.",
+      "decision": "BUILD_CHALLENGER",
+      "integrationPlan": "Do not add dependency yet. Benchmark stream freshness/disconnect recovery against current Yahoo polling and the new heartbeat failover before any production integration.",
+      "patternBorrowedThisCycle": "Independent stream-health/freshness channel: implemented as a separate hot heartbeat/failover path so broad discovery latency cannot silently stale actionable signals."
+    }
+  ]
+}
