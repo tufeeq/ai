@@ -1,0 +1,163 @@
+name: TAGX Sharia Screen
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '7,37 8-23 * * 1-5'
+
+permissions:
+  contents: write
+
+jobs:
+  screen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Build AAOIFI-style research screen
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, re, urllib.request, urllib.parse, time
+          from datetime import datetime, timezone, timedelta
+          from pathlib import Path
+
+          DISC=Path('tag/data/discovery.json')
+          OUT=Path('tag/data/sharia.json')
+          if not DISC.exists():
+              raise SystemExit('discovery.json missing')
+          d=json.loads(DISC.read_text())
+          rows=d.get('rows') or []
+          old={}
+          if OUT.exists():
+              try: old=(json.loads(OUT.read_text()).get('rows') or {})
+              except Exception: old={}
+
+          hard=[
+            r'\bbanks?\b',r'credit services',r'consumer finance',r'mortgage finance',r'insurance',r'reinsurance',
+            r'gambl',r'casino',r'lottery',r'alcohol',r'brew(er|ery|ing)',r'winery|wineries',r'distill',
+            r'tobacco',r'cigarette',r'adult entertainment',r'porn',r'marijuana|cannabis'
+          ]
+          instruments=[r'\betf\b',r'exchange[- ]traded fund',r'\b2x\b',r'\b3x\b',r'leveraged',r'inverse']
+          ambiguous=[r'shell compan',r'blank check',r'\bspac\b',r'capital markets',r'asset management',r'investment management']
+          hard=[re.compile(x,re.I) for x in hard]; instruments=[re.compile(x,re.I) for x in instruments]; ambiguous=[re.compile(x,re.I) for x in ambiguous]
+
+          def num(v):
+              if v is None: return None
+              s=str(v).replace(',','').replace('$','').replace('%','').strip()
+              try:return float(s)
+              except:return None
+
+          def activity(r):
+              txt=' · '.join(str(r.get(k) or '') for k in ('Company','Sector','Industry'))
+              if any(x.search(txt) for x in hard+instruments):
+                  return 'FAIL','النشاط/الأداة الظاهرة تقع ضمن الاستبعادات الشرعية الصريحة.'
+              if any(x.search(txt) for x in ambiguous):
+                  return 'AMBIGUOUS','النشاط يحتاج تحققًا يدويًا إضافيًا قبل الحكم.'
+              return 'PASS','لا يظهر نشاط محظور صريح من Company/Sector/Industry.'
+
+          UA='Mozilla/5.0 TAGX-Sharia-Research/1.0'
+          def fetch_json(url,timeout=8):
+              req=urllib.request.Request(url,headers={'User-Agent':UA,'Accept':'application/json'})
+              with urllib.request.urlopen(req,timeout=timeout) as resp:
+                  return json.load(resp)
+
+          now=int(time.time()); p1=now-370*86400; p2=now+86400
+          def yahoo_fin(ticker):
+              types=['quarterlyTotalDebt','quarterlyCashCashEquivalentsAndShortTermInvestments','quarterlyCashAndCashEquivalents','quarterlyShortTermInvestments','quarterlyTotalRevenue','quarterlyInterestIncomeNonOperating']
+              q=urllib.parse.urlencode({'symbol':ticker,'type':','.join(types),'period1':p1,'period2':p2})
+              url=f'https://query1.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/{urllib.parse.quote(ticker)}?{q}'
+              j=fetch_json(url)
+              out={}
+              for obj in ((j.get('timeseries') or {}).get('result') or []):
+                  typ=(obj.get('meta') or {}).get('type') or obj.get('type')
+                  vals=[]
+                  for z in obj.get(typ) or []:
+                      rv=(z.get('reportedValue') or {}).get('raw')
+                      if rv is not None: vals.append((z.get('asOfDate') or '',rv))
+                  if vals: out[typ]=sorted(vals)[-1][1]
+              return out
+
+          # Financial requests are capped to the most decision-relevant subset; all other rows still receive activity screening.
+          ranked=sorted(rows,key=lambda r:(num(r.get('Rel Volume')) or 0,num(r.get('Volume')) or 0),reverse=True)
+          fin_targets={str(r.get('Ticker') or '').upper() for r in ranked[:140]}
+          result={}
+          for idx,r in enumerate(rows):
+              t=str(r.get('Ticker') or '').upper().strip()
+              if not t: continue
+              astatus,areason=activity(r)
+              item={
+                'ticker':t,'status':'UNVERIFIED','emoji':'🟡','labelAr':'غير متحقق','confidence':'MEDIUM',
+                'activityStatus':astatus,'activityReason':areason,'financialStatus':'UNVERIFIED',
+                'methodology':'AAOIFI-style research screen','checkedAt':datetime.now(timezone.utc).isoformat(),
+                'financial':{'status':'UNVERIFIED','debtToMarketCapPct':None,'cashSecuritiesToMarketCapPct':None,'nonPermissibleIncomePct':None,
+                             'thresholds':{'debtPct':30,'cashSecuritiesPct':30,'nonPermissibleIncomePct':5},'source':None}
+              }
+              if astatus=='FAIL':
+                  item.update(status='EXCLUDED',emoji='🔴',labelAr='غير متوافق',confidence='HIGH',financialStatus='NOT_EVALUATED')
+                  result[t]=item; continue
+              if astatus=='AMBIGUOUS':
+                  item['confidence']='LOW'; result[t]=item; continue
+
+              # Preserve an explicit trusted verified status if a future trusted source/manual override has supplied it.
+              prev=old.get(t) or {}
+              if prev.get('status')=='VERIFIED' and prev.get('verifiedBy'):
+                  item.update(prev); result[t]=item; continue
+
+              if t in fin_targets:
+                  try:
+                      f=yahoo_fin(t)
+                      mc=num(r.get('Market Cap'))
+                      # Finviz discovery Market Cap is in USD millions.
+                      market_cap=(mc*1_000_000) if mc is not None else None
+                      debt=f.get('quarterlyTotalDebt')
+                      csi=f.get('quarterlyCashCashEquivalentsAndShortTermInvestments')
+                      if csi is None:
+                          cash=f.get('quarterlyCashAndCashEquivalents') or 0
+                          sti=f.get('quarterlyShortTermInvestments') or 0
+                          csi=(cash+sti) if (cash or sti) else None
+                      rev=f.get('quarterlyTotalRevenue'); interest=f.get('quarterlyInterestIncomeNonOperating')
+                      dr=(100*debt/market_cap) if (debt is not None and market_cap and market_cap>0) else None
+                      cr=(100*csi/market_cap) if (csi is not None and market_cap and market_cap>0) else None
+                      ir=(100*abs(interest)/abs(rev)) if (interest is not None and rev not in (None,0)) else None
+                      item['financial']={'status':'PARTIAL','debtToMarketCapPct':dr,'cashSecuritiesToMarketCapPct':cr,'nonPermissibleIncomePct':ir,
+                                         'thresholds':{'debtPct':30,'cashSecuritiesPct':30,'nonPermissibleIncomePct':5},'source':'Yahoo Finance fundamentals-timeseries'}
+                      fail=(dr is not None and dr>30) or (cr is not None and cr>30) or (ir is not None and ir>5)
+                      complete=(dr is not None and cr is not None and ir is not None)
+                      if fail:
+                          item.update(status='EXCLUDED',emoji='🔴',labelAr='غير متوافق',confidence='HIGH',financialStatus='FAIL')
+                          item['financial']['status']='FAIL'
+                      elif complete:
+                          item.update(status='VERIFIED',emoji='🟢',labelAr='متوافق',confidence='MEDIUM_HIGH',financialStatus='PASS')
+                          item['financial']['status']='PASS'
+                          item['verifiedBy']='TAGX automated AAOIFI-style three-ratio screen'
+                      else:
+                          item.update(status='UNVERIFIED',emoji='🟡',labelAr='غير متحقق',confidence='MEDIUM',financialStatus='PARTIAL_PASS')
+                      time.sleep(0.04)
+                  except Exception as e:
+                      item['financialError']=type(e).__name__
+              result[t]=item
+
+          payload={
+            'schemaVersion':2,'updatedAt':datetime.now(timezone.utc).isoformat(),'source':'TAGX Sharia Screen',
+            'methodology':'AAOIFI-style automated research screen; business exclusions + debt/cash-securities/non-permissible-income proxy ratios; not a fatwa or formal certification',
+            'thresholds':{'debtToMarketCapPct':30,'cashSecuritiesToMarketCapPct':30,'nonPermissibleIncomePct':5},
+            'counts':{
+              'verified':sum(1 for x in result.values() if x['status']=='VERIFIED'),
+              'unverified':sum(1 for x in result.values() if x['status']=='UNVERIFIED'),
+              'excluded':sum(1 for x in result.values() if x['status']=='EXCLUDED')
+            },'rows':result
+          }
+          OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2))
+          print(payload['counts'])
+          PY
+      - name: Commit Sharia screen
+        shell: bash
+        run: |
+          if git diff --quiet -- tag/data/sharia.json; then exit 0; fi
+          git config user.name 'TAGX Sharia Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tag/data/sharia.json
+          git commit -m 'Update TAGX Sharia screen'
+          git push
