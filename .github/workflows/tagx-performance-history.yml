@@ -1,0 +1,81 @@
+name: TAGX Performance History
+
+on:
+  workflow_run:
+    workflows:
+      - "TAGX RTH Close Shadow Evaluation"
+      - "TAGX Final Session Evaluation"
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-performance-history-main
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sync latest main
+        run: git pull --rebase origin main
+      - name: Build daily performance archive
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime
+          SH=pathlib.Path('tag/data/tagx-rth-close-shadow.json')
+          FE=pathlib.Path('tag/data/tagx-session-evaluations.json')
+          OUT=pathlib.Path('tag/data/tagx-performance-history.json')
+          def load(p):
+              try:return json.loads(p.read_text(encoding='utf-8'))
+              except Exception:return {}
+          def pct(n,d): return None if not d else round(100*n/d,1)
+          shadow=load(SH); final=load(FE); current=final.get('current') or {}
+          shadow_day=shadow.get('sessionDateET'); final_day=current.get('sessionDateET')
+          use_final=bool(current.get('evaluationStatus')=='FINAL_EVALUATION_READY' and final_day)
+          day=final_day if use_final else shadow_day
+          if not day: raise SystemExit('no session date available')
+          if use_final:
+              c=current.get('counts') or {}; top=int(current.get('top20Count') or 0)
+              early20=int(c.get('predictedEarly') or 0); early10=int(c.get('predictedEarlyUnder10') or 0)
+              late=int(c.get('detectedLate') or 0); missed=int(c.get('missed') or 0); unv=int(c.get('dataUnverified') or 0)
+              details=[]
+              for r in current.get('details') or []:
+                  if r.get('status')=='Predicted Early':
+                      details.append({'ticker':r.get('ticker'),'firstChangePct':r.get('proactiveFirstChangePct'),'sessionMovePct':r.get('finalChangePct'),'classification':'PREDICTED_EARLY','firstSeenET':r.get('proactiveFirstSeenET')})
+              entry={'sessionDateET':day,'status':'FINAL_RECONCILED','source':'tagx-session-evaluations.json','top20Count':top,'earlyCaptureUnder10Pct':current.get('earlyCaptureUnder10RatePct'),'earlyCaptureUnder20Pct':current.get('earlyCaptureRatePct'),'missRatePct':pct(missed,max(1,top-unv)),'lateDetectionRatePct':pct(late,max(1,top-unv)),'dataUnverifiedRatePct':pct(unv,max(1,top)),'counts':{'predictedEarlyUnder10':early10,'predictedEarlyUnder20':early20,'detectedLate':late,'missed':missed,'dataUnverified':unv},'topEarlyDiscoveries':sorted(details,key=lambda x:(x.get('sessionMovePct') if isinstance(x.get('sessionMovePct'),(int,float)) else -999),reverse=True)[:10],'groundTruthEligible':True,'notes':'Final reconciled Top-20 performance.'}
+          else:
+              c=shadow.get('counts') or {}; top=int(shadow.get('top20Count') or 0)
+              early20=int(c.get('predictedEarlyUnder20') or 0); early10=int(c.get('predictedEarlyUnder10') or 0); late=int(c.get('detectedLate') or 0); missed=int(c.get('missed') or 0); unv=int(c.get('dataUnverified') or 0)
+              details=[]
+              for r in shadow.get('details') or []:
+                  if str(r.get('classification') or '').startswith('PREDICTED_EARLY'):
+                      details.append({'ticker':r.get('ticker'),'firstChangePct':r.get('proactiveFirstChangePct'),'sessionMovePct':r.get('rthCloseShadowChangePct'),'classification':r.get('classification'),'firstSeenET':r.get('proactiveFirstSeenET')})
+              entry={'sessionDateET':day,'status':'RTH_SHADOW_RESEARCH_ONLY','source':'tagx-rth-close-shadow.json','top20Count':top,'earlyCaptureUnder10Pct':shadow.get('earlyCaptureUnder10Pct'),'earlyCaptureUnder20Pct':shadow.get('earlyCaptureUnder20Pct'),'missRatePct':pct(missed,max(1,top-unv)),'lateDetectionRatePct':pct(late,max(1,top-unv)),'dataUnverifiedRatePct':pct(unv,max(1,top)),'counts':{'predictedEarlyUnder10':early10,'predictedEarlyUnder20':early20,'detectedLate':late,'missed':missed,'dataUnverified':unv},'topEarlyDiscoveries':sorted(details,key=lambda x:(x.get('sessionMovePct') if isinstance(x.get('sessionMovePct'),(int,float)) else -999),reverse=True)[:10],'groundTruthEligible':False,'notes':'Operational RTH-close shadow only; not training truth.'}
+          old=load(OUT); sessions=[x for x in (old.get('sessions') or []) if x.get('sessionDateET')!=day]; sessions.append(entry); sessions=sorted(sessions,key=lambda x:x.get('sessionDateET') or '')[-90:]
+          payload={'schemaVersion':1,'updatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'sessions':sessions}
+          OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(day,entry['status'],entry['earlyCaptureUnder20Pct'],entry['missRatePct'])
+          PY
+      - name: Commit performance archive
+        run: |
+          git config user.name "TAGX Performance Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagx-performance-history.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Update TAGX performance history"
+          for i in 1 2 3; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then exit 0; fi
+            sleep $((i*4))
+          done
+          exit 1
