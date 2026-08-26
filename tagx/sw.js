@@ -1,4 +1,4 @@
-const VERSION='tagx-sw-19b';
+const VERSION='tagx-sw-20';
 self.addEventListener('install',e=>self.skipWaiting());
 self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch',e=>{
@@ -6,11 +6,11 @@ self.addEventListener('fetch',e=>{
  if(e.request.mode==='navigate'&&u.pathname.includes('/ai/tagx/')){
   e.respondWith(fetch(e.request,{cache:'no-store'}).then(async r=>{
    const html=await r.text();let injected=html;
-   if(!injected.includes('enhance-v12.js'))injected=injected.replace('</body>','<script src="./enhance-v12.js?v=19b"></script></body>');
-   if(!injected.includes('extended-v16.js'))injected=injected.replace('</body>','<script src="./extended-v16.js?v=19b"></script><script>document.title="TAGX 1.6 — Native Extended-Hours Intelligence";const e=document.querySelector(".ey");if(e)e.textContent="TAGX 1.6 · NATIVE EXTENDED-HOURS INTELLIGENCE";</script></body>');
-   if(!injected.includes('regular-open-v17.js'))injected=injected.replace('</body>','<script src="./regular-open-v17.js?v=19b"></script></body>');
-   if(!injected.includes('peak-memory-v18.js'))injected=injected.replace('</body>','<script src="./peak-memory-v18.js?v=19b"></script></body>');
-   if(!injected.includes('postclose-v19.js'))injected=injected.replace('</body>','<script src="./postclose-v19.js?v=19b"></script></body>');
+   if(!injected.includes('enhance-v12.js'))injected=injected.replace('</body>','<script src="./enhance-v12.js?v=20"></script></body>');
+   if(!injected.includes('extended-v16.js'))injected=injected.replace('</body>','<script src="./extended-v16.js?v=20"></script><script>document.title="TAGX 1.6 — Native Extended-Hours Intelligence";const e=document.querySelector(".ey");if(e)e.textContent="TAGX 1.6 · NATIVE EXTENDED-HOURS INTELLIGENCE";</script></body>');
+   if(!injected.includes('regular-open-v17.js'))injected=injected.replace('</body>','<script src="./regular-open-v17.js?v=20"></script></body>');
+   if(!injected.includes('peak-memory-v18.js'))injected=injected.replace('</body>','<script src="./peak-memory-v18.js?v=20"></script></body>');
+   if(!injected.includes('postclose-v19.js'))injected=injected.replace('</body>','<script src="./postclose-v19.js?v=20"></script></body>');
    const h=new Headers(r.headers);h.set('content-type','text/html; charset=utf-8');h.set('cache-control','no-store');return new Response(injected,{status:r.status,statusText:r.statusText,headers:h});
   }).catch(()=>fetch(e.request)));
  }
