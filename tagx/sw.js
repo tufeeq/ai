@@ -1,4 +1,4 @@
-const VERSION='tagx-sw-12';
+const VERSION='tagx-sw-13';
 self.addEventListener('install',e=>self.skipWaiting());
 self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch',e=>{
@@ -6,7 +6,9 @@ self.addEventListener('fetch',e=>{
   if(e.request.mode==='navigate'&&u.pathname.includes('/ai/tagx/')){
     e.respondWith(fetch(e.request,{cache:'no-store'}).then(async r=>{
       const html=await r.text();
-      const injected=html.includes('enhance-v12.js')?html:html.replace('</body>','<script src="./enhance-v12.js?v=12"></script></body>');
+      let injected=html;
+      if(!injected.includes('enhance-v12.js')) injected=injected.replace('</body>','<script src="./enhance-v12.js?v=13"></script></body>');
+      if(!injected.includes('sharia-v13.js')) injected=injected.replace('</body>','<script src="./sharia-v13.js?v=13"></script><script>document.title="TAGX 1.3 — Early Market Intelligence";const e=document.querySelector(".ey");if(e)e.textContent="TAGX 1.3 · EARLY MARKET INTELLIGENCE";</script></body>');
       const h=new Headers(r.headers);h.set('content-type','text/html; charset=utf-8');h.set('cache-control','no-store');
       return new Response(injected,{status:r.status,statusText:r.statusText,headers:h});
     }).catch(()=>fetch(e.request)));
