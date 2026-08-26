@@ -1,0 +1,60 @@
+{
+  "cycleTimestampET": "2026-08-26T14:02:55-04:00",
+  "sessionDateET": "2026-08-26",
+  "cycleType": "INTRADAY_EVOLUTION",
+  "productionChanged": false,
+  "githubIntelligenceSweep": {
+    "revalidated": [
+      {
+        "repo": "quarkfin/qf-lib",
+        "decision": "BORROW_PATTERN",
+        "maturityScore": 78,
+        "integrationScore": 48,
+        "dataDependencyScore": 50,
+        "latencySuitability": "LOW for live discovery; useful for event-driven replay/evaluation",
+        "license": "Apache-2.0",
+        "maintenance": "Pushed 2026-08-24; CI, Codecov and docs visible in README",
+        "securityNotes": "Large framework/dependency surface; no direct production coupling",
+        "lookAheadBiasNotes": "README explicitly documents tools to prevent look-ahead bias",
+        "reason": "Borrow event-time replay and anti-look-ahead patterns. Do not use as TAGX live low-float ingestion dependency."
+      }
+    ]
+  },
+  "marketReview": {
+    "externalContext": "By early afternoon ET, extreme runners remained far beyond executable Early zones; late ranking must not be confused with early discovery.",
+    "tagxCurrentTop20Examples": [
+      {"ticker":"EXYN","class":"PREDICTED_EARLY_LT10","firstChangePct":0.5,"currentChangePct":18.17,"leadMinutesToMoverBoard":472.7,"peakMemoryRisk":"NONE"},
+      {"ticker":"AIHS","class":"PREDICTED_EARLY_LT10","firstChangePct":-0.65,"currentChangePct":15.33,"leadMinutesToMoverBoard":472.7,"peakMemoryRisk":"NONE"},
+      {"ticker":"SCYX","class":"PREDICTED_EARLY_LT10","firstChangePct":0.0,"currentChangePct":15.03,"leadMinutesToMoverBoard":472.7,"peakMemoryRisk":"NONE"},
+      {"ticker":"BZ","class":"MISSED","currentChangePct":16.88},
+      {"ticker":"SMTG","class":"MISSED","currentChangePct":14.83},
+      {"ticker":"SOGP","class":"MISSED","currentChangePct":13.98}
+    ],
+    "primaryGap": "Separate early-detection success from present-time actionability so large/aged runners cannot rank as new executable opportunities merely because they remain on mover boards.",
+    "nextReplayTargets": ["BZ","SMTG","SOGP"]
+  },
+  "development": {
+    "challenger": "TAGX Actionability v8",
+    "script": "tagx/challengers/actionability_v8.py",
+    "workflow": ".github/workflows/tagx-actionability-v8-challenger.yml",
+    "inputs": ["tag/data/tagx-authoritative-peak-v7-challenger.json"],
+    "output": "tag/data/tagx-actionability-v8-challenger.json",
+    "logic": [
+      "origin-aware actionability scoring",
+      "session-peak and giveback penalty",
+      "retention-ratio context",
+      "critic PASS/REJECT",
+      "late/exhaustion runners cannot be promoted to actionable Early",
+      "full up/down decision trace"
+    ],
+    "trainingEligible": false,
+    "groundTruthEligible": false,
+    "promotionStatus": "NOT_PROMOTED",
+    "promotionReason": "No multi-session before/after benchmark yet; production Champion remains unchanged."
+  },
+  "commits": [
+    "74c37585d81a5edeabcdfc45b5482040ac63d107",
+    "5312231149b98f58736ed999bd107c406d1d60f8",
+    "b3532c073bda13ad0354043778c5f15a9ca94f6c"
+  ]
+}
