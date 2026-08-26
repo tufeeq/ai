@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAtUTC": "2026-08-26T15:58:00Z",
+  "updatedAtUTC": "2026-08-26T16:59:01Z",
   "scoreSemantics": {
     "maturityScore": "0-100, higher is more mature/maintained/tested",
     "integrationScore": "0-100, higher is easier and safer to integrate into TAGX",
@@ -56,7 +56,7 @@
       "lookAheadBiasRisk": "LOW if acceptedAt/filedAt timestamps are preserved.",
       "decision": "BUILD_CHALLENGER",
       "integrationPlan": "Prototype 8-K/S-1/Form D/Form 144 timing + dilution flags against current SEC sweep.",
-      "lastReviewedUTC": "2026-08-26T15:58:00Z"
+      "lastReviewedUTC": "2026-08-26T16:59:01Z"
     },
     {
       "repo": "nautechsystems/nautilus_trader",
@@ -108,6 +108,23 @@
       "decision": "REJECT_DIRECT_INTEGRATION_BORROW_PATTERN",
       "integrationPlan": "Borrow only separation of signal-time features from future outcome filling.",
       "lastReviewedUTC": "2026-08-26T15:58:00Z"
+    },
+    {
+      "repo": "jaideeppyne/market-pulse",
+      "purpose": "Reference architecture for WebSocket dashboard updates, factor-level signal traces, SQLite score-history snapshots, and edge/outcome views.",
+      "layers": ["market scanners", "WebSocket/streaming UI", "feature traces", "model evaluation", "observability", "UI/visualization"],
+      "maturityScore": 52,
+      "integrationScore": 46,
+      "dataDependencyScore": 76,
+      "latencySuitability": "LOW-MEDIUM for TAGX discovery; README states free Yahoo/RSS stack and roughly 90s default full scan, not sub-second market data",
+      "license": "MIT",
+      "maintenance": "Created 2026-06-06; last push 2026-06-30; no releases/stars/forks at review time.",
+      "docsTests": "Detailed architecture and deployment docs; README documents factor catalog and /api/edge plus snapshot history, but no strong automated-test evidence was established in this sweep.",
+      "securityNotes": "No paid API secrets required in default mode, but public deployment exposes a server and persistence surface; keyword-based news aggregation can create attribution false positives.",
+      "lookAheadBiasRisk": "MEDIUM if /api/edge outcome history is allowed to leak into signal-time scoring; keep outcome filling physically separate.",
+      "decision": "BORROW_PATTERN",
+      "integrationPlan": "Borrow score-history/factor-breakdown/edge-snapshot patterns only. Do not use its Yahoo/RSS crawler as TAGX early-ingestion dependency.",
+      "lastReviewedUTC": "2026-08-26T16:59:01Z"
     }
   ]
 }
