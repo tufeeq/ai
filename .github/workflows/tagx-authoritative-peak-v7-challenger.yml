@@ -1,0 +1,56 @@
+name: TAGX Authoritative Peak v7 Challenger
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '6,16,26,36,46,56 8-23 * * 1-5'
+  push:
+    branches: [main]
+    paths:
+      - 'tagx/challengers/authoritative_peak_v7.py'
+      - '.github/workflows/tagx-authoritative-peak-v7-challenger.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-authoritative-peak-v7-main
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sync latest main
+        run: git pull --rebase origin main
+      - name: Build authoritative dual-lane peak challenger
+        run: python tagx/challengers/authoritative_peak_v7.py
+      - name: Validate no-lookahead and fail-closed contract
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('tag/data/tagx-authoritative-peak-v7-challenger.json',encoding='utf-8'))
+          assert p['schemaVersion']==7
+          assert p['authority']=='CHALLENGER_DUAL_LANE_ORIGIN_PLUS_DUAL_LANE_PEAK_MEMORY'
+          assert p['trainingEligible'] is False and p['groundTruthEligible'] is False
+          assert 'Reactive Top-20 remains evaluation-only' in p['measurementPolicy']
+          for x in p.get('currentTop20',[]):
+              assert x.get('peakMemoryRisk') in {'NONE','EXHAUSTION_PEAK','RUNNER_RESET_DISTRIBUTION','LATE_PEAK_MEMORY','WEAK_RETENTION'}
+          print('TAGX v7 challenger contract OK')
+          PY
+      - name: Commit challenger output
+        run: |
+          git config user.name "TAGX Peak Challenger"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagx-authoritative-peak-v7-challenger.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Update TAGX authoritative peak challenger v7"
+          for i in 1 2 3; do
+            if git push origin main; then exit 0; fi
+            git pull --rebase origin main
+          done
+          exit 1
