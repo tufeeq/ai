@@ -1,4 +1,4 @@
-const VERSION='tagx-sw-16';
+const VERSION='tagx-sw-17';
 self.addEventListener('install',e=>self.skipWaiting());
 self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch',e=>{
@@ -6,9 +6,10 @@ self.addEventListener('fetch',e=>{
  if(e.request.mode==='navigate'&&u.pathname.includes('/ai/tagx/')){
   e.respondWith(fetch(e.request,{cache:'no-store'}).then(async r=>{
    const html=await r.text();let injected=html;
-   if(!injected.includes('enhance-v12.js'))injected=injected.replace('</body>','<script src="./enhance-v12.js?v=16"></script></body>');
-   if(!injected.includes('sharia-v13.js'))injected=injected.replace('</body>','<script src="./sharia-v13.js?v=16"></script></body>');
-   if(!injected.includes('extended-v16.js'))injected=injected.replace('</body>','<script src="./extended-v16.js?v=16"></script><script>document.title="TAGX 1.6 — Native Extended-Hours Intelligence";const e=document.querySelector(".ey");if(e)e.textContent="TAGX 1.6 · NATIVE EXTENDED-HOURS INTELLIGENCE";</script></body>');
+   if(!injected.includes('enhance-v12.js'))injected=injected.replace('</body>','<script src="./enhance-v12.js?v=17"></script></body>');
+   if(!injected.includes('sharia-v13.js'))injected=injected.replace('</body>','<script src="./sharia-v13.js?v=17"></script></body>');
+   if(!injected.includes('extended-v16.js'))injected=injected.replace('</body>','<script src="./extended-v16.js?v=17"></script><script>document.title="TAGX 1.6 — Native Extended-Hours Intelligence";const e=document.querySelector(".ey");if(e)e.textContent="TAGX 1.6 · NATIVE EXTENDED-HOURS INTELLIGENCE";</script></body>');
+   if(!injected.includes('regular-open-v17.js'))injected=injected.replace('</body>','<script src="./regular-open-v17.js?v=17"></script></body>');
    const h=new Headers(r.headers);h.set('content-type','text/html; charset=utf-8');h.set('cache-control','no-store');return new Response(injected,{status:r.status,statusText:r.statusText,headers:h});
   }).catch(()=>fetch(e.request)));
  }
