@@ -1,0 +1,51 @@
+{
+  "sessionDateET": "2026-08-26",
+  "cycleAtET": "2026-08-26T11:58:00-04:00",
+  "champion": "TAGX 1.6 restored morning UI + regular-open-v17",
+  "challenger": "peak-memory-v18",
+  "objective": "Prevent late/exhausted runners from resetting into actionable stages while preserving genuinely early persistent moves.",
+  "marketEvidence": {
+    "publicPremarketReference": {
+      "source": "StockAnalysis pre-market gainers snapshot",
+      "notable": {
+        "YYGH": 104.35,
+        "DAIC": 50.77,
+        "LGCL": 42.60,
+        "RDIB": 35.90,
+        "XPON": 25.43,
+        "SMTK": 23.51,
+        "ZCMD": 17.53
+      }
+    },
+    "tagxLedgerCases": [
+      {"ticker":"ZCMD","firstChangePct":2.56,"maxChangePct":20.96,"lastChangePct":12.10,"originClass":"EARLY","v18Interpretation":"EXHAUSTION after >=8pt peak giveback; successful early discovery, no re-entry chase"},
+      {"ticker":"SMTK","firstChangePct":25.68,"maxChangePct":27.84,"lastChangePct":12.97,"originClass":"LATE","v18Interpretation":"EXHAUSTION; immutable late origin"},
+      {"ticker":"MSS","firstChangePct":-4.05,"maxChangePct":41.10,"lastChangePct":12.50,"originClass":"EARLY","v18Interpretation":"EXHAUSTION after large session-peak giveback; early capture retained as historical success"},
+      {"ticker":"LBGJ","firstChangePct":8.81,"maxChangePct":16.27,"lastChangePct":16.27,"originClass":"FORMING","v18Interpretation":"IGNITION; no giveback penalty"}
+    ]
+  },
+  "diagnosis": [
+    "regular-open-v17 computes PM giveback before it may replace Change with a fresh regular quote, so giveback can be internally stale",
+    "single pre-market/live quote is weaker memory than immutable session ledger maxChangePct + originClass",
+    "standard discovery ledger still lacks some public top pre-market movers such as YYGH, so authoritative early-capture evaluation must continue to combine standard + fast ledgers"
+  ],
+  "change": {
+    "file": "tagx/peak-memory-v18.js",
+    "rules": [
+      "immutable LATE origin cannot reset to Early",
+      "session peak >=50% => EXHAUSTION",
+      "session peak >=25% => LATE, or EXHAUSTION after >=8pt giveback",
+      "session peak >=15% plus >=8pt giveback while still positive => EXHAUSTION",
+      "score penalties scale at 5/8/10/15pt giveback",
+      "small retention bonus only for genuinely early origin with >=80% peak retention"
+    ]
+  },
+  "githubIntelligenceSweep": {
+    "newCandidate": "databento/databento-python",
+    "decision": "BUILD_CHALLENGER",
+    "why": "normalized live/historical schemas, event replay, point-in-time definitions and low-latency market data are directly relevant to TPM/order-flow/latency gaps",
+    "productionDependencyAdded": false
+  },
+  "promotionDecision": "ACTIVATED_AS_UI_CHALLENGER_LAYER_WITHOUT_INCREMENTING_PRODUCT_VERSION",
+  "reason": "The rule is supported by multiple same-session cases and only removes chase/reset false positives; no claim of improved Early-Capture Rate is made until end-of-session Top-20 reconciliation."
+}
