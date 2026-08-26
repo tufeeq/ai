@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "reviewedAtUTC": "2026-08-26T22:00:00Z",
+  "cycle": "2026-08-26 18:00 ET",
+  "candidates": [
+    {
+      "repo": "dgunning/edgartools",
+      "purpose": "SEC/EDGAR parsing and reconciliation for filings, ownership and financing-risk signals.",
+      "layers": ["SEC/EDGAR parsing", "fresh catalyst", "dilution/financing detection", "institutional activity", "data reconciliation"],
+      "maturityScore": 94,
+      "integrationScore": 84,
+      "dataDependencyScore": 88,
+      "latencySuitability": "MEDIUM-HIGH",
+      "license": "MIT",
+      "maintenance": "Multiple production fixes and changelog/test commits on 2026-08-26; release 5.53.0 cut 2026-08-25.",
+      "docsTests": "Large test suite; recent fixes explicitly test NaN/missing-cell handling, 13F portfolio consistency and strict JSON-safe outputs.",
+      "securityNotes": "No broker credentials; SEC identity/rate-limit policy remains mandatory.",
+      "lookAheadBiasRisk": "LOW if accepted/filed timestamps remain event-time boundaries.",
+      "decision": "BUILD_CHALLENGER",
+      "integrationPlan": "Add sandbox SEC challenger focused on 8-K/S-1/Form 144/13F timing and borrow its explicit missing-cell/NaN reconciliation guards before any production dependency.",
+      "evidence": ["commit d125136a: unified missing-cell handling for 13F/MCP and strict JSON safety", "commit 76dbc1ae: corrected portfolio dollar total column", "repo pushed 2026-08-26"]
+    },
+    {
+      "repo": "polakowo/vectorbt",
+      "purpose": "High-throughput vectorized challenger backtests and broad parameter sweeps for feature/threshold robustness.",
+      "layers": ["backtesting", "model evaluation", "walk-forward robustness", "visualization"],
+      "maturityScore": 88,
+      "integrationScore": 42,
+      "dataDependencyScore": 92,
+      "latencySuitability": "HIGH for offline/challenger evaluation; not a live ingestion layer",
+      "license": "Fair Code / non-standard; GitHub metadata reports NOASSERTION",
+      "maintenance": "Repo pushed 2026-08-02 and remains active; ~8.8k stars and tests workflow documented.",
+      "docsTests": "README documents vectorized/Numba/Rust execution, walk-forward optimization, label generation, tests workflow and large parameter sweeps.",
+      "securityNotes": "No credential requirement for offline replay; optional integrations substantially expand dependency surface.",
+      "lookAheadBiasRisk": "MEDIUM unless TAGX supplies strictly point-in-time features and keeps final mover labels isolated.",
+      "decision": "BORROW_PATTERN",
+      "integrationPlan": "Do not add dependency to production due license ambiguity and mismatch with event-driven signal-time replay. Borrow bulk parameter-sweep/walk-forward patterns for challenger benchmarks only."
+    }
+  ],
+  "cycleDecision": "No new production dependency. Prioritize point-in-time replay instrumentation before tuning thresholds."
+}
