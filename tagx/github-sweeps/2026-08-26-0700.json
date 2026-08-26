@@ -1,0 +1,58 @@
+{
+  "runET": "2026-08-26T07:00:00-04:00",
+  "focus": "pre-market reversal wake-up, strict Sharia gating, streaming challenger review",
+  "marketObservation": {
+    "extendedHoursSnapshotET": "2026-08-26T06:45:56.277176-04:00",
+    "finding": "A pre-market reversal gap exists: ZCMD remained negative versus session base (-4.684%) while its 15-minute price velocity accelerated +8.486%. The prior radar largely favored already-positive movers and could miss this transition before zero-crossing.",
+    "controlExamples": [
+      "LGHL was -9.523% with +6.076% 15m velocity and remains blocked because total drawdown exceeds the -8% structural-risk boundary.",
+      "FGL was -5.628% with only +1.643% 15m velocity and does not qualify for reversal wake-up."
+    ]
+  },
+  "candidates": [
+    {
+      "repo": "alpacahq/alpaca-py",
+      "purpose": "official WebSocket/SSE market-data and paper-trading challenger",
+      "layer": ["real-time market data ingestion", "WebSocket/streaming feeds", "news stream", "paper trading", "broker adapters"],
+      "maturityScore": 9,
+      "integrationScore": 7,
+      "dataDependencyScore": 4,
+      "latencySuitability": "HIGH with appropriate market-data entitlement",
+      "license": "Apache-2.0",
+      "maintenance": "active; official SDK; pushed 2026-08-24",
+      "docsTests": "README documents REST, WebSocket and SSE clients including StockDataStream and NewsDataStream; runtime models use pydantic validation.",
+      "securityNotes": "API keys are required for stock data; keep credentials server-side and out of GitHub Pages/client code.",
+      "lookAheadRisk": "LOW for live ingestion; MEDIUM for replay unless event timestamps are preserved independently from processing time.",
+      "decision": "BUILD_SANDBOX",
+      "reason": "Still the strongest streaming challenger; no production dependency added until latency/coverage/cost benchmark beats the current public-data pipeline."
+    },
+    {
+      "repo": "londonstrategicedge/lse-data",
+      "purpose": "recent market-data repository surfaced by freshness search",
+      "layer": ["market data ingestion"],
+      "maturityScore": 3,
+      "integrationScore": 2,
+      "dataDependencyScore": 3,
+      "latencySuitability": "LOW for TAGX US small-cap objective",
+      "license": "UNVERIFIED",
+      "maintenance": "recent repository but insufficient evidence of mature US-equity real-time coverage",
+      "securityNotes": "No production adoption without provenance, licensing and endpoint review.",
+      "lookAheadRisk": "UNVERIFIED",
+      "decision": "REJECT",
+      "reason": "Freshness alone is not enough; scope/data provenance do not currently justify a sandbox integration."
+    }
+  ],
+  "productionChange": {
+    "component": "tagx/index.html",
+    "type": "new early-regime track plus Sharia-aware presentation",
+    "changes": [
+      "add Reversal Wake-Up when session change is between -8% and +3%, 15m velocity >= +4%, and liquidity evidence exists",
+      "keep Reversal Wake-Up as Research Watch rather than execution Signal",
+      "preserve the -8% drawdown block to avoid catching structurally weak reversals",
+      "load sharia.json in the live radar; EXCLUDED is blocked, UNVERIFIED is explicitly Research Only, VERIFIED alone can become confirmed Signal",
+      "retain local cached radar through refresh/fetch failure"
+    ],
+    "expectedEffect": "Improve Time-to-Detection for reversal-to-expansion setups without promoting them directly to execution, limiting false-positive cost while collecting evidence.",
+    "measurementPlan": "Track Reversal Wake candidates through open; compare zero-crossing rate, subsequent max move, and false-positive rate across multiple sessions before changing execution thresholds."
+  }
+}
