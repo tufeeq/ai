@@ -25,7 +25,7 @@ jobs:
           python-version: '3.11'
       - name: Evaluate peak-aware actionability
         run: python tagx/challengers/actionability_v8.py
-      - name: Validate output
+      - name: Validate output and causal invariants
         run: |
           python - <<'PY'
           import json
@@ -34,7 +34,18 @@ jobs:
           assert x['schemaVersion']==8
           assert x['status']=='CHALLENGER_ONLY'
           assert isinstance(x['currentTop20'],list)
-          print({'top20':len(x['currentTop20']),'actionable':x['actionableEarlyCount'],'rejected':x['criticRejectedCount']})
+          for row in x['currentTop20']:
+              cur=row.get('changePct')
+              peak=row.get('effectiveSessionPeakChangePct')
+              give=row.get('peakGivebackPts')
+              ret=row.get('retentionRatio')
+              if cur is not None and peak is not None:
+                  assert float(peak)+1e-9 >= float(cur), (row.get('ticker'),cur,peak)
+              if give is not None:
+                  assert float(give) >= -1e-9, (row.get('ticker'),give)
+              if ret is not None and cur is not None and float(cur) >= 0:
+                  assert float(ret) <= 1.0001, (row.get('ticker'),ret)
+          print({'top20':len(x['currentTop20']),'actionable':x['actionableEarlyCount'],'rejected':x['criticRejectedCount'],'peakInvariantCorrections':x.get('peakInvariantCorrectionCount',0)})
           PY
       - name: Commit challenger output
         run: |
