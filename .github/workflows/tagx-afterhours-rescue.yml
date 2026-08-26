@@ -1,4 +1,4 @@
-name: TAGX After-Hours Rescue
+name: TAGX After-Hours Native Discovery
 
 on:
   workflow_dispatch:
@@ -14,13 +14,13 @@ permissions:
   contents: write
 
 concurrency:
-  group: tagx-afterhours-rescue
+  group: tagx-afterhours-native
   cancel-in-progress: false
 
 jobs:
   capture:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,41 +32,57 @@ jobs:
           python - <<'PY'
           import json,pathlib,datetime,urllib.request,urllib.parse,concurrent.futures,re
           from zoneinfo import ZoneInfo
-          ET=ZoneInfo('America/New_York'); now=datetime.datetime.now(datetime.timezone.utc); et=now.astimezone(ET); m=et.hour*60+et.minute
-          if not (et.weekday()<5 and 960<=m<=1200):
-              print('Outside after-hours; preserving last good snapshot'); raise SystemExit(0)
+
+          ET=ZoneInfo('America/New_York')
+          now=datetime.datetime.now(datetime.timezone.utc)
+          et=now.astimezone(ET)
+          minute=et.hour*60+et.minute
+          if not (et.weekday()<5 and 960<=minute<=1200):
+              print('Outside after-hours; preserving last good snapshot')
+              raise SystemExit(0)
+
           def load(p):
               try:return json.loads(pathlib.Path(p).read_text(encoding='utf-8'))
               except:return {}
           def num(v):
               try:return float(str(v or 0).replace('%','').replace(',','').replace('$',''))
               except:return 0.0
+          def symbol(r):
+              return str(r.get('Ticker') or r.get('ticker') or r.get('Symbol') or r.get('symbol') or '').upper().strip()
+
+          # Native AH universe: never pre-rank by regular-session gain.
           source_files=[('fast','tag/data/discovery-fast.json'),('standard','tag/data/discovery.json'),('finviz','tag/data/finviz.json')]
           by={}; order=[]
           for src,p in source_files:
               j=load(p)
               for r in (j.get('rows') or j.get('data') or []):
-                  t=str(r.get('Ticker') or r.get('Symbol') or '').upper().strip()
-                  if not re.match(r'^[A-Z][A-Z0-9.\-]{0,9}$',t): continue
+                  t=symbol(r)
+                  if not re.match(r'^[A-Z][A-Z0-9.\-]{0,9}$',t):continue
                   if t not in by:
                       by[t]={**r,'_ahUniverseSource':src}; order.append(t)
                   else:
                       old=by[t]
                       for k,v in r.items():
-                          if v not in (None,'') and old.get(k) in (None,''): old[k]=v
+                          if v not in (None,'') and old.get(k) in (None,''):old[k]=v
           preferred=[t for t in order if by[t].get('_ahUniverseSource') in ('fast','standard')]
-          pset=set(preferred); tail=[t for t in order if t not in pset]
+          prefset=set(preferred)
+          tail=[t for t in order if t not in prefset]
           tickers=(preferred+tail)[:1600]
           candidates=[by[t] for t in tickers]
+
+          prior_payload=load('tag/data/extended-hours.json')
+          prior_rows=(prior_payload.get('rows') or {}) if prior_payload.get('session')=='after-hours' else {}
+
           def one(r):
-              t=str(r.get('Ticker') or r.get('Symbol')).upper()
+              t=symbol(r)
               try:
                   url='https://query1.finance.yahoo.com/v8/finance/chart/'+urllib.parse.quote(t)+'?interval=5m&range=1d&includePrePost=true'
-                  req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 TAGXResearch/1.0','Accept':'application/json'})
-                  with urllib.request.urlopen(req,timeout=4) as z:j=json.loads(z.read().decode())
+                  req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 TAGXResearch/2.0','Accept':'application/json'})
+                  with urllib.request.urlopen(req,timeout=4) as z:j=json.loads(z.read().decode('utf-8'))
                   res=(j.get('chart',{}).get('result') or [None])[0]
                   if not res:return t,None
-                  meta=res.get('meta',{}); ts=res.get('timestamp') or []; q=((res.get('indicators',{}).get('quote') or [{}])[0]); cl=q.get('close') or []; vo=q.get('volume') or []
+                  meta=res.get('meta',{}); ts=res.get('timestamp') or []
+                  q=((res.get('indicators',{}).get('quote') or [{}])[0]); cl=q.get('close') or []; vo=q.get('volume') or []
                   bars=[(a,float(b),float(c or 0)) for a,b,c in zip(ts,cl,vo) if b is not None]
                   reg=(meta.get('currentTradingPeriod') or {}).get('regular') or {}; end=reg.get('end'); start=reg.get('start')
                   regular=[b for b in bars if start and end and start<=b[0]<=end]
@@ -75,26 +91,93 @@ jobs:
                   if not ext or not rclose:return t,None
                   lt,px,_=ext[-1]
                   if now.timestamp()-lt>15*60:return t,None
+
                   def vel(mins):
-                      a=[b for b in ext if b[0]>=lt-mins*60]; base=a[0][1] if a else ext[0][1]; return ((px/base)-1)*100 if base else None
-                  v5,v15,v30=vel(5),vel(15),vel(30)
+                      arr=[b for b in ext if b[0]>=lt-mins*60]
+                      if not arr:return None
+                      base=arr[0][1]
+                      return ((px/base)-1)*100 if base else None
+                  def slope30():
+                      arr=[b for b in ext if b[0]>=lt-1800]
+                      if len(arr)<3:return None
+                      ys=[b[1] for b in arr]; xs=list(range(len(ys))); xm=sum(xs)/len(xs); ym=sum(ys)/len(ys)
+                      den=sum((x-xm)**2 for x in xs)
+                      if not den or not ys[0]:return None
+                      return (sum((x-xm)*(y-ym) for x,y in zip(xs,ys))/den/ys[0])*100
+
+                  v5,v15,v30=vel(5),vel(15),vel(30); sl=slope30()
                   recent=[b for b in ext if b[0]>=lt-900]; prior=[b for b in ext if lt-1800<=b[0]<lt-900]
                   rv=sum(b[2] for b in recent); pv=sum(b[2] for b in prior); ev=sum(b[2] for b in ext)
-                  sch=((px/rclose)-1)*100
+                  vacc=(rv/pv) if pv>0 else None
+                  sch=(px/rclose-1)*100
                   prev=meta.get('chartPreviousClose') or meta.get('previousClose') or rclose
-                  day=((px/prev)-1)*100 if prev else None
-                  activity=abs(sch)+(abs(v15 or 0)*0.7)+(min(ev,5000000)/5000000*8 if ev else 0)
-                  return t,{'ticker':t,'session':'after-hours','last':px,'timestampUTC':datetime.datetime.fromtimestamp(lt,datetime.timezone.utc).isoformat(),'rthClose':rclose,'sessionBase':rclose,'sessionChangePct':round(sch,3),'changeVsPreviousClosePct':round(day,3) if day is not None else None,'priceVelocity5mPct':round(v5,3) if v5 is not None else None,'priceVelocity15mPct':round(v15,3) if v15 is not None else None,'priceVelocity30mPct':round(v30,3) if v30 is not None else None,'extendedVolume':ev or None,'extendedVolumeLast15m':rv or None,'volumeAcceleration15m':round(rv/pv,3) if pv else None,'velocityQuality':'HIGH' if len(recent)>=3 else 'MEDIUM','afterHoursActivityScore':round(activity,3),'universeSource':r.get('_ahUniverseSource'),'rthChangePct':num(r.get('Change')),'source':'Yahoo Finance chart includePrePost=true'}
-              except Exception:return t,None
+                  day=(px/prev-1)*100 if prev else None
+
+                  qualifies=bool(abs(sch)>=2 or abs(v5 or 0)>=1 or abs(v15 or 0)>=1.5 or (ev>=5000 and abs(sch)>=0.75))
+                  old=prior_rows.get(t) or {}
+                  old_first=old.get('firstAHSeenUTC')
+                  if old_first:
+                      first_ts=old_first; first_ch=old.get('firstAHChangePct')
+                  elif qualifies:
+                      first_ts=datetime.datetime.fromtimestamp(lt,datetime.timezone.utc).isoformat(); first_ch=round(sch,3)
+                  else:
+                      first_ts=None; first_ch=None
+
+                  old_peak=old.get('peakAHChangePct')
+                  peak=max([x for x in [old_peak,sch] if isinstance(x,(int,float))],default=sch)
+                  giveback=max(0.0,peak-sch) if peak>0 else 0.0
+                  score=max(0.0,sch)*4 + max(0.0,v5 or 0)*3 + max(0.0,v15 or 0)*2
+                  if vacc is not None and vacc>=1.5 and (v5 or 0)>0:score+=8
+                  if ev>=25000:score+=6
+                  if sl is not None and sl>0:score+=4
+                  score=max(0,min(100,round(score)))
+                  origin='AH_NATIVE_EARLY_LT10' if first_ch is not None and first_ch<10 else ('AH_NATIVE_LATE' if first_ch is not None else 'AH_OBSERVED')
+
+                  return t,{
+                    'ticker':t,'session':'after-hours','last':px,
+                    'timestampUTC':datetime.datetime.fromtimestamp(lt,datetime.timezone.utc).isoformat(),
+                    'rthClose':rclose,'sessionBase':rclose,'previousClose':prev,
+                    'sessionChangePct':round(sch,3),'changeVsPreviousClosePct':round(day,3) if day is not None else None,
+                    'priceVelocity5mPct':round(v5,3) if v5 is not None else None,
+                    'priceVelocity15mPct':round(v15,3) if v15 is not None else None,
+                    'priceVelocity30mPct':round(v30,3) if v30 is not None else None,
+                    'persistenceSlope5mPct':round(sl,3) if sl is not None else None,
+                    'persistencePass':bool((v15 or 0)>0 and (sl or 0)>0 and (v5 or 0)>=0),
+                    'extendedVolume':ev or None,'extendedVolumeLast15m':rv or None,
+                    'volumeAcceleration15m':round(vacc,3) if vacc is not None else None,
+                    'velocityQuality':'HIGH' if len(recent)>=3 else 'MEDIUM',
+                    'afterHoursActivityScore':round(abs(sch)+(abs(v15 or 0)*0.7)+(min(ev,5000000)/5000000*8 if ev else 0),3),
+                    'nativeRankScore':score,'discoveryQualified':qualifies,
+                    'firstAHSeenUTC':first_ts,'firstAHChangePct':first_ch,
+                    'peakAHChangePct':round(peak,3),'peakGivebackPts':round(giveback,3),
+                    'originClass':origin,'universeSource':r.get('_ahUniverseSource'),
+                    'rthChangePct':num(r.get('Change')),
+                    'source':'Yahoo Finance chart includePrePost=true'
+                  }
+              except Exception:
+                  return t,None
+
           rows={}
-          with concurrent.futures.ThreadPoolExecutor(max_workers=64) as ex:
+          with concurrent.futures.ThreadPoolExecutor(max_workers=48) as ex:
               for t,r in ex.map(one,candidates):
-                  if r: rows[t]=r
-          ranked=sorted(rows.values(),key=lambda r:(abs(r.get('sessionChangePct') or 0),abs(r.get('priceVelocity15mPct') or 0),r.get('extendedVolume') or 0),reverse=True)
-          leaders=[{'ticker':r['ticker'],'sessionChangePct':r.get('sessionChangePct'),'priceVelocity15mPct':r.get('priceVelocity15mPct'),'extendedVolume':r.get('extendedVolume')} for r in ranked[:30]]
-          out={'schemaVersion':5,'updatedAtUTC':now.isoformat(),'updatedAtET':et.isoformat(),'session':'after-hours','source':'Yahoo Finance chart includePrePost=true broad-universe','dataConfidence':'HIGH' if len(rows)>=100 else ('MEDIUM' if len(rows)>=20 else ('LOW' if rows else 'UNAVAILABLE')),'rows':rows,'count':len(rows),'candidateCount':len(candidates),'universeCount':len(by),'scanPolicy':'BROAD_UNIVERSE_NO_RTH_GAIN_PRESELECTION','leaders':leaders,'failClosed':not bool(rows)}
+                  if r:rows[t]=r
+
+          ranked=sorted(rows.values(),key=lambda r:(r.get('nativeRankScore') or 0,r.get('sessionChangePct') or 0,r.get('extendedVolume') or 0),reverse=True)
+          discoveries=[r for r in ranked if r.get('discoveryQualified')]
+          leaders=[{
+            'ticker':r['ticker'],'sessionChangePct':r.get('sessionChangePct'),'firstAHChangePct':r.get('firstAHChangePct'),
+            'priceVelocity15mPct':r.get('priceVelocity15mPct'),'extendedVolume':r.get('extendedVolume'),'nativeRankScore':r.get('nativeRankScore')
+          } for r in discoveries[:30]]
+          out={
+            'schemaVersion':6,'updatedAtUTC':now.isoformat(),'updatedAtET':et.isoformat(),'session':'after-hours',
+            'source':'Yahoo Finance chart includePrePost=true broad-universe','scannerMode':'AH_NATIVE_FULL_PROACTIVE_UNIVERSE',
+            'dataConfidence':'HIGH' if len(rows)>=100 else ('MEDIUM' if len(rows)>=20 else ('LOW' if rows else 'UNAVAILABLE')),
+            'rows':rows,'count':len(rows),'candidateCount':len(candidates),'universeCount':len(by),
+            'discoveryCount':len(discoveries),'scanPolicy':'BROAD_UNIVERSE_NO_RTH_GAIN_PRESELECTION',
+            'topNativeDiscoveries':leaders,'failClosed':not bool(rows)
+          }
           pathlib.Path('tag/data/extended-hours.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
-          print(json.dumps({'afterHoursRows':len(rows),'candidates':len(candidates),'universe':len(by),'leaders':leaders[:8]},ensure_ascii=False))
+          print(json.dumps({'afterHoursRows':len(rows),'discoveries':len(discoveries),'candidates':len(candidates),'universe':len(by),'leaders':leaders[:8]},ensure_ascii=False))
           PY
       - name: Commit
         run: |
@@ -102,6 +185,6 @@ jobs:
           git config user.email 'actions@users.noreply.github.com'
           git add tag/data/extended-hours.json
           git diff --cached --quiet && exit 0
-          git commit -m 'data: refresh broad TAGX after-hours discovery'
+          git commit -m 'data: refresh TAGX native after-hours discovery'
           for i in 1 2 3 4; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*5)); done
           exit 1
