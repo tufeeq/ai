@@ -1,0 +1,200 @@
+name: TAGX Authoritative Ledger v6 Challenger
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '3,8,13,18,23,28,33,38,43,48,53,58 8-23 * * 1-5'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tagx-authoritative-ledger-v6-challenger.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-ledger-v6-challenger-main
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sync latest main
+        run: git pull --rebase origin main
+      - name: Build dual-lane challenger ledger
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime
+
+          STD=pathlib.Path('tag/data/discovery.json')
+          FAST=pathlib.Path('tag/data/discovery-fast.json')
+          REACTIVE=pathlib.Path('tag/data/finviz.json')
+          OUT=pathlib.Path('tag/data/tagx-signal-ledger-v6-challenger.json')
+
+          def load(p):
+              try:
+                  return json.loads(p.read_text(encoding='utf-8')) if p.exists() and p.stat().st_size else {}
+              except Exception as exc:
+                  print('unavailable',p,exc); return {}
+          std,fast,reactive=load(STD),load(FAST),load(REACTIVE)
+          if not std and not fast: raise SystemExit('both proactive feeds unavailable')
+
+          def rows(p):
+              if isinstance(p,list): return p
+              if not isinstance(p,dict): return []
+              for k in ('rows','data','results','stocks','items','records','topMovers'):
+                  if isinstance(p.get(k),list): return p[k]
+              return []
+          def tkr(r): return str(r.get('Ticker') or r.get('ticker') or r.get('Symbol') or r.get('symbol') or '').upper().strip()
+          def f(v):
+              try:return float(str(v if v is not None else '').replace('%','').replace(',','').replace('$','').strip())
+              except:return None
+          def pick(r,*ks):
+              for k in ks:
+                  if r.get(k) not in (None,''): return r.get(k)
+              return None
+          def dt(v):
+              try:return datetime.datetime.fromisoformat(str(v).replace('Z','+00:00'))
+              except:return None
+          def snapshot(p): return str(p.get('snapshotTimestampET') or p.get('updatedAtET') or p.get('updatedAt') or '') if isinstance(p,dict) else ''
+
+          std_ts=snapshot(std); fast_ts=snapshot(fast)
+          day=(std_ts or fast_ts)[:10]
+          if not day: raise SystemExit('proactive date unavailable')
+
+          try: old=load(OUT)
+          except: old={}
+          if old.get('sessionDateET')!=day or old.get('schemaVersion')!=6:
+              old={'schemaVersion':6,'sessionDateET':day,'tickers':{},'snapshots':[]}
+          tickers=old.setdefault('tickers',{})
+
+          def candidate_from_standard(r):
+              return {
+                'source':'standard','timestampET':str(r.get('_firstObservedTimestampET') or std_ts),
+                'changePct':f(r.get('_firstObservedChange') if r.get('_firstObservedChange') not in (None,'') else r.get('Change')),
+                'volume':f(r.get('_firstObservedVolume') if r.get('_firstObservedVolume') not in (None,'') else r.get('Volume')),
+                'price':f(r.get('Price')),
+                'lanes':list(r.get('_discoveryLanes') or []),
+              }
+          def candidate_from_fast(r):
+              return {
+                'source':'fast','timestampET':str(r.get('_firstFastObservedTimestampET') or fast_ts),
+                'changePct':f(r.get('_firstFastObservedChange') if r.get('_firstFastObservedChange') not in (None,'') else r.get('Change')),
+                'volume':f(r.get('_firstFastObservedVolume') if r.get('_firstFastObservedVolume') not in (None,'') else r.get('Volume')),
+                'price':f(r.get('_firstFastObservedPrice') if r.get('_firstFastObservedPrice') not in (None,'') else r.get('Price')),
+                'lanes':list(r.get('_fastDiscoveryLanes') or []),
+                'earlyPatternScore':f(r.get('_earlyPatternScore')),
+                'latentIgnition':bool(r.get('_latentIgnition')),
+              }
+          source_maps={
+            'standard':{tkr(r):r for r in rows(std) if tkr(r)},
+            'fast':{tkr(r):r for r in rows(fast) if tkr(r)},
+          }
+          all_proactive=set(source_maps['standard'])|set(source_maps['fast'])
+          for t in all_proactive:
+              cands=[]
+              if t in source_maps['standard']: cands.append(candidate_from_standard(source_maps['standard'][t]))
+              if t in source_maps['fast']: cands.append(candidate_from_fast(source_maps['fast'][t]))
+              valid=[c for c in cands if dt(c.get('timestampET'))]
+              first=min(valid,key=lambda c:dt(c['timestampET'])) if valid else (cands[0] if cands else None)
+              if not first: continue
+              r=source_maps['standard'].get(t) or source_maps['fast'].get(t) or {}
+              e=tickers.get(t,{})
+              if not e:
+                  e={'ticker':t,'company':pick(r,'Company','company'),'proactiveEver':True,'moverEver':False,'path':[]}
+              prev=dt(e.get('proactiveFirstSeenET')); cur=dt(first.get('timestampET'))
+              if not prev or (cur and cur<prev):
+                  e['proactiveFirstSeenET']=first.get('timestampET'); e['proactiveFirstChangePct']=first.get('changePct')
+                  e['proactiveFirstSource']=first.get('source'); e['proactiveFirstLanes']=first.get('lanes') or []
+                  e['proactiveFirstPrice']=first.get('price'); e['proactiveFirstVolume']=first.get('volume')
+                  if first.get('source')=='fast':
+                      e['proactiveFirstEarlyPatternScore']=first.get('earlyPatternScore');e['proactiveFirstLatentIgnition']=first.get('latentIgnition')
+              e['proactiveEver']=True
+              e['seenByStandard']=t in source_maps['standard']; e['seenByFast']=t in source_maps['fast']
+              tickers[t]=e
+
+          react_rows=rows(reactive); react_ts=snapshot(reactive)
+          reactive_valid=bool(react_rows and react_ts and react_ts[:10]==day)
+          rr=[]
+          if reactive_valid:
+              for r in react_rows:
+                  t=tkr(r); ch=f(pick(r,'Change','changePct','change','Change %'))
+                  if t and ch is not None and ch>0: rr.append((ch,t,r))
+          top20=sorted(rr,key=lambda x:x[0],reverse=True)[:20]
+          for rank,(ch,t,r) in enumerate(top20,1):
+              e=tickers.get(t)
+              if not e:
+                  e={'ticker':t,'company':pick(r,'Company','company'),'proactiveEver':False,'moverEver':True,'path':[]}
+              if not e.get('moverEver'):
+                  e['moverFirstSeenET']=react_ts;e['moverFirstChangePct']=ch;e['moverFirstRank']=rank
+              e['moverEver']=True;e['lastTop20Rank']=rank;e['lastMoverChangePct']=ch
+              tickers[t]=e
+
+          cur=[]
+          for rank,(ch,t,r) in enumerate(top20,1):
+              e=tickers[t]; pc=e.get('proactiveFirstChangePct')
+              if e.get('proactiveEver') and isinstance(pc,(int,float)) and pc<10: cls='PREDICTED_EARLY_LT10'
+              elif e.get('proactiveEver') and isinstance(pc,(int,float)) and pc<20: cls='PREDICTED_EARLY_LT20'
+              elif e.get('proactiveEver'): cls='DETECTED_LATE'
+              else: cls='MISSED'
+              lead=None
+              a=dt(e.get('proactiveFirstSeenET')); b=dt(e.get('moverFirstSeenET'))
+              if a and b: lead=round((b-a).total_seconds()/60,1)
+              e['challengerClass']=cls;e['leadMinutesToMoverBoard']=lead
+              cur.append({'rank':rank,'ticker':t,'changePct':ch,'class':cls,'proactiveFirstSource':e.get('proactiveFirstSource'),
+                          'proactiveFirstSeenET':e.get('proactiveFirstSeenET'),'proactiveFirstChangePct':pc,'leadMinutesToMoverBoard':lead,
+                          'seenByStandard':bool(e.get('seenByStandard')),'seenByFast':bool(e.get('seenByFast'))})
+
+          e10=sum(1 for x in cur if x['class']=='PREDICTED_EARLY_LT10'); e20=sum(1 for x in cur if x['class'] in ('PREDICTED_EARLY_LT10','PREDICTED_EARLY_LT20'))
+          late=sum(1 for x in cur if x['class']=='DETECTED_LATE'); miss=sum(1 for x in cur if x['class']=='MISSED')
+          fast_rescues=sum(1 for x in cur if x['proactiveFirstSource']=='fast' and not x['seenByStandard'])
+          both=sum(1 for x in cur if x['seenByFast'] and x['seenByStandard'])
+          denom=len(cur)
+          old.update({
+            'schemaVersion':6,'sessionDateET':day,'updatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            'authority':'CHALLENGER_DUAL_PROACTIVE_LANE_NO_LOOKAHEAD','trainingEligible':False,'groundTruthEligible':False,
+            'standardSnapshotET':std_ts or None,'fastSnapshotET':fast_ts or None,'reactiveSnapshotET':react_ts or None,
+            'reactiveFeedValid':reactive_valid,'tickerCount':len(tickers),'currentTop20Count':denom,
+            'currentTop20EarlyUnder10':e10,'currentTop20EarlyUnder20':e20,'currentTop20DetectedLate':late,'currentTop20Missed':miss,
+            'earlyCaptureRateUnder10':round(100*e10/denom,1) if denom else None,
+            'earlyCaptureRateUnder20':round(100*e20/denom,1) if denom else None,
+            'fastOnlyRescues':fast_rescues,'seenByBoth':both,'currentTop20':cur,'tickers':tickers,
+            'measurementPolicy':'Earliest immutable first-observation across standard and fast proactive feeds. Reactive/top20 data is evaluation-only and never a feature.',
+          })
+          snaps=old.setdefault('snapshots',[])
+          snaps.append({'timestampET':max(std_ts,fast_ts) if std_ts and fast_ts else (std_ts or fast_ts),'reactiveTimestampET':react_ts or None,
+                        'top20Count':denom,'earlyUnder10':e10,'earlyUnder20':e20,'detectedLate':late,'missed':miss,'fastOnlyRescues':fast_rescues})
+          old['snapshots']=snaps[-500:]
+          OUT.parent.mkdir(parents=True,exist_ok=True);OUT.write_text(json.dumps(old,ensure_ascii=False,indent=2),encoding='utf-8')
+          print('v6 challenger top20',denom,'early<10',e10,'early<20',e20,'late',late,'missed',miss,'fastOnlyRescues',fast_rescues)
+          PY
+      - name: Validate no-lookahead contract
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('tag/data/tagx-signal-ledger-v6-challenger.json',encoding='utf-8'))
+          assert p['schemaVersion']==6
+          assert p['authority']=='CHALLENGER_DUAL_PROACTIVE_LANE_NO_LOOKAHEAD'
+          assert p['trainingEligible'] is False and p['groundTruthEligible'] is False
+          assert 'reactive' not in str(p.get('measurementPolicy','')).split('Earliest')[0].lower()
+          for x in p.get('currentTop20',[]):
+              assert x['class'] in {'PREDICTED_EARLY_LT10','PREDICTED_EARLY_LT20','DETECTED_LATE','MISSED'}
+          print('challenger contract OK')
+          PY
+      - name: Commit challenger ledger
+        run: |
+          git config user.name "TAGX Challenger Ledger"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagx-signal-ledger-v6-challenger.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Update TAGX dual-lane challenger ledger v6"
+          for i in 1 2 3; do
+            if git push origin main; then exit 0; fi
+            git pull --rebase origin main
+          done
+          exit 1
