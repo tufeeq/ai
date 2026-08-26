@@ -1,0 +1,52 @@
+{
+  "sessionDateET": "2026-08-26",
+  "window": "09:30-10:04 ET partial first hour",
+  "status": "PARTIAL_FIRST_HOUR",
+  "findings": {
+    "earlyCapture": [
+      {
+        "ticker": "ZCMD",
+        "firstSeenET": "04:49",
+        "firstChangePct": 2.56,
+        "maxObservedChangePctBeforeOpen": 20.96,
+        "changePctAt1004": 12.73,
+        "rvolAt1004": 37.05,
+        "classification": "GOOD_EARLY_CAPTURE"
+      },
+      {
+        "ticker": "LBGJ",
+        "firstSeenET": "04:49",
+        "firstChangePct": 8.81,
+        "changePctAt1004": 12.20,
+        "classification": "FORMING_CAPTURE"
+      }
+    ],
+    "lateOrDistribution": [
+      {
+        "ticker": "SMTK",
+        "firstChangePct": 25.68,
+        "changePctAt1004": 12.16,
+        "rvolAt1004": 102.16,
+        "classification": "LATE_THEN_DISTRIBUTION"
+      }
+    ],
+    "openHandoffExamples": [
+      {"ticker":"SOAR","regularChangePctAt0932":72.31,"preMarketChangePct":67.75},
+      {"ticker":"YYGH","regularChangePctAt0932":61.74,"preMarketChangePct":66.96},
+      {"ticker":"DAIC","regularChangePctAt0932":52.84,"preMarketChangePct":60.31},
+      {"ticker":"LGCL","regularChangePctAt0932":23.23,"preMarketChangePct":28.47},
+      {"ticker":"VCIG","regularChangePctAt0932":25.70,"preMarketChangePct":38.72}
+    ]
+  },
+  "change": {
+    "name": "Premarket Peak Memory + Regular-Open Retention Gate",
+    "rules": [
+      "premarket >=50% remains EXHAUSTION after open",
+      "premarket >=25% remains LATE; >=8 percentage-point giveback becomes EXHAUSTION",
+      "premarket >=15% with >=8 point giveback and current >=5% becomes EXHAUSTION",
+      "good retention can add limited score only when origin was genuinely early",
+      "regular live quote replaces Discovery only when quote age <=10 minutes"
+    ],
+    "objective": "prevent late premarket runners from resetting into actionable regular-session opportunities while preserving genuine early captures"
+  }
+}
