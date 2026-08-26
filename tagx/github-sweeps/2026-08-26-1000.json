@@ -1,0 +1,92 @@
+{
+  "cycle": "2026-08-26-1000-ET",
+  "phase": "regular-first-hour-review",
+  "githubIntelligenceSweep": {
+    "registry": "tagx/github-candidate-registry.json",
+    "reviewed": [
+      {
+        "repo": "alpacahq/alpaca-py",
+        "decision": "BUILD_CHALLENGER",
+        "reason": "Official active SDK with StockDataStream/NewsDataStream and paper sandbox; benchmark latency/coverage before production."
+      },
+      {
+        "repo": "dgunning/edgartools",
+        "decision": "BUILD_CHALLENGER",
+        "reason": "Active MIT library with typed SEC events and 1000+ tests; strong candidate for catalyst/dilution timing challenger."
+      },
+      {
+        "repo": "nautechsystems/nautilus_trader",
+        "decision": "BORROW_PATTERN",
+        "reason": "Excellent deterministic event-time replay/live parity, but direct dependency is too heavy and LGPL/runtime complexity is not justified yet."
+      }
+    ],
+    "productionDependencyAdded": false
+  },
+  "marketAudit": {
+    "externalFirstHourEvidence": {
+      "premarketLeaders": ["SOAR", "YYGH", "VCIG", "MSS", "LGCL", "SMTK", "DAIC", "CRE"],
+      "sources": ["TheHotPennyStocks 2026-08-26", "Benzinga 2026-08-26", "StockTitan premarket evidence"]
+    },
+    "tagxExamples": [
+      {
+        "ticker": "ZCMD",
+        "firstObservedET": "2026-08-26T04:49:11-04:00",
+        "firstChangePct": 2.56,
+        "maxObservedChangePct": 20.96,
+        "changeAt1027ET": 12.10,
+        "rvolAt1027ET": 26.89,
+        "assessment": "TRUE_EARLY_CAPTURE"
+      },
+      {
+        "ticker": "MSS",
+        "firstObservedET": "2026-08-26T04:49:11-04:00",
+        "firstChangePct": -4.05,
+        "maxObservedChangePct": 41.10,
+        "changeAt1027ET": 12.50,
+        "assessment": "TRUE_EARLY_CAPTURE_FROM_QUIET_NEGATIVE_BASE"
+      },
+      {
+        "ticker": "LBGJ",
+        "firstObservedET": "2026-08-26T04:49:11-04:00",
+        "firstChangePct": 8.81,
+        "changeAt1027ET": 16.27,
+        "rvolAt1027ET": 10.03,
+        "assessment": "FORMING_CAPTURE"
+      },
+      {
+        "ticker": "SMTK",
+        "firstObservedET": "2026-08-26T04:49:11-04:00",
+        "firstChangePct": 25.68,
+        "maxObservedChangePct": 27.84,
+        "changeAt1027ET": 12.97,
+        "assessment": "LATE_THEN_DISTRIBUTION_NOT_ACTIONABLE_NEW_SIGNAL"
+      }
+    ],
+    "measurementGap": "Standard discovery-ledger did not contain SOAR, YYGH, CRE or VCIG while live/pre-market evidence showed them as major movers. Because UI also consumes discovery-fast, standard-only ledger can create false Missed classifications.",
+    "learningDecision": "Fix measurement coverage before changing scoring thresholds. Earliest immutable observation across standard + fast proactive lanes must be the challenger definition of detection. Reactive Top-20 remains evaluation-only."
+  },
+  "productionChanges": [
+    {
+      "type": "FIRST_HOUR_RETENTION_GATE",
+      "status": "already deployed earlier this session",
+      "artifact": "tagx/regular-open-v17.js",
+      "purpose": "Prevent premarket late/exhausted runners from resetting into actionable signals after the regular open."
+    }
+  ],
+  "challengerChanges": [
+    {
+      "type": "DUAL_LANE_MEASUREMENT_FIX",
+      "artifact": ".github/workflows/tagx-authoritative-ledger-v6-challenger.yml",
+      "commit": "bddadabf04b28eb86aec945e1af25d1922f636c1",
+      "purpose": "Measure earliest detection across discovery + discovery-fast with immutable event-time fields, classify Top-20 without look-ahead, and quantify fast-only rescues.",
+      "promotionRule": "Do not replace champion ledger until multiple snapshots/sessions show improved measurement completeness without timestamp leakage or false early attribution."
+    }
+  ],
+  "thresholdChange": false,
+  "versionBump": false,
+  "nextEvaluation": [
+    "Compare challenger currentTop20 Early<10/Early<20/Missed against champion ledger after output is produced.",
+    "Inspect fastOnlyRescues for SOAR/YYGH/CRE/VCIG-like cases.",
+    "Only if true universe misses remain after dual-lane reconciliation, test a broader discovery lane in sandbox rather than relaxing production ranking thresholds."
+  ]
+}
