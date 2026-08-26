@@ -1,0 +1,22 @@
+{
+  "sweepAtET": "2026-08-26T15:00:00-04:00",
+  "newCandidate": {
+    "repo": "stefanoamorelli/sec-edgar-toolkit",
+    "purpose": "Near-real-time SEC filing retrieval with typed 8-K/Form 3-5/13F/XBRL parsing and rate-limit/retry patterns.",
+    "layers": ["SEC/EDGAR parsing","fresh catalyst","insider/institutional activity","dilution/financing detection","data reconciliation"],
+    "maturityScore": 84,
+    "integrationScore": 45,
+    "dataDependencyScore": 91,
+    "latencySuitability": "MEDIUM-HIGH for event/catalyst lane; SEC current-filings feed rather than market-tick latency",
+    "license": "AGPL-3.0",
+    "maintenance": "pushed 2026-08-18; CI and Codecov badges; no open issues at review time",
+    "docsTests": "Python + TypeScript, async support, 10 req/sec rate limiting, retry/backoff, current filings feed, typed 8-K items and ownership forms",
+    "securityNotes": "No broker credentials required. Must send compliant SEC User-Agent and respect rate limits.",
+    "lookAheadBiasRisk": "LOW if filing accepted/filed timestamps are preserved; do not backfill future filing content into prior snapshots.",
+    "decision": "BORROW_PATTERN",
+    "reason": "Useful architecture, but AGPL-3.0 is unsuitable for direct production dependency without deliberate licensing acceptance.",
+    "patternToBorrow": ["global current-filings poller","typed event classification","retry/backoff","filing timestamp preservation"]
+  },
+  "marketGapLinkedToSweep": "Missed movers require stronger catalyst timing and replay attribution, but no dependency is promoted from one session.",
+  "productionDependencyAdded": false
+}
