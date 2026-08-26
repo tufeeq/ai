@@ -1,0 +1,53 @@
+{
+  "cycle": "2026-08-26-0900-ET",
+  "phase": "pre-market",
+  "githubIntelligenceSweep": {
+    "candidates": [
+      {
+        "repo": "edkim/realtime-scanner",
+        "purpose": "Reference architecture for websocket ingestion, in-memory sliding market state, historical backfill, MFE/MAE outcome tracking and risk-context tagging.",
+        "layer": ["real-time market data ingestion", "WebSocket/streaming feeds", "market scanners", "model evaluation", "risk controls", "UI/visualization"],
+        "maturityScore": 55,
+        "integrationScore": 42,
+        "dataDependencyScore": 30,
+        "latencySuitability": "HIGH with Polygon/Massive entitlement; architecture is websocket-first but production costs/entitlements are external.",
+        "license": "README states MIT; GitHub repository metadata has no detected license object, so legal verification is required before code reuse.",
+        "maintenance": "Created 2025-12-02; last push 2025-12-21; not sufficiently current for direct integration.",
+        "docsTests": "README is detailed and documents architecture/outcome analytics. No test directory visible at repository root in this sweep.",
+        "securityNotes": "Requires external POLYGON_API_KEY; never expose credentials client-side. In-memory state is lost on crash. RTH-centric calculations require adaptation for TAGX extended-hours use.",
+        "lookAheadBiasRisk": "MEDIUM. Historical backfill and outcome analytics must preserve event-time boundaries; useful pattern but must not leak future bars into replay.",
+        "decision": "BORROW_PATTERN",
+        "borrow": ["persistent sliding market state", "MFE/MAE outcome tracking", "context-tagged signal outcomes", "backfill-before-stream architecture"]
+      }
+    ]
+  },
+  "marketAudit": {
+    "externalPremarketCohort": ["YYGH", "CDTG", "LGCL", "SMTK", "TRUG", "ZCMD"],
+    "tagxExtendedSnapshotAt0818ET": {
+      "schemaVersionObserved": 2,
+      "examples": {
+        "YYGH": {"sessionChangePct": 73.109, "velocity15mPct": 0.98},
+        "SMTK": {"sessionChangePct": 27.433, "velocity15mPct": 2.831},
+        "TRUG": {"sessionChangePct": 6.956, "velocity15mPct": 0.144},
+        "ZCMD": {"sessionChangePct": -19.199, "velocity15mPct": -3.503},
+        "DAIC": {"sessionChangePct": 232.977, "velocity15mPct": 0.858},
+        "CRE": {"sessionChangePct": 170.873, "velocity15mPct": 1.587}
+      }
+    },
+    "finding": "The mover cohort was being observed, but the authoritative persistence features were silently removed from production by a competing schema-v2 writer. This damages Cross-Validate/Challenge quality and can alter rankings or cause stale/partial interpretation. Fix data lineage before changing thresholds."
+  },
+  "productionChange": {
+    "type": "DATA_RECONCILIATION_AND_LINEAGE_FIX",
+    "problem": "Two scheduled workflows wrote tag/data/extended-hours.json. tagx-extended-hours.yml produces schemaVersion 3 with 5m/15m/30m velocity, persistence slope/pass, velocity quality and bar anomaly fields. tagx-extended-hours-native.yml concurrently produced schemaVersion 2 and could overwrite those features.",
+    "change": "Retired tagx-extended-hours-native.yml from scheduled production. It is manual-only and read-only for provenance. tagx-extended-hours.yml is now the sole authoritative scheduled producer.",
+    "commit": "947dd0d3090a96adff7832fb74daf7b3ae993fa0",
+    "expectedImpact": [
+      "eliminate schema regression/race condition",
+      "restore persistence and multi-horizon velocity fields consistently",
+      "improve deterministic ranking and replay traceability",
+      "reduce false positives caused by interpreting a single 15m velocity without quality/persistence context"
+    ],
+    "championChallenger": "No scoring threshold changed. Current ranking remains champion; restored schema-v3 features are evidence inputs until multi-case validation supports weighting changes.",
+    "versionBump": false
+  }
+}
