@@ -2,6 +2,10 @@ name: TAGX After-Hours Rescue
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tagx-afterhours-rescue.yml'
   schedule:
     - cron: '1-56/5 20-23 * * 1-5'
     - cron: '1 0 * * 2-6'
@@ -37,7 +41,6 @@ jobs:
           def num(v):
               try:return float(str(v or 0).replace('%','').replace(',','').replace('$',''))
               except:return 0.0
-          # IMPORTANT: do not pre-select by regular-session gain. Quiet RTH names can ignite after 16:00 ET.
           source_files=[('fast','tag/data/discovery-fast.json'),('standard','tag/data/discovery.json'),('finviz','tag/data/finviz.json')]
           by={}; order=[]
           for src,p in source_files:
@@ -48,13 +51,11 @@ jobs:
                   if t not in by:
                       by[t]={**r,'_ahUniverseSource':src}; order.append(t)
                   else:
-                      # preserve richer metadata without changing causal universe membership
                       old=by[t]
                       for k,v in r.items():
                           if v not in (None,'') and old.get(k) in (None,''): old[k]=v
-          # Fast/standard discovery are already small-cap oriented; scan them all first, then fill from Finviz.
           preferred=[t for t in order if by[t].get('_ahUniverseSource') in ('fast','standard')]
-          tail=[t for t in order if t not in set(preferred)]
+          pset=set(preferred); tail=[t for t in order if t not in pset]
           tickers=(preferred+tail)[:1600]
           candidates=[by[t] for t in tickers]
           def one(r):
@@ -73,7 +74,6 @@ jobs:
                   ext=[b for b in bars if end and b[0]>end]
                   if not ext or not rclose:return t,None
                   lt,px,_=ext[-1]
-                  # Require a genuinely current AH print; stale regular artifacts must not look live.
                   if now.timestamp()-lt>15*60:return t,None
                   def vel(mins):
                       a=[b for b in ext if b[0]>=lt-mins*60]; base=a[0][1] if a else ext[0][1]; return ((px/base)-1)*100 if base else None
@@ -90,7 +90,6 @@ jobs:
           with concurrent.futures.ThreadPoolExecutor(max_workers=64) as ex:
               for t,r in ex.map(one,candidates):
                   if r: rows[t]=r
-          # Preserve every current AH print. Ranking happens only AFTER AH data is observed.
           ranked=sorted(rows.values(),key=lambda r:(abs(r.get('sessionChangePct') or 0),abs(r.get('priceVelocity15mPct') or 0),r.get('extendedVolume') or 0),reverse=True)
           leaders=[{'ticker':r['ticker'],'sessionChangePct':r.get('sessionChangePct'),'priceVelocity15mPct':r.get('priceVelocity15mPct'),'extendedVolume':r.get('extendedVolume')} for r in ranked[:30]]
           out={'schemaVersion':5,'updatedAtUTC':now.isoformat(),'updatedAtET':et.isoformat(),'session':'after-hours','source':'Yahoo Finance chart includePrePost=true broad-universe','dataConfidence':'HIGH' if len(rows)>=100 else ('MEDIUM' if len(rows)>=20 else ('LOW' if rows else 'UNAVAILABLE')),'rows':rows,'count':len(rows),'candidateCount':len(candidates),'universeCount':len(by),'scanPolicy':'BROAD_UNIVERSE_NO_RTH_GAIN_PRESELECTION','leaders':leaders,'failClosed':not bool(rows)}
