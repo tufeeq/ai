@@ -1,0 +1,86 @@
+name: TAGX After-Hours Replay Audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '3-58/5 20-23 * * 1-5'
+    - cron: '3-58/5 0 * * 2-6'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-afterhours-replay-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: git pull --rebase origin main
+      - name: Build point-in-time after-hours audit
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime
+          from zoneinfo import ZoneInfo
+          ET=ZoneInfo('America/New_York')
+          p=pathlib.Path('tag/data/extended-hours.json')
+          if not p.exists(): raise SystemExit(0)
+          j=json.loads(p.read_text(encoding='utf-8'))
+          now=datetime.datetime.now(datetime.timezone.utc); et=now.astimezone(ET)
+          if j.get('session')!='after-hours': raise SystemExit(0)
+          try: age=(now-datetime.datetime.fromisoformat(j['updatedAtUTC'])).total_seconds()/60
+          except: age=999
+          if age>15: raise SystemExit(0)
+          rows=list((j.get('rows') or {}).values())
+          def n(v):
+              try:return float(v)
+              except:return None
+          observed=[]
+          for r in rows:
+              first=n(r.get('firstAHChangePct')); peak=n(r.get('peakAHChangePct')); cur=n(r.get('sessionChangePct')); v5=n(r.get('priceVelocity5mPct')); v15=n(r.get('priceVelocity15mPct'))
+              if peak is None or peak<8: continue
+              if first is None: cls='DATA_UNVERIFIED'
+              elif first<10: cls='PREDICTED_EARLY'
+              else: cls='DETECTED_LATE'
+              observed.append({'ticker':r.get('ticker'),'firstAHChangePct':first,'currentAHChangePct':cur,'peakAHChangePct':peak,'priceVelocity5mPct':v5,'priceVelocity15mPct':v15,'persistencePass':r.get('persistencePass'),'nativeRankScore':r.get('nativeRankScore'),'originClass':r.get('originClass'),'classification':cls,'timestampUTC':r.get('timestampUTC')})
+          observed.sort(key=lambda x:(x.get('peakAHChangePct') or -999),reverse=True)
+          counts={k:sum(1 for x in observed if x['classification']==k) for k in ['PREDICTED_EARLY','DETECTED_LATE','DATA_UNVERIFIED']}
+          den=counts['PREDICTED_EARLY']+counts['DETECTED_LATE']
+          rate=round(100*counts['PREDICTED_EARLY']/den,2) if den else None
+          snap={'snapshotUTC':now.isoformat(),'snapshotET':et.isoformat(),'sourceUpdatedAtUTC':j.get('updatedAtUTC'),'scannerMode':j.get('scannerMode'),'universeCount':j.get('universeCount'),'candidateCount':j.get('candidateCount'),'discoveryCount':j.get('discoveryCount'),'counts':counts,'earlyCaptureRateObservedPct':rate,'topObservedMovers':observed[:30]}
+          day=et.strftime('%Y-%m-%d'); outp=pathlib.Path('tagx/afterhours-audits')/(day+'.json')
+          outp.parent.mkdir(parents=True,exist_ok=True)
+          old={}
+          if outp.exists():
+              try: old=json.loads(outp.read_text(encoding='utf-8'))
+              except: old={}
+          snaps=old.get('snapshots') or []
+          # one snapshot per source timestamp; preserves signal-time state for replay without duplicating retries
+          snaps=[s for s in snaps if s.get('sourceUpdatedAtUTC')!=snap['sourceUpdatedAtUTC']]
+          snaps.append(snap); snaps=snaps[-80:]
+          best={}
+          for s in snaps:
+              for x in s.get('topObservedMovers',[]):
+                  t=x.get('ticker'); prev=best.get(t)
+                  if not prev or (x.get('peakAHChangePct') or -999)>(prev.get('peakAHChangePct') or -999): best[t]=x
+          session_counts={k:sum(1 for x in best.values() if x.get('classification')==k) for k in ['PREDICTED_EARLY','DETECTED_LATE','DATA_UNVERIFIED']}
+          d=session_counts['PREDICTED_EARLY']+session_counts['DETECTED_LATE']; session_rate=round(100*session_counts['PREDICTED_EARLY']/d,2) if d else None
+          result={'schemaVersion':1,'sessionDateET':day,'updatedAtUTC':now.isoformat(),'metricDefinition':'Observed AH movers with peak >=8%; early means first qualified observation <10%. Point-in-time snapshots only; not final Top-20 ground truth.','sessionCounts':session_counts,'sessionEarlyCaptureRateObservedPct':session_rate,'bestObservedByTicker':sorted(best.values(),key=lambda x:(x.get('peakAHChangePct') or -999),reverse=True)[:50],'snapshots':snaps}
+          outp.write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps({'date':day,'snapshots':len(snaps),'sessionCounts':session_counts,'rate':session_rate,'leaders':result['bestObservedByTicker'][:8]},ensure_ascii=False))
+          PY
+      - name: Commit audit
+        run: |
+          git config user.name 'tagx-replay-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tagx/afterhours-audits/
+          git diff --cached --quiet && exit 0
+          git commit -m 'audit: capture TAGX after-hours point-in-time replay state'
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*4)); done
+          exit 1
