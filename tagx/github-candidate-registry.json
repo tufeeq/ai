@@ -1,12 +1,29 @@
 {
-  "schemaVersion": 1,
-  "updatedAtUTC": "2026-08-26T14:58:00Z",
+  "schemaVersion": 2,
+  "updatedAtUTC": "2026-08-26T15:58:00Z",
   "scoreSemantics": {
     "maturityScore": "0-100, higher is more mature/maintained/tested",
     "integrationScore": "0-100, higher is easier and safer to integrate into TAGX",
     "dataDependencyScore": "0-100, higher means lower external data/vendor dependency burden"
   },
   "candidates": [
+    {
+      "repo": "databento/databento-python",
+      "purpose": "Official normalized live + historical market-data client with event replay, trades/order-book schemas and point-in-time definitions.",
+      "layers": ["real-time market data ingestion", "trades-per-minute", "order flow", "event replay", "data reconciliation"],
+      "maturityScore": 94,
+      "integrationScore": 70,
+      "dataDependencyScore": 38,
+      "latencySuitability": "HIGH with live entitlement; TCP/live schemas designed for low-latency event ingestion",
+      "license": "Apache-2.0",
+      "maintenance": "Official repo; pushed 2026-08-25, open issues 0 at review time.",
+      "docsTests": "README exposes test workflow badge, live/historical normalized schemas, replay and point-in-time instrument definitions.",
+      "securityNotes": "Requires API key; credentials must stay server-side and never enter GitHub Pages/browser code.",
+      "lookAheadBiasRisk": "LOW when point-in-time definitions/event timestamps are preserved; historical replay must remain isolated from signal-time state.",
+      "decision": "BUILD_CHALLENGER",
+      "integrationPlan": "Benchmark a sandbox adapter for trades, OHLCV-1s/1m and optional MBP against current polling: p50/p95 latency, symbol coverage, disconnect recovery, TPM/turnover feature lift and cost.",
+      "lastReviewedUTC": "2026-08-26T15:58:00Z"
+    },
     {
       "repo": "alpacahq/alpaca-py",
       "purpose": "Official Alpaca SDK for REST/WebSocket/SSE market data, news streams, paper trading and broker adapters.",
@@ -16,13 +33,13 @@
       "dataDependencyScore": 45,
       "latencySuitability": "HIGH when live market-data entitlement is available",
       "license": "Apache-2.0",
-      "maintenance": "Active; repository pushed 2026-08-24 and updated 2026-08-25 during this review.",
-      "docsTests": "Official documentation, typed request/data models and runtime validation; production SDK maintained by Alpaca.",
-      "securityNotes": "Requires account/API credentials for stock data. Keep keys server-side, isolate paper credentials, never expose them to GitHub Pages/browser code.",
-      "lookAheadBiasRisk": "LOW for live ingestion; MEDIUM if historical backfill is merged into signal-time state without event-time boundaries.",
+      "maintenance": "Active; repository pushed 2026-08-24 and updated 2026-08-25 during review.",
+      "docsTests": "Official documentation, typed request/data models and runtime validation.",
+      "securityNotes": "Requires account/API credentials; keep keys server-side and isolate paper credentials.",
+      "lookAheadBiasRisk": "LOW live; MEDIUM if historical backfill is merged without event-time boundaries.",
       "decision": "BUILD_CHALLENGER",
-      "integrationPlan": "Benchmark StockDataStream/NewsDataStream in an isolated adapter against current snapshot latency and symbol coverage before any production adoption.",
-      "lastReviewedUTC": "2026-08-26T14:58:00Z"
+      "integrationPlan": "Benchmark StockDataStream/NewsDataStream against current snapshot latency and coverage.",
+      "lastReviewedUTC": "2026-08-26T15:58:00Z"
     },
     {
       "repo": "dgunning/edgartools",
@@ -31,15 +48,15 @@
       "maturityScore": 92,
       "integrationScore": 82,
       "dataDependencyScore": 88,
-      "latencySuitability": "MEDIUM-HIGH for filing/event detection; not a tick-data source",
+      "latencySuitability": "MEDIUM-HIGH for filing/event detection",
       "license": "MIT",
-      "maintenance": "Very active; pushed 2026-08-26 during this review.",
-      "docsTests": "Extensive documentation, typed objects, smart caching/rate limiting and README states 1000+ tests.",
-      "securityNotes": "Direct SEC access requires identity/user-agent configuration; respect SEC rate limits. No trading credentials required.",
-      "lookAheadBiasRisk": "LOW if filing acceptedAt/filedAt timestamps are preserved and later amendments are not backfilled into earlier signal states.",
+      "maintenance": "Very active; pushed 2026-08-26 during review.",
+      "docsTests": "Extensive docs, typed objects, caching/rate limiting; README states 1000+ tests.",
+      "securityNotes": "Respect SEC identity/rate limits; no trading credentials required.",
+      "lookAheadBiasRisk": "LOW if acceptedAt/filedAt timestamps are preserved.",
       "decision": "BUILD_CHALLENGER",
-      "integrationPlan": "Prototype a filing-event adapter for 8-K/S-1/Form D/Form 144 and compare catalyst timing + dilution flags against current SEC sweep.",
-      "lastReviewedUTC": "2026-08-26T14:58:00Z"
+      "integrationPlan": "Prototype 8-K/S-1/Form D/Form 144 timing + dilution flags against current SEC sweep.",
+      "lastReviewedUTC": "2026-08-26T15:58:00Z"
     },
     {
       "repo": "nautechsystems/nautilus_trader",
@@ -50,30 +67,30 @@
       "dataDependencyScore": 72,
       "latencySuitability": "HIGH",
       "license": "LGPL-3.0",
-      "maintenance": "Very active; pushed 2026-08-26 during this review.",
-      "docsTests": "Production-grade docs/build matrix, deterministic time model, security and dependency auditing, multiple stable adapters.",
-      "securityNotes": "Large Rust/Python dependency surface; strong upstream security practices, but direct adoption materially expands TAGX build/runtime complexity.",
-      "lookAheadBiasRisk": "LOW when using its deterministic event-time model correctly.",
+      "maintenance": "Very active; pushed 2026-08-26 during review.",
+      "docsTests": "Production-grade deterministic time model and adapter ecosystem.",
+      "securityNotes": "Large Rust/Python dependency surface; direct adoption expands runtime complexity.",
+      "lookAheadBiasRisk": "LOW when deterministic event-time model is used correctly.",
       "decision": "BORROW_PATTERN",
-      "integrationPlan": "Borrow deterministic event-time replay, state/message-bus and research/live parity concepts for TAGX Missed-Mover Replay; do not add the engine as a production dependency yet.",
-      "lastReviewedUTC": "2026-08-26T14:58:00Z"
+      "integrationPlan": "Borrow event-time replay/message-bus/research-live parity patterns; no production dependency yet.",
+      "lastReviewedUTC": "2026-08-26T15:58:00Z"
     },
     {
       "repo": "edkim/realtime-scanner",
-      "purpose": "Reference scanner architecture for WebSocket ingestion, sliding state, historical backfill, MFE/MAE and context-tagged outcomes.",
+      "purpose": "Reference scanner architecture for WebSocket ingestion, sliding state, historical backfill, MFE/MAE and context outcomes.",
       "layers": ["WebSocket/streaming feeds", "market scanners", "model evaluation", "risk controls"],
       "maturityScore": 55,
       "integrationScore": 42,
       "dataDependencyScore": 30,
       "latencySuitability": "HIGH with Polygon/Massive entitlement",
-      "license": "README claims MIT; repository metadata license was not verified",
-      "maintenance": "Last observed push 2025-12-21; insufficiently active for direct dependency.",
-      "docsTests": "Detailed README; no sufficient test evidence in prior sweep.",
-      "securityNotes": "Requires external API credential; in-memory state can be lost on crash.",
+      "license": "README claims MIT; metadata not independently verified",
+      "maintenance": "Last observed push 2025-12-21.",
+      "docsTests": "Detailed README; insufficient test evidence.",
+      "securityNotes": "External API credential; in-memory state loss risk.",
       "lookAheadBiasRisk": "MEDIUM around backfill/outcome tracking.",
       "decision": "BORROW_PATTERN",
       "integrationPlan": "Borrow sliding state, MFE/MAE and backfill-before-stream patterns only.",
-      "lastReviewedUTC": "2026-08-26T13:00:00Z"
+      "lastReviewedUTC": "2026-08-26T15:58:00Z"
     },
     {
       "repo": "samir-shah-ahmed/trading-signal-scanner",
@@ -84,13 +101,13 @@
       "dataDependencyScore": 40,
       "latencySuitability": "LOW for early intraday TAGX",
       "license": "No verified license in prior review",
-      "maintenance": "Small project; last observed push 2026-06-01.",
-      "docsTests": "Research-oriented README; insufficient production test evidence.",
-      "securityNotes": "Multiple third-party/public dependencies require independent provenance validation.",
+      "maintenance": "Last observed push 2026-06-01.",
+      "docsTests": "Research-oriented; insufficient production test evidence.",
+      "securityNotes": "Multiple third-party dependencies require provenance checks.",
       "lookAheadBiasRisk": "HIGH if future outcome filling leaks into features.",
       "decision": "REJECT_DIRECT_INTEGRATION_BORROW_PATTERN",
-      "integrationPlan": "Borrow only the separation between signal-time features and future outcome filling.",
-      "lastReviewedUTC": "2026-08-26T13:00:00Z"
+      "integrationPlan": "Borrow only separation of signal-time features from future outcome filling.",
+      "lastReviewedUTC": "2026-08-26T15:58:00Z"
     }
   ]
 }
