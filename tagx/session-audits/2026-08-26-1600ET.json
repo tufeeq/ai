@@ -1,0 +1,47 @@
+{
+  "auditAtET": "2026-08-26T16:02:49-04:00",
+  "sessionDateET": "2026-08-26",
+  "status": "PROVISIONAL_CLOSE_PENDING_FINAL_RECONCILIATION",
+  "benchmarkSource": "tag/data/tagx-actionability-v8-challenger.json updated 15:59:55Z plus public mover cross-check",
+  "top20": {
+    "count": 20,
+    "predictedEarlyLt10": 7,
+    "predictedEarly10to20": 2,
+    "detectedLate": 6,
+    "missed": 5,
+    "dataUnverified": 0,
+    "strictEarlyCaptureRatePct": 35.0,
+    "earlyCaptureUnder20Pct": 45.0,
+    "actionableEarlyByCritic": 3
+  },
+  "actionableEarly": ["SCYX", "AIHS", "MWYN"],
+  "missedAtProvisionalClose": ["ANF", "BHVN", "BZ", "SMTG", "XXII"],
+  "importantAccountingFinding": {
+    "issue": "The current Top-20 benchmark can label stocks as MISSED even when they are outside TAGX's configured cap_smallunder discovery universe.",
+    "examples": [
+      "ANF public market cap about $4.99B",
+      "BHVN public market cap about $2.07B",
+      "BZ public market cap about $7.59B"
+    ],
+    "impact": "Raw Early-Capture Rate can understate performance and contaminate missed-mover learning if out-of-universe names are treated as model misses.",
+    "requiredChallenger": "Add benchmark eligibility classification: IN_UNIVERSE / OUT_OF_UNIVERSE / DATA_UNVERIFIED. Keep raw Top-20 reporting, but exclude OUT_OF_UNIVERSE from Adjusted Early-Capture Rate and replay-training targets. Do not change production thresholds from this single session."
+  },
+  "correctnessBugFixed": {
+    "component": "tagx/challengers/actionability_v8.py",
+    "bug": "Asynchronous proactive peak state could be lower than the current evaluation observation, producing negative giveback and retention > 1.",
+    "fix": "Evaluation effective peak is bounded by current observation; giveback is non-negative; positive retention is capped structurally at <=1; workflow now asserts these invariants.",
+    "thresholdChanged": false,
+    "productionChampionChanged": false
+  },
+  "marketCrossCheck": {
+    "publicRegularSessionExamples": [
+      "CRE remained roughly +138% to +148%",
+      "SOAR remained roughly +75% to +82%",
+      "YYGH remained roughly +64% to +67%",
+      "XPON remained roughly +53% to +57%"
+    ],
+    "interpretation": "Peak/Exhaustion memory correctly keeps these names out of actionable Early output despite successful or late detection."
+  },
+  "promotionDecision": "NO_PROMOTION",
+  "reason": "The invariant fix is correctness-only and does not yet have multi-session before/after outcome evidence. Final reconciliation for Aug 26 is still pending."
+}
