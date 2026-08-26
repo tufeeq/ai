@@ -1,0 +1,40 @@
+{
+  "sweepAtET": "2026-08-26T16:02:49-04:00",
+  "queries": [
+    "market data websocket python",
+    "SEC EDGAR parser python",
+    "event driven backtesting trading python"
+  ],
+  "reviewed": [
+    {
+      "repo": "ml4t/backtest",
+      "decision": "BUILD_CHALLENGER",
+      "reason": "Strong fit for deterministic Missed-Mover Replay and champion/challenger evaluation: MIT, event-driven point-in-time correctness, quote-aware execution, reproducible config/result snapshots, cross-framework correctness evidence, benchmark suite and 84% coverage floor. Requires Python >=3.12 and several numerical dependencies, so sandbox only before any dependency decision.",
+      "maintenance": "Repo metadata pushed 2026-08-21; recent verified August maintenance commits; 2 open issues at review time.",
+      "latency": "Not a live ingestion layer; appropriate for deterministic replay/evaluation rather than discovery latency.",
+      "lookAhead": "Low if TAGX event timestamps are preserved and final mover labels remain physically separated from replay inputs.",
+      "security": "No broker/data credentials required for replay. Dependency surface must remain isolated from production until benchmarked.",
+      "benchmarkPlan": [
+        "T-60/T-30/T-15/T-5 replay parity on missed movers",
+        "classification parity versus TAGX native replay",
+        "runtime and peak memory",
+        "audit/export completeness",
+        "verify no final-label leakage"
+      ]
+    }
+  ],
+  "rejectedOrDeferred": [
+    {
+      "repo": "marketcalls/websocket-stockmarket-clickhouse",
+      "decision": "DEFER",
+      "reason": "Interesting streaming/storage pattern but small repository and insufficient evidence in this sweep to justify challenger priority over existing Databento/Alpaca candidates."
+    },
+    {
+      "repo": "stefanoamorelli/sec-edgar-toolkit",
+      "decision": "KEEP_BORROW_PATTERN",
+      "reason": "Useful current-filings architecture but AGPL-3.0 remains a direct-integration constraint; existing registry decision unchanged."
+    }
+  ],
+  "productionDependencyAdded": false,
+  "linkedDevelopment": "Actionability v8 causal peak invariant correction; no scoring-threshold promotion."
+}
