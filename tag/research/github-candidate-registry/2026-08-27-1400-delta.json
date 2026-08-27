@@ -1,0 +1,26 @@
+{
+  "timestampET": "2026-08-27T14:00:00-04:00",
+  "sweep": "GitHub Intelligence Sweep",
+  "candidates": [
+    {
+      "repo": "nautechsystems/nautilus_trader",
+      "purpose": "Event-driven orchestration, deterministic replay, adapter normalization, reconnect/recovery patterns",
+      "layer": ["event replay", "agent orchestration", "broker adapters", "risk controls", "data reconciliation", "observability/logging"],
+      "maturityScore": 96,
+      "integrationScore": 64,
+      "dataDependencyScore": 55,
+      "latencySuitability": "HIGH",
+      "license": "LGPL-3.0-only",
+      "securityNotes": "Strong supply-chain controls documented: signed releases, protected branches, dependency vetting, CodeQL, cargo-audit/deny/vet, OSV/pip-audit, fuzzing, secret scanning and SBOM/SLSA. Large Rust/Python surface makes direct embedding costly.",
+      "lookAheadRisk": "LOW when deterministic event-time semantics are preserved; misuse of replay outputs in ranking would still create leakage.",
+      "decision": "BORROW_PATTERN",
+      "notes": "Re-reviewed 2026-08-27. Repository has multiple same-day commits including reconnect/request-correlation recovery fixes and test stabilization. README documents deterministic research/live time semantics, REST/WebSocket adapters, nanosecond backtests and Databento/IB integrations. Borrow event correlation, recovery state and deterministic replay semantics; do not add as production dependency without a dedicated Rust/Python benchmark and LGPL review."
+    }
+  ],
+  "rejectedSearchFindings": [
+    {
+      "query": "market data websocket scanner stocks unusual volume order flow pushed recently",
+      "reason": "No new general-search result had stronger maintenance/provenance and U.S.-equity suitability than the existing official candidates. No dependency promoted."
+    }
+  ]
+}
