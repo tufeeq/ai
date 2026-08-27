@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 2,
+  "reviewedAtUTC": "2026-08-27T08:00:00Z",
+  "cycle": "2026-08-27-0400ET",
+  "sweepNotes": "Re-reviewed official Alpaca SDK and searched current GitHub market-data/websocket projects. No new dependency promoted directly to production. Weak/unverified generic scanner repos were not admitted to registry without sufficient docs/tests/license evidence.",
+  "candidates": [
+    {
+      "repo": "alpacahq/alpaca-py",
+      "purpose": "Official REST/WebSocket/SSE market-data, news-stream and paper-trading SDK; candidate for future event-stream benchmark against polling.",
+      "layers": ["real-time market data ingestion", "WebSocket/streaming feeds", "news/catalyst extraction", "paper trading", "broker adapters", "data validation"],
+      "maturityScore": 88,
+      "integrationScore": 74,
+      "dataDependencyScore": 45,
+      "latencySuitability": "HIGH with appropriate market-data entitlement",
+      "license": "Apache-2.0",
+      "maintenance": "Official repository updated 2026-08-25 and pushed 2026-08-24 at review time.",
+      "docsTests": "README documents REST, WebSocket and SSE clients, StockDataStream/NewsDataStream, typed request models and runtime pydantic validation.",
+      "securityNotes": "Requires API credentials; never expose keys in GitHub Pages/browser. Paper and data credentials must remain server-side and isolated.",
+      "lookAheadBiasRisk": "LOW for live stream when event timestamps are preserved; MEDIUM if historical backfill is merged into signal-time state without event-time boundaries.",
+      "decision": "BUILD_CHALLENGER",
+      "integrationPlan": "Do not install in production. Benchmark a sandbox StockDataStream adapter versus current polling for p50/p95 event latency, disconnect recovery, coverage, TPM/turnover feature lift and cost before any integration.",
+      "lastReviewedUTC": "2026-08-27T08:00:00Z"
+    }
+  ],
+  "newSearchOutcome": {
+    "queryTheme": "market data websocket trading python",
+    "decision": "NO_NEW_REPO_PROMOTED",
+    "reason": "Returned generic/crypto/TradingView wrappers did not exceed current official candidates on provenance, tests, licensing clarity, equities suitability or integration safety."
+  }
+}
