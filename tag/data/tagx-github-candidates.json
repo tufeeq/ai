@@ -1,12 +1,27 @@
 {
-  "updatedAtUTC": "2026-08-27T13:00:00Z",
+  "updatedAtUTC": "2026-08-27T15:05:00Z",
   "purpose": "TAGX GitHub Intelligence Sweep registry",
   "lastSweep": {
-    "dateUTC": "2026-08-27T13:00:00Z",
-    "focus": ["SEC parser correctness", "failure isolation", "streaming reliability", "event-time provenance", "premarket data freshness"],
-    "newSearchOutcome": "Reviewed alphanome-ai/sec-parser and newer EDGAR parser projects. No direct production dependency promoted; one parser pattern added for sandbox/borrow-pattern evaluation."
+    "dateUTC": "2026-08-27T15:05:00Z",
+    "focus": ["real-time market data ingestion", "WebSocket/streaming feeds", "trades-per-minute", "SEC 8-K disclosures", "reconnect/resubscribe reliability", "lane starvation"],
+    "newSearchOutcome": "Reviewed Massive.com official Python client (formerly Polygon.io). No production dependency promoted. Added as BUILD_SANDBOX candidate for tape/streaming and filing-disclosure benchmark; current production lane starvation was addressed independently with reserved multi-lane quote capacity."
   },
   "candidates": [
+    {
+      "repo": "massive-com/client-python",
+      "purpose": "Official US market REST/WebSocket client with stock trades/quotes plus newer SEC 8-K disclosure endpoints",
+      "layer": ["real-time market data ingestion", "WebSocket/streaming feeds", "trades-per-minute", "order flow", "SEC/EDGAR parsing", "data reconciliation"],
+      "maturityScore": 93,
+      "integrationScore": 84,
+      "dataDependencyScore": 38,
+      "latencySuitability": "HIGH with paid real-time entitlement; benchmark required against current Yahoo/Finviz cadence",
+      "license": "MIT",
+      "maintenance": "Official SDK; latest visible commit 2026-07-09 added 8-K disclosure/taxonomy endpoints. README documents REST and WebSocket stock feeds and explicit development test/lint commands.",
+      "securityNotes": "Requires vendor API key. Keep credentials server-side only. WebSocket client authenticates after TLS connection and has bounded reconnect/resubscribe logic; still require secret rotation, connection metrics and vendor outage fallback.",
+      "lookAheadRisk": "LOW for live trade/quote messages when vendor event timestamps are persisted; historical/replay use must preserve source event time and must not backfill later disclosures into earlier snapshots.",
+      "decision": "BUILD_SANDBOX",
+      "reason": "Strong official WebSocket implementation includes reconnect count, resubscription reconciliation and wildcard tape subscriptions; also exposes last/list trades and quotes and recently added 8-K disclosures. Direct production integration depends on paid real-time entitlement, latency/coverage benchmark, reconnect behavior under load, and reconciliation against an independent source."
+    },
     {
       "repo": "alpacahq/alpaca-py",
       "purpose": "Real-time US equities WebSocket market data and paper/broker adapter",
