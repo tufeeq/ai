@@ -1,4 +1,4 @@
-name: TAGX Live Extended Quotes
+name: TAGX Live Quote Reconciliation V2
 
 on:
   workflow_dispatch:
@@ -10,155 +10,97 @@ permissions:
 
 concurrency:
   group: tagx-live-quotes-main
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   refresh-live-quotes:
     runs-on: ubuntu-latest
+    timeout-minutes: 4
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
-
       - name: Sync latest main
         run: git pull --rebase origin main
-
-      - name: Build live pre-market / regular / after-hours quotes
+      - name: Build concurrent multi-lane live quote feed
         run: |
           python - <<'PY'
-          import json, pathlib, datetime, urllib.request, urllib.parse, time
+          import json,pathlib,datetime,urllib.request,urllib.parse,concurrent.futures,time
           from zoneinfo import ZoneInfo
-
-          src = pathlib.Path('tag/data/finviz.json')
-          if not src.exists():
-              raise SystemExit('tag/data/finviz.json missing')
-
-          payload = json.loads(src.read_text(encoding='utf-8'))
-          source_rows = payload.get('rows') or payload.get('data') or []
-          tickers = []
-          for row in source_rows:
-              t = str(row.get('Ticker') or row.get('ticker') or row.get('Symbol') or '').strip().upper()
-              if t and t not in tickers:
-                  tickers.append(t)
-          tickers = tickers[:200]
-
-          ET = ZoneInfo('America/New_York')
-          now_utc = datetime.datetime.now(datetime.timezone.utc)
-          now_et = now_utc.astimezone(ET)
-
+          ET=ZoneInfo('America/New_York'); now_utc=datetime.datetime.now(datetime.timezone.utc); now_et=now_utc.astimezone(ET); started=time.monotonic()
           def session_for(dt):
-              tm = dt.time()
-              if dt.weekday() >= 5:
-                  return 'closed'
-              if datetime.time(4,0) <= tm < datetime.time(9,30):
-                  return 'pre-market'
-              if datetime.time(9,30) <= tm < datetime.time(16,0):
-                  return 'regular'
-              if datetime.time(16,0) <= tm <= datetime.time(20,0):
-                  return 'after-hours'
+              tm=dt.time()
+              if dt.weekday()>=5:return 'closed'
+              if datetime.time(4,0)<=tm<datetime.time(9,30):return 'pre-market'
+              if datetime.time(9,30)<=tm<datetime.time(16,0):return 'regular'
+              if datetime.time(16,0)<=tm<=datetime.time(20,0):return 'after-hours'
               return 'closed'
-
-          def get_chart(symbol):
-              url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + urllib.parse.quote(symbol) + '?interval=1m&range=1d&includePrePost=true&events=div%2Csplits'
-              req = urllib.request.Request(url, headers={'User-Agent':'Mozilla/5.0 TAGX/1.0','Accept':'application/json'})
-              with urllib.request.urlopen(req, timeout=12) as r:
-                  return json.loads(r.read().decode('utf-8'))
-
-          quotes = {}
-          errors = []
-          for i, ticker in enumerate(tickers):
+          market_session=session_for(now_et)
+          def load(p):
+              try:return json.loads(pathlib.Path(p).read_text(encoding='utf-8'))
+              except:return {}
+          def sym(r):return str(r.get('Ticker') or r.get('ticker') or r.get('Symbol') or r.get('symbol') or '').strip().upper()
+          def num(v):
+              try:return float(str(v or '').replace('%','').replace(',','').replace('$',''))
+              except:return 0.0
+          prior=load('tag/data/live-quotes.json'); pre=load('tag/data/premarket-hot.json'); fast=load('tag/data/discovery-fast.json'); disc=load('tag/data/discovery.json'); finviz=load('tag/data/finviz.json')
+          lanes=[]
+          lanes.append(('prior_active',list((prior.get('quotes') or {}).keys())))
+          pre_rows=list((pre.get('rows') or {}).values()) if isinstance(pre.get('rows'),dict) else (pre.get('rows') or [])
+          pre_rows.sort(key=lambda r:(abs(num(r.get('sessionChangePct'))),abs(num(r.get('priceVelocity15mPct')))),reverse=True);lanes.append(('premarket_hot',[sym(r) for r in pre_rows]))
+          fast_rows=fast.get('rows') or [];fast_rows.sort(key=lambda r:(abs(num(r.get('Change'))),num(r.get('Rel Volume') or r.get('Relative Volume'))),reverse=True);lanes.append(('fast_discovery',[sym(r) for r in fast_rows]))
+          disc_rows=disc.get('rows') or [];nano=[r for r in disc_rows if 'nano_low_float' in (r.get('_discoveryLanes') or [])];nano.sort(key=lambda r:(-num(r.get('Float')) if num(r.get('Float')) else -1e9,num(r.get('Rel Volume'))),reverse=True);lanes.append(('nano_low_float',[sym(r) for r in nano]))
+          fin_rows=finviz.get('rows') or finviz.get('data') or [];fin_rows.sort(key=lambda r:(abs(num(r.get('Change'))),num(r.get('Volume'))),reverse=True);lanes.append(('finviz_movers',[sym(r) for r in fin_rows]))
+          caps={'prior_active':120,'premarket_hot':160,'fast_discovery':220,'nano_low_float':120,'finviz_movers':220};tickers=[];lane_of={};seen=set()
+          for lane,arr in lanes:
+              taken=0
+              for t in arr:
+                  if not t or t in seen or len(t)>12:continue
+                  seen.add(t);tickers.append(t);lane_of[t]=lane;taken+=1
+                  if taken>=caps[lane]:break
+          for _,arr in lanes:
+              for t in arr:
+                  if not t or t in seen or len(t)>12:continue
+                  seen.add(t);tickers.append(t);lane_of[t]='fill'
+                  if len(tickers)>=500:break
+              if len(tickers)>=500:break
+          tickers=tickers[:500]
+          def one(ticker):
               try:
-                  data = get_chart(ticker)
-                  result = ((data.get('chart') or {}).get('result') or [None])[0]
-                  if not result:
-                      raise ValueError('empty chart result')
-                  meta = result.get('meta') or {}
-                  timestamps = result.get('timestamp') or []
-                  indicators = result.get('indicators') or {}
-                  quote = (indicators.get('quote') or [{}])[0]
-                  closes = quote.get('close') or []
-                  volumes = quote.get('volume') or []
-
-                  points = []
-                  for idx, ts in enumerate(timestamps):
-                      if idx >= len(closes) or closes[idx] is None:
-                          continue
-                      dt = datetime.datetime.fromtimestamp(ts, datetime.timezone.utc).astimezone(ET)
-                      points.append({
-                          'timestamp': ts,
-                          'timestampET': dt.isoformat(),
-                          'session': session_for(dt),
-                          'price': float(closes[idx]),
-                          'volume': int(volumes[idx]) if idx < len(volumes) and volumes[idx] is not None else None,
-                      })
-                  if not points:
-                      raise ValueError('no priced points')
-
-                  latest = points[-1]
-                  regular_pts = [p for p in points if p['session'] == 'regular']
-                  pre_pts = [p for p in points if p['session'] == 'pre-market']
-                  post_pts = [p for p in points if p['session'] == 'after-hours']
-
-                  regular_price = float(meta.get('regularMarketPrice')) if meta.get('regularMarketPrice') is not None else (regular_pts[-1]['price'] if regular_pts else None)
-                  prev_close = meta.get('previousClose')
-                  if prev_close is None:
-                      prev_close = meta.get('chartPreviousClose')
-                  prev_close = float(prev_close) if prev_close is not None else None
-
-                  pre_price = pre_pts[-1]['price'] if pre_pts else None
-                  post_price = post_pts[-1]['price'] if post_pts else None
-                  pre_volume = sum(p['volume'] or 0 for p in pre_pts) if pre_pts else None
-                  post_volume = sum(p['volume'] or 0 for p in post_pts) if post_pts else None
-
-                  def pct(price, base):
-                      return ((price-base)/base*100.0) if price is not None and base not in (None,0) else None
-
-                  quotes[ticker] = {
-                      'ticker': ticker,
-                      'price': latest['price'],
-                      'session': latest['session'],
-                      'timestampET': latest['timestampET'],
-                      'regularMarketPrice': regular_price,
-                      'preMarketPrice': pre_price,
-                      'afterHoursPrice': post_price,
-                      'previousClose': prev_close,
-                      'changePct': pct(latest['price'], prev_close),
-                      'preMarketChangePct': pct(pre_price, prev_close),
-                      'afterHoursChangePct': pct(post_price, regular_price),
-                      'preMarketVolume': pre_volume,
-                      'afterHoursVolume': post_volume,
-                      'source': 'Yahoo Finance chart 1m includePrePost',
-                  }
-              except Exception as e:
-                  errors.append({'ticker': ticker, 'error': str(e)[:180]})
-              if i and i % 40 == 0:
-                  time.sleep(1)
-
-          out = {
-              'source': 'Yahoo Finance chart API',
-              'updatedAtUTC': now_utc.isoformat(),
-              'updatedAtET': now_et.isoformat(),
-              'marketClockSession': session_for(now_et),
-              'count': len(quotes),
-              'requested': len(tickers),
-              'quotes': quotes,
-              'errors': errors[:30],
-          }
-          pathlib.Path('tag/data/live-quotes.json').write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding='utf-8')
-          print(f"Live quotes: {len(quotes)}/{len(tickers)}; session={out['marketClockSession']}")
+                  url='https://query1.finance.yahoo.com/v8/finance/chart/'+urllib.parse.quote(ticker)+'?interval=1m&range=1d&includePrePost=true&events=div%2Csplits'
+                  req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 TAGXLive/2.0','Accept':'application/json'})
+                  with urllib.request.urlopen(req,timeout=3.5) as z:data=json.loads(z.read().decode('utf-8'))
+                  result=((data.get('chart') or {}).get('result') or [None])[0]
+                  if not result:return ticker,None,'empty chart result'
+                  meta=result.get('meta') or {};ts=result.get('timestamp') or [];quote=((result.get('indicators') or {}).get('quote') or [{}])[0];closes=quote.get('close') or [];volumes=quote.get('volume') or [];pts=[]
+                  for i,t in enumerate(ts):
+                      if i>=len(closes) or closes[i] is None:continue
+                      dt=datetime.datetime.fromtimestamp(t,datetime.timezone.utc).astimezone(ET);pts.append((t,dt,session_for(dt),float(closes[i]),int(volumes[i]) if i<len(volumes) and volumes[i] is not None else None))
+                  if not pts:return ticker,None,'no priced points'
+                  latest=pts[-1];reg=[p for p in pts if p[2]=='regular'];prepts=[p for p in pts if p[2]=='pre-market'];post=[p for p in pts if p[2]=='after-hours'];prev=meta.get('previousClose') if meta.get('previousClose') is not None else meta.get('chartPreviousClose');prev=float(prev) if prev is not None else None;regpx=float(meta.get('regularMarketPrice')) if meta.get('regularMarketPrice') is not None else (reg[-1][3] if reg else None);prepx=prepts[-1][3] if prepts else None;postpx=post[-1][3] if post else None;pct=lambda p,b:((p-b)/b*100.0) if p is not None and b not in (None,0) else None;age=(now_utc.timestamp()-latest[0])/60
+                  q={'ticker':ticker,'price':latest[3],'session':latest[2],'timestampET':latest[1].isoformat(),'regularMarketPrice':regpx,'preMarketPrice':prepx,'afterHoursPrice':postpx,'previousClose':prev,'changePct':pct(latest[3],prev),'preMarketChangePct':pct(prepx,prev),'afterHoursChangePct':pct(postpx,regpx),'preMarketVolume':sum(p[4] or 0 for p in prepts) if prepts else None,'afterHoursVolume':sum(p[4] or 0 for p in post) if post else None,'quoteAgeMin':round(age,2),'universeLane':lane_of.get(ticker,'unknown'),'source':'Yahoo Finance chart 1m includePrePost'}
+                  return ticker,q,None
+              except Exception as e:return ticker,None,str(e)[:180]
+          quotes={};errors=[]
+          with concurrent.futures.ThreadPoolExecutor(max_workers=48) as ex:
+              fs=[ex.submit(one,t) for t in tickers]
+              for f in concurrent.futures.as_completed(fs):
+                  t,q,err=f.result()
+                  if q:quotes[t]=q
+                  elif err:errors.append({'ticker':t,'error':err})
+          fresh=sum(1 for q in quotes.values() if q.get('quoteAgeMin',999)<=10 and (market_session=='closed' or q.get('session')==market_session));duration=round(time.monotonic()-started,2);confidence='HIGH' if fresh>=80 else ('MEDIUM' if fresh>=25 else 'LOW');lane_counts={lane:sum(1 for t in tickers if lane_of.get(t)==lane) for lane,_ in lanes};lane_counts['fill']=sum(1 for t in tickers if lane_of.get(t)=='fill')
+          out={'schemaVersion':2,'source':'Yahoo Finance chart API concurrent multi-lane','updatedAtUTC':now_utc.isoformat(),'updatedAtET':now_et.isoformat(),'marketClockSession':market_session,'count':len(quotes),'freshCount':fresh,'requested':len(tickers),'scanDurationSec':duration,'dataConfidence':confidence,'laneCounts':lane_counts,'quotes':quotes,'errors':errors[:40]}
+          pathlib.Path('tag/data/live-quotes.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8');print(json.dumps({'session':market_session,'quotes':len(quotes),'fresh':fresh,'requested':len(tickers),'durationSec':duration,'confidence':confidence}))
+          if market_session in ('pre-market','regular','after-hours') and fresh<25:raise SystemExit('Fresh quote coverage below fail-closed floor')
           PY
-
       - name: Commit live quote feed
         run: |
           git config user.name "TAGX Live Quote Bot"
           git config user.email "actions@users.noreply.github.com"
           git add tag/data/live-quotes.json
-          if git diff --cached --quiet; then
-            echo "No live quote change"
-            exit 0
-          fi
-          git commit -m "Refresh TAGX live extended-hours quotes"
-          git pull --rebase origin main
-          git push origin main
+          git diff --cached --quiet && exit 0
+          git commit -m "data: refresh TAGX concurrent live quotes"
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*4)); done
+          exit 1
