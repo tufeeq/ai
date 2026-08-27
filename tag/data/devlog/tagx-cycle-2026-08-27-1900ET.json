@@ -1,0 +1,40 @@
+{
+  "cycle": "2026-08-27T19:00:00-04:00",
+  "changeType": "learning-and-replay-infrastructure",
+  "problem": [
+    "The existing emergence outcome file is anchored to a single 13:05 ET source snapshot, so later intraday emerging signals are not accumulated into one point-in-time learning ledger.",
+    "The mandatory Top-20 end-of-session Predicted Early / Detected Late / Missed / Data-Unverified audit was not yet a dedicated fail-closed artifact tied to reconciled final outcomes."
+  ],
+  "evidenceBefore": {
+    "emergenceOutcomeSourceSnapshotUTC": "2026-08-27T17:05:50.389715+00:00",
+    "emergenceOutcomeSignalCount": 26,
+    "emergenceOutcomeCounts": {"promising":0,"followThrough":1,"failed":1,"open":24},
+    "latestKnownLiveSnapshotET": "2026-08-27T16:02:52-04:00",
+    "latestKnownLiveEmergingCount": 28,
+    "learningRisk": "single-snapshot sampling can hide later signals and distort persistence/false-positive estimates"
+  },
+  "implemented": [
+    {
+      "component": "TAGX Rolling Emergence Signal Ledger",
+      "path": ".github/workflows/tagx-emergence-signal-ledger.yml",
+      "behavior": "Every distinct fresh live snapshot (<=12 minutes) appends immutable point-in-time observations per ticker; stale snapshots are rejected; no retroactive signal creation."
+    },
+    {
+      "component": "TAGX Top-20 Replay Audit",
+      "path": ".github/workflows/tagx-top20-replay-audit.yml",
+      "behavior": "After strict two-source final reconciliation, rank top 20 reconciled movers and classify each as Predicted Early, Detected Late, Missed, or Data-Unverified from point-in-time ledgers; persist 5/20-session adjusted-rate trends."
+    }
+  ],
+  "championChallenger": {
+    "championScoringChanged": false,
+    "thresholdChanged": false,
+    "reason": "This cycle improves measurement coverage and replay truth; it does not yet provide multi-session evidence for changing production ranking thresholds."
+  },
+  "safety": {
+    "failClosedFreshnessMinutes": 12,
+    "finalGroundTruthRequiresReconciliation": true,
+    "lookAheadUsedForRanking": false,
+    "unreconciledFinalMoverLabelsUsedForTraining": false
+  },
+  "nextMeasurement": "Compare session-level Top-20 early-capture and false-positive cohorts after the strict 20:00 ET final candidate/reconciliation is available; promote no threshold from one session."
+}
