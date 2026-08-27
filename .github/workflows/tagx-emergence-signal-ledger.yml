@@ -1,0 +1,115 @@
+name: TAGX Rolling Emergence Signal Ledger
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Learning ledger only: capture every five minutes; fail closed on stale feeds.
+    - cron: '2,7,12,17,22,27,32,37,42,47,52,57 8-23 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-emergence-signal-ledger-main
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sync latest live snapshot
+        run: git pull --rebase origin main
+      - name: Append point-in-time emergence observations
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime
+          from zoneinfo import ZoneInfo
+
+          ET=ZoneInfo('America/New_York')
+          root=pathlib.Path('tag/data')
+          live_path=root/'live-quotes.json'
+          ledger_path=root/'emergence-signal-ledger.json'
+
+          def load(p, default):
+              try:return json.loads(p.read_text(encoding='utf-8'))
+              except Exception:return default
+          def dt(v):
+              try:
+                  x=datetime.datetime.fromisoformat(str(v).replace('Z','+00:00'))
+                  return x if x.tzinfo else x.replace(tzinfo=datetime.timezone.utc)
+              except:return None
+
+          now=datetime.datetime.now(datetime.timezone.utc)
+          now_et=now.astimezone(ET)
+          live=load(live_path,{})
+          snap=dt(live.get('updatedAtUTC') or live.get('updatedAtET'))
+          age=(now-snap.astimezone(datetime.timezone.utc)).total_seconds()/60 if snap else 1e9
+          session_date=snap.astimezone(ET).date().isoformat() if snap else None
+          fresh=bool(snap and age<=12 and str(live.get('dataConfidence') or '').upper() in {'HIGH','MEDIUM'})
+
+          ledger=load(ledger_path,{'schemaVersion':1,'sessionDateET':session_date,'tickers':{},'processedSnapshots':[]})
+          if ledger.get('sessionDateET')!=session_date:
+              ledger={'schemaVersion':1,'sessionDateET':session_date,'tickers':{},'processedSnapshots':[]}
+          processed=list(ledger.get('processedSnapshots') or [])[-300:]
+          sid=(live.get('updatedAtUTC') or live.get('updatedAtET'))
+          if fresh and sid and sid not in processed:
+              ticks=ledger.setdefault('tickers',{})
+              for c in (live.get('emergingCandidates') or []):
+                  t=str(c.get('ticker') or c.get('Ticker') or '').upper()
+                  if not t:continue
+                  obs={
+                      'timestampUTC':live.get('updatedAtUTC'),
+                      'timestampET':live.get('updatedAtET'),
+                      'price':c.get('price'),
+                      'changePct':c.get('changePct'),
+                      'priceVelocity5mPct':c.get('priceVelocity5mPct'),
+                      'priceVelocity15mPct':c.get('priceVelocity15mPct'),
+                      'priceVelocity30mPct':c.get('priceVelocity30mPct'),
+                      'volumeAcceleration5m':c.get('volumeAcceleration5m'),
+                      'volumeAcceleration15m':c.get('volumeAcceleration15m'),
+                      'turnover5mPctFloat':c.get('turnover5mPctFloat'),
+                      'turnover15mPctFloat':c.get('turnover15mPctFloat'),
+                      'earlyRegimeShiftScore':c.get('earlyRegimeShiftScore'),
+                      'ignitionScore':c.get('ignitionScore'),
+                      'lane':c.get('lane'),
+                      'sourceSnapshot':sid,
+                      'dataConfidence':live.get('dataConfidence'),
+                      'pointInTime':True,
+                      'lookAheadUsed':False
+                  }
+                  rec=ticks.get(t)
+                  if not rec:
+                      ticks[t]={'ticker':t,'firstSeenET':live.get('updatedAtET'),'firstSeenUTC':live.get('updatedAtUTC'),'firstSignal':obs,'observations':[]}
+                      rec=ticks[t]
+                  if not any(x.get('sourceSnapshot')==sid for x in rec.get('observations',[])):
+                      rec.setdefault('observations',[]).append(obs)
+                      rec['observations']=rec['observations'][-200:]
+                  rec['lastSeenET']=live.get('updatedAtET');rec['lastSeenUTC']=live.get('updatedAtUTC')
+                  rec['observationCount']=len(rec.get('observations',[]))
+                  ers=[x.get('earlyRegimeShiftScore') for x in rec.get('observations',[]) if isinstance(x.get('earlyRegimeShiftScore'),(int,float))]
+                  ign=[x.get('ignitionScore') for x in rec.get('observations',[]) if isinstance(x.get('ignitionScore'),(int,float))]
+                  rec['maxERS']=max(ers) if ers else None;rec['maxIgnition']=max(ign) if ign else None
+              processed.append(sid)
+          ledger['processedSnapshots']=processed[-300:]
+          ledger['updatedAtUTC']=now.isoformat()
+          ledger['lastSourceSnapshot']=sid
+          ledger['lastSourceAgeMin']=round(age,2) if age<1e8 else None
+          ledger['lastCaptureAccepted']=fresh
+          ledger['capturePolicy']='POINT_IN_TIME_ONLY; reject feed age >12m; no retroactive signal creation'
+          ledger['tickerCount']=len(ledger.get('tickers',{}))
+          ledger_path.write_text(json.dumps(ledger,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps({'accepted':fresh,'sourceAgeMin':round(age,2) if age<1e8 else None,'tickerCount':ledger['tickerCount'],'snapshot':sid}))
+          PY
+      - name: Commit rolling signal ledger
+        run: |
+          git config user.name "TAGX Point-in-Time Ledger Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/emergence-signal-ledger.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Capture TAGX rolling point-in-time emergence ledger"
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*5)); done
+          exit 1
