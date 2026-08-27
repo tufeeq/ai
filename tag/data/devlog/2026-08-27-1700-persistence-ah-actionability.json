@@ -1,0 +1,41 @@
+{
+  "cycleET": "2026-08-27T17:00:00-04:00",
+  "change": "TAGX V29 persistence-aware actionability with after-hours support",
+  "baseline": {
+    "uiCritic": "V28",
+    "regularOnly": true,
+    "afterHoursBehavior": "hard blocked even when live-quotes contained fresh emerging candidates",
+    "latestObservedLiveSnapshotET": "2026-08-27T16:02:52.119473-04:00",
+    "latestObservedSession": "after-hours",
+    "snapshotFreshCount": 216,
+    "snapshotEmergingCount": 28,
+    "dataConfidence": "HIGH",
+    "problem": "V28 discarded the whole after-hours session and scored each regular-session candidate from one snapshot without a persistence requirement"
+  },
+  "challenger": {
+    "uiCritic": "V29",
+    "featuresAdded": [
+      "cross-observation persistence state",
+      "persistence score",
+      "score slope",
+      "ERS slope",
+      "separate after-hours risk premium",
+      "after-hours structural-participation gate",
+      "single-spike rejection pressure",
+      "12-minute fail-closed freshness gate"
+    ],
+    "afterHoursPassPolicy": "ERS>=75, Ignition>=75, positive 5m velocity, structural participation, actionability>=76 and persistence>=45; displacement >=20% rejected as late",
+    "productionDependencyAdded": false,
+    "championPromotion": false,
+    "reason": "Must accumulate multiple observations/sessions and outcome labels before promoting thresholds"
+  },
+  "marketContext": {
+    "close": "Broad US session was tech-led; public sources reported Nasdaq +1.33% and S&P 500 +0.62% at the Aug 27 close.",
+    "learningFocus": "Do not equate end-of-day top gainers with early-capture success; preserve point-in-time signal traces and measure subsequent MFE/MAE."
+  },
+  "verification": {
+    "serviceWorkerUpdated": true,
+    "pagesDeployTriggered": true,
+    "runtimeClaim": "No live performance improvement claimed until fresh post-change snapshots and outcomes are available"
+  }
+}
