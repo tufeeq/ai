@@ -1,0 +1,24 @@
+{
+  "evaluatedAtUTC": "2026-08-27T20:00:00Z",
+  "repo": "microsoft/qlib",
+  "purpose": "Point-in-time research, high-frequency feature pipelines, online/rolling model evaluation, backtesting and concept-drift patterns",
+  "layers": ["backtesting/event replay", "feature stores", "online learning", "model evaluation"],
+  "maturityScore": 91,
+  "integrationScore": 62,
+  "dataDependencyScore": 55,
+  "latencySuitability": "MEDIUM for research/replay; not selected for the live scanner hot path",
+  "license": "MIT",
+  "maintenance": {
+    "latestReviewedCommit": "79633dd9506ea689e5400dea0197717b5b3d74b7",
+    "latestReviewedCommitDate": "2026-07-23",
+    "testsVisible": true,
+    "docsQuality": "HIGH"
+  },
+  "securityNotes": "Large ML dependency surface; do not place in browser or live ingestion hot path. Pin versions and isolate any future experiment in a challenger environment.",
+  "lookAheadRisk": "MEDIUM unless point-in-time dataset semantics are enforced. Qlib has explicit point-in-time database and online/rolling concepts; TAGX must preserve event-time and never train on reconciled future snapshots.",
+  "dataCostRequirements": "Framework itself does not solve authoritative US real-time data entitlement; external data remains required.",
+  "decision": "BORROW_PATTERN",
+  "borrow": ["point-in-time dataset separation", "online model rolling", "high-frequency workflow structure", "research-to-backtest evaluation pattern"],
+  "productionDependency": false,
+  "reason": "Useful architecture for challenger research and replay, but too heavy and not latency-appropriate for TAGX live discovery. No direct dependency added."
+}
