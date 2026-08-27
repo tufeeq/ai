@@ -1,0 +1,84 @@
+name: TAGX Emergence Outcome Evaluator
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/tagx-emergence-outcome-eval.yml']
+  schedule:
+    - cron: '*/15 13-20 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-emergence-outcome-eval
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: git pull --rebase origin main
+      - name: Evaluate point-in-time challenger signals
+        run: |
+          python - <<'PY'
+          import json,pathlib,datetime,urllib.request,urllib.parse,concurrent.futures
+          from zoneinfo import ZoneInfo
+          ET=ZoneInfo('America/New_York'); now=datetime.datetime.now(datetime.timezone.utc)
+          def load(p):
+              try:return json.loads(pathlib.Path(p).read_text(encoding='utf-8'))
+              except:return {}
+          live=load('tag/data/live-quotes.json'); prior=load('tag/data/emergence-outcomes.json')
+          old={str(x.get('ticker') or '').upper():x for x in prior.get('signals',[])}
+          sigs=live.get('emergingCandidates') or []
+          def one(s):
+              t=str(s.get('ticker') or '').upper(); signal_px=float(s.get('price') or 0); signal_ts=s.get('timestampET')
+              try:
+                  st=datetime.datetime.fromisoformat(str(signal_ts).replace('Z','+00:00'))
+                  if st.tzinfo is None:st=st.replace(tzinfo=ET)
+                  st_utc=st.astimezone(datetime.timezone.utc)
+              except:return None
+              try:
+                  u='https://query1.finance.yahoo.com/v8/finance/chart/'+urllib.parse.quote(t)+'?interval=1m&range=1d&includePrePost=true'
+                  q=urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0 TAGXOutcome/1.0','Accept':'application/json'})
+                  with urllib.request.urlopen(q,timeout=3) as z:j=json.loads(z.read())
+                  r=(j.get('chart',{}).get('result') or [None])[0]
+                  if not r:return None
+                  ts=r.get('timestamp') or [];qq=((r.get('indicators',{}).get('quote') or [{}])[0]);cl=qq.get('close') or [];hi=qq.get('high') or [];lo=qq.get('low') or []
+                  pts=[]
+                  for i,x in enumerate(ts):
+                      if x < st_utc.timestamp():continue
+                      c=cl[i] if i<len(cl) else None;h=hi[i] if i<len(hi) else None;l=lo[i] if i<len(lo) else None
+                      if c is not None:pts.append((x,float(c),float(h) if h is not None else float(c),float(l) if l is not None else float(c)))
+                  if not pts:return None
+                  last=pts[-1][1];maxh=max(p[2] for p in pts);minl=min(p[3] for p in pts)
+                  mfe=(maxh/signal_px-1)*100 if signal_px else None;mae=(minl/signal_px-1)*100 if signal_px else None;cur=(last/signal_px-1)*100 if signal_px else None
+                  o=old.get(t,{})
+                  peak=max([x for x in [o.get('subsequentMaxMovePct'),mfe] if x is not None],default=mfe)
+                  quality='PROMISING' if (peak is not None and peak>=10) else ('FOLLOW_THROUGH' if (peak is not None and peak>=5) else ('FAILED' if (mae is not None and mae<=-6 and (peak or 0)<5) else 'OPEN'))
+                  return {'ticker':t,'signalTimestampET':signal_ts,'signalPrice':signal_px,'signalChangePct':s.get('changePct'),'signalERS':s.get('earlyRegimeShiftScore'),'signalIgnition':s.get('ignitionScore'),'signalLane':s.get('universeLane'),'evaluatedAtUTC':now.isoformat(),'elapsedMin':round((now-st_utc).total_seconds()/60,1),'currentReturnPct':round(cur,3) if cur is not None else None,'subsequentMaxMovePct':round(peak,3) if peak is not None else None,'subsequentMAEPct':round(mae,3) if mae is not None else None,'outcomeClass':quality,'pointInTime':True,'lookAheadUsedForRanking':False}
+              except:return None
+          rows=[]
+          with concurrent.futures.ThreadPoolExecutor(max_workers=24) as ex:
+              for r in ex.map(one,sigs):
+                  if r:rows.append(r)
+          rows.sort(key=lambda x:(x.get('subsequentMaxMovePct') if x.get('subsequentMaxMovePct') is not None else -999),reverse=True)
+          out={'schemaVersion':1,'source':'TAGX point-in-time emergence outcome evaluator','updatedAtUTC':now.isoformat(),'sourceSnapshotUTC':live.get('updatedAtUTC'),'productionRankingActive':False,'counts':{'signals':len(rows),'promising':sum(x['outcomeClass']=='PROMISING' for x in rows),'followThrough':sum(x['outcomeClass']=='FOLLOW_THROUGH' for x in rows),'failed':sum(x['outcomeClass']=='FAILED' for x in rows),'open':sum(x['outcomeClass']=='OPEN' for x in rows)},'signals':rows}
+          pathlib.Path('tag/data/emergence-outcomes.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(out['counts']))
+          PY
+      - name: Commit outcome snapshot
+        run: |
+          git config user.name "TAGX Outcome Bot"
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/emergence-outcomes.json
+          git diff --cached --quiet && exit 0
+          git commit -m "data: evaluate TAGX emergence challenger outcomes"
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*4)); done
+          exit 1
