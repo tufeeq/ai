@@ -1,0 +1,38 @@
+{
+  "cycleET": "2026-08-27T15:00:00-04:00",
+  "step": "GitHub Intelligence Sweep",
+  "candidates": [
+    {
+      "repo": "online-ml/river",
+      "purpose": "online learning, concept drift, progressive validation for signal/challenger evaluation",
+      "layer": ["online learning", "model evaluation", "drift detection"],
+      "maturityScore": 91,
+      "integrationScore": 78,
+      "dataDependencyScore": 95,
+      "latencySuitability": "HIGH for per-event incremental features; benchmark required before production",
+      "license": "BSD-3-Clause",
+      "maintenance": "active; latest public release observed 0.24.2 on 2026-04-15; current repo docs expose learn_one/predict_one and drift interfaces",
+      "docsTests": "strong documented estimator conventions, unit-test hooks, progressive validation patterns",
+      "securityNotes": "No market credentials required by library itself. Do not serialize/load untrusted models. Pin version and dependency hashes in sandbox.",
+      "lookAheadRisk": "LOW if predict_one -> metric.update -> learn_one event order is preserved; HIGH if labels/outcomes are learned before prediction",
+      "decision": "BORROW_PATTERN",
+      "reason": "Use prequential/progressive evaluation and drift-detection patterns first; do not add dependency to production until multi-session benchmark proves value over deterministic TAGX critic."
+    },
+    {
+      "repo": "online-ml/light-river",
+      "purpose": "high-throughput Rust online ML/anomaly detection",
+      "layer": ["online learning", "latency"],
+      "maturityScore": 42,
+      "integrationScore": 35,
+      "dataDependencyScore": 95,
+      "latencySuitability": "POTENTIALLY_HIGH but benchmark TODO in repo",
+      "license": "BSD-3-Clause",
+      "securityNotes": "Rust dependency surface; immature benchmark/test evidence for TAGX needs",
+      "lookAheadRisk": "depends on caller event ordering",
+      "decision": "REJECT",
+      "reason": "WIP and benchmark TODO; no advantage proven over River patterns for current TAGX bottleneck."
+    }
+  ],
+  "productionDependencyAdded": false,
+  "patternAppliedThisCycle": "Progressive/prequential critic: current event is scored before any later outcome can update evaluation. V28 remains deterministic CHALLENGER and consumes point-in-time live bars only."
+}
