@@ -1,5 +1,5 @@
 {
-  "updatedAtUTC": "2026-08-26T09:02:00Z",
+  "updatedAtUTC": "2026-08-27T11:05:00Z",
   "purpose": "TAGX GitHub Intelligence Sweep registry",
   "candidates": [
     {
@@ -11,11 +11,11 @@
       "dataDependencyScore": 45,
       "latencySuitability": "HIGH if entitled feed is available",
       "license": "Apache-2.0",
-      "maintenance": "Active; pushed 2026-08-24; official Alpaca SDK",
+      "maintenance": "Active official Alpaca SDK",
       "securityNotes": "Requires API credentials and strict secret handling; sandbox/paper keys available. Do not expose keys to browser.",
       "lookAheadRisk": "LOW for live streaming; historical benchmarking must pin event timestamps and feed entitlement.",
       "decision": "BUILD_SANDBOX",
-      "reason": "Strong official StockDataStream pattern, typed validation, documented WebSocket/SSE clients. Production integration depends on data entitlement and benchmark against current Yahoo/Finviz cadence."
+      "reason": "Strong official StockDataStream pattern, typed validation, documented streaming clients. Production integration depends on data entitlement and benchmark against current cadence."
     },
     {
       "repo": "dgunning/edgartools",
@@ -26,11 +26,26 @@
       "dataDependencyScore": 72,
       "latencySuitability": "MEDIUM-HIGH for filing-triggered catalyst path",
       "license": "MIT",
-      "maintenance": "Active; 5.4x releases in 2026 and public 6.0 roadmap",
+      "maintenance": "Active with frequent 2026 releases",
       "securityNotes": "Must identify SEC requests correctly and rate-limit; parse untrusted filing HTML in isolated process if expanded to rendering.",
-      "lookAheadRisk": "LOW if filing acceptance/filed timestamps are preserved; HIGH if later XBRL facts are backfilled into earlier snapshots.",
+      "lookAheadRisk": "LOW if filing acceptance/filed timestamps are preserved; HIGH if later facts are backfilled into earlier snapshots.",
       "decision": "BUILD_SANDBOX",
-      "reason": "Best candidate for Catalyst Clock and dilution/financing challenger, but must benchmark parsing latency and timestamp fidelity before production."
+      "reason": "Strong candidate for Catalyst Clock and dilution/financing challenger, but must benchmark parsing latency and timestamp fidelity before production."
+    },
+    {
+      "repo": "OpenBB-finance/OpenBB",
+      "purpose": "Multi-provider financial-data normalization and provider abstraction patterns",
+      "layer": ["data ingestion", "data reconciliation", "provider orchestration", "research APIs"],
+      "maturityScore": 91,
+      "integrationScore": 42,
+      "dataDependencyScore": 38,
+      "latencySuitability": "MEDIUM; useful abstraction layer, not preferred as the lowest-latency scanner core",
+      "license": "AGPLv3",
+      "maintenance": "Active; current develop branch and broad provider ecosystem",
+      "securityNotes": "Large dependency/provider surface; credentials may span multiple vendors. Keep provider secrets server-side and sandbox each connector.",
+      "lookAheadRisk": "MEDIUM because normalized downstream datasets may combine providers with different timestamps; event-time provenance must be preserved explicitly.",
+      "decision": "BORROW_PATTERN",
+      "reason": "README documents a connect-once/consume-everywhere provider abstraction, but AGPLv3, large dependency surface and the project's own data-accuracy disclaimer make direct TAGX production integration unattractive. Borrow provider-interface and provenance patterns only."
     },
     {
       "repo": "Dharshan2004/market-replay",
@@ -43,9 +58,9 @@
       "license": "UNVERIFIED",
       "maintenance": "Recent repository, lightweight scope",
       "securityNotes": "No production dependency recommended until license/tests are verified.",
-      "lookAheadRisk": "LOW if recv timestamps and sequence order are retained",
+      "lookAheadRisk": "LOW if receive timestamps and sequence order are retained",
       "decision": "BORROW_PATTERN",
-      "reason": "Useful JSONL event-log plus monotonic replay architecture for TAGX T-5/T-15/T-30/T-60 reconstruction, but not directly suitable for US equities ingestion."
+      "reason": "Useful event-log and monotonic replay architecture for T-5/T-15/T-30/T-60 reconstruction, not directly suitable for US equities ingestion."
     },
     {
       "repo": "quarkfin/qf-lib",
