@@ -2,6 +2,9 @@ name: TAGX Live Quote Reconciliation V2
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/tagx-live-quotes.yml']
   schedule:
     - cron: '*/5 * * * *'
 
@@ -46,10 +49,8 @@ jobs:
               try:return float(str(v or '').replace('%','').replace(',','').replace('$',''))
               except:return 0.0
           prior=load('tag/data/live-quotes.json'); pre=load('tag/data/premarket-hot.json'); fast=load('tag/data/discovery-fast.json'); disc=load('tag/data/discovery.json'); finviz=load('tag/data/finviz.json')
-          lanes=[]
-          lanes.append(('prior_active',list((prior.get('quotes') or {}).keys())))
-          pre_rows=list((pre.get('rows') or {}).values()) if isinstance(pre.get('rows'),dict) else (pre.get('rows') or [])
-          pre_rows.sort(key=lambda r:(abs(num(r.get('sessionChangePct'))),abs(num(r.get('priceVelocity15mPct')))),reverse=True);lanes.append(('premarket_hot',[sym(r) for r in pre_rows]))
+          lanes=[];lanes.append(('prior_active',list((prior.get('quotes') or {}).keys())))
+          pre_rows=list((pre.get('rows') or {}).values()) if isinstance(pre.get('rows'),dict) else (pre.get('rows') or []);pre_rows.sort(key=lambda r:(abs(num(r.get('sessionChangePct'))),abs(num(r.get('priceVelocity15mPct')))),reverse=True);lanes.append(('premarket_hot',[sym(r) for r in pre_rows]))
           fast_rows=fast.get('rows') or [];fast_rows.sort(key=lambda r:(abs(num(r.get('Change'))),num(r.get('Rel Volume') or r.get('Relative Volume'))),reverse=True);lanes.append(('fast_discovery',[sym(r) for r in fast_rows]))
           disc_rows=disc.get('rows') or [];nano=[r for r in disc_rows if 'nano_low_float' in (r.get('_discoveryLanes') or [])];nano.sort(key=lambda r:(-num(r.get('Float')) if num(r.get('Float')) else -1e9,num(r.get('Rel Volume'))),reverse=True);lanes.append(('nano_low_float',[sym(r) for r in nano]))
           fin_rows=finviz.get('rows') or finviz.get('data') or [];fin_rows.sort(key=lambda r:(abs(num(r.get('Change'))),num(r.get('Volume'))),reverse=True);lanes.append(('finviz_movers',[sym(r) for r in fin_rows]))
@@ -69,8 +70,7 @@ jobs:
           tickers=tickers[:500]
           def one(ticker):
               try:
-                  url='https://query1.finance.yahoo.com/v8/finance/chart/'+urllib.parse.quote(ticker)+'?interval=1m&range=1d&includePrePost=true&events=div%2Csplits'
-                  req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 TAGXLive/2.0','Accept':'application/json'})
+                  url='https://query1.finance.yahoo.com/v8/finance/chart/'+urllib.parse.quote(ticker)+'?interval=1m&range=1d&includePrePost=true&events=div%2Csplits';req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 TAGXLive/2.0','Accept':'application/json'})
                   with urllib.request.urlopen(req,timeout=3.5) as z:data=json.loads(z.read().decode('utf-8'))
                   result=((data.get('chart') or {}).get('result') or [None])[0]
                   if not result:return ticker,None,'empty chart result'
@@ -80,8 +80,7 @@ jobs:
                       dt=datetime.datetime.fromtimestamp(t,datetime.timezone.utc).astimezone(ET);pts.append((t,dt,session_for(dt),float(closes[i]),int(volumes[i]) if i<len(volumes) and volumes[i] is not None else None))
                   if not pts:return ticker,None,'no priced points'
                   latest=pts[-1];reg=[p for p in pts if p[2]=='regular'];prepts=[p for p in pts if p[2]=='pre-market'];post=[p for p in pts if p[2]=='after-hours'];prev=meta.get('previousClose') if meta.get('previousClose') is not None else meta.get('chartPreviousClose');prev=float(prev) if prev is not None else None;regpx=float(meta.get('regularMarketPrice')) if meta.get('regularMarketPrice') is not None else (reg[-1][3] if reg else None);prepx=prepts[-1][3] if prepts else None;postpx=post[-1][3] if post else None;pct=lambda p,b:((p-b)/b*100.0) if p is not None and b not in (None,0) else None;age=(now_utc.timestamp()-latest[0])/60
-                  q={'ticker':ticker,'price':latest[3],'session':latest[2],'timestampET':latest[1].isoformat(),'regularMarketPrice':regpx,'preMarketPrice':prepx,'afterHoursPrice':postpx,'previousClose':prev,'changePct':pct(latest[3],prev),'preMarketChangePct':pct(prepx,prev),'afterHoursChangePct':pct(postpx,regpx),'preMarketVolume':sum(p[4] or 0 for p in prepts) if prepts else None,'afterHoursVolume':sum(p[4] or 0 for p in post) if post else None,'quoteAgeMin':round(age,2),'universeLane':lane_of.get(ticker,'unknown'),'source':'Yahoo Finance chart 1m includePrePost'}
-                  return ticker,q,None
+                  q={'ticker':ticker,'price':latest[3],'session':latest[2],'timestampET':latest[1].isoformat(),'regularMarketPrice':regpx,'preMarketPrice':prepx,'afterHoursPrice':postpx,'previousClose':prev,'changePct':pct(latest[3],prev),'preMarketChangePct':pct(prepx,prev),'afterHoursChangePct':pct(postpx,regpx),'preMarketVolume':sum(p[4] or 0 for p in prepts) if prepts else None,'afterHoursVolume':sum(p[4] or 0 for p in post) if post else None,'quoteAgeMin':round(age,2),'universeLane':lane_of.get(ticker,'unknown'),'source':'Yahoo Finance chart 1m includePrePost'};return ticker,q,None
               except Exception as e:return ticker,None,str(e)[:180]
           quotes={};errors=[]
           with concurrent.futures.ThreadPoolExecutor(max_workers=48) as ex:
@@ -90,8 +89,7 @@ jobs:
                   t,q,err=f.result()
                   if q:quotes[t]=q
                   elif err:errors.append({'ticker':t,'error':err})
-          fresh=sum(1 for q in quotes.values() if q.get('quoteAgeMin',999)<=10 and (market_session=='closed' or q.get('session')==market_session));duration=round(time.monotonic()-started,2);confidence='HIGH' if fresh>=80 else ('MEDIUM' if fresh>=25 else 'LOW');lane_counts={lane:sum(1 for t in tickers if lane_of.get(t)==lane) for lane,_ in lanes};lane_counts['fill']=sum(1 for t in tickers if lane_of.get(t)=='fill')
-          out={'schemaVersion':2,'source':'Yahoo Finance chart API concurrent multi-lane','updatedAtUTC':now_utc.isoformat(),'updatedAtET':now_et.isoformat(),'marketClockSession':market_session,'count':len(quotes),'freshCount':fresh,'requested':len(tickers),'scanDurationSec':duration,'dataConfidence':confidence,'laneCounts':lane_counts,'quotes':quotes,'errors':errors[:40]}
+          fresh=sum(1 for q in quotes.values() if q.get('quoteAgeMin',999)<=10 and (market_session=='closed' or q.get('session')==market_session));duration=round(time.monotonic()-started,2);confidence='HIGH' if fresh>=80 else ('MEDIUM' if fresh>=25 else 'LOW');lane_counts={lane:sum(1 for t in tickers if lane_of.get(t)==lane) for lane,_ in lanes};lane_counts['fill']=sum(1 for t in tickers if lane_of.get(t)=='fill');out={'schemaVersion':2,'source':'Yahoo Finance chart API concurrent multi-lane','updatedAtUTC':now_utc.isoformat(),'updatedAtET':now_et.isoformat(),'marketClockSession':market_session,'count':len(quotes),'freshCount':fresh,'requested':len(tickers),'scanDurationSec':duration,'dataConfidence':confidence,'laneCounts':lane_counts,'quotes':quotes,'errors':errors[:40]}
           pathlib.Path('tag/data/live-quotes.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8');print(json.dumps({'session':market_session,'quotes':len(quotes),'fresh':fresh,'requested':len(tickers),'durationSec':duration,'confidence':confidence}))
           if market_session in ('pre-market','regular','after-hours') and fresh<25:raise SystemExit('Fresh quote coverage below fail-closed floor')
           PY
