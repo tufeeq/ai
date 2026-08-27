@@ -1,0 +1,32 @@
+{
+  "cycle": "2026-08-27-0600ET",
+  "changeType": "PREMARKET_CAPTURE_RELIABILITY_AND_BREADTH",
+  "baseline": {
+    "snapshotET": "2026-08-27T05:02:53-04:00",
+    "candidateCount": 420,
+    "returnedCount": 54,
+    "dataConfidence": "MEDIUM",
+    "examples": [
+      {"ticker":"SHPH","firstObservedChangePct":13.953,"classification":"DETECTED_LATE_FOR_EARLY_OBJECTIVE"},
+      {"ticker":"MNDR","firstObservedChangePct":3.727,"classification":"EARLY_OBSERVATION"}
+    ]
+  },
+  "hypothesis": "Reserve explicit capacity for momentum and AH-to-PM persistence instead of allowing low-float structural ranking to dominate the admission list; trigger capture after fresh upstream discovery and preserve only event-time-fresh fallback rows. This should reduce missed new movers and stale-feed gaps without lowering ranking thresholds.",
+  "implemented": {
+    "commit": "4c116291aad84bb44b6f65f1efafa913b0dba020",
+    "candidateCap": 560,
+    "lanes": ["lowFloat","momentum","afterHoursPersistence","fill"],
+    "upstreamTrigger": "tag/data/discovery-fast.json",
+    "retries": 3,
+    "fallbackPolicy": "retain prior row only while its original event timestamp is <=15 minutes old",
+    "failClosed": "freshCount < 20"
+  },
+  "championChallenger": {
+    "rankingThresholdChanged": false,
+    "productionDependencyAdded": false,
+    "measurementRequiredBeforePromotion": ["freshCount","coverage of actual premarket movers","firstObservedChangePct distribution","missed-mover rate","false-positive rate"]
+  },
+  "postChangeMeasurement": "PENDING_NEXT_SUCCESSFUL_HEARTBEAT",
+  "versionBump": false,
+  "reasonNoVersionBump": "No user-facing ranking model or UI release was changed; this cycle changes the observation pipeline only."
+}
