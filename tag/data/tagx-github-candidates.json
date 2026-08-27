@@ -1,6 +1,11 @@
 {
-  "updatedAtUTC": "2026-08-27T11:05:00Z",
+  "updatedAtUTC": "2026-08-27T12:02:00Z",
   "purpose": "TAGX GitHub Intelligence Sweep registry",
+  "lastSweep": {
+    "dateUTC": "2026-08-27T12:02:00Z",
+    "focus": ["streaming reliability", "WebSocket reconnect patterns", "event-driven orchestration", "market data provenance"],
+    "newSearchOutcome": "No new US-equities dependency promoted. One recent non-US SDK was reviewed for reusable streaming/retry patterns only."
+  },
   "candidates": [
     {
       "repo": "alpacahq/alpaca-py",
@@ -75,6 +80,21 @@
       "lookAheadRisk": "Explicit prevention patterns documented",
       "decision": "BORROW_PATTERN",
       "reason": "Adopt event-time and anti-look-ahead design concepts rather than integrate the full framework."
+    },
+    {
+      "repo": "sahmk-sa/sahmk-python",
+      "purpose": "Recent official market-data SDK used to inspect WebSocket subscription, retry and reconnect test patterns",
+      "layer": ["WebSocket/streaming feeds", "trades-per-minute", "order flow", "reliability patterns"],
+      "maturityScore": 81,
+      "integrationScore": 24,
+      "dataDependencyScore": 15,
+      "latencySuitability": "NOT APPLICABLE to TAGX US equities; useful implementation pattern only",
+      "license": "MIT",
+      "maintenance": "Active; release 0.16.0 prepared 2026-08-25 and live-trades WebSocket support added 2026-07-29",
+      "securityNotes": "API key is placed in the WebSocket URL in current tests; TAGX must not copy that credential transport pattern. Reusable parts are batching, disconnect simulation and retry/backoff testing only.",
+      "lookAheadRisk": "LOW for live tape patterns if event timestamps are preserved",
+      "decision": "BORROW_PATTERN",
+      "reason": "Official SDK has explicit WebSocket tests for batching, disconnects, auth errors and retries, but it serves Tadawul rather than US equities. Borrow resilience-test patterns only; do not integrate as a TAGX data source."
     }
   ]
 }
