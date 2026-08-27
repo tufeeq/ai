@@ -1,0 +1,36 @@
+{
+  "sweepTimestampET": "2026-08-27T13:00:00-04:00",
+  "scope": [
+    "SEC/EDGAR parsing",
+    "fresh catalyst timing",
+    "data reconciliation",
+    "event-time correctness",
+    "observability"
+  ],
+  "candidates": [
+    {
+      "repo": "ryansmccoy/py-sec-edgar",
+      "purpose": "SEC EDGAR processor with RSS live filing monitoring, daily/full-index workflows, typed APIs, logging and structured extraction",
+      "layer": ["SEC/EDGAR parsing", "Fresh Catalyst", "Catalyst Clock", "Data Quality/Reconciliation"],
+      "maturityScore": 78,
+      "integrationScore": 72,
+      "dataDependencyScore": 91,
+      "latencySuitability": "MEDIUM-HIGH for filing-event detection via SEC RSS; not a sub-second market-data component",
+      "license": "MIT",
+      "maintenance": "Latest inspected commit 2026-04-23; active in 2026 but not as fresh as edgartools",
+      "documentationAndTests": "README exposes workflow documentation, Tests and Coverage badges, typed Python 3.10+ APIs, RSS/daily/full-index workflows",
+      "securityNotes": "No market-data credential required for SEC public data. Production use must respect SEC identity/rate policy and isolate parser failures. Optional local storage can be large.",
+      "lookAheadRisk": "LOW if accepted-at/accession timestamps are preserved and RSS event time is used. Daily/full-index feeds must never be backfilled into an earlier point-in-time signal.",
+      "decision": "BORROW_PATTERN",
+      "borrowPatterns": [
+        "separate live RSS from final daily/full-index reconciliation",
+        "list-only/dry-run discovery before download",
+        "typed filing workflow boundaries",
+        "event timestamp plus later completeness reconciliation"
+      ],
+      "productionDependency": false,
+      "reasonNotIntegrated": "edgartools remains stronger primary challenger for parsing breadth/freshness; this repository adds useful live-vs-final workflow separation patterns rather than a proven production improvement by itself"
+    }
+  ],
+  "promotionRule": "No dependency is promoted directly. Reproduce the RSS/live-vs-final reconciliation pattern in a sandbox challenger and benchmark catalyst-time coverage, duplicate rate, parsing failures and attribution error before promotion."
+}
