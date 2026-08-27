@@ -1,0 +1,163 @@
+name: TAGX Top-20 Replay Audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    # After strict 20:00 ET final reconciliation. Both UTC offsets are covered;
+    # the script fails closed unless today's strict final boundary is recognized.
+    - cron: '38 0,1 * * 2-6'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-top20-replay-audit-main
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sync latest point-in-time ledgers and final reconciliation
+        run: git pull --rebase origin main
+      - name: Build fail-closed Top-20 mover replay audit
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime, statistics
+          from zoneinfo import ZoneInfo
+
+          ET=ZoneInfo('America/New_York')
+          root=pathlib.Path('tag/data')
+          recon_path=root/'final-reconciliation-v4.json'
+          ledger_path=root/'discovery-ledger.json'
+          emergence_path=root/'emergence-signal-ledger.json'
+          out_path=root/'top20-replay-audit.json'
+          hist_path=root/'top20-replay-history.json'
+
+          def load(p, default):
+              try:return json.loads(p.read_text(encoding='utf-8'))
+              except Exception:return default
+          def num(v):
+              try:return float(v)
+              except:return None
+          def parse_dt(v):
+              try:
+                  x=datetime.datetime.fromisoformat(str(v).replace('Z','+00:00'))
+                  return x if x.tzinfo else x.replace(tzinfo=datetime.timezone.utc)
+              except:return None
+          def median(xs):
+              xs=[x for x in xs if x is not None]
+              return round(statistics.median(xs),3) if xs else None
+
+          now=datetime.datetime.now(datetime.timezone.utc)
+          now_et=now.astimezone(ET)
+          recon=load(recon_path,{})
+          session=str(recon.get('reconciliationSessionDateET') or '')
+          strict=bool(recon.get('finalBoundaryRecognized') is True and recon.get('outcomeTrainingEligible') is True)
+          same_day=(session==now_et.date().isoformat())
+          rows=recon.get('rows') or []
+          eligible=[r for r in rows if r.get('fieldLevelTrainingEligibility',{}).get('finalMoverOutcomeLabel') is True]
+          eligible.sort(key=lambda r:(num((r.get('finviz') or {}).get('changePct')) if num((r.get('finviz') or {}).get('changePct')) is not None else -1e9),reverse=True)
+          top=eligible[:20]
+
+          ledger=load(ledger_path,{})
+          ledger_same=str(ledger.get('sessionDateET') or '')==session
+          ticks=(ledger.get('tickers') or {}) if ledger_same else {}
+          emergence=load(emergence_path,{})
+          em_same=str(emergence.get('sessionDateET') or '')==session
+          em_ticks=(emergence.get('tickers') or {}) if em_same else {}
+
+          blocked=[]
+          if not strict:blocked.append('STRICT_FINAL_RECONCILIATION_NOT_READY')
+          if not same_day:blocked.append('FINAL_RECONCILIATION_NOT_CURRENT_SESSION')
+          if len(top)<20:blocked.append('FEWER_THAN_20_RECONCILED_FINAL_MOVERS')
+          if not ledger_same:blocked.append('DISCOVERY_LEDGER_SESSION_MISMATCH')
+
+          results=[]
+          if not blocked:
+              for rank,r in enumerate(top,1):
+                  t=str(r.get('ticker') or '').upper()
+                  fin=r.get('finviz') or {}
+                  d=ticks.get(t)
+                  e=em_ticks.get(t)
+                  first_change=num((d or {}).get('firstChangePct'))
+                  first_seen=(d or {}).get('firstSeenET')
+                  source='discovery-ledger' if d else None
+                  if d is None and e:
+                      first_change=num((e.get('firstSignal') or {}).get('changePct'))
+                      first_seen=e.get('firstSeenET')
+                      source='emergence-signal-ledger'
+                  if d is None and e is None:
+                      cls='Missed'
+                  elif first_change is None:
+                      cls='Data-Unverified'
+                  elif -10 <= first_change < 10:
+                      cls='Predicted Early'
+                  else:
+                      cls='Detected Late'
+                  fdt=parse_dt(first_seen)
+                  minutes_from_open=None
+                  if fdt:
+                      fet=fdt.astimezone(ET)
+                      op=datetime.datetime.combine(fet.date(),datetime.time(9,30),tzinfo=ET)
+                      minutes_from_open=round((fet-op).total_seconds()/60,1)
+                  results.append({
+                      'rank':rank,'ticker':t,
+                      'finalChangePct':num(fin.get('changePct')),
+                      'finalPrice':num(fin.get('price')),
+                      'classification':cls,
+                      'firstDetectionSource':source,
+                      'firstSeenET':first_seen,
+                      'firstDetectionChangePct':first_change,
+                      'minutesFromRegularOpen':minutes_from_open,
+                      'finalDataReconciled':True,
+                      'replayPolicy':'POINT_IN_TIME_LEDGER_ONLY_NO_RETROACTIVE_SIGNAL_CREATION'
+                  })
+
+          counts={k:sum(1 for x in results if x['classification']==k) for k in ['Predicted Early','Detected Late','Missed','Data-Unverified']}
+          verified=len(results)-counts['Data-Unverified']
+          ecr=round(100*counts['Predicted Early']/len(results),2) if results else None
+          adjusted=round(100*counts['Predicted Early']/verified,2) if verified else None
+          ttd=median([x['minutesFromRegularOpen'] for x in results if x['classification']=='Predicted Early'])
+
+          history=load(hist_path,{'schemaVersion':1,'sessions':[]})
+          sessions=[x for x in (history.get('sessions') or []) if x.get('sessionDateET')!=session]
+          if not blocked:
+              sessions.append({'sessionDateET':session,'earlyCaptureRatePct':ecr,'adjustedRatePct':adjusted,'predictedEarly':counts['Predicted Early'],'detectedLate':counts['Detected Late'],'missed':counts['Missed'],'dataUnverified':counts['Data-Unverified'],'medianEarlyDetectionMinutesFromOpen':ttd,'generatedAtUTC':now.isoformat()})
+          sessions=sorted(sessions,key=lambda x:x.get('sessionDateET',''))[-30:]
+          def trend(n,key):
+              vals=[num(x.get(key)) for x in sessions[-n:]]; vals=[x for x in vals if x is not None]
+              return {'sessions':len(vals),'averagePct':round(sum(vals)/len(vals),2) if vals else None,'latestPct':vals[-1] if vals else None}
+
+          payload={
+              'schemaVersion':1,
+              'generatedAtUTC':now.isoformat(),
+              'sessionDateET':session or None,
+              'status':'READY' if not blocked else 'BLOCKED',
+              'blockedReasons':blocked,
+              'groundTruth':'final-reconciliation-v4: two-source timestamp-aligned final price/change only',
+              'signalTruth':'discovery-ledger plus emergence-signal-ledger; point-in-time records only',
+              'top20Policy':'top 20 reconciled final movers by final changePct',
+              'classificationPolicy':{'Predicted Early':'first observed change in [-10%, +10%)','Detected Late':'observed but first change outside early band','Missed':'no point-in-time detection record','Data-Unverified':'detection record exists but first change unavailable'},
+              'counts':counts,
+              'metrics':{'earlyCaptureRatePct':ecr,'adjustedRatePct':adjusted,'medianEarlyDetectionMinutesFromRegularOpen':ttd,'trend5':trend(5,'adjustedRatePct'),'trend20':trend(20,'adjustedRatePct')},
+              'rows':results
+          }
+          out_path.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8')
+          history['sessions']=sessions
+          hist_path.write_text(json.dumps(history,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps({'status':payload['status'],'blocked':blocked,'counts':counts,'metrics':payload['metrics']}))
+          PY
+      - name: Commit audit artifacts
+        run: |
+          git config user.name "TAGX Replay Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/top20-replay-audit.json tag/data/top20-replay-history.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Add TAGX mandatory Top-20 point-in-time replay audit"
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*5)); done
+          exit 1
