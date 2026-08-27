@@ -1,0 +1,117 @@
+name: TAGX Volume Derivative Challenger
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '3,8,13,18,23,28,33,38,43,48,53,58 8-23 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-volume-derivative-challenger
+  cancel-in-progress: true
+
+jobs:
+  derive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: git pull --rebase origin main
+      - name: Build point-in-time volume derivative telemetry
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime, math
+          from zoneinfo import ZoneInfo
+
+          now=datetime.datetime.now(datetime.timezone.utc)
+          et=now.astimezone(ZoneInfo('America/New_York'))
+          mins=et.hour*60+et.minute
+          if not(et.weekday()<5 and 240<=mins<=1200): raise SystemExit(0)
+
+          srcp=pathlib.Path('tag/data/discovery-fast.json')
+          outp=pathlib.Path('tag/data/tagx-volume-derivative-challenger.json')
+          if not srcp.exists(): raise SystemExit('discovery-fast.json missing')
+          src=json.loads(srcp.read_text(encoding='utf-8'))
+          try: prior=json.loads(outp.read_text(encoding='utf-8')) if outp.exists() else {}
+          except: prior={}
+
+          same_day=prior.get('sessionDateET')==et.date().isoformat()
+          pmap={r.get('ticker'):r for r in prior.get('rows',[]) if r.get('ticker')} if same_day else {}
+
+          def n(v):
+            try:return float(str(v or '').replace('%','').replace(',','').replace('$',''))
+            except:return None
+          def dt(v):
+            try:return datetime.datetime.fromisoformat(str(v).replace('Z','+00:00'))
+            except:return None
+          def clamp(v,a,b):return max(a,min(b,v))
+
+          rows=[]
+          for r in src.get('rows',[]):
+            t=str(r.get('Ticker') or '').upper().strip()
+            if not t: continue
+            cur_vol=n(r.get('Volume')); cur_px=n(r.get('Price')); cur_ch=n(r.get('Change')); fl=n(r.get('Float'))
+            pr=pmap.get(t,{})
+            prev_vol=n(pr.get('volume')); prev_px=n(pr.get('price')); prev_ch=n(pr.get('changePct')); prev_ts=dt(pr.get('timestampUTC'))
+            elapsed=(now-prev_ts).total_seconds()/60 if prev_ts else None
+            valid_elapsed=elapsed is not None and 1<=elapsed<=20
+
+            delta_vol=max(0,cur_vol-prev_vol) if valid_elapsed and cur_vol is not None and prev_vol is not None else None
+            vol_per_min=delta_vol/elapsed if delta_vol is not None else None
+            price_vel=((cur_px/prev_px)-1)*100/elapsed if valid_elapsed and cur_px is not None and prev_px and prev_px>0 else None
+            change_vel=(cur_ch-prev_ch)/elapsed if valid_elapsed and cur_ch is not None and prev_ch is not None else None
+
+            first_ts=dt(r.get('_firstFastObservedTimestampUTC')); first_vol=n(r.get('_firstFastObservedVolume'))
+            elapsed_first=(now-first_ts).total_seconds()/60 if first_ts else None
+            base_vpm=((cur_vol-first_vol)/elapsed_first) if elapsed_first and elapsed_first>=2 and cur_vol is not None and first_vol is not None and cur_vol>=first_vol else None
+            accel=(vol_per_min/base_vpm) if vol_per_min is not None and base_vpm and base_vpm>0 else None
+
+            # Finviz Float is in millions in this dataset. Convert to shares before turnover.
+            turnover_vpm=(vol_per_min/(fl*1_000_000))*100 if vol_per_min is not None and fl and fl>0 else None
+            accel_score=clamp(math.log2(max(accel,0.125))*12+36,0,72) if accel is not None else 0
+            turn_score=clamp((turnover_vpm or 0)*22,0,18)
+            px_score=clamp((price_vel or 0)*45,0,10)
+            challenger=round(clamp(accel_score+turn_score+px_score,0,100),2)
+
+            rows.append({
+              'ticker':t,'timestampUTC':now.isoformat(),'timestampET':et.isoformat(),
+              'price':cur_px,'changePct':cur_ch,'volume':cur_vol,'floatM':fl,
+              'elapsedFromPreviousMin':round(elapsed,2) if valid_elapsed else None,
+              'deltaVolume':round(delta_vol,2) if delta_vol is not None else None,
+              'volumeVelocityPerMin':round(vol_per_min,2) if vol_per_min is not None else None,
+              'volumeAccelerationRatio':round(accel,3) if accel is not None else None,
+              'turnoverVelocityPctFloatPerMin':round(turnover_vpm,5) if turnover_vpm is not None else None,
+              'priceVelocityPctPerMin':round(price_vel,5) if price_vel is not None else None,
+              'changeVelocityPpPerMin':round(change_vel,5) if change_vel is not None else None,
+              'derivativeChallengerScore':challenger,
+              'championEarlyPatternScore':n(r.get('_earlyPatternScore')),
+              'latentIgnitionChampion':bool(r.get('_latentIgnition')),
+              'dataValidForDerivative':bool(valid_elapsed and delta_vol is not None),
+            })
+
+          rows.sort(key=lambda x:(x['dataValidForDerivative'],x['derivativeChallengerScore']),reverse=True)
+          payload={
+            'schemaVersion':1,'sessionDateET':et.date().isoformat(),'updatedAtUTC':now.isoformat(),'updatedAtET':et.isoformat(),
+            'source':'discovery-fast point-in-time snapshots','trainingEligible':False,'productionRankingActive':False,
+            'purpose':'CHAMPION_CHALLENGER_TELEMETRY_ONLY',
+            'features':['volumeVelocityPerMin','volumeAccelerationRatio','turnoverVelocityPctFloatPerMin','priceVelocityPctPerMin','changeVelocityPpPerMin'],
+            'antiLookahead':'Uses only current discovery-fast snapshot and immediately prior challenger snapshot from same ET date.',
+            'count':len(rows),'validDerivativeCount':sum(1 for r in rows if r['dataValidForDerivative']),'rows':rows[:750]
+          }
+          outp.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8')
+          print('rows',payload['count'],'valid derivative',payload['validDerivativeCount'])
+          PY
+      - name: Commit challenger telemetry
+        run: |
+          git config user.name "TAGX Challenger Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagx-volume-derivative-challenger.json
+          git diff --cached --quiet && exit 0
+          git commit -m "TAGX challenger: add point-in-time volume derivative telemetry"
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*3)); done
+          exit 1
