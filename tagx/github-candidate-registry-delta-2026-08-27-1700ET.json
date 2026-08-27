@@ -1,0 +1,24 @@
+{
+  "generatedAtET": "2026-08-27T17:00:00-04:00",
+  "sweep": "GitHub Intelligence Sweep",
+  "candidates": [
+    {
+      "repo": "alpacahq/alpaca-py",
+      "purpose": "Official Python SDK patterns for live stock/news WebSocket streams, reconnect reliability, market-data clients, and paper-trading adapters",
+      "layers": ["real-time market data ingestion", "WebSocket/streaming feeds", "news/catalyst extraction", "paper trading", "broker adapters", "observability/recovery"],
+      "maturityScore": 91,
+      "integrationScore": 82,
+      "dataDependencyScore": 48,
+      "latencySuitability": "HIGH when using entitled streaming feed; requires external Alpaca account/data entitlement",
+      "license": "Apache-2.0",
+      "maintenance": "ACTIVE; latest reviewed commit 2026-08-24; reconnect reliability fix merged 2026-08-11",
+      "docsTests": "Strong docs; dedicated reconnect regression tests cover mute-but-open sockets, opt-in data timeouts, exponential backoff+jitter, and control-frame staleness",
+      "securityNotes": "Do not expose API keys client-side; production integration must keep credentials in server/workflow secrets. Treat provider data as one source, not final ground truth.",
+      "lookAheadBiasRisk": "LOW for streaming event ingestion if event timestamps are preserved; historical/backfill must be separated from live event-time state",
+      "costDataRequirements": "Account/API keys and market-data plan/entitlements required for equities; benchmark coverage and feed type before use",
+      "decision": "BUILD_SANDBOX",
+      "borrowedPatternNow": "Heartbeat/data-staleness must be distinct from transport connection status; reconnect with backoff+jitter; control traffic must not count as market-data freshness",
+      "productionDependencyAdded": false
+    }
+  ]
+}
