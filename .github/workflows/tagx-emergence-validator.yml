@@ -1,0 +1,108 @@
+name: TAGX Emergence Persistence Critic
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["TAGX Live Quote Reconciliation V4"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-emergence-persistence-critic
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: git pull --rebase origin main
+      - name: Cross-snapshot critic and persistence validation
+        run: |
+          python - <<'PY'
+          import json,pathlib,datetime,math
+          from zoneinfo import ZoneInfo
+          ET=ZoneInfo('America/New_York')
+          now=datetime.datetime.now(datetime.timezone.utc)
+          def load(p):
+              try:return json.loads(pathlib.Path(p).read_text(encoding='utf-8'))
+              except:return {}
+          live=load('tag/data/live-quotes.json')
+          old=load('tag/data/emergence-validation.json')
+          old_map={str(x.get('ticker') or '').upper():x for x in (old.get('signals') or [])}
+          updated=live.get('updatedAtUTC')
+          try: snap=datetime.datetime.fromisoformat(str(updated).replace('Z','+00:00'))
+          except: snap=now
+          age=(now-snap).total_seconds()/60
+          session=live.get('marketClockSession')
+          rows=[]
+          for x in (live.get('emergingCandidates') or []):
+              t=str(x.get('ticker') or '').upper(); prev=old_map.get(t,{})
+              ers=float(x.get('earlyRegimeShiftScore') or 0); ign=float(x.get('ignitionScore') or 0)
+              ch=float(x.get('changePct') or 0); v5=x.get('priceVelocity5mPct'); v15=x.get('priceVelocity15mPct'); a5=x.get('volumeAcceleration5m'); turn=x.get('turnover5mPctFloat')
+              try:v5=float(v5) if v5 is not None else None
+              except:v5=None
+              try:v15=float(v15) if v15 is not None else None
+              except:v15=None
+              try:a5=float(a5) if a5 is not None else None
+              except:a5=None
+              try:turn=float(turn) if turn is not None else None
+              except:turn=None
+              prev_ers=float(prev.get('earlyRegimeShiftScore') or 0) if prev else None
+              prev_seen=prev.get('lastSeenUTC') if prev else None
+              dt=None
+              if prev_seen:
+                  try:dt=max(0.5,(snap-datetime.datetime.fromisoformat(str(prev_seen).replace('Z','+00:00'))).total_seconds()/60)
+                  except:dt=None
+              slope=((ers-prev_ers)/dt) if (prev_ers is not None and dt) else None
+              seen_count=int(prev.get('seenCount') or 0)+1
+              positive_velocity=(v5 is not None and v5>0) or (v15 is not None and v15>0)
+              structural=(turn is not None and turn>=1.0) or (a5 is not None and a5>=1.8)
+              persistent=seen_count>=2 and prev_ers is not None and prev_ers>=60
+              rising=slope is not None and slope>=0.5
+              late=ch>=20
+              stale=age>12 or live.get('dataConfidence') not in ('HIGH','MEDIUM')
+              critic=[]
+              if stale:critic.append('STALE_OR_LOW_CONFIDENCE')
+              if late:critic.append('LATE_BY_CHANGE')
+              if not positive_velocity:critic.append('NO_POSITIVE_VELOCITY')
+              if not (persistent or rising or structural):critic.append('SINGLE_SNAPSHOT_NOT_CONFIRMED')
+              status='PASS' if not critic and ers>=70 and ign>=70 else ('WATCH' if not stale and not late else 'REJECT')
+              risk=20
+              if not structural:risk+=12
+              if not persistent:risk+=12
+              if v5 is not None and v5<0:risk+=25
+              if ch>=15:risk+=15
+              if a5 is not None and a5>=6:risk+=8
+              risk=max(0,min(100,risk))
+              rows.append({
+                  'ticker':t,'status':status,'criticReasons':critic,'snapshotUTC':updated,'lastSeenUTC':snap.isoformat(),
+                  'seenCount':seen_count,'earlyRegimeShiftScore':ers,'priorEarlyRegimeShiftScore':prev_ers,
+                  'persistenceSlopeScorePerMin':round(slope,3) if slope is not None else None,
+                  'ignitionScore':ign,'riskScore':risk,'changePct':ch,'priceVelocity5mPct':v5,'priceVelocity15mPct':v15,
+                  'volumeAcceleration5m':a5,'turnover5mPctFloat':turn,'universeLane':x.get('universeLane'),
+                  'dataConfidence':live.get('dataConfidence'),'quoteFeedAgeMinAtValidation':round(age,2),
+                  'trace':{'positiveVelocity':positive_velocity,'structuralParticipation':structural,'crossSnapshotPersistent':persistent,'scoreRising':rising}
+              })
+          rows.sort(key=lambda r:({'PASS':2,'WATCH':1,'REJECT':0}[r['status']],r['earlyRegimeShiftScore'],r['ignitionScore']),reverse=True)
+          out={'schemaVersion':1,'source':'TAGX cross-snapshot emergence persistence critic','updatedAtUTC':now.isoformat(),'sourceSnapshotUTC':updated,'session':session,'productionRankingActive':False,'policy':'CHALLENGER_ONLY_NO_THRESHOLD_PROMOTION','counts':{'pass':sum(r['status']=='PASS' for r in rows),'watch':sum(r['status']=='WATCH' for r in rows),'reject':sum(r['status']=='REJECT' for r in rows)},'signals':rows}
+          pathlib.Path('tag/data/emergence-validation.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(out['counts']))
+          PY
+      - name: Commit critic snapshot
+        run: |
+          git config user.name "TAGX Critic Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/emergence-validation.json
+          git diff --cached --quiet && exit 0
+          git commit -m "data: validate TAGX emergence persistence"
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*4)); done
+          exit 1
