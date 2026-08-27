@@ -1,0 +1,40 @@
+{
+  "cycle": "2026-08-27 close / after-hours transition",
+  "problem": "live-quotes feed stalled during the final regular-session hour",
+  "before": {
+    "schemaVersion": 4,
+    "snapshotET": "2026-08-27T15:03:18-04:00",
+    "freshCount": 389,
+    "emergingCount": 27,
+    "observedNearCloseAgeMin": 59
+  },
+  "change": {
+    "workflow": "TAGX Live Quote Reconciliation V5",
+    "independentWorkflowRunTriggersAdded": ["TAG5 Mover Snapshot", "TAGX Discovery Cadence Keeper"],
+    "cron": "offset five-minute cadence at minutes 1,6,11,...,56",
+    "reason": "avoid relying on one delayed scheduled chain and reduce top-of-hour scheduler contention"
+  },
+  "after": {
+    "snapshotET": "2026-08-27T16:02:52-04:00",
+    "session": "after-hours",
+    "count": 500,
+    "freshCount": 216,
+    "emergingCount": 28,
+    "scanDurationSec": 2.04,
+    "dataConfidence": "HIGH"
+  },
+  "publicMoverAudit": {
+    "sourceNotes": "Public mover cross-check near the final hour; not used as training truth without final reconciliation.",
+    "leaders": [
+      {"ticker":"CELU","approxMovePct":144,"classification":"Late/Exhaustion for close-time discovery"},
+      {"ticker":"PPCB","approxMovePct":108,"classification":"Late/Exhaustion; had early premarket catalyst"},
+      {"ticker":"CHOW","approxMovePct":81.34,"classification":"Late/Exhaustion"},
+      {"ticker":"VNRX","approxMovePct":68.07,"classification":"Late/Exhaustion; major premarket mover"},
+      {"ticker":"WNW","approxMovePct":31.05,"classification":"Late"},
+      {"ticker":"WKSP","approxMovePct":24.71,"classification":"Late"}
+    ]
+  },
+  "thresholdChange": false,
+  "championPromotion": false,
+  "nextEvidenceNeeded": "Final Top-20 reconciliation plus T-5/T-15/T-30/T-60 replay before changing scoring thresholds."
+}
