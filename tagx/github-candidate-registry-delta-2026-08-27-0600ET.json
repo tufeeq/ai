@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 2,
+  "reviewedAtUTC": "2026-08-27T10:00:00Z",
+  "cycle": "2026-08-27-0600ET",
+  "sweepNotes": "Reviewed QuantConnect/Lean as a maintained event-driven trading architecture and compared its patterns with TAGX premarket reliability. No production dependency added. Adopted only the provider-fallback and deterministic state-management patterns into TAGX's native Python heartbeat.",
+  "candidates": [
+    {
+      "repo": "QuantConnect/Lean",
+      "purpose": "Reference architecture for event-driven ingestion, broker/data adapters, backtesting/live parity, fallback data providers, risk controls and deterministic engine state.",
+      "layers": ["real-time market data ingestion", "broker adapters", "backtesting/event replay", "risk controls", "data reconciliation", "observability/logging"],
+      "maturityScore": 96,
+      "integrationScore": 48,
+      "dataDependencyScore": 38,
+      "latencySuitability": "HIGH as an engine pattern; direct integration is too heavy for TAGX GitHub-Actions architecture",
+      "license": "Apache-2.0",
+      "maintenance": "Very active; multiple merged commits on 2026-08-26, including brokerage integration, indicator reset contracts and live-data fallback handling.",
+      "docsTests": "README describes an event-driven modular trading platform with live trading and backtesting; repository CI includes build/regression tests and recent commits add explicit test coverage.",
+      "securityNotes": "Direct engine/broker integration would materially expand attack surface and secret-management requirements. Keep brokerage credentials server-side and out of GitHub Pages.",
+      "lookAheadBiasRisk": "LOW when its event-time/live-backtest parity patterns are followed; MEDIUM if TAGX imports historical state without preserving observation timestamps.",
+      "decision": "BORROW_PATTERN",
+      "integrationPlan": "Borrow provider fallback, event-time state and reset-contract patterns. Do not install LEAN. Benchmark any future standalone replay adapter in a challenger branch first.",
+      "lastReviewedUTC": "2026-08-27T10:00:00Z"
+    }
+  ],
+  "implementedPattern": {
+    "target": ".github/workflows/tagx-premarket-hot-heartbeat.yml",
+    "changes": [
+      "upstream discovery-fast push trigger in addition to cron",
+      "multi-lane admission: low-float + momentum + AH-to-PM persistence",
+      "three-attempt quote retry with jitter",
+      "retain only still-fresh prior rows while preserving event timestamps",
+      "freshCount/fallbackRetainedCount/laneCounts observability",
+      "failClosed when fewer than 20 fresh rows are obtained"
+    ],
+    "productionDependencyAdded": false
+  }
+}
