@@ -1,4 +1,4 @@
-name: TAGX Live Quote Reconciliation V2
+name: TAGX Live Quote Reconciliation V3
 
 on:
   workflow_dispatch:
@@ -54,13 +54,15 @@ jobs:
           fast_rows=fast.get('rows') or [];fast_rows.sort(key=lambda r:(abs(num(r.get('Change'))),num(r.get('Rel Volume') or r.get('Relative Volume'))),reverse=True);lanes.append(('fast_discovery',[sym(r) for r in fast_rows]))
           disc_rows=disc.get('rows') or [];nano=[r for r in disc_rows if 'nano_low_float' in (r.get('_discoveryLanes') or [])];nano.sort(key=lambda r:(-num(r.get('Float')) if num(r.get('Float')) else -1e9,num(r.get('Rel Volume'))),reverse=True);lanes.append(('nano_low_float',[sym(r) for r in nano]))
           fin_rows=finviz.get('rows') or finviz.get('data') or [];fin_rows.sort(key=lambda r:(abs(num(r.get('Change'))),num(r.get('Volume'))),reverse=True);lanes.append(('finviz_movers',[sym(r) for r in fin_rows]))
-          caps={'prior_active':120,'premarket_hot':160,'fast_discovery':220,'nano_low_float':120,'finviz_movers':220};tickers=[];lane_of={};seen=set()
+          reserves={'prior_active':100,'premarket_hot':120,'fast_discovery':160,'nano_low_float':60,'finviz_movers':60};tickers=[];lane_of={};seen=set()
+          # Phase 1: hard reservations prevent early broad lanes from starving nano/low-float and current-mover coverage.
           for lane,arr in lanes:
               taken=0
               for t in arr:
                   if not t or t in seen or len(t)>12:continue
                   seen.add(t);tickers.append(t);lane_of[t]=lane;taken+=1
-                  if taken>=caps[lane]:break
+                  if taken>=reserves[lane]:break
+          # Phase 2: use any capacity freed by overlap or sparse lanes without changing reserved ownership.
           for _,arr in lanes:
               for t in arr:
                   if not t or t in seen or len(t)>12:continue
@@ -70,7 +72,7 @@ jobs:
           tickers=tickers[:500]
           def one(ticker):
               try:
-                  url='https://query1.finance.yahoo.com/v8/finance/chart/'+urllib.parse.quote(ticker)+'?interval=1m&range=1d&includePrePost=true&events=div%2Csplits';req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 TAGXLive/2.0','Accept':'application/json'})
+                  url='https://query1.finance.yahoo.com/v8/finance/chart/'+urllib.parse.quote(ticker)+'?interval=1m&range=1d&includePrePost=true&events=div%2Csplits';req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 TAGXLive/3.0','Accept':'application/json'})
                   with urllib.request.urlopen(req,timeout=3.5) as z:data=json.loads(z.read().decode('utf-8'))
                   result=((data.get('chart') or {}).get('result') or [None])[0]
                   if not result:return ticker,None,'empty chart result'
@@ -89,8 +91,8 @@ jobs:
                   t,q,err=f.result()
                   if q:quotes[t]=q
                   elif err:errors.append({'ticker':t,'error':err})
-          fresh=sum(1 for q in quotes.values() if q.get('quoteAgeMin',999)<=10 and (market_session=='closed' or q.get('session')==market_session));duration=round(time.monotonic()-started,2);confidence='HIGH' if fresh>=80 else ('MEDIUM' if fresh>=25 else 'LOW');lane_counts={lane:sum(1 for t in tickers if lane_of.get(t)==lane) for lane,_ in lanes};lane_counts['fill']=sum(1 for t in tickers if lane_of.get(t)=='fill');out={'schemaVersion':2,'source':'Yahoo Finance chart API concurrent multi-lane','updatedAtUTC':now_utc.isoformat(),'updatedAtET':now_et.isoformat(),'marketClockSession':market_session,'count':len(quotes),'freshCount':fresh,'requested':len(tickers),'scanDurationSec':duration,'dataConfidence':confidence,'laneCounts':lane_counts,'quotes':quotes,'errors':errors[:40]}
-          pathlib.Path('tag/data/live-quotes.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8');print(json.dumps({'session':market_session,'quotes':len(quotes),'fresh':fresh,'requested':len(tickers),'durationSec':duration,'confidence':confidence}))
+          fresh=sum(1 for q in quotes.values() if q.get('quoteAgeMin',999)<=10 and (market_session=='closed' or q.get('session')==market_session));duration=round(time.monotonic()-started,2);confidence='HIGH' if fresh>=80 else ('MEDIUM' if fresh>=25 else 'LOW');lane_counts={lane:sum(1 for t in tickers if lane_of.get(t)==lane) for lane,_ in lanes};lane_counts['fill']=sum(1 for t in tickers if lane_of.get(t)=='fill');out={'schemaVersion':3,'source':'Yahoo Finance chart API concurrent balanced multi-lane','updatedAtUTC':now_utc.isoformat(),'updatedAtET':now_et.isoformat(),'marketClockSession':market_session,'count':len(quotes),'freshCount':fresh,'requested':len(tickers),'scanDurationSec':duration,'dataConfidence':confidence,'laneReservations':reserves,'laneCounts':lane_counts,'coveragePolicy':'RESERVED_MULTI_LANE_THEN_FILL','quotes':quotes,'errors':errors[:40]}
+          pathlib.Path('tag/data/live-quotes.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8');print(json.dumps({'session':market_session,'quotes':len(quotes),'fresh':fresh,'requested':len(tickers),'durationSec':duration,'confidence':confidence,'laneCounts':lane_counts}))
           if market_session in ('pre-market','regular','after-hours') and fresh<25:raise SystemExit('Fresh quote coverage below fail-closed floor')
           PY
       - name: Commit live quote feed
@@ -99,6 +101,6 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add tag/data/live-quotes.json
           git diff --cached --quiet && exit 0
-          git commit -m "data: refresh TAGX concurrent live quotes"
+          git commit -m "data: refresh TAGX balanced live quotes"
           for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*4)); done
           exit 1
