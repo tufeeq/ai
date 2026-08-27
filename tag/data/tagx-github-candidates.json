@@ -1,10 +1,10 @@
 {
-  "updatedAtUTC": "2026-08-27T12:02:00Z",
+  "updatedAtUTC": "2026-08-27T13:00:00Z",
   "purpose": "TAGX GitHub Intelligence Sweep registry",
   "lastSweep": {
-    "dateUTC": "2026-08-27T12:02:00Z",
-    "focus": ["streaming reliability", "WebSocket reconnect patterns", "event-driven orchestration", "market data provenance"],
-    "newSearchOutcome": "No new US-equities dependency promoted. One recent non-US SDK was reviewed for reusable streaming/retry patterns only."
+    "dateUTC": "2026-08-27T13:00:00Z",
+    "focus": ["SEC parser correctness", "failure isolation", "streaming reliability", "event-time provenance", "premarket data freshness"],
+    "newSearchOutcome": "Reviewed alphanome-ai/sec-parser and newer EDGAR parser projects. No direct production dependency promoted; one parser pattern added for sandbox/borrow-pattern evaluation."
   },
   "candidates": [
     {
@@ -36,6 +36,21 @@
       "lookAheadRisk": "LOW if filing acceptance/filed timestamps are preserved; HIGH if later facts are backfilled into earlier snapshots.",
       "decision": "BUILD_SANDBOX",
       "reason": "Strong candidate for Catalyst Clock and dilution/financing challenger, but must benchmark parsing latency and timestamp fidelity before production."
+    },
+    {
+      "repo": "alphanome-ai/sec-parser",
+      "purpose": "Semantic SEC HTML parsing into element trees with explicit parser/test tooling",
+      "layer": ["SEC/EDGAR parsing", "catalyst extraction", "data quality/reconciliation"],
+      "maturityScore": 79,
+      "integrationScore": 66,
+      "dataDependencyScore": 88,
+      "latencySuitability": "MEDIUM; parser layer rather than filing-discovery transport",
+      "license": "MIT",
+      "maintenance": "Repository remains maintained but commit cadence is moderate; latest visible commit 2026-06-25, prior functional merge 2025-03-25.",
+      "securityNotes": "Treat filing HTML as untrusted input; run parser in bounded process and retain accession/source URL plus parser warnings. Repository includes code coverage, pre-commit, typing and contribution tooling.",
+      "lookAheadRisk": "LOW if original filing acceptance timestamp and accession are retained; semantic parsing must never use amended/later filing text for an earlier event snapshot.",
+      "decision": "BORROW_PATTERN",
+      "reason": "Useful semantic-tree and parser-failure-isolation patterns, MIT license and visible test/quality tooling. Less attractive than EdgarTools as a direct dependency because maintenance cadence is slower and it does not solve low-latency filing discovery itself."
     },
     {
       "repo": "OpenBB-finance/OpenBB",
