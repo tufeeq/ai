@@ -2,6 +2,10 @@ name: TAGX Live Quote Reconciliation V3
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["TAGX Fast Discovery Lane", "TAGX Proactive Discovery Universe"]
+    types: [completed]
+    branches: [main]
   push:
     branches: [main]
     paths: ['.github/workflows/tagx-live-quotes.yml']
@@ -13,10 +17,11 @@ permissions:
 
 concurrency:
   group: tagx-live-quotes-main
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   refresh-live-quotes:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
@@ -55,14 +60,12 @@ jobs:
           disc_rows=disc.get('rows') or [];nano=[r for r in disc_rows if 'nano_low_float' in (r.get('_discoveryLanes') or [])];nano.sort(key=lambda r:(-num(r.get('Float')) if num(r.get('Float')) else -1e9,num(r.get('Rel Volume'))),reverse=True);lanes.append(('nano_low_float',[sym(r) for r in nano]))
           fin_rows=finviz.get('rows') or finviz.get('data') or [];fin_rows.sort(key=lambda r:(abs(num(r.get('Change'))),num(r.get('Volume'))),reverse=True);lanes.append(('finviz_movers',[sym(r) for r in fin_rows]))
           reserves={'prior_active':100,'premarket_hot':120,'fast_discovery':160,'nano_low_float':60,'finviz_movers':60};tickers=[];lane_of={};seen=set()
-          # Phase 1: hard reservations prevent early broad lanes from starving nano/low-float and current-mover coverage.
           for lane,arr in lanes:
               taken=0
               for t in arr:
                   if not t or t in seen or len(t)>12:continue
                   seen.add(t);tickers.append(t);lane_of[t]=lane;taken+=1
                   if taken>=reserves[lane]:break
-          # Phase 2: use any capacity freed by overlap or sparse lanes without changing reserved ownership.
           for _,arr in lanes:
               for t in arr:
                   if not t or t in seen or len(t)>12:continue
