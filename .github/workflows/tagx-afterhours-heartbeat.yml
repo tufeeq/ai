@@ -29,7 +29,10 @@ jobs:
           import json,pathlib,datetime,urllib.request,urllib.parse,concurrent.futures,re,time
           from zoneinfo import ZoneInfo
           ET=ZoneInfo('America/New_York'); now=datetime.datetime.now(datetime.timezone.utc); et=now.astimezone(ET); m=et.hour*60+et.minute
-          if not(et.weekday()<5 and 960<=m<=1200): raise SystemExit(0)
+          # 20:02 ET scheduled run is intentionally allowed as a finalization snapshot.
+          # Yahoo's last AH bar may settle just after 20:00; this closes the replay truth gap.
+          if not(et.weekday()<5 and 960<=m<=1205): raise SystemExit(0)
+          finalization_mode=m>1200
           def load(p):
             try:return json.loads(pathlib.Path(p).read_text())
             except:return {}
@@ -51,7 +54,7 @@ jobs:
             last=None
             for attempt in range(2):
               try:
-                q=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 TAGXHeartbeat/1.1','Accept':'application/json'})
+                q=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 TAGXHeartbeat/1.2','Accept':'application/json'})
                 with urllib.request.urlopen(q,timeout=3.0) as z:return json.loads(z.read())
               except Exception as e:
                 last=e; time.sleep(.15*(attempt+1))
@@ -67,7 +70,8 @@ jobs:
               rb=[b for b in bars if start and end and start<=b[0]<=end]; rc=rb[-1][1] if rb else meta.get('regularMarketPrice') or meta.get('previousClose'); ext=[b for b in bars if end and b[0]>end]
               if not ext or not rc:return None
               lt,px=ext[-1]
-              if now.timestamp()-lt>15*60:return None
+              max_age=18*60 if finalization_mode else 15*60
+              if now.timestamp()-lt>max_age:return None
               def vel(n):
                 a=[b for b in ext if b[0]>=lt-n*60];base=a[0][1] if a else None;return ((px/base)-1)*100 if base else None
               old=(prior.get('rows') or {}).get(t,{})
@@ -78,7 +82,6 @@ jobs:
           with concurrent.futures.ThreadPoolExecutor(max_workers=36) as ex:
             for z in ex.map(one,tick):
               if z:rows[z[0]]=z[1]
-          # Preserve still-recent prior rows during transient provider failures instead of blanking the UI.
           if len(rows)<25:
             for t,r in (old_hot.get('rows') or {}).items():
               ts=r.get('timestampUTC')
@@ -86,9 +89,9 @@ jobs:
               except: fresh=False
               if fresh and t not in rows: rows[t]=r
           conf='HIGH' if len(rows)>=50 else ('MEDIUM' if len(rows)>=15 else ('LOW' if rows else 'UNAVAILABLE'))
-          out={'schemaVersion':2,'updatedAtUTC':now.isoformat(),'updatedAtET':et.isoformat(),'session':'after-hours','source':'TAGX hot heartbeat resilient v2','dataConfidence':conf,'candidateCount':len(tick),'count':len(rows),'rows':rows,'failClosed':not bool(rows)}
+          out={'schemaVersion':3,'updatedAtUTC':now.isoformat(),'updatedAtET':et.isoformat(),'session':'after-hours','source':'TAGX hot heartbeat resilient v3','dataConfidence':conf,'candidateCount':len(tick),'count':len(rows),'rows':rows,'failClosed':not bool(rows),'finalizationSnapshot':finalization_mode}
           pathlib.Path('tag/data/extended-hot.json').write_text(json.dumps(out,ensure_ascii=False,indent=2))
-          print(json.dumps({'updatedAtET':out['updatedAtET'],'rows':len(rows),'candidates':len(tick),'confidence':conf}))
+          print(json.dumps({'updatedAtET':out['updatedAtET'],'rows':len(rows),'candidates':len(tick),'confidence':conf,'finalization':finalization_mode}))
           PY
       - name: Commit heartbeat
         run: |
