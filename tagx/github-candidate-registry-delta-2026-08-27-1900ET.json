@@ -1,0 +1,36 @@
+{
+  "cycle": "2026-08-27T19:00:00-04:00",
+  "sweep": "GitHub Intelligence Sweep",
+  "candidates": [
+    {
+      "repo": "tradingexpert/ordersim",
+      "purpose": "Deterministic market/order-book replay with inspectable execution paths and explicit data-fidelity boundaries",
+      "layer": ["backtesting/event replay", "model evaluation", "paper execution research", "data reconciliation patterns"],
+      "maturityScore": 82,
+      "integrationScore": 69,
+      "dataDependencyScore": 52,
+      "dataDependencyScoreMeaning": "0=vendor-independent, 100=strong paid/vendor dependency",
+      "latencySuitability": "MEDIUM for offline replay; not intended for TAGX live hot path",
+      "license": "MIT",
+      "maintenance": {
+        "createdAt": "2026-05-14",
+        "lastPushObserved": "2026-08-11",
+        "status": "active young project"
+      },
+      "docsAndTests": "Strong README and explicit fidelity model; pytest configured with branch coverage and 95% minimum coverage; Python/C++ equivalence is an explicit design requirement.",
+      "dependencies": "Core has zero runtime dependencies; optional websockets/Databento/pyarrow and a pybind11 C++ extension.",
+      "securityNotes": "Do not import compiled extension into production without sandbox build/SBOM review. Optional vendor connectors introduce credentials/network surfaces. Core replay itself is offline and inspectable.",
+      "lookAheadBiasRisk": "LOW if TAGX preserves point-in-time event timestamps and immutable replay manifests. Risk rises if reconstructed data or final labels are fed back into ranking time.",
+      "dataQualityNotes": "Excellent pattern: explicitly distinguishes observed MBO from reconstructed virtual MBO and does not present inferred queue state as observed truth.",
+      "decision": "BORROW_PATTERN",
+      "borrow": [
+        "canonical event boundary",
+        "immutable replay manifest",
+        "same-event-stream champion/challenger comparison",
+        "explicit observed-vs-reconstructed evidence labels",
+        "auditable event-by-event decision trace"
+      ],
+      "reasonNotIntegrated": "TAGX currently has bar/quote-level public data rather than true MBO/L2 evidence; adding the package now would increase complexity without improving early signal discovery. Borrow its replay/evidence semantics first."
+    }
+  ]
+}
