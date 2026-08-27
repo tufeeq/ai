@@ -1,0 +1,39 @@
+{
+  "cycleTimestampET": "2026-08-27T13:06:00-04:00",
+  "change": "Live Quote Reconciliation V4 rolling intraday emergence challenger",
+  "baseline": {
+    "schemaVersion": 3,
+    "snapshotET": "2026-08-27T12:01:22-04:00",
+    "quotes": 498,
+    "freshCount": 395,
+    "requested": 500,
+    "scanDurationSec": 2.34,
+    "dataConfidence": "HIGH",
+    "limitation": "No point-in-time 5/15m price velocity, rolling volume acceleration or float-turnover emergence candidate set; feed cadence had slipped to about one hour by 13:00 ET."
+  },
+  "challenger": {
+    "schemaVersion": 4,
+    "snapshotET": "2026-08-27T13:05:50-04:00",
+    "quotes": 498,
+    "freshCount": 381,
+    "requested": 500,
+    "scanDurationSec": 3.4,
+    "dataConfidence": "HIGH",
+    "emergingCount": 26,
+    "pointInTimePolicy": "Rolling 1-minute bars available at snapshot time only; no future bars or final-session data enter scoring.",
+    "topObservedExamples": [
+      {"ticker":"NCPL","changePct":11.821,"priceVelocity5mPct":1.193,"volumeAcceleration5m":7.03,"turnover5mPctFloat":5.523,"earlyRegimeShiftScore":96,"ignitionScore":100},
+      {"ticker":"BNKK","changePct":3.516,"priceVelocity5mPct":1.923,"volumeAcceleration5m":5.0,"earlyRegimeShiftScore":83,"ignitionScore":89},
+      {"ticker":"IVDA","changePct":7.809,"priceVelocity5mPct":5.171,"earlyRegimeShiftScore":82,"ignitionScore":90},
+      {"ticker":"LIMN","changePct":5.215,"priceVelocity5mPct":1.754,"volumeAcceleration5m":5.0,"earlyRegimeShiftScore":82,"ignitionScore":88}
+    ]
+  },
+  "marketReplayObservation": {
+    "USDE": "Public premarket snapshot showed +12.38%; later top-gainer snapshot showed +37.79%. This is the kind of post-open transition the rolling challenger is intended to capture before Late/Exhaustion.",
+    "WNW": "Premarket already about +44.76%, later about +24.59%; classify as prior Late/Exhaustion/fade, not an early success.",
+    "OKTA": "Premarket about +20.37%, later about +27.30%; too advanced to treat as a clean under-10% early capture case."
+  },
+  "promotionDecision": "CHALLENGER_ONLY",
+  "reason": "V4 produces measurable early-regime features and restored a fresh snapshot, but fresh coverage fell 395 to 381 and no multi-session false-positive/outcome benchmark exists yet. Do not alter production thresholds or execution eligibility.",
+  "nextRequiredBenchmark": "Track the 26 candidates to subsequent max move and invalidation, compare precision/recall against V3/production candidates, and replay T-5/T-15/T-30/T-60 for actual Top-20 movers."
+}
