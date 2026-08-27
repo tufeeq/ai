@@ -1,0 +1,27 @@
+{
+  "cycleET": "2026-08-27T10:00:00-04:00",
+  "sweepName": "GitHub Intelligence Sweep",
+  "candidates": [
+    {
+      "repo": "ranaroussi/yfinance",
+      "purpose": "Yahoo market-data client with synchronous/asynchronous WebSocket streaming, screener/search and multi-symbol download patterns",
+      "layer": ["real-time market data ingestion", "WebSocket/streaming feeds", "market scanners", "data reconciliation"],
+      "lastCommitObservedUTC": "2026-08-26T17:20:38Z",
+      "maintenance": "high/current; v1.7.0 released 2026-08-26 and same-day test/resilience fixes",
+      "maturityScore": 8.8,
+      "integrationScore": 7.2,
+      "dataDependencyScore": 4.0,
+      "latencySuitability": 7.5,
+      "license": "Apache-2.0",
+      "docsTests": "strong documentation; active tests and recent resilience fixes",
+      "securityNotes": "No production adoption. Uses unofficial/public Yahoo endpoints; terms state Yahoo data is intended for personal use. WebSocket source is not an authoritative exchange feed. Treat disconnect/reconnect and message decoding as untrusted input.",
+      "lookAheadRisk": "medium if intraday snapshots are later reused without event timestamps; require point-in-time timestamp retention and no backfill into historical signal states",
+      "dataCostRequirements": "No package fee, but underlying Yahoo usage/terms and source reliability constrain production suitability",
+      "codeReviewed": ["README.md", "yfinance/live.py"],
+      "decision": "BUILD_CHALLENGER",
+      "decisionReason": "Useful heartbeat/re-subscription/reconnect patterns and AsyncWebSocket challenger, but source provenance/TOS and non-exchange authority prevent direct production dependency. Benchmark against current polling before any integration."
+    }
+  ],
+  "productionDependenciesAdded": false,
+  "notes": "The current production live-quote issue was addressed without adding yfinance as a dependency; only concurrency/fail-closed patterns were promoted."
+}
