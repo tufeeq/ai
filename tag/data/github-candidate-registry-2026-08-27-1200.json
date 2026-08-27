@@ -1,0 +1,22 @@
+{
+  "sweepTimestampET": "2026-08-27T12:00:00-04:00",
+  "scope": ["real-time market data ingestion","WebSocket/streaming feeds","market scanners","signal outcome tracking","risk controls","observability"],
+  "candidates": [
+    {
+      "repo": "edkim/realtime-scanner",
+      "purpose": "Polygon/Massive WebSocket stock scanner with sliding-window state, RVOL filters, market context and MFE/MAE outcome tracking",
+      "layer": ["real-time market data ingestion","market scanners","model evaluation","observability","risk controls"],
+      "maturityScore": 55,
+      "integrationScore": 61,
+      "dataDependencyScore": 42,
+      "latencySuitability": "HIGH if Polygon/Massive entitlement is available; 1-minute bar architecture is insufficient for trades-per-minute/order-flow without extension",
+      "license": "MIT declared in package.json; GitHub repository metadata did not expose a recognized license file",
+      "securityNotes": "Requires POLYGON_API_KEY via environment. Small dependency surface (dotenv/express/ws). No evidence in inspected package metadata of automated test scripts; repository last push observed 2025-12-21, so maintenance freshness is weak for production adoption.",
+      "lookAheadRisk": "Historical backfill and outcome analytics must preserve event-time boundaries; do not let backfilled bars enter point-in-time scoring.",
+      "decision": "BORROW_PATTERN",
+      "borrowPatterns": ["in-memory sliding window per ticker","concurrent scanner separation","MFE/MAE outcome tracking with context tags","centralized structural invalidation"],
+      "productionDependency": false
+    }
+  ],
+  "promotionRule": "No production dependency. Any borrowed component must be reproduced in a challenger and benchmarked point-in-time against TAGX baseline before promotion."
+}
