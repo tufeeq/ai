@@ -1,16 +1,16 @@
-name: TAGX Live Quote Reconciliation V4
+name: TAGX Live Quote Reconciliation V5
 
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: ["TAGX Fast Discovery Lane", "TAGX Proactive Discovery Universe", "TAGX Technical Enrichment", "TAGX Feed Integrity Gate"]
+    workflows: ["TAGX Fast Discovery Lane", "TAGX Proactive Discovery Universe", "TAGX Technical Enrichment", "TAGX Feed Integrity Gate", "TAG5 Mover Snapshot", "TAGX Discovery Cadence Keeper"]
     types: [completed]
     branches: [main]
   push:
     branches: [main]
     paths: ['.github/workflows/tagx-live-quotes.yml']
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '1,6,11,16,21,26,31,36,41,46,51,56 * * * *'
 
 permissions:
   contents: write
@@ -77,7 +77,7 @@ jobs:
           def pct(p,b):return ((p-b)/b*100.0) if p is not None and b not in (None,0) else None
           def one(ticker):
               try:
-                  url='https://query1.finance.yahoo.com/v8/finance/chart/'+urllib.parse.quote(ticker)+'?interval=1m&range=1d&includePrePost=true&events=div%2Csplits';req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 TAGXLive/4.0','Accept':'application/json'})
+                  url='https://query1.finance.yahoo.com/v8/finance/chart/'+urllib.parse.quote(ticker)+'?interval=1m&range=1d&includePrePost=true&events=div%2Csplits';req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 TAGXLive/5.0','Accept':'application/json'})
                   with urllib.request.urlopen(req,timeout=3.5) as z:data=json.loads(z.read().decode('utf-8'))
                   result=((data.get('chart') or {}).get('result') or [None])[0]
                   if not result:return ticker,None,'empty chart result'
@@ -126,7 +126,7 @@ jobs:
               if not ((v5 is not None and v5>=0.8) or (a5 is not None and a5>=1.8) or (turn is not None and turn>=1.0)):continue
               emerging.append({'ticker':q['ticker'],'price':q['price'],'changePct':round(ch,3),'priceVelocity5mPct':v5,'priceVelocity15mPct':q.get('priceVelocity15mPct'),'volumeAcceleration5m':a5,'turnover5mPctFloat':turn,'earlyRegimeShiftScore':score,'ignitionScore':q.get('ignitionScore'),'universeLane':q.get('universeLane'),'timestampET':q.get('timestampET')})
           emerging.sort(key=lambda x:(x['earlyRegimeShiftScore'],x.get('ignitionScore') or 0),reverse=True);emerging=emerging[:40]
-          out={'schemaVersion':4,'source':'Yahoo Finance chart API concurrent balanced multi-lane + rolling emergence challenger','updatedAtUTC':now_utc.isoformat(),'updatedAtET':now_et.isoformat(),'marketClockSession':market_session,'count':len(quotes),'freshCount':fresh,'requested':len(tickers),'scanDurationSec':duration,'dataConfidence':confidence,'laneReservations':reserves,'laneCounts':lane_counts,'coveragePolicy':'RESERVED_MULTI_LANE_THEN_FILL','challengerPolicy':'POINT_IN_TIME_ROLLING_1M_BARS_NO_FUTURE_DATA','emergingCount':len(emerging),'emergingCandidates':emerging,'quotes':quotes,'errors':errors[:40]}
+          out={'schemaVersion':5,'source':'Yahoo Finance chart API concurrent balanced multi-lane + rolling emergence challenger + independent cadence heartbeat','updatedAtUTC':now_utc.isoformat(),'updatedAtET':now_et.isoformat(),'marketClockSession':market_session,'count':len(quotes),'freshCount':fresh,'requested':len(tickers),'scanDurationSec':duration,'dataConfidence':confidence,'laneReservations':reserves,'laneCounts':lane_counts,'coveragePolicy':'RESERVED_MULTI_LANE_THEN_FILL','cadencePolicy':'WORKFLOW_RUN_UPSTREAM_PLUS_MOVER_HEARTBEAT_PLUS_OFFSET_CRON','challengerPolicy':'POINT_IN_TIME_ROLLING_1M_BARS_NO_FUTURE_DATA','emergingCount':len(emerging),'emergingCandidates':emerging,'quotes':quotes,'errors':errors[:40]}
           pathlib.Path('tag/data/live-quotes.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8');print(json.dumps({'session':market_session,'quotes':len(quotes),'fresh':fresh,'requested':len(tickers),'durationSec':duration,'confidence':confidence,'emerging':len(emerging),'laneCounts':lane_counts}))
           if market_session in ('pre-market','regular','after-hours') and fresh<25:raise SystemExit('Fresh quote coverage below fail-closed floor')
           PY
@@ -136,6 +136,6 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add tag/data/live-quotes.json
           git diff --cached --quiet && exit 0
-          git commit -m "data: refresh TAGX V4 rolling emergence feed"
+          git commit -m "data: refresh TAGX V5 live emergence feed"
           for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*4)); done
           exit 1
