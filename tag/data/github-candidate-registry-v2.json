@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAtUTC": "2026-08-28T21:03:00Z",
+  "updatedAtUTC": "2026-08-28T22:03:00Z",
   "policy": "No production dependency is promoted without sandbox benchmark, license review, causal-data review, and before/after evidence.",
   "candidates": [
     {
@@ -68,6 +68,23 @@
       "lookAheadRisk": "low for timestamped live streams if event time is persisted; historical API queries can introduce look-ahead if replay boundaries are not enforced",
       "decision": "BUILD_CHALLENGER",
       "pattern": "server-side websocket challenger against current 5-minute polling for detection latency and drop-rate measurement"
+    },
+    {
+      "repo": "polakowo/vectorbt",
+      "purpose": "large-scale parameter/replay experiments and walk-forward robustness checks for champion/challenger scoring",
+      "layer": "backtesting/model evaluation/walk-forward robustness",
+      "maturityScore": 91,
+      "integrationScore": 52,
+      "dataDependencyScore": 86,
+      "latencySuitability": "OFFLINE_REPLAY",
+      "license": "Apache-2.0 with Commons Clause / Fair Code",
+      "lastReviewedUTC": "2026-08-28T22:03:00Z",
+      "maintenance": "active; pushed 2026-08-02, repository updated 2026-08-28",
+      "testsDocs": "mature docs and CI; vectorized/Numba/Rust backtests, walk-forward optimization, signal ranking and performance analytics",
+      "securityNotes": "not a production market-data solution; optional dependencies may carry different licenses; Commons Clause means no direct product embedding without legal review",
+      "lookAheadRisk": "high if vectorized features are computed on final-session arrays without causal masking; acceptable only in sandbox with timestamp-bounded feature construction",
+      "decision": "BORROW_PATTERN",
+      "pattern": "fast challenger sweeps and walk-forward robustness tests, while keeping causal event replay outside vectorized final-bar shortcuts"
     }
   ]
 }
