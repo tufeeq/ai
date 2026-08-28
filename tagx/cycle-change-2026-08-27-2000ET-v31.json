@@ -1,0 +1,31 @@
+{
+  "cycle": "2026-08-27T20:00:00-04:00",
+  "version": "V31",
+  "change": "Independent Decision Gate",
+  "problem": "Actionability could be dominated by correlated features (ERS, Ignition and short-window price velocity) and still look convincing without an independent market-structure and persistence confirmation. This creates a path for false confidence even when the underlying evidence is not independent.",
+  "before": {
+    "executionGates": ["market eligibility", "Sharia VERIFIED", "V29 actionability/persistence logic"],
+    "independentEvidenceFamilyMinimum": 0,
+    "decisionConcentrationLimit": null,
+    "freshnessForIndependentExecutionMinutes": null
+  },
+  "after": {
+    "executionGates": ["market eligibility", "Sharia VERIFIED", "fresh HIGH data <=8m", "early displacement", ">=4 independent evidence families", "mandatory structure confirmation", "mandatory persistence confirmation", "single-family concentration <=45%"],
+    "evidenceFamilies": ["regime", "momentum", "market-structure/float-volume", "persistence", "early-dislocation"],
+    "failClosed": true
+  },
+  "currentSnapshotBenchmark": {
+    "snapshotET": "2026-08-27T19:56:31-04:00",
+    "dataConfidence": "HIGH",
+    "freshCount": 188,
+    "emergingCandidates": [
+      {"ticker":"AMCI","changePct":6.901,"ERS":66,"Ignition":74,"volumeAcceleration5m":null,"turnover5mPctFloat":0.0,"v31Expected":"BLOCK"},
+      {"ticker":"ITOC","changePct":6.004,"ERS":66,"Ignition":74,"volumeAcceleration5m":null,"turnover5mPctFloat":0.0,"v31Expected":"BLOCK"}
+    ],
+    "independentlyConfirmed": 0,
+    "interpretation": "Both current emerging candidates lack regime threshold and independent structural participation; V31 prevents promotion to LAB rather than filling the list."
+  },
+  "promotionDecision": "DEPLOY SAFETY GATE; do not alter champion scoring thresholds from this single session.",
+  "expectedBenefit": "Lower false-positive execution rate and explicit visibility into how concentrated the decision is across correlated evidence.",
+  "notClaimed": "No claim of improved profitability or Early-Capture Rate until multi-session replay/outcome data confirms it."
+}
