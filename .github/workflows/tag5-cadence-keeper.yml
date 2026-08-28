@@ -6,9 +6,9 @@ on:
     branches: [main]
     paths: ['.github/workflows/tag5-cadence-keeper.yml']
   schedule:
-    # Four off-peak anchors per hour. Each runner supplies four 5-minute pulses.
-    # Do not rely on a single 30-minute scheduled runner because GitHub cron can be delayed.
-    - cron: '3,18,33,48 * * * 1-5'
+    # One short recovery pulse every five minutes. Long sleeping runners proved
+    # vulnerable to delayed starts and created 20-40 minute feed holes.
+    - cron: '*/5 * * * 1-5'
 
 permissions:
   actions: write
@@ -16,23 +16,27 @@ permissions:
 
 concurrency:
   group: tag5-cadence-keeper
-  # Never cancel a healthy cadence loop because a later cron/push event arrived.
-  # Downstream workflows have their own concurrency guards, so duplicate dispatch is safer
-  # than a 20-30 minute feed hole.
   cancel-in-progress: false
 
 jobs:
   keep-cadence:
     runs-on: ubuntu-latest
-    timeout-minutes: 24
+    timeout-minutes: 3
     steps:
-      - name: Dispatch TAGX market feeds every 5 minutes during US extended/regular session
+      - name: Dispatch TAGX market feeds once per recovery pulse
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         shell: bash
         run: |
           set -euo pipefail
+          DOW=$(TZ=America/New_York date +%u)
+          HM=$(TZ=America/New_York date +%H%M)
+          if [ "$DOW" -gt 5 ] || [ "$HM" -lt 0400 ] || [ "$HM" -gt 2000 ]; then
+            echo "Outside 04:00-20:00 ET; no dispatch at $(TZ=America/New_York date -Iseconds)"
+            exit 0
+          fi
+
           dispatch() {
             local wf="$1"
             echo "Dispatching ${wf} at $(TZ=America/New_York date -Iseconds)"
@@ -42,20 +46,10 @@ jobs:
               -f ref=main || echo "WARN: dispatch failed for ${wf}"
           }
 
-          # Four pulses span ~15 minutes; the next off-peak anchor overlaps slightly.
-          # Overlap is intentional resilience against delayed scheduled starts.
-          for i in $(seq 1 4); do
-            DOW=$(TZ=America/New_York date +%u)
-            HM=$(TZ=America/New_York date +%H%M)
-            if [ "$DOW" -le 5 ] && [ "$HM" -ge 0400 ] && [ "$HM" -le 2000 ]; then
-              dispatch refresh-finviz.yml
-              dispatch tagx-live-quotes.yml
-              dispatch tagx-coverage-rescue.yml
-              if [ "$HM" -lt 0930 ]; then
-                dispatch tagx-premarket-hot-heartbeat.yml
-              fi
-            else
-              echo "Outside 04:00-20:00 ET; no dispatch at $(TZ=America/New_York date -Iseconds)"
-            fi
-            [ "$i" -lt 4 ] && sleep 300
-          done
+          # Independent one-shot dispatches. Downstream jobs own their own concurrency.
+          dispatch refresh-finviz.yml
+          dispatch tagx-live-quotes.yml
+          dispatch tagx-coverage-rescue.yml
+          if [ "$HM" -lt 0930 ]; then
+            dispatch tagx-premarket-hot-heartbeat.yml
+          fi
