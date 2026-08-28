@@ -1,0 +1,38 @@
+{
+  "cycleET": "2026-08-28 10:00",
+  "registryType": "GitHub Intelligence Sweep delta",
+  "candidates": [
+    {
+      "repo": "dgunning/edgartools",
+      "purpose": "Point-in-time SEC/EDGAR filing ingestion and structured catalyst extraction for Fresh Catalyst, Dilution/Financing and Event-Timing Context lanes",
+      "layer": ["SEC/EDGAR parsing", "Fresh Catalyst", "Dilution/Financing", "Catalyst Clock", "Event Replay"],
+      "maturityScore": 8.8,
+      "integrationScore": 8.2,
+      "dataDependencyScore": 7.5,
+      "latencySuitability": "MEDIUM-HIGH for filing/catalyst path; not a tick-data hot-path component",
+      "license": "MIT",
+      "maintenance": "Active; recent repository activity observed in August 2026",
+      "docsTests": "Strong README/API examples; structured filing/company/XBRL access. Sandbox validation still required for TAGX-specific timing semantics.",
+      "securityNotes": [
+        "Respect SEC fair-access/user-agent requirements and rate limits",
+        "Do not expose credentials or private identifiers in browser code",
+        "Pin/test dependency versions before any server-side integration"
+      ],
+      "lookAheadBiasNotes": [
+        "Persist original SEC accepted/filing timestamps and ingestion timestamp separately",
+        "Never train a T-minus replay on amended or later-parsed facts unless the fact was available at that historical timestamp",
+        "Treat XBRL revisions/amendments as new events rather than retroactively rewriting point-in-time state"
+      ],
+      "dataCostRequirements": "Public SEC EDGAR; network access and fair-access compliance required",
+      "decision": "BUILD_CHALLENGER_SEC_TIMING / BORROW_PATTERN",
+      "productionDependencyApproved": false,
+      "benchmarkRequired": [
+        "filing accepted-time -> parsed-event latency",
+        "8-K/S-1/424B/ATM/dilution extraction precision-recall",
+        "point-in-time replay correctness",
+        "rate-limit/failure behavior",
+        "before/after Catalyst Attribution Error on multi-session sample"
+      ]
+    }
+  ]
+}
