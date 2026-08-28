@@ -1,0 +1,25 @@
+{
+  "cycle": "2026-08-28-0600ET",
+  "candidate": {
+    "repo": "questdb/questdb",
+    "purpose": "event-time market-data storage, replay, reconciliation and observability",
+    "layer": ["feature-store", "event-replay", "data-reconciliation", "observability"],
+    "maturityScore": 9.2,
+    "integrationScore": 6.8,
+    "dataDependencyScore": 9.0,
+    "latencySuitability": "HIGH for storage/query path; do not place in the current browser hot path without benchmark",
+    "license": "Apache-2.0",
+    "maintenance": "very active; repository pushed 2026-08-28",
+    "docsAndTests": "strong project documentation and mature production project; dedicated market-data/time-series features",
+    "securityNotes": "self-hosted deployment adds operational surface; keep credentials/server off client; no production dependency added in this cycle",
+    "lookAheadRisk": "LOW if event-time timestamps and as-of joins are enforced; HIGH if final/reconciled rows overwrite point-in-time evidence",
+    "decision": "BORROW_PATTERN",
+    "patternsToBorrow": [
+      "append-only event-time observations",
+      "ASOF-style point-in-time joins",
+      "out-of-order/deduplication handling",
+      "separation of streaming ingest from final reconciliation"
+    ],
+    "reason": "TAGX needs stronger causal event-time storage/replay semantics, but adding a database runtime now would add complexity before a measured benchmark proves value."
+  }
+}
