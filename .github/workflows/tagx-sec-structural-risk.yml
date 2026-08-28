@@ -1,0 +1,42 @@
+name: TAGX SEC Structural Risk Challenger
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tagx/challengers/sec_structural_risk_v10.py'
+      - '.github/workflows/tagx-sec-structural-risk.yml'
+  schedule:
+    - cron: '3,18,33,48 13-23 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-sec-structural-risk
+  cancel-in-progress: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: git pull --rebase origin main
+      - name: Syntax check
+        run: python -m py_compile tagx/challengers/sec_structural_risk_v10.py
+      - name: Run challenger
+        run: python tagx/challengers/sec_structural_risk_v10.py
+      - name: Commit challenger output
+        run: |
+          git config user.name "TAGX SEC Risk Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/sec-structural-risk.json
+          git diff --cached --quiet && exit 0
+          git commit -m "data: refresh TAGX SEC structural-risk challenger"
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*4)); done
+          exit 1
