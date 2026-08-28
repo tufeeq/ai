@@ -6,7 +6,9 @@ on:
     branches: [main]
     paths: ['.github/workflows/tag5-cadence-keeper.yml']
   schedule:
-    - cron: '5,35 * * * 1-5'
+    # Four off-peak anchors per hour. Each runner supplies four 5-minute pulses.
+    # Do not rely on a single 30-minute scheduled runner because GitHub cron can be delayed.
+    - cron: '3,18,33,48 * * * 1-5'
 
 permissions:
   actions: write
@@ -14,12 +16,15 @@ permissions:
 
 concurrency:
   group: tag5-cadence-keeper
-  cancel-in-progress: true
+  # Never cancel a healthy cadence loop because a later cron/push event arrived.
+  # Downstream workflows have their own concurrency guards, so duplicate dispatch is safer
+  # than a 20-30 minute feed hole.
+  cancel-in-progress: false
 
 jobs:
   keep-cadence:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 24
     steps:
       - name: Dispatch TAGX market feeds every 5 minutes during US extended/regular session
         env:
@@ -37,14 +42,14 @@ jobs:
               -f ref=main || echo "WARN: dispatch failed for ${wf}"
           }
 
-          for i in $(seq 1 7); do
+          # Four pulses span ~15 minutes; the next off-peak anchor overlaps slightly.
+          # Overlap is intentional resilience against delayed scheduled starts.
+          for i in $(seq 1 4); do
             DOW=$(TZ=America/New_York date +%u)
             HM=$(TZ=America/New_York date +%H%M)
             if [ "$DOW" -le 5 ] && [ "$HM" -ge 0400 ] && [ "$HM" -le 2000 ]; then
               dispatch refresh-finviz.yml
               dispatch tagx-live-quotes.yml
-              # Coverage rescue scans market-wide Yahoo predefined movers independently of TAGX's existing universe.
-              # It is discovery-only: it cannot certify training truth or create a BUY by itself.
               dispatch tagx-coverage-rescue.yml
               if [ "$HM" -lt 0930 ]; then
                 dispatch tagx-premarket-hot-heartbeat.yml
@@ -52,5 +57,5 @@ jobs:
             else
               echo "Outside 04:00-20:00 ET; no dispatch at $(TZ=America/New_York date -Iseconds)"
             fi
-            [ "$i" -lt 7 ] && sleep 300
+            [ "$i" -lt 4 ] && sleep 300
           done
