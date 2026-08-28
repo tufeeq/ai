@@ -1,0 +1,36 @@
+{
+  "cycle": "2026-08-28-0800ET",
+  "sweep": "GitHub Intelligence Sweep",
+  "candidate": {
+    "repo": "sahmk-sa/sahmk-python",
+    "purpose": "Official market-data SDK pattern review for streaming, live trades, depth, retries and entitlement-aware data access.",
+    "layer": [
+      "real-time market data ingestion",
+      "WebSocket/streaming feeds",
+      "trades-per-minute / live trades",
+      "order flow / market depth",
+      "data reliability"
+    ],
+    "maturityScore": 7.5,
+    "integrationScore": 2.5,
+    "dataDependencyScore": 2.0,
+    "latencySuitability": "GOOD_FOR_INTENDED_TADAWUL_SCOPE_NOT_US_EQUITIES",
+    "license": "MIT",
+    "maintenance": {
+      "lastReviewedCommitDate": "2026-08-25",
+      "recentSignals": [
+        "v0.16.0 release prep",
+        "live-trade side field update",
+        "live trades REST/WebSocket added 2026-07-29"
+      ]
+    },
+    "docsAndTests": "README documents streaming, retries, plan behavior and security; repository includes tests, examples and CI configuration.",
+    "dataCostRequirements": "Pro+/entitlement-gated for WebSocket/live trades/depth; designed for Tadawul rather than U.S. equities.",
+    "securityNotes": "API-key via environment recommended; transient 429/5xx retry policy documented. Do not transplant credentials or proprietary endpoints.",
+    "latencyNotes": "Streaming surfaces are appropriate as a design reference, but no U.S. equity latency/coverage benefit for TAGX can be inferred.",
+    "lookAheadBiasRisk": "LOW_FROM_SDK_PATTERN_ITSELF; any replay use still requires point-in-time event timestamps and no retroactive enrichment.",
+    "decision": "BORROW_PATTERN",
+    "directIntegration": "REJECT",
+    "rationale": "Strong, recent operational patterns for retries, streaming, entitlements and live-trade surfaces, but underlying data scope is Saudi/Tadawul and therefore does not solve TAGX U.S. market coverage. Borrow reliability patterns only; no production dependency."
+  }
+}
