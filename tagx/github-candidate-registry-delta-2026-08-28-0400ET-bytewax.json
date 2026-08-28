@@ -1,0 +1,28 @@
+{
+  "reviewedAtUTC": "2026-08-28T08:03:00Z",
+  "candidate": {
+    "repo": "bytewax/bytewax",
+    "purpose": "Stateful stream-processing/dataflow framework that can inform TAGX event-time orchestration, per-symbol state, windowing and recovery semantics.",
+    "layers": [
+      "real-time market data ingestion",
+      "WebSocket/streaming feeds",
+      "feature stores/state",
+      "agent orchestration",
+      "online learning",
+      "data reconciliation",
+      "observability"
+    ],
+    "maturityScore": 72,
+    "integrationScore": 48,
+    "dataDependencyScore": 92,
+    "latencySuitability": "MEDIUM-HIGH for stateful orchestration/windowing; not itself a market-data source and adds a Rust/Python runtime layer.",
+    "license": "Apache-2.0",
+    "maintenance": "Community-maintained since May 2025; original company/core team stepped back. Latest reviewed commits include Python 3.13/3.14 support merged 2026-06-20, so maintenance is alive but materially thinner than a fully staffed vendor-backed project.",
+    "docsTests": "README documents TestingSource/integration testing, stateful operators, event-time windows, joins, Kafka/custom connectors and recovery; CI badge is present. No claim of TAGX-specific latency has been established.",
+    "securityNotes": "No trading credentials required by the engine itself. Direct adoption expands supply-chain/runtime surface through Python + Rust and optional connectors/Kubernetes; custom WebSocket connectors would still need credential isolation and reconnect/freshness tests.",
+    "lookAheadBiasRisk": "LOW-MEDIUM if event-time windows and state boundaries are used correctly; unsafe if final labels/outcomes share state with live features.",
+    "decision": "BORROW_PATTERN",
+    "integrationPlan": "Borrow explicit event-time/session-scoped state and recoverable keyed-state patterns. Do not add Bytewax to production. First benchmark a minimal challenger against TAGX native JSON-state pipeline for restart recovery, session-boundary reset correctness, p95 processing latency and memory.",
+    "reasonNotIntegrated": "Community-maintainer risk plus unnecessary runtime complexity for the current GitHub-Actions/JSON hot path; the architecture pattern is useful, the dependency is not yet justified."
+  }
+}
