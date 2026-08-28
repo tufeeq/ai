@@ -1,0 +1,66 @@
+name: TAGX Extended Baseline Reconciliation
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["TAGX Live Quote Reconciliation V5", "TAGX Premarket Hot Heartbeat"]
+    types: [completed]
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - 'tagx/extended_baseline_reconciliation.py'
+      - '.github/workflows/tagx-extended-baseline-reconciliation.yml'
+  schedule:
+    - cron: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-extended-baseline-reconciliation-main
+  cancel-in-progress: true
+
+jobs:
+  reconcile:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sync latest main
+        run: git pull --rebase origin main
+      - name: Syntax and deterministic self-test
+        run: |
+          python -m py_compile tagx/extended_baseline_reconciliation.py
+          python tagx/extended_baseline_reconciliation.py --self-test
+      - name: Reconcile point-in-time extended-hours baselines
+        run: python tagx/extended_baseline_reconciliation.py
+      - name: Validate outputs
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          a=json.loads(pathlib.Path('tag/data/tagx-extended-baseline-audit.json').read_text())
+          l=json.loads(pathlib.Path('tag/data/live-quotes.json').read_text())
+          assert a.get('status')=='APPLIED'
+          assert (l.get('baselineReconciliation') or {}).get('version')==1
+          for c in l.get('emergingCandidates') or []:
+              q=(l.get('quotes') or {}).get(c.get('ticker')) or {}
+              if l.get('marketClockSession') in ('pre-market','after-hours'):
+                  assert c.get('extendedLiquidityVerified') is True
+                  assert q.get('baselineIntegrity')=='VERIFIED_POINT_IN_TIME'
+          print(json.dumps({'materialDisagreements':a['live']['materialDisagreementCount'],'legacyEmerging':a['live']['legacyEmerging'],'reconciledEmerging':a['live']['reconciledEmerging'],'invalidatedFirstObservations':a['premarketHeartbeat']['legacyFirstObservationsInvalidated']}))
+          PY
+      - name: Commit reconciled feeds and audit
+        run: |
+          git config user.name "TAGX Baseline Reconciliation Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/live-quotes.json tag/data/premarket-hot.json tag/data/tagx-extended-baseline-audit.json
+          git diff --cached --quiet && exit 0
+          git commit -m "data: reconcile TAGX extended-hours causal baseline"
+          for i in 1 2 3 4; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*4)); done
+          exit 1
