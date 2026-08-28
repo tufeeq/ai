@@ -1,0 +1,85 @@
+name: TAGX Premarket Directional Causal Audit
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["TAGX Premarket Hot Heartbeat"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+concurrency:
+  group: tagx-premarket-directional-causal-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 0}
+      - run: git pull --rebase origin main
+      - name: Repair directional causal labels
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime
+          p=pathlib.Path('tag/data/premarket-hot.json')
+          j=json.loads(p.read_text())
+          rows=j.get('rows') or {}
+          repaired=0; negative_false_early=0; invalid_crossings=0
+          for t,r in rows.items():
+            try: first=float(r.get('firstPMChangePct'))
+            except: continue
+            if first>=20: band='ALREADY_EXTENDED'
+            elif first>=10: band='LATE_AT_FIRST_SEEN'
+            elif first>=5: band='PRE_IGNITION'
+            elif first>=2: band='WAKE_UP'
+            elif first<=-2: band='NEGATIVE_DISLOCATION'
+            else: band='DISCOVERY'
+            eligible=(2<=first<10)
+            if r.get('earlyCaptureEligibleAtFirstObservation') and not eligible:
+              negative_false_early+=1
+            if r.get('firstObservationBand')!=band or bool(r.get('earlyCaptureEligibleAtFirstObservation'))!=eligible:
+              repaired+=1
+            r['firstObservationBand']=band
+            r['firstObservationLate']=bool(first>=10)
+            r['earlyCaptureEligibleAtFirstObservation']=eligible
+            censored=[x for x in (2,5,10,20) if first>=x]
+            r['crossingCensoredBeforeFirstObservation']=censored
+            # Positive-mover benchmark: negative prices must never create +threshold crossings.
+            try: current=float(r.get('sessionChangePct'))
+            except: current=first
+            if current<0:
+              for threshold,key in [(2,'firstCross2UTC'),(5,'firstCross5UTC'),(10,'firstCross10UTC'),(20,'firstCross20UTC')]:
+                if r.get(key) is not None:
+                  r[key]=None; invalid_crossings+=1
+            r['directionalCausalAudit']='PASS' if first>=0 else 'NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE'
+          j['schemaVersion']=5
+          j['source']=str(j.get('source',''))+' + directional-causal-audit-v1'
+          ci=j.setdefault('causalIntegrity',{})
+          ci['directionalThresholds']=True
+          ci['upsideThresholdsUseSignedChange']=True
+          ci['negativeMovesExcludedFromUpsideEarlyCapture']=True
+          ci['directionalAuditRepairedRows']=repaired
+          ci['negativeFalseEarlyEligibilityRemoved']=negative_false_early
+          ci['invalidPositiveCrossingsRemoved']=invalid_crossings
+          ci['auditedAtUTC']=datetime.datetime.now(datetime.timezone.utc).isoformat()
+          ci['firstObservationLateCount']=sum(1 for r in rows.values() if r.get('firstObservationLate'))
+          ci['earlyCaptureEligibleFirstObservationCount']=sum(1 for r in rows.values() if r.get('earlyCaptureEligibleAtFirstObservation'))
+          p.write_text(json.dumps(j,ensure_ascii=False,indent=2))
+          print(json.dumps({'rows':len(rows),'repairedRows':repaired,'negativeFalseEarlyRemoved':negative_false_early,'invalidPositiveCrossingsRemoved':invalid_crossings,'earlyEligible':ci['earlyCaptureEligibleFirstObservationCount']}))
+          PY
+      - name: Commit audited snapshot
+        run: |
+          git config user.name tagx-causal-audit-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/premarket-hot.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: apply directional causal audit to premarket snapshot'
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*3)); done
+          exit 1
