@@ -41,11 +41,11 @@ jobs:
             DOW=$(TZ=America/New_York date +%u)
             HM=$(TZ=America/New_York date +%H%M)
             if [ "$DOW" -le 5 ] && [ "$HM" -ge 0400 ] && [ "$HM" -le 2000 ]; then
-              # Discovery universe remains a broad upstream source.
               dispatch refresh-finviz.yml
-              # Critical fix: live quotes must not depend on delayed cron/workflow_run chains.
               dispatch tagx-live-quotes.yml
-              # During premarket, refresh the extended-hours hot set directly too.
+              # Coverage rescue scans market-wide Yahoo predefined movers independently of TAGX's existing universe.
+              # It is discovery-only: it cannot certify training truth or create a BUY by itself.
+              dispatch tagx-coverage-rescue.yml
               if [ "$HM" -lt 0930 ]; then
                 dispatch tagx-premarket-hot-heartbeat.yml
               fi
