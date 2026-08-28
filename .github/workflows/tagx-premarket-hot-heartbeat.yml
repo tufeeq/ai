@@ -44,10 +44,9 @@ jobs:
           def num(v):
             try:return float(str(v or 0).replace('%','').replace(',','').replace('$',''))
             except:return 0.0
-          def symbol(r):
-            return str(r.get('Ticker') or r.get('ticker') or r.get('Symbol') or r.get('symbol') or '').upper().strip()
+          def symbol(r): return str(r.get('Ticker') or r.get('ticker') or r.get('Symbol') or r.get('symbol') or '').upper().strip()
 
-          pools=[]; by={}; source_tags={}
+          by={}; source_tags={}
           for src,p in [('fast','tag/data/discovery-fast.json'),('standard','tag/data/discovery.json'),('finviz','tag/data/finviz.json')]:
             j=load(p)
             for r in (j.get('rows') or j.get('data') or []):
@@ -58,14 +57,12 @@ jobs:
                 for k,v in r.items():
                   if by[t].get(k) in (None,'') and v not in (None,''): by[t][k]=v
               source_tags.setdefault(t,set()).add(src)
-
           ah=load('tag/data/extended-hot.json'); ahrows=ah.get('rows') or {}
           for raw,r in ahrows.items():
             t=str(raw or r.get('ticker') or '').upper().strip()
             if not re.match(r'^[A-Z][A-Z0-9.\-]{0,9}$',t): continue
             source_tags.setdefault(t,set()).add('afterhours_persistence')
-            if t not in by:
-              by[t]={'Ticker':t,'Price':r.get('last'),'Change':r.get('changeVsPreviousClosePct') or r.get('sessionChangePct'),'Volume':r.get('extendedVolume')}
+            if t not in by: by[t]={'Ticker':t,'Price':r.get('last'),'Change':r.get('changeVsPreviousClosePct') or r.get('sessionChangePct'),'Volume':r.get('extendedVolume')}
 
           all_t=list(by)
           low_float=sorted(all_t,key=lambda t:(num(by[t].get('Float')) if num(by[t].get('Float'))>0 else 1e9,-num(by[t].get('Rel Volume')),-abs(num(by[t].get('Change')))))[:240]
@@ -83,8 +80,7 @@ jobs:
             if len(selected)>=560: break
           tick=selected[:560]
 
-          prior=load('tag/data/premarket-hot.json'); oldrows=prior.get('rows') or {}
-          prior_date=prior.get('sessionDateET')
+          prior=load('tag/data/premarket-hot.json'); oldrows=prior.get('rows') or {}; prior_date=prior.get('sessionDateET')
           if not prior_date:
             try: prior_date=str(datetime.datetime.fromisoformat(str(prior.get('updatedAtET','')).replace('Z','+00:00')).astimezone(ET).date())
             except: prior_date=None
@@ -99,6 +95,7 @@ jobs:
               except Exception:
                 if attempt<2: time.sleep(.15*(attempt+1)+random.random()*.12)
             return None
+
           def one(t):
             j=request_chart(t)
             try:
@@ -115,38 +112,31 @@ jobs:
                 a=[b for b in ext if b[0]>=lt-n*60]; base=a[0][1] if a else None; return ((px/base)-1)*100 if base else None
               v5,v15,v30=vel(5),vel(15),vel(30); ch=(px/prev-1)*100
               recent=sum(b[2] for b in ext if b[0]>=lt-15*60); older=sum(b[2] for b in ext if lt-30*60<=b[0]<lt-15*60); va=(recent/older) if older>0 else None
-              old=oldrows.get(t,{}) if same_session else {}
-              obs_utc=datetime.datetime.fromtimestamp(lt,datetime.timezone.utc).isoformat()
+              old=oldrows.get(t,{}) if same_session else {}; obs_utc=datetime.datetime.fromtimestamp(lt,datetime.timezone.utc).isoformat()
               first_seen=old.get('firstPMSeenUTC') or old.get('firstAHSeenUTC') or obs_utc
               first_ch=old.get('firstPMChangePct') if old.get('firstPMChangePct') is not None else old.get('firstAHChangePct')
               if first_ch is None:first_ch=round(ch,3)
-              peak=max(old.get('peakPMChangePct') or old.get('peakAHChangePct') or ch,ch)
-              obs_count=int(old.get('observationCount') or 0)+1
-              previous_ch=old.get('sessionChangePct') if old else None
-              previous_ts=old.get('timestampUTC') if old else None
+              first_abs=abs(float(first_ch)); peak=max(old.get('peakPMChangePct') or old.get('peakAHChangePct') or ch,ch)
+              obs_count=int(old.get('observationCount') or 0)+1; previous_ch=old.get('sessionChangePct') if old else None; previous_ts=old.get('timestampUTC') if old else None
               slope=None
               if previous_ch is not None and previous_ts:
                 try:
-                  pdt=datetime.datetime.fromisoformat(str(previous_ts).replace('Z','+00:00'))
-                  mins=max((datetime.datetime.fromtimestamp(lt,datetime.timezone.utc)-pdt).total_seconds()/60,0)
+                  pdt=datetime.datetime.fromisoformat(str(previous_ts).replace('Z','+00:00')); mins=max((datetime.datetime.fromtimestamp(lt,datetime.timezone.utc)-pdt).total_seconds()/60,0)
                   if mins>0:slope=(ch-float(previous_ch))/mins
-                except Exception: slope=None
-              first_late=abs(float(first_ch))>=10
-              first_band=('ALREADY_EXTENDED' if abs(float(first_ch))>=20 else ('LATE_AT_FIRST_SEEN' if abs(float(first_ch))>=10 else ('PRE_IGNITION' if abs(float(first_ch))>=5 else ('WAKE_UP' if abs(float(first_ch))>=2 else 'DISCOVERY')))
-              early_eligible=2<=abs(float(first_ch))<10
-              crossings={}
-              censored=[]
-              prev_value=float(previous_ch) if previous_ch is not None else None
+                except Exception:slope=None
+              if first_abs>=20: first_band='ALREADY_EXTENDED'
+              elif first_abs>=10: first_band='LATE_AT_FIRST_SEEN'
+              elif first_abs>=5: first_band='PRE_IGNITION'
+              elif first_abs>=2: first_band='WAKE_UP'
+              else: first_band='DISCOVERY'
+              first_late=first_abs>=10; early_eligible=2<=first_abs<10
+              crossings={}; censored=[]; prev_value=float(previous_ch) if previous_ch is not None else None
               for threshold,key in [(2,'firstCross2UTC'),(5,'firstCross5UTC'),(10,'firstCross10UTC'),(20,'firstCross20UTC')]:
                 prior_cross=old.get(key) if old else None
-                if prior_cross:
-                  crossings[key]=prior_cross
-                elif obs_count==1 and abs(ch)>=threshold:
-                  crossings[key]=None; censored.append(threshold)
-                elif prev_value is not None and abs(prev_value)<threshold<=abs(ch):
-                  crossings[key]=obs_utc
-                else:
-                  crossings[key]=None
+                if prior_cross: crossings[key]=prior_cross
+                elif obs_count==1 and abs(ch)>=threshold: crossings[key]=None; censored.append(threshold)
+                elif prev_value is not None and abs(prev_value)<threshold<=abs(ch): crossings[key]=obs_utc
+                else: crossings[key]=None
               return t,{'ticker':t,'session':'pre-market','sessionDateET':session_date,'last':px,'timestampUTC':obs_utc,'previousClose':prev,'sessionChangePct':round(ch,3),'changeVsPreviousClosePct':round(ch,3),'priceVelocity5mPct':round(v5,3) if v5 is not None else None,'priceVelocity15mPct':round(v15,3) if v15 is not None else None,'priceVelocity30mPct':round(v30,3) if v30 is not None else None,'extendedVolumeLast15m':recent or None,'volumeAcceleration15m':round(va,3) if va is not None else None,'firstPMSeenUTC':first_seen,'firstPMChangePct':first_ch,'peakPMChangePct':peak,'observationCount':obs_count,'crossSnapshotChangeSlopePpPerMin':round(slope,4) if slope is not None else None,'firstObservationBand':old.get('firstObservationBand') or first_band,'firstObservationLate':bool(old.get('firstObservationLate',first_late)),'earlyCaptureEligibleAtFirstObservation':bool(old.get('earlyCaptureEligibleAtFirstObservation',early_eligible)),'crossingCensoredBeforeFirstObservation':old.get('crossingCensoredBeforeFirstObservation') or censored,**crossings,'firstAHSeenUTC':first_seen,'firstAHChangePct':first_ch,'peakAHChangePct':peak,'discoveryQualified':bool(ch>=2 or (v15 or 0)>=1.5 or (va or 0)>=2),'universeSources':sorted(source_tags.get(t,set())),'afterHoursPersistence':t in ahrows,'source':'Yahoo Finance premarket-heartbeat-v2.3'}
             except:return None
 
@@ -154,19 +144,14 @@ jobs:
           with concurrent.futures.ThreadPoolExecutor(max_workers=40) as ex:
             for z in ex.map(one,tick):
               if z: rows[z[0]]=z[1]
-
           retained=0
           if same_session:
             for t,r in oldrows.items():
               if t in rows: continue
               try: age=(now-datetime.datetime.fromisoformat(r.get('timestampUTC').replace('Z','+00:00'))).total_seconds()/60
               except: age=1e9
-              if age<=15 and t in seen:
-                rr=dict(r); rr['fallbackRetained']=True; rows[t]=rr; retained+=1
-
-          current=sum(1 for r in rows.values() if not r.get('fallbackRetained'))
-          late_first=sum(1 for r in rows.values() if r.get('firstObservationLate'))
-          early_eligible=sum(1 for r in rows.values() if r.get('earlyCaptureEligibleAtFirstObservation'))
+              if age<=15 and t in seen: rr=dict(r); rr['fallbackRetained']=True; rows[t]=rr; retained+=1
+          current=sum(1 for r in rows.values() if not r.get('fallbackRetained')); late_first=sum(1 for r in rows.values() if r.get('firstObservationLate')); early_eligible=sum(1 for r in rows.values() if r.get('earlyCaptureEligibleAtFirstObservation'))
           confidence='HIGH' if current>=100 else ('MEDIUM' if current>=40 else ('LOW' if current else 'UNAVAILABLE'))
           out={'schemaVersion':4,'updatedAtUTC':now.isoformat(),'updatedAtET':et.isoformat(),'sessionDateET':session_date,'session':'pre-market','source':'TAGX premarket hot heartbeat event-driven v2.3','trigger':str(__import__('os').environ.get('GITHUB_EVENT_NAME','unknown')),'dataConfidence':confidence,'candidateCount':len(tick),'count':len(rows),'freshCount':current,'fallbackRetainedCount':retained,'priorStateReused':same_session,'laneCounts':lane_counts,'causalIntegrity':{'firstObservationLateCount':late_first,'earlyCaptureEligibleFirstObservationCount':early_eligible,'crossingsAreLeftCensoredWhenAlreadyAboveThresholdAtFirstObservation':True},'rows':rows,'failClosed':current<20}
           pathlib.Path('tag/data/premarket-hot.json').write_text(json.dumps(out,ensure_ascii=False,indent=2))
