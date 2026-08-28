@@ -1,0 +1,70 @@
+{
+  "cycle": "2026-08-28T11:00:00-04:00",
+  "objective": "Restore point-in-time feed reliability and make Coverage Rescue measurable for true early capture without retroactive credit.",
+  "observations": {
+    "liveFeedBefore": {
+      "updatedAtET": "2026-08-28T10:33:52.224130-04:00",
+      "observedNearET": "2026-08-28T10:59:00-04:00",
+      "ageApproxMin": 25,
+      "status": "STALE_FAIL_CLOSED"
+    },
+    "coverageBefore": {
+      "updatedAtET": "2026-08-28T10:33:32.815466-04:00",
+      "topExamples": ["FNGR", "QNRX", "AEMD"],
+      "problem": "Coverage rescue snapshot existed, but did not preserve causal first-seen state; therefore it could not prove Early-Capture Rate."
+    },
+    "marketContext": {
+      "publicMoverEvidence": ["ESTC", "AFRM", "GAP", "PYPL"],
+      "microcapCommunityReference": ["WHLR", "QNRX", "FNGR"],
+      "note": "External mover lists are discovery evidence only, not final training truth."
+    }
+  },
+  "changes": [
+    {
+      "commit": "2ab08d9f03a3253a4d45f8d5c266af3e6d89acf7",
+      "change": "Cadence keeper moved from 30-minute anchors with cancel-in-progress=true to four off-peak anchors/hour, four 5-minute pulses, cancel-in-progress=false.",
+      "reason": "A later scheduled/push event must not cancel a healthy cadence loop; GitHub cron delay must not create a 20-30 minute blind spot."
+    },
+    {
+      "commit": "ff98aa714efef647f4f70090cbcf5aaeca1f236d",
+      "change": "Added challenger-only Coverage Rescue Causal Ledger with session-scoped firstSeen, late-at-first-seen and left-censored threshold crossings.",
+      "reason": "Do not award early-discovery credit to stocks first observed after the move is already obvious."
+    },
+    {
+      "commit": "965b2d47aebcec2636138758e773bc8ae46b4467",
+      "change": "Activated causal-ledger workflow through a self-path push trigger.",
+      "reason": "Runtime validation required before treating the new ledger as available."
+    },
+    {
+      "commit": "d723eecfb640900547f03647245206624cedda84",
+      "change": "GitHub Intelligence Sweep registry delta for stefanoamorelli/sec-edgar-toolkit.",
+      "reason": "Potential SEC event-time/catalyst challenger; AGPL and look-ahead controls block direct production integration."
+    }
+  ],
+  "runtimeValidation": {
+    "liveFeedAfter": {
+      "updatedAtET": "2026-08-28T11:02:51.947408-04:00",
+      "count": 493,
+      "freshCount": 412,
+      "scanDurationSec": 2.69,
+      "dataConfidence": "HIGH"
+    },
+    "coverageAfter": {
+      "updatedAtET": "2026-08-28T11:03:04.569673-04:00",
+      "seedCount": 249,
+      "freshCount": 234,
+      "topMoverCount": 146,
+      "earlyCount": 75
+    },
+    "causalLedger": {
+      "symbolCount": 73,
+      "earlyEligibleFirstSeenCount": 47,
+      "lateAtFirstSeenCount": 23,
+      "example": "FNGR first observed at +193.656%, therefore LATE_AT_FIRST_SEEN with left-censored +2/+5/+10/+20 crossings; it cannot count as an early success."
+    }
+  },
+  "thresholdChanges": "NONE",
+  "versionBump": "NONE",
+  "promotionDecision": "Cadence fix promoted as infrastructure reliability change. Causal ledger remains challenger/discovery-only until it accumulates same-session multi-snapshot evidence.",
+  "knownBlocker": "Sharia screen remains stale and has 0 VERIFIED / 718 UNVERIFIED, so strict execution remains fail-closed for Sharia-verified opportunities until that independent pipeline is repaired."
+}
