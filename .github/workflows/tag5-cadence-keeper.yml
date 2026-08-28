@@ -7,7 +7,7 @@ on:
     paths: ['.github/workflows/tag5-cadence-keeper.yml']
   schedule:
     # One short recovery pulse every five minutes. Long sleeping runners proved
-    # vulnerable to delayed starts and created 20-40 minute feed holes.
+    # vulnerable to delayed starts and created feed holes.
     - cron: '*/5 * * * 1-5'
 
 permissions:
@@ -50,6 +50,8 @@ jobs:
           dispatch refresh-finviz.yml
           dispatch tagx-live-quotes.yml
           dispatch tagx-coverage-rescue.yml
+          dispatch tagx-marketwide-challenger.yml
+          dispatch tagx-sec-structural-risk.yml
           if [ "$HM" -lt 0930 ]; then
             dispatch tagx-premarket-hot-heartbeat.yml
           fi
