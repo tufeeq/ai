@@ -1,0 +1,31 @@
+{
+  "cycle": "2026-08-28-0600ET",
+  "changeType": "DATA_CORRECTNESS_AND_EARLY_CAPTURE_MEASUREMENT",
+  "problem": "Premarket v2.3 used abs(change) for first-observation stage, early eligibility and +2/+5/+10/+20 crossings. Negative movers could therefore be labeled as upside WAKE_UP/PRE_IGNITION and contaminate Early-Capture Rate.",
+  "evidence": {
+    "example": "JUNS firstPMChangePct=-3.992 but firstObservationBand=WAKE_UP and earlyCaptureEligibleAtFirstObservation=true in the 05:08 ET snapshot",
+    "impact": "false-positive benchmark labels and potentially invalid causal crossing timestamps for upside-mover evaluation"
+  },
+  "implemented": {
+    "workflow": ".github/workflows/tagx-premarket-directional-causal-audit.yml",
+    "logic": [
+      "use signed firstPMChangePct for upside thresholds",
+      "exclude negative paths from upside Early-Capture eligibility",
+      "introduce NEGATIVE_DISLOCATION stage for first observation <= -2%",
+      "remove positive crossing timestamps when current path is still negative",
+      "write explicit causal-integrity audit counters"
+    ],
+    "deploymentMode": "post-heartbeat production reconciliation; no scoring threshold changed"
+  },
+  "benchmarkPolicy": {
+    "before": "upside labels could be generated from absolute price displacement",
+    "after": "only signed positive displacement can qualify for upside early-capture cohort",
+    "promotion": "data-correctness fix; not a champion scoring promotion",
+    "lookAhead": "no future outcome used"
+  },
+  "githubIntelligenceSweep": {
+    "repo": "questdb/questdb",
+    "decision": "BORROW_PATTERN",
+    "pattern": "event-time append-only evidence, ASOF joins, dedup/out-of-order handling and final reconciliation separation"
+  }
+}
