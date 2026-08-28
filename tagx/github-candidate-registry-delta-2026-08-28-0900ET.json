@@ -1,0 +1,19 @@
+{
+  "reviewedAtUTC": "2026-08-28T12:58:00Z",
+  "repo": "alpacahq/alpaca-py",
+  "purpose": "Official Alpaca Python SDK for live/historical equities data, WebSocket/SSE streaming, news, paper trading and broker adapters.",
+  "layers": ["real-time market data ingestion", "WebSocket/streaming feeds", "news/catalyst extraction", "paper trading", "broker adapters", "data validation"],
+  "maturityScore": 90,
+  "integrationScore": 68,
+  "dataDependencyScore": 42,
+  "latencySuitability": "HIGH with appropriate market-data entitlement and a server-side runtime",
+  "license": "Apache-2.0",
+  "maintenance": "Official active repository; pushed 2026-08-24 and repository metadata updated 2026-08-28.",
+  "docsTests": "README documents REST, WebSocket and SSE clients, StockDataStream/NewsDataStream, Pydantic runtime validation, sandbox/paper environments and official docs.",
+  "securityNotes": "API credentials must never be embedded in TAGX GitHub Pages/browser JavaScript. Use server-side secrets and separate paper/live credentials. Current static architecture is unsuitable for direct credentialed integration.",
+  "dataRequirements": "Alpaca account/API keys and market-data entitlement; coverage/latency vary by plan/feed.",
+  "lookAheadBiasRisk": "LOW for live stream when exchange/event timestamps are preserved; MEDIUM if historical backfill is merged into live state without strict event-time boundaries.",
+  "decision": "BUILD_CHALLENGER_SERVER_SIDE_ONLY",
+  "integrationPlan": "Do not add production dependency. In a sandbox/private runner, benchmark StockDataStream and NewsDataStream against current Yahoo polling on feed age p50/p95, disconnect recovery, symbol coverage, premarket volume availability, trades-per-minute/turnover feature coverage, cost and false-positive/early-capture lift.",
+  "reasonForReview": "Current Yahoo-derived extended-hours feed recovered freshness but often lacks independent premarket volume/turnover evidence, causing valid price-regime candidates to remain DATA-BLOCKED under V31. A true stream is a candidate solution, but credential security prevents direct GitHub Pages use."
+}
