@@ -1,0 +1,84 @@
+name: TAGX Marketwide Coverage Challenger
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/tagx-marketwide-challenger.yml']
+  schedule:
+    - cron: '3,8,13,18,23,28,33,38,43,48,53,58 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-marketwide-challenger
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Scan independent public marketwide seed
+        run: |
+          python - <<'PY'
+          import json,urllib.request,urllib.parse,concurrent.futures,datetime,time
+          from pathlib import Path
+          from zoneinfo import ZoneInfo
+          ET=ZoneInfo('America/New_York'); now=datetime.datetime.now(datetime.timezone.utc); et=now.astimezone(ET); started=time.monotonic()
+          UA={'User-Agent':'Mozilla/5.0 TAGX-Marketwide-Challenger/1.0','Accept':'application/json'}
+          def get(url,timeout=6):
+              with urllib.request.urlopen(urllib.request.Request(url,headers=UA),timeout=timeout) as r:return json.load(r)
+          seed={};errors=[]
+          for scr in ('day_gainers','most_actives'):
+              try:
+                  u='https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?'+urllib.parse.urlencode({'scrIds':scr,'count':100,'start':0})
+                  j=get(u);quotes=((((j.get('finance') or {}).get('result') or [{}])[0]).get('quotes') or [])
+                  for q in quotes:
+                      t=str(q.get('symbol') or '').upper().strip()
+                      if t and len(t)<=12:seed[t]={'seed':scr,'seedChangePct':q.get('regularMarketChangePercent'),'seedVolume':q.get('regularMarketVolume')}
+              except Exception as e:errors.append({'seed':scr,'error':type(e).__name__})
+          def one(t):
+              try:
+                  u='https://query1.finance.yahoo.com/v8/finance/chart/'+urllib.parse.quote(t)+'?interval=1m&range=1d&includePrePost=true'
+                  j=get(u,4);r=((j.get('chart') or {}).get('result') or [None])[0]
+                  if not r:return None
+                  meta=r.get('meta') or {};ts=r.get('timestamp') or [];q=((r.get('indicators') or {}).get('quote') or [{}])[0];cl=q.get('close') or [];vol=q.get('volume') or []
+                  pts=[]
+                  for i,x in enumerate(ts):
+                      if i<len(cl) and cl[i] is not None:pts.append((x,float(cl[i]),int(vol[i] or 0) if i<len(vol) else 0))
+                  if not pts:return None
+                  latest=pts[-1];prev=meta.get('previousClose') or meta.get('chartPreviousClose')
+                  prev=float(prev) if prev else None
+                  def pct(a,b):return (a/b-1)*100 if a is not None and b else None
+                  def ago(m):
+                      z=[p for p in pts if p[0]<=latest[0]-m*60];return z[-1][1] if z else pts[0][1]
+                  def vw(m0,m1=0):return sum(p[2] for p in pts if latest[0]-m0*60<p[0]<=latest[0]-m1*60)
+                  v5=pct(latest[1],ago(5));v15=pct(latest[1],ago(15));vol5=vw(5);prior5=vw(10,5);acc=vol5/prior5 if prior5>0 else (5.0 if vol5>0 else None);ch=pct(latest[1],prev)
+                  age=(now.timestamp()-latest[0])/60
+                  return {'ticker':t,'price':latest[1],'changePct':round(ch,3) if ch is not None else None,'priceVelocity5mPct':round(v5,3) if v5 is not None else None,'priceVelocity15mPct':round(v15,3) if v15 is not None else None,'volumeAcceleration5m':round(acc,3) if acc is not None else None,'volume5m':vol5,'quoteAgeMin':round(age,2),'timestampET':datetime.datetime.fromtimestamp(latest[0],datetime.timezone.utc).astimezone(ET).isoformat(),**seed[t]}
+              except Exception as e:errors.append({'ticker':t,'error':type(e).__name__});return None
+          rows=[]
+          with concurrent.futures.ThreadPoolExecutor(max_workers=32) as ex:
+              for x in ex.map(one,list(seed)[:200]):
+                  if x:rows.append(x)
+          fresh=[x for x in rows if x['quoteAgeMin']<=10];early=[x for x in fresh if x.get('changePct') is not None and 1.5<=x['changePct']<10 and ((x.get('priceVelocity5mPct') or 0)>=.6 or (x.get('volumeAcceleration5m') or 0)>=1.8)]
+          late=[x for x in fresh if x.get('changePct') is not None and x['changePct']>=10]
+          early.sort(key=lambda x:((x.get('priceVelocity5mPct') or 0),(x.get('volumeAcceleration5m') or 0)),reverse=True);late.sort(key=lambda x:x.get('changePct') or 0,reverse=True)
+          out={'schemaVersion':1,'productionRankingActive':False,'purpose':'independent marketwide coverage challenger; discovery only, never BUY','updatedAtUTC':now.isoformat(),'updatedAtET':et.isoformat(),'seedCount':len(seed),'scanned':len(rows),'fresh':len(fresh),'earlyCount':len(early),'lateCount':len(late),'durationSec':round(time.monotonic()-started,2),'earlyCandidates':early[:40],'lateObserved':late[:40],'errors':errors[:30]}
+          Path('tag/data/marketwide-challenger.json').write_text(json.dumps(out,ensure_ascii=False,indent=2));print({k:out[k] for k in ('seedCount','scanned','fresh','earlyCount','lateCount','durationSec')})
+          PY
+      - name: Commit challenger snapshot
+        run: |
+          git config user.name 'TAGX Marketwide Challenger Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tag/data/marketwide-challenger.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: refresh TAGX marketwide coverage challenger'
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*3)); done
+          exit 1
