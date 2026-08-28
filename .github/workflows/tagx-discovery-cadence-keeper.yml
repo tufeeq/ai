@@ -3,7 +3,7 @@ name: TAGX Discovery Cadence Keeper
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: ["TAG5 Mover Snapshot"]
+    workflows: ["TAG5 Mover Snapshot", "TAGX Premarket Hot Heartbeat"]
     types: [completed]
     branches: [main]
   schedule:
@@ -30,7 +30,7 @@ jobs:
           ref: main
           fetch-depth: 1
 
-      - name: Check discovery freshness and U.S. session
+      - name: Check discovery and live-quote freshness in U.S. session
         id: guard
         run: |
           python - <<'PY'
@@ -41,35 +41,66 @@ jobs:
           now_et=now_utc.astimezone(ZoneInfo('America/New_York'))
           mins=now_et.hour*60+now_et.minute
           in_session=(240 <= mins <= 1200 and now_et.weekday() < 5)
-          path=pathlib.Path('tag/data/discovery.json')
-          age=9999.0
-          source_ts=None
-          if path.exists():
+
+          def age_minutes(path, keys):
+              p=pathlib.Path(path)
+              if not p.exists():
+                  return 9999.0, None
               try:
-                  p=json.loads(path.read_text(encoding='utf-8'))
-                  source_ts=p.get('snapshotTimestampUTC') or p.get('updatedAt')
-                  if source_ts:
-                      dt=datetime.datetime.fromisoformat(source_ts.replace('Z','+00:00'))
-                      age=max(0.0,(now_utc-dt.astimezone(datetime.timezone.utc)).total_seconds()/60)
+                  data=json.loads(p.read_text(encoding='utf-8'))
+                  source_ts=next((data.get(k) for k in keys if data.get(k)), None)
+                  if not source_ts:
+                      return 9999.0, None
+                  dt=datetime.datetime.fromisoformat(str(source_ts).replace('Z','+00:00'))
+                  return max(0.0,(now_utc-dt.astimezone(datetime.timezone.utc)).total_seconds()/60), source_ts
               except Exception as e:
-                  print('discovery parse warning:',e)
-          # Dispatch when missing/stale by >=4 minutes. The native 5-minute scheduler remains
-          # the baseline; this keeper closes GitHub-schedule cold-start/cadence gaps.
-          should=in_session and age >= 4.0
-          print(f'ET={now_et.isoformat()} in_session={in_session} discovery_age_min={age:.2f} source={source_ts} dispatch={should}')
+                  print(f'freshness parse warning {path}:',e)
+                  return 9999.0, None
+
+          discovery_age, discovery_ts = age_minutes(
+              'tag/data/discovery.json',
+              ['snapshotTimestampUTC','updatedAtUTC','updatedAt']
+          )
+          live_age, live_ts = age_minutes(
+              'tag/data/live-quotes.json',
+              ['updatedAtUTC','snapshotTimestampUTC','updatedAt']
+          )
+
+          # Fail-open only for triggering recovery, never for trading decisions.
+          # Discovery is refreshed at >=4m; live quotes at >=7m. Direct live dispatch
+          # removes dependence on a successful upstream workflow_run chain.
+          dispatch_discovery=in_session and discovery_age >= 4.0
+          dispatch_live=in_session and live_age >= 7.0
+
+          print(
+              f'ET={now_et.isoformat()} in_session={in_session} '
+              f'discovery_age_min={discovery_age:.2f} discovery_ts={discovery_ts} '
+              f'live_age_min={live_age:.2f} live_ts={live_ts} '
+              f'dispatch_discovery={dispatch_discovery} dispatch_live={dispatch_live}'
+          )
           with open(os.environ['GITHUB_OUTPUT'],'a') as f:
-              f.write(f'dispatch={str(should).lower()}\n')
-              f.write(f'age_min={age:.2f}\n')
+              f.write(f'dispatch_discovery={str(dispatch_discovery).lower()}\n')
+              f.write(f'discovery_age_min={discovery_age:.2f}\n')
+              f.write(f'dispatch_live={str(dispatch_live).lower()}\n')
+              f.write(f'live_age_min={live_age:.2f}\n')
           PY
 
       - name: Dispatch proactive discovery refresh
-        if: steps.guard.outputs.dispatch == 'true'
+        if: steps.guard.outputs.dispatch_discovery == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh workflow run tag500-discovery-universe.yml --ref main
-          echo "Dispatched TAGX proactive discovery because snapshot age was ${{ steps.guard.outputs.age_min }} minutes."
+          echo "Dispatched TAGX discovery; age=${{ steps.guard.outputs.discovery_age_min }}m"
 
-      - name: No-op when discovery is already fresh
-        if: steps.guard.outputs.dispatch != 'true'
-        run: echo "Discovery already fresh or U.S. trading session inactive; no duplicate dispatch."
+      - name: Dispatch live quote reconciliation directly
+        if: steps.guard.outputs.dispatch_live == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run tagx-live-quotes.yml --ref main
+          echo "Dispatched TAGX live quotes directly; age=${{ steps.guard.outputs.live_age_min }}m"
+
+      - name: No-op summary
+        if: steps.guard.outputs.dispatch_discovery != 'true' && steps.guard.outputs.dispatch_live != 'true'
+        run: echo "Discovery and live quotes are fresh, or U.S. trading session is inactive."
