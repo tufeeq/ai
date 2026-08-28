@@ -2,6 +2,9 @@ name: TAG5 Cadence Keeper
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/tag5-cadence-keeper.yml']
   schedule:
     - cron: '5,35 * * * 1-5'
 
@@ -18,22 +21,34 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - name: Dispatch TAG5 snapshot every 5 minutes during US extended/regular session
+      - name: Dispatch TAGX market feeds every 5 minutes during US extended/regular session
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         shell: bash
         run: |
           set -euo pipefail
+          dispatch() {
+            local wf="$1"
+            echo "Dispatching ${wf} at $(TZ=America/New_York date -Iseconds)"
+            gh api --method POST \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${REPO}/actions/workflows/${wf}/dispatches" \
+              -f ref=main || echo "WARN: dispatch failed for ${wf}"
+          }
+
           for i in $(seq 1 7); do
             DOW=$(TZ=America/New_York date +%u)
             HM=$(TZ=America/New_York date +%H%M)
             if [ "$DOW" -le 5 ] && [ "$HM" -ge 0400 ] && [ "$HM" -le 2000 ]; then
-              echo "Dispatching refresh-finviz.yml at $(TZ=America/New_York date -Iseconds)"
-              gh api --method POST \
-                -H "Accept: application/vnd.github+json" \
-                "/repos/${REPO}/actions/workflows/refresh-finviz.yml/dispatches" \
-                -f ref=main
+              # Discovery universe remains a broad upstream source.
+              dispatch refresh-finviz.yml
+              # Critical fix: live quotes must not depend on delayed cron/workflow_run chains.
+              dispatch tagx-live-quotes.yml
+              # During premarket, refresh the extended-hours hot set directly too.
+              if [ "$HM" -lt 0930 ]; then
+                dispatch tagx-premarket-hot-heartbeat.yml
+              fi
             else
               echo "Outside 04:00-20:00 ET; no dispatch at $(TZ=America/New_York date -Iseconds)"
             fi
