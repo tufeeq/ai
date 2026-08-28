@@ -1,0 +1,30 @@
+{
+  "sweepAtUTC": "2026-08-28T20:04:00Z",
+  "repo": "cdeegs/meridian",
+  "purpose": "Real-time market data ingestion architecture: Alpaca/Coinbase WebSocket -> event normalization -> time-series persistence -> indicators -> FastAPI/WebSocket UI",
+  "layer": [
+    "real-time market data ingestion",
+    "WebSocket/streaming feeds",
+    "data reconciliation",
+    "observability/logging",
+    "UI/visualization"
+  ],
+  "maturityScore": 42,
+  "integrationScore": 36,
+  "dataDependencyScore": 28,
+  "latencySuitability": "MEDIUM-HIGH as a server-side architectural pattern; not suitable for direct GitHub Pages integration",
+  "license": "NONE_DETECTED",
+  "maintenance": "Created 2026-03-28; last visible push 2026-04-01. README is substantial and backend includes adapters/tests, but maintenance has been inactive for about five months and the repository has no visible adoption signal.",
+  "codeReviewed": [
+    "README.md",
+    "backend/adapters/alpaca.py",
+    "backend layout including tests/websocket/engine/services",
+    ".env.example presence"
+  ],
+  "securityNotes": "Alpaca credentials are correctly modeled as server-side environment secrets, but any TAGX adaptation must keep them entirely off GitHub Pages/browser code. The adapter authenticates over TLS and uses ping/ping-timeout. No direct production use because repository has no detected license and limited maintenance history.",
+  "dataRequirements": "Alpaca API credentials and feed entitlement for equities; IEX free feed is not equivalent to consolidated full-market coverage. Postgres/TimescaleDB adds deployment/ops cost.",
+  "lookAheadRisk": "MEDIUM unless source event timestamp and receive timestamp are both persisted. Adapter falls back to local current time if provider timestamp parsing fails; TAGX must NOT copy that fallback for training/replay truth because it can corrupt causal ordering.",
+  "latencyNotes": "WebSocket transport is appropriate for sub-minute detection, but database/indicator batching must be benchmarked. README default BATCH_INTERVAL_MS=100 and HEARTBEAT_TIMEOUT_S=30 are useful observability ideas, not validated TAGX settings.",
+  "decision": "REJECT_DIRECT_INTEGRATION_BORROW_PATTERN",
+  "reason": "Useful server-side streaming/health architecture, but no detected license, stale maintenance, zero visible adoption, and Alpaca entitlement dependence make direct integration inferior to the already-registered official alpaca-py candidate. Borrow only normalized event adapters, feed-health endpoints, heartbeat concepts, and explicit server-side secret separation."
+}
