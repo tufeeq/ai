@@ -1,0 +1,36 @@
+{
+  "cycle": "2026-08-28T11:00:00-04:00",
+  "step": "GitHub Intelligence Sweep",
+  "candidate": {
+    "repo": "stefanoamorelli/sec-edgar-toolkit",
+    "purpose": "Near-real-time SEC filing retrieval and structured parsing for catalyst timing, dilution/financing and ownership signals",
+    "layer": ["SEC/EDGAR parsing", "Fresh Catalyst", "Dilution/Financing", "Institutional/Ownership"],
+    "maturityScore": 7.8,
+    "integrationScore": 7.1,
+    "dataDependencyScore": 8.5,
+    "latencySuitability": "MEDIUM-HIGH for SEC event timing; not a market-tick feed",
+    "license": "AGPL-3.0",
+    "maintenance": {
+      "createdAt": "2025-08-10",
+      "lastPushObserved": "2026-08-18",
+      "ci": ["Python CI", "TypeScript CI", "codecov"],
+      "documentation": "strong README with Python/TypeScript examples"
+    },
+    "capabilitiesObserved": [
+      "global near-real-time recent-filings feed",
+      "8-K/10-K/10-Q parsing",
+      "Forms 3/4/5 ownership parsing",
+      "13F institutional holdings parsing",
+      "typed exhibit metadata including EX-99.1",
+      "amendment-aware filing lookups",
+      "automatic SEC 10 req/sec rate limiting",
+      "retry/backoff",
+      "async support"
+    ],
+    "securityNotes": "Requires identifying SEC User-Agent. No credentials are required for public EDGAR access. AGPL creates distribution/network-use obligations if directly integrated into a served product.",
+    "lookAheadRisk": "HIGH unless TAGX stores SEC acceptance/accession time as event-time and prevents amended/later XBRL facts from being joined backward into earlier snapshots.",
+    "decision": "BORROW_PATTERN_AND_SANDBOX_CHALLENGER",
+    "integrationPlan": "Do not add production dependency. Challenger should consume only the current-filings feed, persist accession/acceptance timestamp, form type and exhibit metadata, and benchmark catalyst lead-time and false attribution against current TAGX sec-catalyst sweep.",
+    "rejectionReasonForDirectProduction": "AGPL license plus causal-timestamp/look-ahead controls require isolated benchmark first."
+  }
+}
