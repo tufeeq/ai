@@ -1,0 +1,19 @@
+{
+  "reviewedAtUTC": "2026-08-28T16:04:00Z",
+  "repo": "online-ml/river",
+  "purpose": "Online/incremental ML and concept-drift detection for challenger-only adaptive scoring and drift alarms.",
+  "layers": ["online learning", "model evaluation", "concept drift", "feature pipelines", "observability"],
+  "maturityScore": 90,
+  "integrationScore": 76,
+  "dataDependencyScore": 96,
+  "latencySuitability": "HIGH for per-event feature/model updates; not a market-data source",
+  "license": "BSD-3-Clause",
+  "maintenance": "Active public project; repository pushed 2026-08-21 and updated 2026-08-25 at review time.",
+  "docsTests": "README shows code-quality workflow, maintained docs, progressive predict-then-learn examples, pipelines, online metrics and drift detection. Core interface is sample-wise and does not require pandas.",
+  "securityNotes": "No credentials or external data vendor required by the core library. Native wheels are available, but development installs may require Cython/Rust; pin wheels and hashes in any sandbox benchmark.",
+  "lookAheadBiasRisk": "MEDIUM if learn_one is called before the outcome label is causally available. TAGX must enforce predict -> freeze trace -> receive delayed outcome -> learn, never train on same-event future outcome.",
+  "decision": "BUILD_CHALLENGER",
+  "integrationPlan": "Sandbox only. Test ADWIN/Page-Hinkley drift alarms on feature distributions and a simple delayed-label online classifier against the static champion. Benchmark Time-to-Detection, Early-Capture Rate, false positives, calibration drift, CPU/memory and leakage guards before any production dependency.",
+  "borrowPatterns": ["progressive validation", "predict-then-learn ordering", "ADWIN/Page-Hinkley drift alarms", "online metrics"],
+  "rejectionConditions": ["any same-event label leakage", "no multi-session lift", "material CPU/latency regression", "unstable calibration under sparse labels"]
+}
