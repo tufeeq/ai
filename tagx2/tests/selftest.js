@@ -1,0 +1,16 @@
+'use strict';
+const assert=require('assert');
+const E=require('../engine.js');
+assert.equal(E.stageOf({changePct:2}),'WAKE_UP');
+assert.equal(E.stageOf({changePct:5}),'PRE_IGNITION');
+assert.equal(E.stageOf({changePct:8}),'IGNITION');
+assert.equal(E.stageOf({changePct:15}),'LATE');
+assert.equal(E.stageOf({changePct:10.5,priceVelocity5mPct:-1,priceVelocity15mPct:1}),'EXHAUSTION');
+const ctx={session:'regular',dataConfidence:'HIGH',liveAgeMin:1,shariaStatus:'VERIFIED'};
+const good=E.scoreCandidate({ticker:'TEST',changePct:5,priceVelocity5mPct:1.5,priceVelocity15mPct:.8,volumeAcceleration5m:4,turnover5mPctFloat:.5,earlyRegimeShiftScore:90,ignitionScore:90,baselineIntegrity:'VERIFIED_POINT_IN_TIME',extendedLiquidityVerified:true},ctx);
+assert.equal(good.researchPass,true);assert.equal(good.action,'READY_RESEARCH');
+const late=E.scoreCandidate({ticker:'LATE',changePct:20,priceVelocity5mPct:2,priceVelocity15mPct:2,volumeAcceleration5m:5,earlyRegimeShiftScore:100,ignitionScore:100,baselineIntegrity:'VERIFIED_POINT_IN_TIME',extendedLiquidityVerified:true},ctx);assert.equal(late.researchPass,false);assert.equal(late.action,'LATE');
+const stale=E.scoreCandidate({ticker:'STALE',changePct:4,priceVelocity5mPct:2,priceVelocity15mPct:1,volumeAcceleration5m:5,earlyRegimeShiftScore:95,ignitionScore:95,baselineIntegrity:'VERIFIED_POINT_IN_TIME',extendedLiquidityVerified:true},{...ctx,liveAgeMin:20});assert.equal(stale.researchPass,false);assert.equal(stale.action,'BLOCKED_DATA');
+const rescue=E.scoreCandidate({ticker:'RESCUE',changePct:4,priceVelocity5mPct:2,priceVelocity15mPct:1,volumeAcceleration5m:5,earlyRegimeShiftScore:95,ignitionScore:95,baselineIntegrity:'VERIFIED_POINT_IN_TIME',extendedLiquidityVerified:true,coverageOnly:true},ctx);assert.equal(rescue.researchPass,false);
+const hist={sessions:[{sessionDateET:'a',counts:{earlyCohort:100,earlyWinners50:2,earlyFailuresUnder10:90}},{sessionDateET:'b',counts:{earlyCohort:100,earlyWinners50:1,earlyFailuresUnder10:95}}]};const w=E.weeklyLessons(hist);assert.equal(w.total.early,200);assert.equal(w.total.wins,3);assert.equal(w.total.fail,185);
+console.log('TAGX2 engine self-test: PASS');
