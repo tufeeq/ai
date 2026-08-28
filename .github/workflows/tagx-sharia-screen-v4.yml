@@ -1,0 +1,118 @@
+name: TAGX Sharia Screen V4 Challenger
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/tagx-sharia-screen-v4.yml']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-sharia-screen-v4
+  cancel-in-progress: false
+
+jobs:
+  screen-v4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Build robust fail-closed AAOIFI-style challenger
+        run: |
+          python - <<'PY'
+          import json,re,urllib.request,urllib.parse,time,math
+          from pathlib import Path
+          from datetime import datetime,timezone
+          DISC=Path('tag/data/discovery.json'); LIVE=Path('tag/data/live-quotes.json'); OUT=Path('tag/data/sharia-v4-challenger.json')
+          rows=(json.loads(DISC.read_text()).get('rows') or []) if DISC.exists() else []
+          live=(json.loads(LIVE.read_text()).get('quotes') or {}) if LIVE.exists() else {}
+          def num(v):
+              try:return float(str(v).replace(',','').replace('$','').replace('%','').strip())
+              except:return None
+          def mcap(v):
+              if v is None:return None
+              if isinstance(v,(int,float)) and math.isfinite(float(v)):
+                  x=float(v);return x*1e6 if abs(x)<1e8 else x
+              s=str(v).upper().replace('$','').replace(',','').strip();m=re.fullmatch(r'(-?\d+(?:\.\d+)?)\s*([KMBT]?)',s)
+              if not m:return None
+              return float(m.group(1))*{'':1e6,'K':1e3,'M':1e6,'B':1e9,'T':1e12}[m.group(2)]
+          hard=[re.compile(x,re.I) for x in [r'\bbanks?\b',r'credit services',r'consumer finance',r'insurance',r'gambl',r'casino',r'alcohol',r'brew',r'tobacco',r'cannabis|marijuana',r'\betf\b',r'leveraged',r'inverse']]
+          ambiguous=[re.compile(x,re.I) for x in [r'shell compan',r'blank check',r'\bspac\b',r'asset management',r'investment management']]
+          def activity(r):
+              txt=' · '.join(str(r.get(k) or '') for k in ('Company','Sector','Industry'))
+              if any(p.search(txt) for p in hard):return 'FAIL'
+              if any(p.search(txt) for p in ambiguous):return 'AMBIGUOUS'
+              return 'PASS'
+          UA='Mozilla/5.0 TAGX-Sharia-V4 research@example.com'
+          now=int(time.time());p1=now-900*86400;p2=now+86400
+          TYPES=['quarterlyTotalDebt','annualTotalDebt','quarterlyCashCashEquivalentsAndShortTermInvestments','annualCashCashEquivalentsAndShortTermInvestments','quarterlyCashAndCashEquivalents','annualCashAndCashEquivalents','quarterlyShortTermInvestments','annualShortTermInvestments','quarterlyTotalRevenue','annualTotalRevenue','quarterlyInterestIncomeNonOperating','annualInterestIncomeNonOperating']
+          def fundamentals(t):
+              q=urllib.parse.urlencode({'symbol':t,'type':','.join(TYPES),'period1':p1,'period2':p2})
+              req=urllib.request.Request('https://query1.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/'+urllib.parse.quote(t)+'?'+q,headers={'User-Agent':UA,'Accept':'application/json'})
+              with urllib.request.urlopen(req,timeout=8) as z:j=json.load(z)
+              ts=j.get('timeseries') if isinstance(j,dict) else None
+              arr=ts.get('result') if isinstance(ts,dict) else []
+              out={}
+              for obj in arr or []:
+                  if not isinstance(obj,dict):continue
+                  meta=obj.get('meta'); typ=meta.get('type') if isinstance(meta,dict) else None
+                  if not isinstance(typ,str): typ=obj.get('type') if isinstance(obj.get('type'),str) else None
+                  if not typ:continue
+                  vals=[]; series=obj.get(typ)
+                  if not isinstance(series,list):continue
+                  for z in series:
+                      if not isinstance(z,dict):continue
+                      rv=z.get('reportedValue');raw=rv.get('raw') if isinstance(rv,dict) else None
+                      try:raw=float(raw)
+                      except:continue
+                      vals.append((str(z.get('asOfDate') or ''),raw))
+                  if vals:out[typ]=sorted(vals)[-1]
+              return out
+          def pick(f,*ks):
+              for k in ks:
+                  if k in f:return f[k]
+              return (None,None)
+          def priority(r):
+              t=str(r.get('Ticker') or '').upper();q=live.get(t) or {}
+              return (1 if t in live else 0,abs(num(q.get('changePct')) or 0)+2*abs(num(q.get('priceVelocity5mPct')) or 0),num(r.get('Rel Volume')) or 0)
+          ranked=sorted(rows,key=priority,reverse=True);targets={str(r.get('Ticker') or '').upper() for r in ranked[:180]}
+          result={};diag={'targets':len(targets),'fundamentalsOk':0,'marketCapParsed':0,'completeRatios':0,'errors':{}}
+          for r in rows:
+              t=str(r.get('Ticker') or '').upper().strip()
+              if not t:continue
+              act=activity(r); item={'ticker':t,'status':'UNVERIFIED','activityStatus':act,'checkedAt':datetime.now(timezone.utc).isoformat(),'financial':{}}
+              if act=='FAIL':item['status']='EXCLUDED';result[t]=item;continue
+              if act!='PASS' or t not in targets:result[t]=item;continue
+              try:
+                  f=fundamentals(t);diag['fundamentalsOk']+=1
+                  cap=mcap(r.get('Market Cap'));diag['marketCapParsed']+=int(bool(cap and cap>0))
+                  debt,_=pick(f,'quarterlyTotalDebt','annualTotalDebt');cash,_=pick(f,'quarterlyCashCashEquivalentsAndShortTermInvestments','annualCashCashEquivalentsAndShortTermInvestments')
+                  if cash is None:
+                      c,_=pick(f,'quarterlyCashAndCashEquivalents','annualCashAndCashEquivalents');s,_=pick(f,'quarterlyShortTermInvestments','annualShortTermInvestments');cash=(c or 0)+(s or 0) if c is not None or s is not None else None
+                  rev,_=pick(f,'quarterlyTotalRevenue','annualTotalRevenue');interest,_=pick(f,'quarterlyInterestIncomeNonOperating','annualInterestIncomeNonOperating')
+                  dr=100*debt/cap if debt is not None and cap else None;cr=100*cash/cap if cash is not None and cap else None;ir=100*abs(interest)/abs(rev) if interest is not None and rev not in (None,0) else None
+                  complete=all(x is not None for x in (dr,cr,ir));diag['completeRatios']+=int(complete)
+                  fail=(dr is not None and dr>30) or (cr is not None and cr>30) or (ir is not None and ir>5)
+                  item['financial']={'debtToMarketCapPct':dr,'cashSecuritiesToMarketCapPct':cr,'nonPermissibleIncomePct':ir,'marketCapUSD':cap,'source':'Yahoo fundamentals-timeseries + discovery market cap'}
+                  item['status']='EXCLUDED' if fail else ('VERIFIED' if complete else 'UNVERIFIED')
+              except Exception as e:
+                  k=type(e).__name__;diag['errors'][k]=diag['errors'].get(k,0)+1;item['financialError']=k
+              result[t]=item;time.sleep(.02)
+          payload={'schemaVersion':4,'production':False,'failClosed':True,'updatedAt':datetime.now(timezone.utc).isoformat(),'methodology':'AAOIFI-style challenger; business exclusion plus debt/cash-securities/non-permissible-income proxy ratios','thresholds':{'debtToMarketCapPct':30,'cashSecuritiesToMarketCapPct':30,'nonPermissibleIncomePct':5},'counts':{k:sum(1 for x in result.values() if x['status']==k) for k in ('VERIFIED','UNVERIFIED','EXCLUDED')},'diagnostics':diag,'rows':result}
+          OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2));print(payload['counts'],diag)
+          PY
+      - name: Commit challenger snapshot
+        run: |
+          git config user.name 'TAGX Sharia V4 Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tag/data/sharia-v4-challenger.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: TAGX Sharia V4 challenger snapshot'
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*3)); done
+          exit 1
+PY
