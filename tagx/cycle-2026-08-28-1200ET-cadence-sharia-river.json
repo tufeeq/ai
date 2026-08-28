@@ -1,0 +1,50 @@
+{
+  "cycle": "2026-08-28-1200ET",
+  "objective": "Restore continuous causal market visibility, repair strict Sharia verification plumbing without weakening the gate, and evaluate a safe online-learning pattern.",
+  "observedBefore": {
+    "liveQuotesUpdatedAtET": "2026-08-28T11:18:02.232502-04:00",
+    "liveQuotesCount": 494,
+    "liveQuotesFreshCount": 401,
+    "liveQuotesConfidence": "HIGH",
+    "problem": "The live snapshot was about 40 minutes old during the regular session despite nominal 5-minute schedules.",
+    "sharia": {"schemaVersion": 2, "updatedAtUTC": "2026-08-28T03:32:43.225414+00:00", "verified": 0, "unverified": 718, "excluded": 32},
+    "shariaRootCause": "Finviz market-cap strings containing K/M/B/T suffixes were not parsed by the financial ratio screen, forcing market-cap-dependent ratios to remain null for many candidates."
+  },
+  "changes": [
+    {
+      "commit": "b0051b6238867fd93392b79335d5605bce10b408",
+      "change": "Replaced long sleeping cadence loops with a one-shot */5 recovery pulse that independently dispatches mover refresh, live quotes and coverage rescue."
+    },
+    {
+      "commit": "61cb47f094e6164b16eb177394d229413d0ce355",
+      "change": "Sharia screen v3: robust K/M/B/T market-cap parser, current-live-mover prioritization, quarterly+annual fundamental fallbacks, diagnostics, and automated-status revalidation while keeping incomplete rows UNVERIFIED."
+    },
+    {
+      "commit": "1438362ef1a1ba03335c5d4ac61af4a7a9690ef6",
+      "change": "Added online-ml/river as BUILD_CHALLENGER only, with delayed-label/predict-then-learn leakage guards."
+    }
+  ],
+  "observedAfter": {
+    "liveQuotesUpdatedAtET": "2026-08-28T12:02:59.336431-04:00",
+    "liveQuotesCount": 495,
+    "liveQuotesFreshCount": 414,
+    "liveQuotesConfidence": "HIGH",
+    "scanDurationSec": 1.85,
+    "immediateRecoveryVerified": true,
+    "longTermCadenceReliabilityVerified": false,
+    "shariaV3ProductionResultVerified": false
+  },
+  "marketObservation": {
+    "coverageRescuePolicy": "DISCOVERY_ONLY_NOT_GROUND_TRUTH_NOT_BUY",
+    "coverageRescueIndependentSourceCount": 1,
+    "examplesAt1118ET": [
+      {"ticker":"FNGR","changePct":221.915,"status":"late/exhausted context; not an early success"},
+      {"ticker":"CLGN","changePct":31.412,"priceVelocity5mPct":16.743,"volumeAcceleration5m":270.144,"status":"requires primary and Sharia confirmation"},
+      {"ticker":"QNRX","changePct":20.66,"status":"late at this snapshot; not an early success"}
+    ]
+  },
+  "thresholdChange": false,
+  "versionBump": false,
+  "promotionDecision": "NO_MODEL_PROMOTION",
+  "reason": "This cycle proves an immediate feed recovery and fixes data plumbing, but does not yet prove multi-session predictive lift or a completed Sharia v3 production result."
+}
