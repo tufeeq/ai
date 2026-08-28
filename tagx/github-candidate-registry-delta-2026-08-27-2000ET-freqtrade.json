@@ -1,0 +1,23 @@
+{
+  "cycle": "2026-08-27T20:00:00-04:00",
+  "repo": "freqtrade/freqtrade",
+  "purpose": "Borrow mature safety patterns for dry-run-first deployment, lookahead-bias analysis, trade persistence, performance accounting and explicit stop-entry controls.",
+  "layer": ["paper-trading", "risk-controls", "model-evaluation", "backtesting", "observability"],
+  "maturityScore": 94,
+  "integrationScore": 48,
+  "dataDependencyScore": 35,
+  "latencySuitability": "MEDIUM for architecture patterns; LOW for direct US-equity hot-path integration because the project is crypto/exchange-oriented",
+  "license": "GPL-3.0",
+  "maintenance": "ACTIVE; multiple commits observed on 2026-08-27 including tests and operational fixes",
+  "docsTests": "Strong documentation, CI/codecov badges, dry-run/backtesting, lookahead-analysis and recursive-analysis commands",
+  "securityNotes": "Do not integrate code directly into TAGX production due GPL coupling and exchange/bot dependency surface. Do not copy broker/exchange execution adapters into the equity scanner.",
+  "lookAheadRisk": "Project explicitly exposes lookahead-analysis; useful as a pattern for TAGX challenger validation.",
+  "decision": "BORROW_PATTERN",
+  "patternsToBorrow": [
+    "dry-run before real capital",
+    "explicit stop-entry safety state",
+    "lookahead-analysis as a first-class validation command",
+    "persistent trade/performance ledger",
+    "separate stable vs develop/challenger lifecycle"
+  ]
+}
