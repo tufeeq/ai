@@ -1,4 +1,4 @@
-name: TAGX2 Early Coverage Sentinel
+name: TAGX2 Early Coverage Sentinel V2
 
 on:
   workflow_dispatch:
@@ -25,7 +25,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      - name: Build causal early sentinel
+      - name: Build causal early sentinel V2
         run: |
           python - <<'PY'
           import json, urllib.request, urllib.parse, time, math
@@ -43,13 +43,20 @@ jobs:
 
           OUT=Path('tag/data/tagx2-sentinel.json')
           LEDGER=Path('tag/data/tagx2-sentinel-ledger.json')
-          UA='Mozilla/5.0 TAGX2-Sentinel research@example.com'
+          DISC=Path('tag/data/discovery.json')
+          UA='Mozilla/5.0 TAGX2-Sentinel-V2 research@example.com'
           screeners=['day_gainers','most_actives','small_cap_gainers']
           seeds={}
 
           def get_json(url,timeout=8):
               req=urllib.request.Request(url,headers={'User-Agent':UA,'Accept':'application/json'})
               with urllib.request.urlopen(req,timeout=timeout) as r:return json.load(r)
+
+          def n(v):
+              try:
+                  if isinstance(v,str): v=v.replace(',','').replace('%','').replace('$','').strip()
+                  x=float(v);return x if math.isfinite(x) else None
+              except:return None
 
           diagnostics=[]
           for sid in screeners:
@@ -62,15 +69,36 @@ jobs:
                       t=str(z.get('symbol') or '').upper().strip()
                       if not t or any(x in t for x in ['^','=']):continue
                       if t not in seeds:added+=1
-                      seeds.setdefault(t,set()).add(sid)
-                  diagnostics.append({'screener':sid,'ok':True,'rows':len(quotes),'newSymbols':added})
+                      seeds.setdefault(t,set()).add('screener:'+sid)
+                  diagnostics.append({'lane':'screener','name':sid,'ok':True,'rows':len(quotes),'newSymbols':added})
               except Exception as e:
-                  diagnostics.append({'screener':sid,'ok':False,'error':type(e).__name__})
+                  diagnostics.append({'lane':'screener','name':sid,'ok':False,'error':type(e).__name__})
 
-          def n(v):
-              try:
-                  x=float(v);return x if math.isfinite(x) else None
-              except:return None
+          # Critical V2 change: proactive universe is sampled BEFORE a symbol needs to
+          # qualify for a public gainer/active screener. This is the anti-left-censoring lane.
+          proactive=[]
+          try:
+              d=json.loads(DISC.read_text()) if DISC.exists() else {}
+              for r in d.get('rows') or []:
+                  t=str(r.get('Ticker') or '').upper().strip()
+                  if not t or any(x in t for x in ['^','=']):continue
+                  ch=n(r.get('Change')); fl=n(r.get('Float')); rv=n(r.get('Rel Volume')); px=n(r.get('Price'))
+                  lanes=r.get('_discoveryLanes') or []
+                  origin=str(r.get('_originClass') or '')
+                  # Keep quiet/early names; reject already-obvious movers from proactive lane.
+                  if ch is None or abs(ch)>=10 or origin=='LATE': continue
+                  lowfloat=('nano_low_float' in lanes) or (fl is not None and fl<=20)
+                  smallprice=px is not None and px<=20
+                  score=(35 if lowfloat else 0)+(20 if smallprice else 0)+(20 if abs(ch)<3 else 10)+(min(max(rv or 0,0),5)*5)
+                  proactive.append((score,t))
+              proactive.sort(reverse=True)
+              added=0
+              for _,t in proactive[:450]:
+                  if t not in seeds: added+=1
+                  seeds.setdefault(t,set()).add('proactive_discovery')
+              diagnostics.append({'lane':'proactive_discovery','ok':True,'eligible':len(proactive),'selected':min(450,len(proactive)),'newSymbols':added})
+          except Exception as e:
+              diagnostics.append({'lane':'proactive_discovery','ok':False,'error':type(e).__name__})
 
           def scan(t):
               try:
@@ -80,52 +108,59 @@ jobs:
                   if not r:return None
                   ts=r.get('timestamp') or []; q=((r.get('indicators') or {}).get('quote') or [{}])[0]
                   closes=q.get('close') or []; vols=q.get('volume') or []
-                  pts=[(int(a),n(b),n(v)) for a,b,v in zip(ts,closes,vols) if n(b) is not None]
+                  pts=[]
+                  for a,b,v in zip(ts,closes,vols):
+                      p=n(b)
+                      if p is not None: pts.append((int(a),p,n(v)))
                   if not pts:return None
                   meta=r.get('meta') or {}; prev=n(meta.get('chartPreviousClose') or meta.get('previousClose'))
                   if not prev or prev<=0:return None
                   t0,price,_=pts[-1]; change=100*(price/prev-1)
                   def ret(minutes):
-                      cutoff=t0-minutes*60; prior=None
+                      cutoff=t0-minutes*60
                       for x in reversed(pts):
-                          if x[0]<=cutoff:prior=x[1];break
-                      return 100*(price/prior-1) if prior else None
+                          if x[0]<=cutoff:return 100*(price/x[1]-1) if x[1] else None
+                      return None
                   v5=ret(5);v15=ret(15)
                   recent=[x[2] or 0 for x in pts[-5:]]; priorv=[x[2] or 0 for x in pts[-10:-5]]
                   rsum=sum(recent);psum=sum(priorv);vacc=(rsum/psum) if psum>0 else (5.0 if rsum>0 else None)
                   age=(time.time()-t0)/60
                   if age>4:return None
-                  return {'ticker':t,'price':round(price,6),'changePct':round(change,3),'priceVelocity5mPct':None if v5 is None else round(v5,3),'priceVelocity15mPct':None if v15 is None else round(v15,3),'volume5m':int(rsum),'volumeAcceleration5m':None if vacc is None else round(vacc,3),'timestampET':datetime.fromtimestamp(t0,timezone.utc).astimezone(ET).isoformat(),'quoteAgeMin':round(age,2),'seedSources':sorted(seeds[t])}
+                  volume_evidence=rsum>0 or psum>0
+                  return {'ticker':t,'price':round(price,6),'changePct':round(change,3),'priceVelocity5mPct':None if v5 is None else round(v5,3),'priceVelocity15mPct':None if v15 is None else round(v15,3),'volume5m':int(rsum),'volumeAcceleration5m':None if vacc is None else round(vacc,3),'volumeEvidenceAvailable':volume_evidence,'timestampET':datetime.fromtimestamp(t0,timezone.utc).astimezone(ET).isoformat(),'quoteAgeMin':round(age,2),'seedSources':sorted(seeds[t])}
               except Exception:return None
 
           rows=[]
-          with ThreadPoolExecutor(max_workers=32) as ex:
+          with ThreadPoolExecutor(max_workers=48) as ex:
               fs={ex.submit(scan,t):t for t in seeds}
               for f in as_completed(fs):
                   x=f.result()
                   if x:rows.append(x)
 
           rows.sort(key=lambda x:x['changePct'],reverse=True)
-          early=[x for x in rows if 0.5<=x['changePct']<12 and (x['priceVelocity5mPct'] or 0)>0]
+          # Discovery threshold is intentionally permissive. Execution remains impossible from this lane alone.
+          early=[x for x in rows if -2<=x['changePct']<10 and ((x['priceVelocity5mPct'] or 0)>=0.25 or (x['volumeAcceleration5m'] or 0)>=1.5)]
+          proactive_early=sum(1 for x in early if 'proactive_discovery' in x.get('seedSources',[]))
           session='pre-market' if et.hour<9 or (et.hour==9 and et.minute<30) else ('regular' if et.hour<16 else 'after-hours')
-          payload={'schemaVersion':1,'source':'Yahoo predefined screeners + point-in-time 1m charts','updatedAtUTC':now.isoformat(),'updatedAtET':et.isoformat(),'session':session,'independentSourceCount':1,'executionEligibleByItself':False,'trainingEligible':False,'policy':'DISCOVERY_ONLY_CAUSAL_SENTINEL','seedCount':len(seeds),'freshCount':len(rows),'earlyCount':len(early),'diagnostics':diagnostics,'candidates':early[:120]}
+          payload={'schemaVersion':2,'source':'Yahoo point-in-time 1m charts; public screeners + proactive Finviz discovery-universe seeds','updatedAtUTC':now.isoformat(),'updatedAtET':et.isoformat(),'session':session,'independentSourceCount':1,'executionEligibleByItself':False,'trainingEligible':False,'policy':'DISCOVERY_ONLY_CAUSAL_SENTINEL_ANTI_LEFT_CENSORING','seedCount':len(seeds),'freshCount':len(rows),'earlyCount':len(early),'proactiveEarlyCount':proactive_early,'diagnostics':diagnostics,'candidates':early[:160]}
           OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2))
 
-          day=et.date().isoformat(); ledger={'schemaVersion':1,'sessionDateET':day,'policy':'CAUSAL_FIRST_SEEN_NO_LOOKAHEAD','trainingEligible':False,'symbols':{}}
+          day=et.date().isoformat(); ledger={'schemaVersion':2,'sessionDateET':day,'policy':'CAUSAL_FIRST_SEEN_NO_LOOKAHEAD_ANTI_LEFT_CENSORING','trainingEligible':False,'symbols':{}}
           if LEDGER.exists():
               try:
                   old=json.loads(LEDGER.read_text())
                   if old.get('sessionDateET')==day:ledger=old
               except:pass
+          ledger['schemaVersion']=2;ledger['policy']='CAUSAL_FIRST_SEEN_NO_LOOKAHEAD_ANTI_LEFT_CENSORING'
           syms=ledger.setdefault('symbols',{})
           for x in early:
               t=x['ticker']
               if t not in syms:
-                  syms[t]={'ticker':t,'firstSeenET':x['timestampET'],'firstSeenChangePct':x['changePct'],'firstSeenPrice':x['price'],'earlyCaptureEligibleAtFirstSeen':x['changePct']<10,'leftCensored':x['changePct']>=10}
+                  syms[t]={'ticker':t,'firstSeenET':x['timestampET'],'firstSeenChangePct':x['changePct'],'firstSeenPrice':x['price'],'firstSeenSources':x.get('seedSources',[]),'earlyCaptureEligibleAtFirstSeen':x['changePct']<10,'leftCensored':x['changePct']>=10,'volumeEvidenceAvailableAtFirstSeen':x.get('volumeEvidenceAvailable',False)}
               syms[t]['lastSeenET']=x['timestampET'];syms[t]['lastSeenChangePct']=x['changePct'];syms[t]['maxObservedChangePct']=max(x['changePct'],syms[t].get('maxObservedChangePct',x['changePct']))
-          ledger['updatedAtUTC']=now.isoformat();ledger['updatedAtET']=et.isoformat();ledger['symbolCount']=len(syms);ledger['earlyFirstSeenCount']=sum(1 for x in syms.values() if x.get('earlyCaptureEligibleAtFirstSeen'));ledger['lateFirstSeenCount']=sum(1 for x in syms.values() if x.get('leftCensored'))
+          ledger['updatedAtUTC']=now.isoformat();ledger['updatedAtET']=et.isoformat();ledger['symbolCount']=len(syms);ledger['earlyFirstSeenCount']=sum(1 for x in syms.values() if x.get('earlyCaptureEligibleAtFirstSeen'));ledger['proactiveFirstSeenCount']=sum(1 for x in syms.values() if 'proactive_discovery' in x.get('firstSeenSources',[]));ledger['lateFirstSeenCount']=sum(1 for x in syms.values() if x.get('leftCensored'))
           LEDGER.write_text(json.dumps(ledger,ensure_ascii=False,indent=2))
-          print({'seed':len(seeds),'fresh':len(rows),'early':len(early),'ledger':len(syms)})
+          print({'seed':len(seeds),'fresh':len(rows),'early':len(early),'proactiveEarly':proactive_early,'ledger':len(syms)})
           PY
       - name: Commit sentinel snapshots
         run: |
@@ -133,7 +168,7 @@ jobs:
           git config user.email 'actions@users.noreply.github.com'
           git add tag/data/tagx2-sentinel.json tag/data/tagx2-sentinel-ledger.json
           git diff --cached --quiet && exit 0
-          git commit -m 'data: TAGX2 early coverage sentinel'
+          git commit -m 'data: TAGX2 sentinel V2 anti-left-censoring snapshot'
           for i in 1 2 3; do
             git pull --rebase origin main && git push origin HEAD:main && exit 0
             sleep $((i*3))
