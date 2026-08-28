@@ -1,0 +1,33 @@
+{
+  "reviewedAtUTC": "2026-08-28T11:04:00Z",
+  "cycle": "2026-08-28-0700ET",
+  "repo": "nautechsystems/nautilus_trader",
+  "purpose": "Deterministic event-driven research/live trading engine; useful patterns for point-in-time replay, orchestration, adapters, risk and causal clocks.",
+  "layers": [
+    "backtesting/event replay",
+    "agent/orchestrator architecture",
+    "real-time adapters",
+    "broker adapters",
+    "risk controls",
+    "observability",
+    "paper/live parity"
+  ],
+  "maturityScore": 97,
+  "integrationScore": 41,
+  "dataDependencyScore": 68,
+  "latencySuitability": "HIGH: Rust-native async engine, nanosecond event model and modular live adapters; live US-equity depth/coverage still depends on an entitled provider such as Databento or a broker adapter.",
+  "license": "LGPL-3.0-only",
+  "maintenance": "Very active. Repository metadata showed a push on 2026-08-28 and active v2 development; large established project with CI across master/nightly/develop.",
+  "docsTests": "README documents deterministic research/live parity, quote/trade/order-book replay and modular adapters. Core time implementation was inspected: it explicitly separates monotonic real-time from manually controlled static simulation time, which is directly relevant to TAGX causal replay.",
+  "securityNotes": "Strong upstream controls documented: protected branches, signed commits/releases, cargo-vet/cargo-deny, CodeQL, OSV/pip/cargo audits, fuzzing, pinned Actions, SLSA provenance and signed images. Direct adoption would materially expand TAGX's Rust/Python dependency and runtime surface.",
+  "dataCostNotes": "Engine itself is open source, but actionable US-equity streaming/order-book data requires third-party provider entitlements and associated cost/licensing.",
+  "lookAheadBiasRisk": "LOW when its static clock/event-time semantics are preserved; misuse remains possible if TAGX final mover labels are injected into signal-time event streams.",
+  "decision": "BORROW_PATTERN",
+  "integrationPlan": "Do not add as a production dependency. Borrow deterministic dual-clock/event-time patterns for Missed-Mover Replay and champion/challenger parity. Consider sandbox adapter benchmark only after a licensed streaming feed is selected.",
+  "whyNotIntegrateNow": "TAGX's immediate failure mode is causal market-baseline integrity, not lack of a full execution engine. A direct Nautilus dependency would add complexity without fixing today's data error.",
+  "evidenceReviewed": [
+    "README.md",
+    "crates/core/src/time.rs",
+    "repository metadata and current maintenance state"
+  ]
+}
