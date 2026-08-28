@@ -94,7 +94,7 @@ jobs:
             u='https://query1.finance.yahoo.com/v8/finance/chart/'+urllib.parse.quote(t)+'?interval=5m&range=1d&includePrePost=true'
             for attempt in range(3):
               try:
-                req=urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0 TAGXPremarket/2.2','Accept':'application/json','Cache-Control':'no-cache'})
+                req=urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0 TAGXPremarket/2.3','Accept':'application/json','Cache-Control':'no-cache'})
                 with urllib.request.urlopen(req,timeout=3.1+attempt*.7) as z:return json.loads(z.read())
               except Exception:
                 if attempt<2: time.sleep(.15*(attempt+1)+random.random()*.12)
@@ -116,11 +116,38 @@ jobs:
               v5,v15,v30=vel(5),vel(15),vel(30); ch=(px/prev-1)*100
               recent=sum(b[2] for b in ext if b[0]>=lt-15*60); older=sum(b[2] for b in ext if lt-30*60<=b[0]<lt-15*60); va=(recent/older) if older>0 else None
               old=oldrows.get(t,{}) if same_session else {}
-              first_seen=old.get('firstPMSeenUTC') or old.get('firstAHSeenUTC') or datetime.datetime.fromtimestamp(lt,datetime.timezone.utc).isoformat()
+              obs_utc=datetime.datetime.fromtimestamp(lt,datetime.timezone.utc).isoformat()
+              first_seen=old.get('firstPMSeenUTC') or old.get('firstAHSeenUTC') or obs_utc
               first_ch=old.get('firstPMChangePct') if old.get('firstPMChangePct') is not None else old.get('firstAHChangePct')
               if first_ch is None:first_ch=round(ch,3)
               peak=max(old.get('peakPMChangePct') or old.get('peakAHChangePct') or ch,ch)
-              return t,{'ticker':t,'session':'pre-market','sessionDateET':session_date,'last':px,'timestampUTC':datetime.datetime.fromtimestamp(lt,datetime.timezone.utc).isoformat(),'previousClose':prev,'sessionChangePct':round(ch,3),'changeVsPreviousClosePct':round(ch,3),'priceVelocity5mPct':round(v5,3) if v5 is not None else None,'priceVelocity15mPct':round(v15,3) if v15 is not None else None,'priceVelocity30mPct':round(v30,3) if v30 is not None else None,'extendedVolumeLast15m':recent or None,'volumeAcceleration15m':round(va,3) if va is not None else None,'firstPMSeenUTC':first_seen,'firstPMChangePct':first_ch,'peakPMChangePct':peak,'firstAHSeenUTC':first_seen,'firstAHChangePct':first_ch,'peakAHChangePct':peak,'discoveryQualified':bool(ch>=2 or (v15 or 0)>=1.5 or (va or 0)>=2),'universeSources':sorted(source_tags.get(t,set())),'afterHoursPersistence':t in ahrows,'source':'Yahoo Finance premarket-heartbeat-v2.2'}
+              obs_count=int(old.get('observationCount') or 0)+1
+              previous_ch=old.get('sessionChangePct') if old else None
+              previous_ts=old.get('timestampUTC') if old else None
+              slope=None
+              if previous_ch is not None and previous_ts:
+                try:
+                  pdt=datetime.datetime.fromisoformat(str(previous_ts).replace('Z','+00:00'))
+                  mins=max((datetime.datetime.fromtimestamp(lt,datetime.timezone.utc)-pdt).total_seconds()/60,0)
+                  if mins>0:slope=(ch-float(previous_ch))/mins
+                except Exception: slope=None
+              first_late=abs(float(first_ch))>=10
+              first_band=('ALREADY_EXTENDED' if abs(float(first_ch))>=20 else ('LATE_AT_FIRST_SEEN' if abs(float(first_ch))>=10 else ('PRE_IGNITION' if abs(float(first_ch))>=5 else ('WAKE_UP' if abs(float(first_ch))>=2 else 'DISCOVERY')))
+              early_eligible=2<=abs(float(first_ch))<10
+              crossings={}
+              censored=[]
+              prev_value=float(previous_ch) if previous_ch is not None else None
+              for threshold,key in [(2,'firstCross2UTC'),(5,'firstCross5UTC'),(10,'firstCross10UTC'),(20,'firstCross20UTC')]:
+                prior_cross=old.get(key) if old else None
+                if prior_cross:
+                  crossings[key]=prior_cross
+                elif obs_count==1 and abs(ch)>=threshold:
+                  crossings[key]=None; censored.append(threshold)
+                elif prev_value is not None and abs(prev_value)<threshold<=abs(ch):
+                  crossings[key]=obs_utc
+                else:
+                  crossings[key]=None
+              return t,{'ticker':t,'session':'pre-market','sessionDateET':session_date,'last':px,'timestampUTC':obs_utc,'previousClose':prev,'sessionChangePct':round(ch,3),'changeVsPreviousClosePct':round(ch,3),'priceVelocity5mPct':round(v5,3) if v5 is not None else None,'priceVelocity15mPct':round(v15,3) if v15 is not None else None,'priceVelocity30mPct':round(v30,3) if v30 is not None else None,'extendedVolumeLast15m':recent or None,'volumeAcceleration15m':round(va,3) if va is not None else None,'firstPMSeenUTC':first_seen,'firstPMChangePct':first_ch,'peakPMChangePct':peak,'observationCount':obs_count,'crossSnapshotChangeSlopePpPerMin':round(slope,4) if slope is not None else None,'firstObservationBand':old.get('firstObservationBand') or first_band,'firstObservationLate':bool(old.get('firstObservationLate',first_late)),'earlyCaptureEligibleAtFirstObservation':bool(old.get('earlyCaptureEligibleAtFirstObservation',early_eligible)),'crossingCensoredBeforeFirstObservation':old.get('crossingCensoredBeforeFirstObservation') or censored,**crossings,'firstAHSeenUTC':first_seen,'firstAHChangePct':first_ch,'peakAHChangePct':peak,'discoveryQualified':bool(ch>=2 or (v15 or 0)>=1.5 or (va or 0)>=2),'universeSources':sorted(source_tags.get(t,set())),'afterHoursPersistence':t in ahrows,'source':'Yahoo Finance premarket-heartbeat-v2.3'}
             except:return None
 
           rows={}
@@ -138,10 +165,12 @@ jobs:
                 rr=dict(r); rr['fallbackRetained']=True; rows[t]=rr; retained+=1
 
           current=sum(1 for r in rows.values() if not r.get('fallbackRetained'))
+          late_first=sum(1 for r in rows.values() if r.get('firstObservationLate'))
+          early_eligible=sum(1 for r in rows.values() if r.get('earlyCaptureEligibleAtFirstObservation'))
           confidence='HIGH' if current>=100 else ('MEDIUM' if current>=40 else ('LOW' if current else 'UNAVAILABLE'))
-          out={'schemaVersion':3,'updatedAtUTC':now.isoformat(),'updatedAtET':et.isoformat(),'sessionDateET':session_date,'session':'pre-market','source':'TAGX premarket hot heartbeat event-driven v2.2','trigger':str(__import__('os').environ.get('GITHUB_EVENT_NAME','unknown')),'dataConfidence':confidence,'candidateCount':len(tick),'count':len(rows),'freshCount':current,'fallbackRetainedCount':retained,'priorStateReused':same_session,'laneCounts':lane_counts,'rows':rows,'failClosed':current<20}
+          out={'schemaVersion':4,'updatedAtUTC':now.isoformat(),'updatedAtET':et.isoformat(),'sessionDateET':session_date,'session':'pre-market','source':'TAGX premarket hot heartbeat event-driven v2.3','trigger':str(__import__('os').environ.get('GITHUB_EVENT_NAME','unknown')),'dataConfidence':confidence,'candidateCount':len(tick),'count':len(rows),'freshCount':current,'fallbackRetainedCount':retained,'priorStateReused':same_session,'laneCounts':lane_counts,'causalIntegrity':{'firstObservationLateCount':late_first,'earlyCaptureEligibleFirstObservationCount':early_eligible,'crossingsAreLeftCensoredWhenAlreadyAboveThresholdAtFirstObservation':True},'rows':rows,'failClosed':current<20}
           pathlib.Path('tag/data/premarket-hot.json').write_text(json.dumps(out,ensure_ascii=False,indent=2))
-          print(json.dumps({'updatedAtET':out['updatedAtET'],'sessionDateET':session_date,'rows':len(rows),'fresh':current,'retained':retained,'priorStateReused':same_session,'candidates':len(tick),'lanes':lane_counts,'confidence':confidence}))
+          print(json.dumps({'updatedAtET':out['updatedAtET'],'sessionDateET':session_date,'rows':len(rows),'fresh':current,'retained':retained,'priorStateReused':same_session,'candidates':len(tick),'lateAtFirstObservation':late_first,'earlyEligibleAtFirstObservation':early_eligible,'lanes':lane_counts,'confidence':confidence}))
           PY
       - name: Commit heartbeat
         run: |
@@ -149,6 +178,6 @@ jobs:
           git config user.email actions@users.noreply.github.com
           git add tag/data/premarket-hot.json
           git diff --cached --quiet && exit 0
-          git commit -m 'data: refresh TAGX premarket heartbeat v2.2'
+          git commit -m 'data: refresh TAGX premarket heartbeat v2.3'
           for i in 1 2 3 4; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*4)); done
           exit 1
