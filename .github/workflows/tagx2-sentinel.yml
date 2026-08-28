@@ -36,7 +36,7 @@ jobs:
 
           ET=ZoneInfo('America/New_York')
           now=datetime.now(timezone.utc); et=now.astimezone(ET)
-          in_window=(et.weekday()<5 and ((et.hour>4 or (et.hour==4 and et.minute>=0)) and (et.hour<20 or (et.hour==20 and et.minute<=5))))
+          in_window=(et.weekday()<5 and et.hour>=4 and (et.hour<20 or (et.hour==20 and et.minute<=5)))
           if not in_window:
               print('Outside 04:00-20:05 ET; sentinel exits cleanly')
               raise SystemExit(0)
