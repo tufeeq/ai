@@ -6,7 +6,7 @@ on:
     branches: [main]
     paths: ['.github/workflows/tagx-marketwide-challenger.yml']
   schedule:
-    - cron: '3,8,13,18,23,28,33,38,43,48,53,58 * * 1-5'
+    - cron: '3,8,13,18,23,28,33,38,43,48,53,58 * * * 1-5'
 
 permissions:
   contents: write
@@ -53,22 +53,19 @@ jobs:
                   for i,x in enumerate(ts):
                       if i<len(cl) and cl[i] is not None:pts.append((x,float(cl[i]),int(vol[i] or 0) if i<len(vol) else 0))
                   if not pts:return None
-                  latest=pts[-1];prev=meta.get('previousClose') or meta.get('chartPreviousClose')
-                  prev=float(prev) if prev else None
+                  latest=pts[-1];prev=meta.get('previousClose') or meta.get('chartPreviousClose');prev=float(prev) if prev else None
                   def pct(a,b):return (a/b-1)*100 if a is not None and b else None
                   def ago(m):
                       z=[p for p in pts if p[0]<=latest[0]-m*60];return z[-1][1] if z else pts[0][1]
                   def vw(m0,m1=0):return sum(p[2] for p in pts if latest[0]-m0*60<p[0]<=latest[0]-m1*60)
-                  v5=pct(latest[1],ago(5));v15=pct(latest[1],ago(15));vol5=vw(5);prior5=vw(10,5);acc=vol5/prior5 if prior5>0 else (5.0 if vol5>0 else None);ch=pct(latest[1],prev)
-                  age=(now.timestamp()-latest[0])/60
+                  v5=pct(latest[1],ago(5));v15=pct(latest[1],ago(15));vol5=vw(5);prior5=vw(10,5);acc=vol5/prior5 if prior5>0 else (5.0 if vol5>0 else None);ch=pct(latest[1],prev);age=(now.timestamp()-latest[0])/60
                   return {'ticker':t,'price':latest[1],'changePct':round(ch,3) if ch is not None else None,'priceVelocity5mPct':round(v5,3) if v5 is not None else None,'priceVelocity15mPct':round(v15,3) if v15 is not None else None,'volumeAcceleration5m':round(acc,3) if acc is not None else None,'volume5m':vol5,'quoteAgeMin':round(age,2),'timestampET':datetime.datetime.fromtimestamp(latest[0],datetime.timezone.utc).astimezone(ET).isoformat(),**seed[t]}
               except Exception as e:errors.append({'ticker':t,'error':type(e).__name__});return None
           rows=[]
           with concurrent.futures.ThreadPoolExecutor(max_workers=32) as ex:
               for x in ex.map(one,list(seed)[:200]):
                   if x:rows.append(x)
-          fresh=[x for x in rows if x['quoteAgeMin']<=10];early=[x for x in fresh if x.get('changePct') is not None and 1.5<=x['changePct']<10 and ((x.get('priceVelocity5mPct') or 0)>=.6 or (x.get('volumeAcceleration5m') or 0)>=1.8)]
-          late=[x for x in fresh if x.get('changePct') is not None and x['changePct']>=10]
+          fresh=[x for x in rows if x['quoteAgeMin']<=10];early=[x for x in fresh if x.get('changePct') is not None and 1.5<=x['changePct']<10 and ((x.get('priceVelocity5mPct') or 0)>=.6 or (x.get('volumeAcceleration5m') or 0)>=1.8)];late=[x for x in fresh if x.get('changePct') is not None and x['changePct']>=10]
           early.sort(key=lambda x:((x.get('priceVelocity5mPct') or 0),(x.get('volumeAcceleration5m') or 0)),reverse=True);late.sort(key=lambda x:x.get('changePct') or 0,reverse=True)
           out={'schemaVersion':1,'productionRankingActive':False,'purpose':'independent marketwide coverage challenger; discovery only, never BUY','updatedAtUTC':now.isoformat(),'updatedAtET':et.isoformat(),'seedCount':len(seed),'scanned':len(rows),'fresh':len(fresh),'earlyCount':len(early),'lateCount':len(late),'durationSec':round(time.monotonic()-started,2),'earlyCandidates':early[:40],'lateObserved':late[:40],'errors':errors[:30]}
           Path('tag/data/marketwide-challenger.json').write_text(json.dumps(out,ensure_ascii=False,indent=2));print({k:out[k] for k in ('seedCount','scanned','fresh','earlyCount','lateCount','durationSec')})
