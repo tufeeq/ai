@@ -1,0 +1,33 @@
+{
+  "cycle": "2026-08-28-0800ET",
+  "changeType": "DATA_FRESHNESS_AND_OPERATIONS",
+  "problem": "TAGX live-quotes snapshot remained at 06:04 ET near the 08:00 ET cycle even though the live quote workflow declared a nominal 5-minute schedule. Existing cadence keeper monitored discovery.json only, so live quote freshness could silently fail while point-in-time dataConfidence remained HIGH from an old snapshot.",
+  "before": {
+    "liveQuotesUpdatedAtET": "2026-08-28T06:04:27.108805-04:00",
+    "liveQuotesSnapshotConfidence": "HIGH",
+    "freshAtSnapshot": 148,
+    "requested": 500,
+    "operationalGap": "No independent wall-clock watchdog directly dispatched tagx-live-quotes.yml when live-quotes.json became stale."
+  },
+  "implemented": {
+    "file": ".github/workflows/tagx-discovery-cadence-keeper.yml",
+    "commit": "11385fd4e3474a023953ca2c4ce18126433cc910",
+    "logic": [
+      "Check discovery and live-quotes ages independently during U.S. extended/regular session window.",
+      "Dispatch proactive discovery when discovery age >= 4 minutes.",
+      "Dispatch tagx-live-quotes.yml directly when live quote age >= 7 minutes.",
+      "Add TAGX Premarket Hot Heartbeat as an additional successful workflow_run trigger.",
+      "Keep trading decisions fail-closed; watchdog is only a recovery trigger."
+    ]
+  },
+  "benchmark": {
+    "baseline": "Nominal 5-minute live scheduler with upstream workflow_run dependencies could leave a >100 minute stale snapshot.",
+    "challenger": "Independent freshness watchdog with 7-minute direct-dispatch threshold.",
+    "expectedMetric": "Reduce live-feed stale-window duration and stale-snapshot exposure; no claim yet of improved Early-Capture Rate.",
+    "runtimeVerification": "PENDING_NEW_SNAPSHOT_OR_WORKFLOW_EVIDENCE"
+  },
+  "thresholdChange": false,
+  "versionBump": false,
+  "reasonNoVersionBump": "This is data freshness/recovery infrastructure; ranking logic is unchanged.",
+  "safety": "Old HIGH confidence is not equivalent to current freshness. TAGX must continue to reject actionable output when the snapshot is stale."
+}
