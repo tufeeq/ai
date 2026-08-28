@@ -1,4 +1,4 @@
-name: TAGX Marketwide Coverage Challenger
+name: TAGX Marketwide Coverage Challenger V2
 
 on:
   workflow_dispatch:
@@ -31,7 +31,7 @@ jobs:
           from pathlib import Path
           from zoneinfo import ZoneInfo
           ET=ZoneInfo('America/New_York'); now=datetime.datetime.now(datetime.timezone.utc); et=now.astimezone(ET); started=time.monotonic()
-          UA={'User-Agent':'Mozilla/5.0 TAGX-Marketwide-Challenger/1.0','Accept':'application/json'}
+          UA={'User-Agent':'Mozilla/5.0 TAGX-Marketwide-Challenger/2.0','Accept':'application/json'}
           def get(url,timeout=6):
               with urllib.request.urlopen(urllib.request.Request(url,headers=UA),timeout=timeout) as r:return json.load(r)
           seed={};errors=[]
@@ -61,14 +61,55 @@ jobs:
                   v5=pct(latest[1],ago(5));v15=pct(latest[1],ago(15));vol5=vw(5);prior5=vw(10,5);acc=vol5/prior5 if prior5>0 else (5.0 if vol5>0 else None);ch=pct(latest[1],prev);age=(now.timestamp()-latest[0])/60
                   return {'ticker':t,'price':latest[1],'changePct':round(ch,3) if ch is not None else None,'priceVelocity5mPct':round(v5,3) if v5 is not None else None,'priceVelocity15mPct':round(v15,3) if v15 is not None else None,'volumeAcceleration5m':round(acc,3) if acc is not None else None,'volume5m':vol5,'quoteAgeMin':round(age,2),'timestampET':datetime.datetime.fromtimestamp(latest[0],datetime.timezone.utc).astimezone(ET).isoformat(),**seed[t]}
               except Exception as e:errors.append({'ticker':t,'error':type(e).__name__});return None
+          def transition(r):
+              v5=float(r.get('priceVelocity5mPct') or 0);v15=float(r.get('priceVelocity15mPct') or 0);acc=float(r.get('volumeAcceleration5m') or 0)
+              signed=v5>0 and v15>0
+              impulse=(v5>=0.60 and v15>-0.10) or (v5>=0.15 and v15>=0.40)
+              structure=acc>=1.50
+              score=max(0,min(100,round(32*min(max(v5,0)/1.2,1)+28*min(max(v15,0)/1.5,1)+25*min(acc/3,1)+15*(1 if signed else 0))))
+              reasons=[]
+              if not signed:reasons.append('signed continuation absent')
+              if not impulse:reasons.append('5m/15m impulse weak')
+              if not structure:reasons.append('volume acceleration <1.5x')
+              return {'pass':bool(signed and impulse and structure),'continuationScore':score,'stallRisk':'HIGH' if v5<=0 and v15<=0 else ('MEDIUM' if not signed or not impulse else 'LOW'),'transitionReasons':reasons}
+          # Deterministic critic tests: discovery recall is not the same thing as entry continuation.
+          fixtures=[
+            ({'priceVelocity5mPct':-.1,'priceVelocity15mPct':-.2,'volumeAcceleration5m':4.0},False),
+            ({'priceVelocity5mPct':.05,'priceVelocity15mPct':.05,'volumeAcceleration5m':4.0},False),
+            ({'priceVelocity5mPct':.7,'priceVelocity15mPct':.2,'volumeAcceleration5m':1.8},True),
+            ({'priceVelocity5mPct':.2,'priceVelocity15mPct':.5,'volumeAcceleration5m':2.2},True),
+          ]
+          assert all(transition(r)['pass']==want for r,want in fixtures)
           rows=[]
           with concurrent.futures.ThreadPoolExecutor(max_workers=32) as ex:
               for x in ex.map(one,list(seed)[:200]):
                   if x:rows.append(x)
-          fresh=[x for x in rows if x['quoteAgeMin']<=10];early=[x for x in fresh if x.get('changePct') is not None and 1.5<=x['changePct']<10 and ((x.get('priceVelocity5mPct') or 0)>=.6 or (x.get('volumeAcceleration5m') or 0)>=1.8)];late=[x for x in fresh if x.get('changePct') is not None and x['changePct']>=10]
-          early.sort(key=lambda x:((x.get('priceVelocity5mPct') or 0),(x.get('volumeAcceleration5m') or 0)),reverse=True);late.sort(key=lambda x:x.get('changePct') or 0,reverse=True)
-          out={'schemaVersion':1,'productionRankingActive':False,'purpose':'independent marketwide coverage challenger; discovery only, never BUY','updatedAtUTC':now.isoformat(),'updatedAtET':et.isoformat(),'seedCount':len(seed),'scanned':len(rows),'fresh':len(fresh),'earlyCount':len(early),'lateCount':len(late),'durationSec':round(time.monotonic()-started,2),'earlyCandidates':early[:40],'lateObserved':late[:40],'errors':errors[:30]}
-          Path('tag/data/marketwide-challenger.json').write_text(json.dumps(out,ensure_ascii=False,indent=2));print({k:out[k] for k in ('seedCount','scanned','fresh','earlyCount','lateCount','durationSec')})
+          fresh=[x for x in rows if x['quoteAgeMin']<=10]
+          # Coverage lane remains broad on purpose. It is discovery-only and preserves recall.
+          early=[x for x in fresh if x.get('changePct') is not None and 1.5<=x['changePct']<10 and ((x.get('priceVelocity5mPct') or 0)>=.6 or (x.get('volumeAcceleration5m') or 0)>=1.8)]
+          transition_rows=[];stalled=[]
+          for x in early:
+              z={**x,**transition(x)}
+              (transition_rows if z['pass'] else stalled).append(z)
+          late=[x for x in fresh if x.get('changePct') is not None and x['changePct']>=10]
+          early.sort(key=lambda x:((x.get('priceVelocity5mPct') or 0),(x.get('volumeAcceleration5m') or 0)),reverse=True)
+          transition_rows.sort(key=lambda x:(x.get('continuationScore') or 0),reverse=True)
+          stalled.sort(key=lambda x:(x.get('continuationScore') or 0),reverse=True)
+          late.sort(key=lambda x:x.get('changePct') or 0,reverse=True)
+          out={'schemaVersion':2,'productionRankingActive':False,'purpose':'independent marketwide coverage challenger; discovery only, never BUY','policy':'COVERAGE_AND_CONTINUATION_ARE_SEPARATE; transition thresholds are challenger hypotheses, not production tuning','updatedAtUTC':now.isoformat(),'updatedAtET':et.isoformat(),'seedCount':len(seed),'scanned':len(rows),'fresh':len(fresh),'earlyCount':len(early),'transitionCount':len(transition_rows),'stalledCount':len(stalled),'lateCount':len(late),'durationSec':round(time.monotonic()-started,2),'earlyCandidates':early[:40],'transitionCandidates':transition_rows[:40],'stalledCandidates':stalled[:40],'lateObserved':late[:40],'benchmark':{'coverageCandidates':len(early),'continuationPass':len(transition_rows),'continuationRejected':len(stalled),'rejectionRatePct':round(100*len(stalled)/max(1,len(early)),1),'note':'Same-snapshot critic diagnostic only; does not claim outcome or profitability improvement.'},'errors':errors[:30]}
+          Path('tag/data/marketwide-challenger.json').write_text(json.dumps(out,ensure_ascii=False,indent=2));print({k:out[k] for k in ('seedCount','scanned','fresh','earlyCount','transitionCount','stalledCount','lateCount','durationSec')})
+          PY
+      - name: Validate challenger contract
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('tag/data/marketwide-challenger.json',encoding='utf-8'))
+          assert p['schemaVersion']==2 and p['productionRankingActive'] is False
+          assert p['earlyCount']==p['transitionCount']+p['stalledCount']
+          assert all(x.get('pass') is True for x in p['transitionCandidates'])
+          assert all(x.get('pass') is False for x in p['stalledCandidates'])
+          assert all((x.get('priceVelocity5mPct') or 0)>0 and (x.get('priceVelocity15mPct') or 0)>0 for x in p['transitionCandidates'])
+          print('marketwide V2 contract OK',p['benchmark'])
           PY
       - name: Commit challenger snapshot
         run: |
@@ -76,6 +117,6 @@ jobs:
           git config user.email 'actions@users.noreply.github.com'
           git add tag/data/marketwide-challenger.json
           git diff --cached --quiet && exit 0
-          git commit -m 'data: refresh TAGX marketwide coverage challenger'
+          git commit -m 'data: refresh TAGX marketwide continuation challenger v2'
           for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*3)); done
           exit 1
