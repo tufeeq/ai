@@ -1,3 +1,4 @@
+# TAGX causal observation ledger: challenger-only, fail-closed, no BUY authority
 name: TAGX Coverage Rescue Causal Ledger
 
 on:
@@ -64,7 +65,6 @@ jobs:
               t=str(q.get('ticker') or '').strip().upper()
               if not t: continue
               prev=current.get(t)
-              # prefer row with larger current change only for duplicate display rows
               if prev is None or (q.get('changePct') or -999) > (prev.get('changePct') or -999):
                   current[t]=q
 
@@ -87,7 +87,6 @@ jobs:
                     'firstSeenLate': bool(ch >= 10),
                     'crossings':{}
                   }
-                  # Thresholds already exceeded at first observation are left-censored.
                   for th in thresholds:
                       if ch >= th:
                           s['crossings'][str(th)]={'observedAtET':ts,'leftCensored':True,'observedChangePct':round(ch,3)}
