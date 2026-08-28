@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 2,
+  "updatedAtUTC": "2026-08-28T20:30:00Z",
+  "policy": "No production dependency is promoted without sandbox benchmark, license review, causal-data review, and before/after evidence.",
+  "candidates": [
+    {
+      "repo": "kernc/backtesting.py",
+      "purpose": "compact research backtesting and trade-result benchmarking",
+      "layer": "backtesting/event replay/model evaluation",
+      "maturityScore": 88,
+      "integrationScore": 62,
+      "dataDependencyScore": 90,
+      "latencySuitability": "OFFLINE_ONLY",
+      "license": "AGPL-3.0",
+      "lastReviewedUTC": "2026-08-28T20:30:00Z",
+      "maintenance": "active; pushed 2026-08-05; recent bug-fix and release activity",
+      "testsDocs": "strong README, CI/coverage badges, substantial test suite",
+      "securityNotes": "do not vendor or link into production without AGPL review; no market-data entitlement solved by this library",
+      "lookAheadRisk": "medium if fed precomputed/final bars; must enforce point-in-time event boundaries externally",
+      "decision": "BORROW_PATTERN",
+      "pattern": "expectancy/profit-factor/drawdown outputs and deterministic scenario tests"
+    },
+    {
+      "repo": "dgunning/edgartools",
+      "purpose": "SEC/EDGAR filing timing, 8-K/Form 4/13F/XBRL parsing and dilution/catalyst context",
+      "layer": "SEC/catalyst/dilution/institutional activity",
+      "maturityScore": 94,
+      "integrationScore": 86,
+      "dataDependencyScore": 88,
+      "latencySuitability": "NEAR_REALTIME_SEC",
+      "license": "MIT",
+      "lastReviewedUTC": "2026-08-28T20:30:00Z",
+      "maintenance": "active; pushed 2026-08-26; detailed recent fixes with regression tests",
+      "testsDocs": "strong typed API, docs, thousands of tests referenced in recent commits",
+      "securityNotes": "server-side only; respect SEC fair-access identity/rate limits; never expose private credentials in Pages",
+      "lookAheadRisk": "low if SEC acceptance timestamp is preserved; high if amended/finalized fields are backfilled into earlier snapshots",
+      "decision": "BUILD_CHALLENGER",
+      "pattern": "immutable filing acceptedAt timestamps + amendment lineage + dilution/financing critic"
+    },
+    {
+      "repo": "nautechsystems/nautilus_trader",
+      "purpose": "deterministic event-time replay and research/live semantic parity",
+      "layer": "orchestrator/event replay/paper trading",
+      "maturityScore": 95,
+      "integrationScore": 58,
+      "dataDependencyScore": 80,
+      "latencySuitability": "HIGH",
+      "license": "LGPL-3.0",
+      "lastReviewedUTC": "2026-08-28T20:30:00Z",
+      "securityNotes": "Rust/Python complexity and copyleft boundary require architecture review",
+      "lookAheadRisk": "good primitives for event-time ordering, but caller must preserve causal timestamps",
+      "decision": "BORROW_PATTERN",
+      "pattern": "dual-clock/event-time ordering and deterministic replay"
+    }
+  ]
+}
