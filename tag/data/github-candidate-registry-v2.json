@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAtUTC": "2026-08-28T22:03:00Z",
+  "updatedAtUTC": "2026-08-28T23:08:00Z",
   "policy": "No production dependency is promoted without sandbox benchmark, license review, causal-data review, and before/after evidence.",
   "candidates": [
     {
@@ -85,6 +85,23 @@
       "lookAheadRisk": "high if vectorized features are computed on final-session arrays without causal masking; acceptable only in sandbox with timestamp-bounded feature construction",
       "decision": "BORROW_PATTERN",
       "pattern": "fast challenger sweeps and walk-forward robustness tests, while keeping causal event replay outside vectorized final-bar shortcuts"
+    },
+    {
+      "repo": "databento/databento-python",
+      "purpose": "normalized live/historical market-data ingestion with point-in-time definitions and event-driven market replay",
+      "layer": "real-time ingestion/order-book schemas/event replay/data reconciliation",
+      "maturityScore": 94,
+      "integrationScore": 82,
+      "dataDependencyScore": 38,
+      "latencySuitability": "HIGH_WITH_ENTITLED_FEED",
+      "license": "Apache-2.0",
+      "lastReviewedUTC": "2026-08-28T23:08:00Z",
+      "maintenance": "very active; official client pushed 2026-08-27 and repository updated 2026-08-28",
+      "testsDocs": "official client with CI, documented live/historical APIs, MBO/MBP/top-of-book/last-sale/OHLCV schemas and event-driven replay",
+      "securityNotes": "requires Databento API key and paid/entitled datasets for production-grade U.S. equity coverage; server-side only; credentials must never be exposed in GitHub Pages",
+      "lookAheadRisk": "low if point-in-time definitions and event timestamps are preserved; historical range pulls must be bounded to replay clock and never enrich earlier events with later instrument state",
+      "decision": "BUILD_CHALLENGER",
+      "pattern": "benchmark timestamped live stream plus normalized historical replay against Yahoo polling for detection latency, event loss, trades-per-minute and order-flow feature availability"
     }
   ]
 }
