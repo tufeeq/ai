@@ -47,9 +47,12 @@ jobs:
           }
 
           # Independent one-shot dispatches. Downstream jobs own their own concurrency.
+          # TAGX2 Sentinel is explicitly dispatched here because GitHub cron can drift;
+          # its own 5m schedule remains as a second independent clock.
           dispatch refresh-finviz.yml
           dispatch tagx-live-quotes.yml
           dispatch tagx-coverage-rescue.yml
+          dispatch tagx2-sentinel.yml
           dispatch tagx-marketwide-challenger.yml
           dispatch tagx-sec-structural-risk.yml
           if [ "$HM" -lt 0930 ]; then
