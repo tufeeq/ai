@@ -1,0 +1,141 @@
+name: TAGX2 Early Coverage Sentinel
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 * * * 1-5'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tagx2-sentinel.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx2-early-coverage-sentinel
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Build causal early sentinel
+        run: |
+          python - <<'PY'
+          import json, urllib.request, urllib.parse, time, math
+          from pathlib import Path
+          from datetime import datetime, timezone
+          from zoneinfo import ZoneInfo
+          from concurrent.futures import ThreadPoolExecutor, as_completed
+
+          ET=ZoneInfo('America/New_York')
+          now=datetime.now(timezone.utc); et=now.astimezone(ET)
+          in_window=(et.weekday()<5 and ((et.hour>4 or (et.hour==4 and et.minute>=0)) and (et.hour<20 or (et.hour==20 and et.minute<=5))))
+          if not in_window:
+              print('Outside 04:00-20:05 ET; sentinel exits cleanly')
+              raise SystemExit(0)
+
+          OUT=Path('tag/data/tagx2-sentinel.json')
+          LEDGER=Path('tag/data/tagx2-sentinel-ledger.json')
+          UA='Mozilla/5.0 TAGX2-Sentinel research@example.com'
+          screeners=['day_gainers','most_actives','small_cap_gainers']
+          seeds={}
+
+          def get_json(url,timeout=8):
+              req=urllib.request.Request(url,headers={'User-Agent':UA,'Accept':'application/json'})
+              with urllib.request.urlopen(req,timeout=timeout) as r:return json.load(r)
+
+          diagnostics=[]
+          for sid in screeners:
+              try:
+                  q=urllib.parse.urlencode({'count':250,'scrIds':sid})
+                  j=get_json('https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?'+q)
+                  quotes=((j.get('finance') or {}).get('result') or [{}])[0].get('quotes') or []
+                  added=0
+                  for z in quotes:
+                      t=str(z.get('symbol') or '').upper().strip()
+                      if not t or any(x in t for x in ['^','=']):continue
+                      if t not in seeds:added+=1
+                      seeds.setdefault(t,set()).add(sid)
+                  diagnostics.append({'screener':sid,'ok':True,'rows':len(quotes),'newSymbols':added})
+              except Exception as e:
+                  diagnostics.append({'screener':sid,'ok':False,'error':type(e).__name__})
+
+          def n(v):
+              try:
+                  x=float(v);return x if math.isfinite(x) else None
+              except:return None
+
+          def scan(t):
+              try:
+                  params=urllib.parse.urlencode({'interval':'1m','range':'1d','includePrePost':'true','events':'div,splits'})
+                  j=get_json('https://query1.finance.yahoo.com/v8/finance/chart/'+urllib.parse.quote(t)+'?'+params,7)
+                  r=((j.get('chart') or {}).get('result') or [None])[0]
+                  if not r:return None
+                  ts=r.get('timestamp') or []; q=((r.get('indicators') or {}).get('quote') or [{}])[0]
+                  closes=q.get('close') or []; vols=q.get('volume') or []
+                  pts=[(int(a),n(b),n(v)) for a,b,v in zip(ts,closes,vols) if n(b) is not None]
+                  if not pts:return None
+                  meta=r.get('meta') or {}; prev=n(meta.get('chartPreviousClose') or meta.get('previousClose'))
+                  if not prev or prev<=0:return None
+                  t0,price,_=pts[-1]; change=100*(price/prev-1)
+                  def ret(minutes):
+                      cutoff=t0-minutes*60; prior=None
+                      for x in reversed(pts):
+                          if x[0]<=cutoff:prior=x[1];break
+                      return 100*(price/prior-1) if prior else None
+                  v5=ret(5);v15=ret(15)
+                  recent=[x[2] or 0 for x in pts[-5:]]; priorv=[x[2] or 0 for x in pts[-10:-5]]
+                  rsum=sum(recent);psum=sum(priorv);vacc=(rsum/psum) if psum>0 else (5.0 if rsum>0 else None)
+                  age=(time.time()-t0)/60
+                  if age>4:return None
+                  return {'ticker':t,'price':round(price,6),'changePct':round(change,3),'priceVelocity5mPct':None if v5 is None else round(v5,3),'priceVelocity15mPct':None if v15 is None else round(v15,3),'volume5m':int(rsum),'volumeAcceleration5m':None if vacc is None else round(vacc,3),'timestampET':datetime.fromtimestamp(t0,timezone.utc).astimezone(ET).isoformat(),'quoteAgeMin':round(age,2),'seedSources':sorted(seeds[t])}
+              except Exception:return None
+
+          rows=[]
+          with ThreadPoolExecutor(max_workers=32) as ex:
+              fs={ex.submit(scan,t):t for t in seeds}
+              for f in as_completed(fs):
+                  x=f.result()
+                  if x:rows.append(x)
+
+          rows.sort(key=lambda x:x['changePct'],reverse=True)
+          early=[x for x in rows if 0.5<=x['changePct']<12 and (x['priceVelocity5mPct'] or 0)>0]
+          session='pre-market' if et.hour<9 or (et.hour==9 and et.minute<30) else ('regular' if et.hour<16 else 'after-hours')
+          payload={'schemaVersion':1,'source':'Yahoo predefined screeners + point-in-time 1m charts','updatedAtUTC':now.isoformat(),'updatedAtET':et.isoformat(),'session':session,'independentSourceCount':1,'executionEligibleByItself':False,'trainingEligible':False,'policy':'DISCOVERY_ONLY_CAUSAL_SENTINEL','seedCount':len(seeds),'freshCount':len(rows),'earlyCount':len(early),'diagnostics':diagnostics,'candidates':early[:120]}
+          OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2))
+
+          day=et.date().isoformat(); ledger={'schemaVersion':1,'sessionDateET':day,'policy':'CAUSAL_FIRST_SEEN_NO_LOOKAHEAD','trainingEligible':False,'symbols':{}}
+          if LEDGER.exists():
+              try:
+                  old=json.loads(LEDGER.read_text())
+                  if old.get('sessionDateET')==day:ledger=old
+              except:pass
+          syms=ledger.setdefault('symbols',{})
+          for x in early:
+              t=x['ticker']
+              if t not in syms:
+                  syms[t]={'ticker':t,'firstSeenET':x['timestampET'],'firstSeenChangePct':x['changePct'],'firstSeenPrice':x['price'],'earlyCaptureEligibleAtFirstSeen':x['changePct']<10,'leftCensored':x['changePct']>=10}
+              syms[t]['lastSeenET']=x['timestampET'];syms[t]['lastSeenChangePct']=x['changePct'];syms[t]['maxObservedChangePct']=max(x['changePct'],syms[t].get('maxObservedChangePct',x['changePct']))
+          ledger['updatedAtUTC']=now.isoformat();ledger['updatedAtET']=et.isoformat();ledger['symbolCount']=len(syms);ledger['earlyFirstSeenCount']=sum(1 for x in syms.values() if x.get('earlyCaptureEligibleAtFirstSeen'));ledger['lateFirstSeenCount']=sum(1 for x in syms.values() if x.get('leftCensored'))
+          LEDGER.write_text(json.dumps(ledger,ensure_ascii=False,indent=2))
+          print({'seed':len(seeds),'fresh':len(rows),'early':len(early),'ledger':len(syms)})
+          PY
+      - name: Commit sentinel snapshots
+        run: |
+          git config user.name 'TAGX2 Sentinel Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tag/data/tagx2-sentinel.json tag/data/tagx2-sentinel-ledger.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: TAGX2 early coverage sentinel'
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((i*3))
+          done
+          exit 1
