@@ -1,0 +1,61 @@
+{
+  "cycleET": "2026-08-28 10:00",
+  "version": "TAGX V33",
+  "changeType": "Coverage/observability feature + cadence integration",
+  "goal": "Reduce missed movers caused by universe coverage while keeping one-source rescue signals non-executable",
+  "changes": [
+    "Added independent market-wide Coverage Rescue Lane",
+    "Added five-minute cadence dispatch for rescue lane",
+    "Merged rescue-only candidates into Early Watch UI with explicit NOT A BUY label",
+    "Kept Sharia/data/structure gates and primary path as execution authority"
+  ],
+  "runtimeValidation": {
+    "coverageRescue": {
+      "status": "SUCCESS",
+      "snapshotUTC": "2026-08-28T14:03:12.185562+00:00",
+      "seedCount": 161,
+      "quoteCount": 160,
+      "freshCount": 155,
+      "topMoverCount": 100,
+      "earlyCount": 57,
+      "scanDurationSec": 1.31,
+      "examples": [
+        {"ticker":"FNGR","changePct":309.458,"priceVelocity5mPct":42.714,"volume5m":46468720},
+        {"ticker":"QNRX","changePct":41.416,"priceVelocity5mPct":0.97,"volume5m":303126},
+        {"ticker":"AEMD","changePct":32.488,"priceVelocity5mPct":-9.906,"volume5m":1643907}
+      ]
+    },
+    "primaryLiveFeed": {
+      "status": "RECOVERED_AND_FRESH_AT_VALIDATION",
+      "snapshotUTC": "2026-08-28T14:04:54.300498+00:00",
+      "count": 486,
+      "freshCount": 427,
+      "requested": 500,
+      "dataConfidence": "HIGH",
+      "emergingCount": 24,
+      "scanDurationSec": 1.89,
+      "examples": [
+        {"ticker":"TNON","changePct":5.677,"earlyRegimeShiftScore":96,"ignitionScore":100,"turnover5mPctFloat":9.953},
+        {"ticker":"STFS","changePct":3.687,"earlyRegimeShiftScore":89,"ignitionScore":100,"turnover5mPctFloat":0.246}
+      ]
+    }
+  },
+  "guardrails": {
+    "rescueIndependentSourceCount": 1,
+    "rescueTrainingEligible": false,
+    "rescueExecutionEligibleByItself": false,
+    "rescuePolicy": "DISCOVERY_ONLY_NOT_GROUND_TRUTH_NOT_BUY",
+    "championThresholdChanged": false,
+    "profitabilityClaimed": false
+  },
+  "assessment": {
+    "provenImprovement": "Coverage visibility: independent rescue lane now captures current-session movers outside/alongside the primary universe and surfaces them without promoting them to BUY.",
+    "notYetProven": "Early-Capture Rate improvement, false-positive reduction, profitability, or second-source truth reconciliation.",
+    "nextCriticalWork": [
+      "Measure rescue-vs-primary first-seen timestamps on Top-20 movers",
+      "Add second independent source before training/ground-truth use",
+      "Repair/validate Sharia verification freshness and coverage",
+      "Replay TNON/STFS and large movers at T-5/T-15/T-30/T-60 without changing champion thresholds from individual cases"
+    ]
+  }
+}
