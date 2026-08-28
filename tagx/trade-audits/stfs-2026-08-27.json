@@ -1,0 +1,23 @@
+{
+  "ticker": "STFS",
+  "sessionDate": "2026-08-27",
+  "auditType": "USER_REPORTED_FAILED_TRADE",
+  "reportedEntry": 4.29,
+  "reportedOutcomePct": -6.0,
+  "sourceOfOutcome": "user report in TAGX conversation",
+  "verificationStatus": "PARTIAL",
+  "knownLimitations": [
+    "Exact TAGX signal timestamp has not yet been reconciled against the point-in-time signal ledger.",
+    "The reported -6% is preserved as user-reported outcome and is not replaced by session-close performance."
+  ],
+  "classification": "FALSE_POSITIVE_OR_POOR_ACTIONABILITY_PENDING_REPLAY",
+  "requiredReplay": ["T-5", "T-15", "T-30", "T-60"],
+  "questionsForReplay": [
+    "Was STFS already Late/Exhaustion at recommendation time?",
+    "Did correlated ERS/Ignition/velocity features create false confidence without independent structure confirmation?",
+    "Was persistence proven across observations?",
+    "Did float/turnover or distribution evidence contradict the recommendation?",
+    "Was data freshness and Sharia status valid at the exact signal timestamp?"
+  ],
+  "policyImpact": "This case motivated V31 Independent Decision Gate. It does not by itself change champion thresholds; it adds a fail-closed cross-validation requirement before LAB execution."
+}
