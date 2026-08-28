@@ -1,0 +1,32 @@
+{
+  "cycle": "2026-08-28 04:00 ET",
+  "changeType": "DATA_CORRECTNESS_AND_LOOKAHEAD_GUARD",
+  "problem": "Premarket heartbeat v2.1 reused first-seen/first-change/peak state from the prior day's premarket-hot.json whenever the same ticker appeared again. That polluted Persistence Slope, first-detection timing and peak-memory across trading sessions, creating a cross-session state leak.",
+  "evidenceBefore": {
+    "premarketHotUpdatedAtET": "2026-08-27T08:02:05.611058-04:00",
+    "schemaVersion": 2,
+    "source": "TAGX premarket hot heartbeat event-driven v2.1",
+    "stateReuseRule": "oldrows[ticker] reused without checking ET session date",
+    "risk": "A ticker recurring on the next trading day could inherit yesterday's firstAHSeenUTC/firstAHChangePct/peakAHChangePct and distort early-capture/persistence evaluation."
+  },
+  "change": {
+    "workflow": ".github/workflows/tagx-premarket-hot-heartbeat.yml",
+    "version": "v2.2 / schema 3",
+    "commit": "2ffcebbce5cc3a517a56c3341d317dccd696077b",
+    "details": [
+      "Added sessionDateET as an explicit event-state partition key.",
+      "Prior per-ticker state is reusable only when prior sessionDateET equals the current ET date.",
+      "Legacy files without sessionDateET are date-resolved from updatedAtET before reuse.",
+      "Fallback retention is disabled across an ET session boundary.",
+      "Added firstPMSeenUTC/firstPMChangePct/peakPMChangePct while keeping legacy aliases for compatibility.",
+      "Output records priorStateReused so replay/observability can verify state provenance."
+    ]
+  },
+  "benchmark": {
+    "before": "cross-session state could be reused for repeated tickers",
+    "afterExpected": "0 prior-day first-seen/peak/fallback observations may be reused in the new ET session",
+    "promotion": "production data-correctness fix; no scoring threshold changed",
+    "nextValidation": "Confirm first successful 2026-08-28 premarket snapshot has sessionDateET=2026-08-28 and priorStateReused=false on the first run, then true only for subsequent same-day snapshots."
+  },
+  "championChallenger": "No champion score/ranking thresholds changed. This is a causal data-boundary correction required before valid Time-to-Detection/Early-Capture measurements."
+}
