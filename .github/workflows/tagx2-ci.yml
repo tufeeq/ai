@@ -20,10 +20,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Syntax check
-        run: |
-          node --check tagx2/engine.js
-          node --check tagx2/app.js
-          node --check tagx2/tests/selftest.js
+      - name: Check engine syntax
+        run: node --check tagx2/engine.js
+      - name: Check app syntax
+        run: node --check tagx2/app.js
+      - name: Check self-test syntax
+        run: node --check tagx2/tests/selftest.js
       - name: Deterministic engine self-test
         run: node tagx2/tests/selftest.js
