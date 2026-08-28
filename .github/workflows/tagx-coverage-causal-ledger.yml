@@ -1,0 +1,137 @@
+name: TAGX Coverage Rescue Causal Ledger
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/tagx-coverage-causal-ledger.yml']
+  workflow_run:
+    workflows: ["TAGX Coverage Rescue Lane"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-coverage-causal-ledger-main
+  cancel-in-progress: false
+
+jobs:
+  ledger:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sync latest main
+        run: git pull --rebase origin main
+      - name: Persist session-scoped causal first-seen evidence
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime
+          from zoneinfo import ZoneInfo
+
+          srcp=pathlib.Path('tag/data/coverage-rescue.json')
+          outp=pathlib.Path('tag/data/coverage-rescue-causal-ledger.json')
+          if not srcp.exists():
+              raise SystemExit('coverage-rescue.json missing')
+          src=json.loads(srcp.read_text(encoding='utf-8'))
+          now_et=datetime.datetime.now(datetime.timezone.utc).astimezone(ZoneInfo('America/New_York'))
+          session_date=now_et.date().isoformat()
+          src_et=str(src.get('updatedAtET') or '')
+          if src_et[:10] != session_date:
+              raise SystemExit('coverage snapshot is not from current ET session date')
+
+          try:
+              old=json.loads(outp.read_text(encoding='utf-8')) if outp.exists() else {}
+          except Exception:
+              old={}
+          old_state=old.get('symbols') if old.get('sessionDateET')==session_date else {}
+          if not isinstance(old_state,dict): old_state={}
+
+          rows=[]
+          for key in ('topMovers','earlyCandidates'):
+              v=src.get(key) or []
+              if isinstance(v,list): rows.extend(v)
+          current={}
+          for q in rows:
+              t=str(q.get('ticker') or '').strip().upper()
+              if not t: continue
+              prev=current.get(t)
+              # prefer row with larger current change only for duplicate display rows
+              if prev is None or (q.get('changePct') or -999) > (prev.get('changePct') or -999):
+                  current[t]=q
+
+          symbols=dict(old_state)
+          thresholds=(2,5,10,20)
+          new_count=0
+          for t,q in current.items():
+              ch=q.get('changePct'); px=q.get('price'); ts=q.get('timestampET') or src.get('updatedAtET')
+              if ch is None: continue
+              ch=float(ch)
+              s=symbols.get(t)
+              if not isinstance(s,dict):
+                  s={
+                    'ticker':t,
+                    'firstSeenET':ts,
+                    'firstSeenChangePct':round(ch,3),
+                    'firstSeenPrice':px,
+                    'firstSeenBand':('PRE_WAKE' if ch < 2 else 'WAKE_UP' if ch < 5 else 'PRE_IGNITION' if ch < 10 else 'LATE_AT_FIRST_SEEN'),
+                    'earlyCaptureEligibleAtFirstSeen': bool(2 <= ch < 10),
+                    'firstSeenLate': bool(ch >= 10),
+                    'crossings':{}
+                  }
+                  # Thresholds already exceeded at first observation are left-censored.
+                  for th in thresholds:
+                      if ch >= th:
+                          s['crossings'][str(th)]={'observedAtET':ts,'leftCensored':True,'observedChangePct':round(ch,3)}
+                  new_count+=1
+              prev_ch=s.get('lastObservedChangePct')
+              if prev_ch is not None:
+                  prev_ch=float(prev_ch)
+                  for th in thresholds:
+                      k=str(th)
+                      if prev_ch < th <= ch and k not in s.get('crossings',{}):
+                          s.setdefault('crossings',{})[k]={'observedAtET':ts,'leftCensored':False,'observedChangePct':round(ch,3)}
+              s['lastObservedET']=ts
+              s['lastObservedChangePct']=round(ch,3)
+              s['lastObservedPrice']=px
+              s['maxObservedChangePct']=round(max(float(s.get('maxObservedChangePct',ch)),ch),3)
+              s['sourceLane']='coverage_rescue'
+              symbols[t]=s
+
+          eligible=sum(1 for s in symbols.values() if s.get('earlyCaptureEligibleAtFirstSeen'))
+          late=sum(1 for s in symbols.values() if s.get('firstSeenLate'))
+          out={
+            'schemaVersion':1,
+            'sessionDateET':session_date,
+            'updatedAtET':src.get('updatedAtET'),
+            'updatedAtUTC':src.get('updatedAtUTC'),
+            'sourceSnapshot':'tag/data/coverage-rescue.json',
+            'policy':'CAUSAL_OBSERVATION_LEDGER_DISCOVERY_ONLY_NOT_BUY_NOT_GROUND_TRUTH',
+            'trainingEligible':False,
+            'executionEligible':False,
+            'symbolCount':len(symbols),
+            'newSymbolsThisRun':new_count,
+            'earlyEligibleFirstSeenCount':eligible,
+            'lateAtFirstSeenCount':late,
+            'symbols':symbols
+          }
+          outp.write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps({k:out[k] for k in ('sessionDateET','symbolCount','newSymbolsThisRun','earlyEligibleFirstSeenCount','lateAtFirstSeenCount')}))
+          PY
+      - name: Commit causal coverage ledger
+        run: |
+          git config user.name "TAGX Causal Ledger Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/coverage-rescue-causal-ledger.json
+          git diff --cached --quiet && exit 0
+          git commit -m "data: update TAGX coverage causal first-seen ledger"
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*4)); done
+          exit 1
