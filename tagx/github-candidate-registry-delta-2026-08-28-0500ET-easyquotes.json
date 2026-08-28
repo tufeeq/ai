@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "reviewedAtUTC": "2026-08-28T09:02:47Z",
+  "repo": "easyquotes/easyquotes",
+  "purpose": "Multi-market market-data SDK/API with US-stock quotes, minute bars, transactions/depth, WebSocket streaming and institutional/ETF holdings surfaces.",
+  "layers": [
+    "real-time market data ingestion",
+    "WebSocket/streaming feeds",
+    "trades-per-minute/order-flow reference",
+    "institutional activity",
+    "paper trading reference"
+  ],
+  "maturityScore": 46,
+  "integrationScore": 34,
+  "dataDependencyScore": 24,
+  "latencySuitability": "UNVERIFIED_MEDIUM_HIGH: WebSocket surface exists, but no independent US-feed latency/coverage benchmark was found in this sweep.",
+  "license": "MIT",
+  "maintenance": "Repository created 2026-07-13 and last pushed 2026-07-22 at review time; very young project with one star and no releases established in this review.",
+  "docsTests": "README is detailed and repository contains quote/minute/strategy/WebSocket tests. WebSocket tests verify header-based API-key handling, connection-open sequencing and server-close error propagation.",
+  "securityNotes": "Positive: API key is sent by x-api-key header rather than query string. Concern: default service endpoint is a bare IP address and the SDK is tightly coupled to a vendor-hosted API. Credentials must never enter TAGX GitHub Pages/browser production path.",
+  "resilienceNotes": "Current WebSocket implementation has connection timeout and close/error propagation but no demonstrated automatic reconnect/resubscribe, stale-data timeout, heartbeat freshness classification or exponential backoff. This is materially weaker than the patterns already reviewed in alpaca-py.",
+  "lookAheadBiasRisk": "MEDIUM for vendor strategy/backtest endpoints because feature/outcome construction is opaque to TAGX; raw quote/minute/transaction streams are lower risk if event timestamps are preserved.",
+  "dataProvenanceRisk": "HIGH_UNVERIFIED: upstream exchange/vendor provenance, US extended-hours coverage and redistribution rights were not independently established from repository code/docs alone.",
+  "decision": "REJECT_DIRECT_INTEGRATION_BORROW_PATTERN",
+  "integrationPlan": "Do not add dependency or credentials. Borrow only two verified patterns: header-only secret transport and explicit WebSocket close/error handling. Revisit only if provenance, US extended-hours coverage, stale-stream detection and reconnect benchmarks become independently verifiable.",
+  "whyNotBuild": "TAGX already has higher-confidence official candidates (Databento/Alpaca) with clearer provenance. Adding a young vendor abstraction would expand data and security uncertainty without a demonstrated latency or early-capture lift."
+}
