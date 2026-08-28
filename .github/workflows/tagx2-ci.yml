@@ -1,0 +1,29 @@
+name: TAGX2 CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, tagx2-rebuild]
+    paths:
+      - 'tagx2/**'
+      - '.github/workflows/tagx2-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check tagx2/engine.js
+          node --check tagx2/app.js
+          node --check tagx2/tests/selftest.js
+      - name: Deterministic engine self-test
+        run: node tagx2/tests/selftest.js
