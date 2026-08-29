@@ -37,10 +37,8 @@ jobs:
           DISC=Path('tag/data/discovery.json')
           LIVE=Path('tag/data/live-quotes.json')
           OUT=Path('tag/data/sharia.json')
-          if not DISC.exists():
-              raise SystemExit('discovery.json missing')
-          d=json.loads(DISC.read_text())
-          rows=d.get('rows') or []
+          if not DISC.exists(): raise SystemExit('discovery.json missing')
+          d=json.loads(DISC.read_text()); rows=d.get('rows') or []
           live={}
           if LIVE.exists():
               try: live=json.loads(LIVE.read_text()).get('quotes') or {}
@@ -50,79 +48,67 @@ jobs:
               try: old=(json.loads(OUT.read_text()).get('rows') or {})
               except Exception: old={}
 
-          hard=[
-            r'\bbanks?\b',r'credit services',r'consumer finance',r'mortgage finance',r'insurance',r'reinsurance',
-            r'gambl',r'casino',r'lottery',r'alcohol',r'brew(er|ery|ing)',r'winery|wineries',r'distill',
-            r'tobacco',r'cigarette',r'adult entertainment',r'porn',r'marijuana|cannabis'
-          ]
+          hard=[r'\bbanks?\b',r'credit services',r'consumer finance',r'mortgage finance',r'insurance',r'reinsurance',r'gambl',r'casino',r'lottery',r'alcohol',r'brew(er|ery|ing)',r'winery|wineries',r'distill',r'tobacco',r'cigarette',r'adult entertainment',r'porn',r'marijuana|cannabis']
           instruments=[r'\betf\b',r'exchange[- ]traded fund',r'\b2x\b',r'\b3x\b',r'leveraged',r'inverse']
           ambiguous=[r'shell compan',r'blank check',r'\bspac\b',r'capital markets',r'asset management',r'investment management']
           hard=[re.compile(x,re.I) for x in hard]; instruments=[re.compile(x,re.I) for x in instruments]; ambiguous=[re.compile(x,re.I) for x in ambiguous]
 
           def num(v):
-              if v is None: return None
+              if v is None:return None
               s=str(v).replace(',','').replace('$','').replace('%','').strip()
               try:return float(s)
               except:return None
 
           def market_cap_usd(v):
-              # Finviz commonly emits values such as 483.15M / 1.24B. The old
-              # parser treated these as None, which forced every financial ratio
-              # to UNVERIFIED even when fundamentals were present.
-              if v is None: return None
+              if v is None:return None
               if isinstance(v,(int,float)) and math.isfinite(float(v)):
-                  x=float(v)
-                  # Discovery numeric market cap historically represented USD millions.
-                  return x*1_000_000 if x < 100_000_000 else x
+                  x=float(v); return x*1_000_000 if x<100_000_000 else x
               s=str(v).strip().upper().replace('$','').replace(',','')
               m=re.fullmatch(r'(-?\d+(?:\.\d+)?)\s*([KMBT]?)',s)
               if not m:return None
-              x=float(m.group(1)); suf=m.group(2)
-              mult={'':1.0,'K':1e3,'M':1e6,'B':1e9,'T':1e12}[suf]
-              # Bare compact Finviz numerics are interpreted as millions for backwards compatibility.
-              if not suf and abs(x)<100_000_000: mult=1e6
+              x=float(m.group(1)); suf=m.group(2); mult={'':1.0,'K':1e3,'M':1e6,'B':1e9,'T':1e12}[suf]
+              if not suf and abs(x)<100_000_000:mult=1e6
               return x*mult
 
           def activity(r):
               txt=' · '.join(str(r.get(k) or '') for k in ('Company','Sector','Industry'))
-              if any(x.search(txt) for x in hard+instruments):
-                  return 'FAIL','النشاط/الأداة الظاهرة تقع ضمن الاستبعادات الشرعية الصريحة.'
-              if any(x.search(txt) for x in ambiguous):
-                  return 'AMBIGUOUS','النشاط يحتاج تحققًا يدويًا إضافيًا قبل الحكم.'
+              if any(x.search(txt) for x in hard+instruments):return 'FAIL','النشاط/الأداة الظاهرة تقع ضمن الاستبعادات الشرعية الصريحة.'
+              if any(x.search(txt) for x in ambiguous):return 'AMBIGUOUS','النشاط يحتاج تحققًا يدويًا إضافيًا قبل الحكم.'
               return 'PASS','لا يظهر نشاط محظور صريح من Company/Sector/Industry.'
 
-          UA='Mozilla/5.0 TAGX-Sharia-Research/2.0'
+          UA='Mozilla/5.0 TAGX-Sharia-Research/3.1'
           def fetch_json(url,timeout=8):
               req=urllib.request.Request(url,headers={'User-Agent':UA,'Accept':'application/json'})
-              with urllib.request.urlopen(req,timeout=timeout) as resp:
-                  return json.load(resp)
+              with urllib.request.urlopen(req,timeout=timeout) as resp:return json.load(resp)
 
           now=int(time.time()); p1=now-740*86400; p2=now+86400
+          TYPES=['quarterlyTotalDebt','annualTotalDebt','quarterlyCashCashEquivalentsAndShortTermInvestments','annualCashCashEquivalentsAndShortTermInvestments','quarterlyCashAndCashEquivalents','annualCashAndCashEquivalents','quarterlyShortTermInvestments','annualShortTermInvestments','quarterlyTotalRevenue','annualTotalRevenue','quarterlyInterestIncomeNonOperating','annualInterestIncomeNonOperating']
           def yahoo_fin(ticker):
-              types=[
-                'quarterlyTotalDebt','annualTotalDebt',
-                'quarterlyCashCashEquivalentsAndShortTermInvestments','annualCashCashEquivalentsAndShortTermInvestments',
-                'quarterlyCashAndCashEquivalents','annualCashAndCashEquivalents',
-                'quarterlyShortTermInvestments','annualShortTermInvestments',
-                'quarterlyTotalRevenue','annualTotalRevenue',
-                'quarterlyInterestIncomeNonOperating','annualInterestIncomeNonOperating'
-              ]
-              q=urllib.parse.urlencode({'symbol':ticker,'type':','.join(types),'period1':p1,'period2':p2})
+              q=urllib.parse.urlencode({'symbol':ticker,'type':','.join(TYPES),'period1':p1,'period2':p2})
               url=f'https://query1.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/{urllib.parse.quote(ticker)}?{q}'
-              j=fetch_json(url)
+              j=fetch_json(url); ts=j.get('timeseries') if isinstance(j,dict) else None
+              results=(ts.get('result') or []) if isinstance(ts,dict) else []
               out={}
-              for obj in ((j.get('timeseries') or {}).get('result') or []):
-                  typ=(obj.get('meta') or {}).get('type') or obj.get('type')
+              for obj in results:
+                  if not isinstance(obj,dict):continue
+                  typ=(obj.get('meta') or {}).get('type') if isinstance(obj.get('meta'),dict) else None
+                  typ=typ or obj.get('type')
+                  if isinstance(typ,list):typ=typ[0] if typ else None
+                  series=obj.get(typ) if isinstance(typ,str) else None
+                  if not isinstance(series,list):
+                      typ=next((k for k in TYPES if isinstance(obj.get(k),list)),None)
+                      series=obj.get(typ) if typ else None
+                  if not typ or not isinstance(series,list):continue
                   vals=[]
-                  for z in obj.get(typ) or []:
-                      rv=(z.get('reportedValue') or {}).get('raw')
+                  for z in series:
+                      if not isinstance(z,dict):continue
+                      reported=z.get('reportedValue'); rv=reported.get('raw') if isinstance(reported,dict) else None
                       if rv is not None:
-                          try: rv=float(rv)
-                          except: continue
+                          try:rv=float(rv)
+                          except:continue
                           vals.append((z.get('asOfDate') or '',rv))
                   if vals:
-                      dt,val=sorted(vals)[-1]
-                      out[typ]={'value':val,'asOfDate':dt}
+                      dt,val=sorted(vals)[-1];out[typ]={'value':val,'asOfDate':dt}
               return out
 
           def pick(f,*keys):
@@ -130,90 +116,46 @@ jobs:
                   if k in f:return f[k]['value'],f[k].get('asOfDate')
               return None,None
 
-          # Prioritize the symbols that are actually moving now, then relative-volume discovery.
           def priority(r):
-              t=str(r.get('Ticker') or '').upper()
-              q=live.get(t) or {}
-              ch=abs(num(q.get('sessionChangePct') or q.get('changePct')) or 0)
-              vv=abs(num(q.get('priceVelocity5mPct')) or 0)
-              return (1 if t in live else 0, ch+2*vv, num(r.get('Rel Volume')) or 0, num(r.get('Volume')) or 0)
-          ranked=sorted(rows,key=priority,reverse=True)
-          fin_targets={str(r.get('Ticker') or '').upper() for r in ranked[:180]}
+              t=str(r.get('Ticker') or '').upper();q=live.get(t) or {}
+              ch=abs(num(q.get('sessionChangePct') or q.get('changePct')) or 0);vv=abs(num(q.get('priceVelocity5mPct')) or 0)
+              return (1 if t in live else 0,ch+2*vv,num(r.get('Rel Volume')) or 0,num(r.get('Volume')) or 0)
+          ranked=sorted(rows,key=priority,reverse=True);fin_targets={str(r.get('Ticker') or '').upper() for r in ranked[:180]}
 
-          result={}; diag={'financialTargets':len(fin_targets),'fundamentalsOk':0,'marketCapParsed':0,'completeRatios':0,'errors':{}}
+          result={};diag={'financialTargets':len(fin_targets),'fundamentalsOk':0,'marketCapParsed':0,'completeRatios':0,'errors':{}}
           for r in rows:
               t=str(r.get('Ticker') or '').upper().strip()
-              if not t: continue
+              if not t:continue
               astatus,areason=activity(r)
-              item={
-                'ticker':t,'status':'UNVERIFIED','emoji':'🟡','labelAr':'غير متحقق','confidence':'MEDIUM',
-                'activityStatus':astatus,'activityReason':areason,'financialStatus':'UNVERIFIED',
-                'methodology':'AAOIFI-style research screen','checkedAt':datetime.now(timezone.utc).isoformat(),
-                'financial':{'status':'UNVERIFIED','debtToMarketCapPct':None,'cashSecuritiesToMarketCapPct':None,'nonPermissibleIncomePct':None,
-                             'thresholds':{'debtPct':30,'cashSecuritiesPct':30,'nonPermissibleIncomePct':5},'source':None}
-              }
-              if astatus=='FAIL':
-                  item.update(status='EXCLUDED',emoji='🔴',labelAr='غير متوافق',confidence='HIGH',financialStatus='NOT_EVALUATED')
-                  result[t]=item; continue
-              if astatus=='AMBIGUOUS':
-                  item['confidence']='LOW'; result[t]=item; continue
-
-              # Preserve only explicitly manual/trusted overrides. Automated prior results are revalidated.
+              item={'ticker':t,'status':'UNVERIFIED','emoji':'🟡','labelAr':'غير متحقق','confidence':'MEDIUM','activityStatus':astatus,'activityReason':areason,'financialStatus':'UNVERIFIED','methodology':'AAOIFI-style research screen','checkedAt':datetime.now(timezone.utc).isoformat(),'financial':{'status':'UNVERIFIED','debtToMarketCapPct':None,'cashSecuritiesToMarketCapPct':None,'nonPermissibleIncomePct':None,'thresholds':{'debtPct':30,'cashSecuritiesPct':30,'nonPermissibleIncomePct':5},'source':None}}
+              if astatus=='FAIL':item.update(status='EXCLUDED',emoji='🔴',labelAr='غير متوافق',confidence='HIGH',financialStatus='NOT_EVALUATED');result[t]=item;continue
+              if astatus=='AMBIGUOUS':item['confidence']='LOW';result[t]=item;continue
               prev=old.get(t) or {}
-              if prev.get('status') in ('VERIFIED','EXCLUDED') and str(prev.get('verifiedBy') or '').startswith(('MANUAL:','TRUSTED:')):
-                  item.update(prev); result[t]=item; continue
-
+              if prev.get('status') in ('VERIFIED','EXCLUDED') and str(prev.get('verifiedBy') or '').startswith(('MANUAL:','TRUSTED:')):item.update(prev);result[t]=item;continue
               if t in fin_targets:
                   try:
-                      f=yahoo_fin(t); diag['fundamentalsOk']+=1
+                      f=yahoo_fin(t);diag['fundamentalsOk']+=1
                       market_cap=market_cap_usd(r.get('Market Cap'))
                       if market_cap and market_cap>0:diag['marketCapParsed']+=1
-                      debt,debt_dt=pick(f,'quarterlyTotalDebt','annualTotalDebt')
-                      csi,csi_dt=pick(f,'quarterlyCashCashEquivalentsAndShortTermInvestments','annualCashCashEquivalentsAndShortTermInvestments')
+                      debt,debt_dt=pick(f,'quarterlyTotalDebt','annualTotalDebt');csi,csi_dt=pick(f,'quarterlyCashCashEquivalentsAndShortTermInvestments','annualCashCashEquivalentsAndShortTermInvestments')
                       if csi is None:
-                          cash,cash_dt=pick(f,'quarterlyCashAndCashEquivalents','annualCashAndCashEquivalents')
-                          sti,sti_dt=pick(f,'quarterlyShortTermInvestments','annualShortTermInvestments')
-                          if cash is not None or sti is not None:
-                              csi=(cash or 0.0)+(sti or 0.0); csi_dt=max(x for x in (cash_dt,sti_dt) if x) if (cash_dt or sti_dt) else None
-                      rev,rev_dt=pick(f,'quarterlyTotalRevenue','annualTotalRevenue')
-                      interest,int_dt=pick(f,'quarterlyInterestIncomeNonOperating','annualInterestIncomeNonOperating')
-                      dr=(100*debt/market_cap) if (debt is not None and market_cap and market_cap>0) else None
-                      cr=(100*csi/market_cap) if (csi is not None and market_cap and market_cap>0) else None
-                      ir=(100*abs(interest)/abs(rev)) if (interest is not None and rev not in (None,0)) else None
-                      item['financial']={'status':'PARTIAL','debtToMarketCapPct':dr,'cashSecuritiesToMarketCapPct':cr,'nonPermissibleIncomePct':ir,
-                                         'thresholds':{'debtPct':30,'cashSecuritiesPct':30,'nonPermissibleIncomePct':5},
-                                         'source':'Yahoo Finance fundamentals-timeseries + Finviz market cap',
-                                         'asOf':{'debt':debt_dt,'cashSecurities':csi_dt,'revenue':rev_dt,'interestIncome':int_dt},
-                                         'marketCapUSD':market_cap}
-                      fail=(dr is not None and dr>30) or (cr is not None and cr>30) or (ir is not None and ir>5)
-                      complete=(dr is not None and cr is not None and ir is not None)
+                          cash,cash_dt=pick(f,'quarterlyCashAndCashEquivalents','annualCashAndCashEquivalents');sti,sti_dt=pick(f,'quarterlyShortTermInvestments','annualShortTermInvestments')
+                          if cash is not None or sti is not None:csi=(cash or 0.0)+(sti or 0.0);csi_dt=max(x for x in (cash_dt,sti_dt) if x) if (cash_dt or sti_dt) else None
+                      rev,rev_dt=pick(f,'quarterlyTotalRevenue','annualTotalRevenue');interest,int_dt=pick(f,'quarterlyInterestIncomeNonOperating','annualInterestIncomeNonOperating')
+                      dr=(100*debt/market_cap) if (debt is not None and market_cap and market_cap>0) else None;cr=(100*csi/market_cap) if (csi is not None and market_cap and market_cap>0) else None;ir=(100*abs(interest)/abs(rev)) if (interest is not None and rev not in (None,0)) else None
+                      item['financial']={'status':'PARTIAL','debtToMarketCapPct':dr,'cashSecuritiesToMarketCapPct':cr,'nonPermissibleIncomePct':ir,'thresholds':{'debtPct':30,'cashSecuritiesPct':30,'nonPermissibleIncomePct':5},'source':'Yahoo Finance fundamentals-timeseries + Finviz market cap','asOf':{'debt':debt_dt,'cashSecurities':csi_dt,'revenue':rev_dt,'interestIncome':int_dt},'marketCapUSD':market_cap}
+                      fail=(dr is not None and dr>30) or (cr is not None and cr>30) or (ir is not None and ir>5);complete=(dr is not None and cr is not None and ir is not None)
                       if complete:diag['completeRatios']+=1
-                      if fail:
-                          item.update(status='EXCLUDED',emoji='🔴',labelAr='غير متوافق',confidence='HIGH',financialStatus='FAIL')
-                          item['financial']['status']='FAIL'
-                      elif complete:
-                          item.update(status='VERIFIED',emoji='🟢',labelAr='متوافق',confidence='MEDIUM_HIGH',financialStatus='PASS')
-                          item['financial']['status']='PASS'
-                          item['verifiedBy']='TAGX automated AAOIFI-style three-ratio screen v3'
-                      else:
-                          item.update(status='UNVERIFIED',emoji='🟡',labelAr='غير متحقق',confidence='MEDIUM',financialStatus='PARTIAL_PASS')
+                      if fail:item.update(status='EXCLUDED',emoji='🔴',labelAr='غير متوافق',confidence='HIGH',financialStatus='FAIL');item['financial']['status']='FAIL'
+                      elif complete:item.update(status='VERIFIED',emoji='🟢',labelAr='متوافق',confidence='MEDIUM_HIGH',financialStatus='PASS');item['financial']['status']='PASS';item['verifiedBy']='TAGX automated AAOIFI-style three-ratio screen v3.1'
+                      else:item.update(status='UNVERIFIED',emoji='🟡',labelAr='غير متحقق',confidence='MEDIUM',financialStatus='PARTIAL_PASS')
                       time.sleep(0.025)
                   except Exception as e:
-                      et=type(e).__name__; item['financialError']=et; diag['errors'][et]=diag['errors'].get(et,0)+1
+                      et=type(e).__name__;item['financialError']=et;diag['errors'][et]=diag['errors'].get(et,0)+1
               result[t]=item
 
-          payload={
-            'schemaVersion':3,'updatedAt':datetime.now(timezone.utc).isoformat(),'source':'TAGX Sharia Screen',
-            'methodology':'AAOIFI-style automated research screen; business exclusions + debt/cash-securities/non-permissible-income proxy ratios; not a fatwa or formal certification',
-            'thresholds':{'debtToMarketCapPct':30,'cashSecuritiesToMarketCapPct':30,'nonPermissibleIncomePct':5},
-            'counts':{
-              'verified':sum(1 for x in result.values() if x['status']=='VERIFIED'),
-              'unverified':sum(1 for x in result.values() if x['status']=='UNVERIFIED'),
-              'excluded':sum(1 for x in result.values() if x['status']=='EXCLUDED')
-            },'diagnostics':diag,'rows':result
-          }
-          OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2))
-          print(payload['counts']); print(diag)
+          payload={'schemaVersion':3,'updatedAt':datetime.now(timezone.utc).isoformat(),'source':'TAGX Sharia Screen','methodology':'AAOIFI-style automated research screen; business exclusions + debt/cash-securities/non-permissible-income proxy ratios; not a fatwa or formal certification','thresholds':{'debtToMarketCapPct':30,'cashSecuritiesToMarketCapPct':30,'nonPermissibleIncomePct':5},'counts':{'verified':sum(1 for x in result.values() if x['status']=='VERIFIED'),'unverified':sum(1 for x in result.values() if x['status']=='UNVERIFIED'),'excluded':sum(1 for x in result.values() if x['status']=='EXCLUDED')},'diagnostics':diag,'rows':result}
+          OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2));print(payload['counts']);print(diag)
           PY
       - name: Commit Sharia screen
         shell: bash
@@ -222,6 +164,6 @@ jobs:
           git config user.name 'TAGX Sharia Bot'
           git config user.email 'actions@users.noreply.github.com'
           git add tag/data/sharia.json
-          git commit -m 'Update TAGX Sharia screen v3'
+          git commit -m 'Update TAGX Sharia screen v3.1'
           git pull --rebase origin main
           git push
