@@ -1,0 +1,132 @@
+name: TAGX2 Top20 Causal Audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '10 0 * * 2-6'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tagx2-top20-audit.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx2-top20-causal-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Build provisional Top-20 causal audit
+        run: |
+          python - <<'PY'
+          import json, urllib.request, urllib.parse
+          from pathlib import Path
+          from datetime import datetime, timezone
+          from zoneinfo import ZoneInfo
+
+          ET=ZoneInfo('America/New_York')
+          now=datetime.now(timezone.utc); et=now.astimezone(ET)
+          day=et.date().isoformat()
+          OUT=Path('tag/data/tagx2-top20-audit.json')
+          HIST=Path('tag/data/tagx2-top20-audit-history.json')
+          UA='Mozilla/5.0 TAGX2-Top20-Audit research@example.com'
+
+          def read(path):
+              p=Path(path)
+              if not p.exists(): return {}
+              try:return json.loads(p.read_text())
+              except:return {}
+
+          def fetch_json(url):
+              req=urllib.request.Request(url,headers={'User-Agent':UA,'Accept':'application/json'})
+              with urllib.request.urlopen(req,timeout=10) as r:return json.load(r)
+
+          # Final-ish mover set: Yahoo predefined day_gainers at/after 20:00 ET.
+          # This is intentionally PROVISIONAL because it is one provider, not reconciled ground truth.
+          q=urllib.parse.urlencode({'count':100,'scrIds':'day_gainers'})
+          raw=fetch_json('https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?'+q)
+          quotes=((raw.get('finance') or {}).get('result') or [{}])[0].get('quotes') or []
+          rows=[]
+          for z in quotes:
+              t=str(z.get('symbol') or '').upper().strip()
+              ch=z.get('regularMarketChangePercent')
+              px=z.get('regularMarketPrice')
+              vol=z.get('regularMarketVolume')
+              try: ch=float(ch)
+              except: continue
+              if not t or any(x in t for x in ['^','=']): continue
+              rows.append({'ticker':t,'finalChangePct':round(ch,3),'finalPrice':px,'finalVolume':vol})
+          rows=sorted(rows,key=lambda x:x['finalChangePct'],reverse=True)[:20]
+
+          sentinel=read('tag/data/tagx2-sentinel-ledger.json')
+          rescue=read('tag/data/coverage-rescue-causal-ledger.json')
+          ssyms=sentinel.get('symbols') or {}; rsyms=rescue.get('symbols') or {}
+          same_sentinel=sentinel.get('sessionDateET')==day
+          same_rescue=rescue.get('sessionDateET')==day
+
+          counts={'Predicted Early':0,'Detected Late':0,'Missed':0,'Data-Unverified':0}
+          audited=[]
+          for r in rows:
+              t=r['ticker']; candidates=[]
+              if same_sentinel and t in ssyms:
+                  x=ssyms[t]; candidates.append(('sentinel',x.get('firstSeenET'),x.get('firstSeenChangePct'),x.get('firstSeenPrice')))
+              if same_rescue and t in rsyms:
+                  x=rsyms[t]; candidates.append(('coverage',x.get('firstSeenET'),x.get('firstSeenChangePct'),x.get('firstSeenPrice')))
+              def key(x):
+                  try:return datetime.fromisoformat(x[1]).timestamp()
+                  except:return 9e18
+              candidates.sort(key=key)
+              if candidates:
+                  src,ts,ch,px=candidates[0]
+                  try: early=float(ch)<10
+                  except: early=False
+                  cls='Predicted Early' if early else 'Detected Late'
+                  counts[cls]+=1
+                  audited.append({**r,'classification':cls,'firstSeenSource':src,'firstSeenET':ts,'firstSeenChangePct':ch,'firstSeenPrice':px,'causalEvidence':True})
+              else:
+                  counts['Missed']+=1
+                  audited.append({**r,'classification':'Missed','firstSeenSource':None,'firstSeenET':None,'firstSeenChangePct':None,'firstSeenPrice':None,'causalEvidence':False})
+
+          n=len(audited); early=counts['Predicted Early']; late=counts['Detected Late']; missed=counts['Missed']
+          provisional_rate=round(100*early/n,2) if n else None
+          observed_rate=round(100*early/(early+late+missed),2) if early+late+missed else None
+          payload={
+            'schemaVersion':1,'sessionDateET':day,'generatedAtUTC':now.isoformat(),'generatedAtET':et.isoformat(),
+            'truthStatus':'PROVISIONAL_SINGLE_SOURCE_NOT_TRAINING_ELIGIBLE','finalMoverSource':'Yahoo predefined day_gainers',
+            'independentFinalSourceCount':1,'trainingEligible':False,
+            'policy':'Top20 mover membership is provisional until independent final reconciliation; causal first-seen evidence never backfilled.',
+            'counts':counts,'earlyCaptureRateProvisionalPct':provisional_rate,'adjustedEarlyCaptureRatePct':None,
+            'top20':audited,
+            'notes':['Predicted Early means first causal observation below +10%; it does not mean a BUY recommendation.',
+                     'Adjusted rate remains null until final mover set is reconciled with an independent source.',
+                     'Missing early-day ledger coverage is counted as Missed, not retroactively repaired.']
+          }
+          OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2))
+          hist=read(HIST); sessions=hist.get('sessions') or []
+          sessions=[x for x in sessions if x.get('sessionDateET')!=day]
+          sessions.append({'sessionDateET':day,'generatedAtUTC':now.isoformat(),'truthStatus':payload['truthStatus'],'counts':counts,'earlyCaptureRateProvisionalPct':provisional_rate,'adjustedEarlyCaptureRatePct':None})
+          sessions=sorted(sessions,key=lambda x:x.get('sessionDateET',''))[-20:]
+          HIST.write_text(json.dumps({'schemaVersion':1,'updatedAtUTC':now.isoformat(),'sessions':sessions},ensure_ascii=False,indent=2))
+          print({'date':day,'top20':n,'counts':counts,'provisionalEarlyCaptureRate':provisional_rate})
+          PY
+      - name: Commit audit
+        run: |
+          git config user.name 'TAGX2 Audit Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tag/data/tagx2-top20-audit.json tag/data/tagx2-top20-audit-history.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: TAGX2 Top20 causal audit'
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((i*3))
+          done
+          exit 1
