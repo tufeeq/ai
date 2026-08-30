@@ -1,0 +1,73 @@
+name: TAGX Broad US Equity Universe
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '2,17,32,47 8-23 * * 1-5'
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/tagx-broad-universe.yml'
+permissions:
+  contents: write
+concurrency:
+  group: tagx-broad-us-universe
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: git pull --rebase origin main
+      - name: Fetch broad Finviz Elite universe
+        env:
+          FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$FINVIZ_TOKEN" || (echo 'FINVIZ_TOKEN missing' && exit 1)
+          mkdir -p tag/data
+          BASE="https://elite.finviz.com/export/screener?f=sh_avgvol_o50&auth=${FINVIZ_TOKEN}"
+          curl --fail --silent --show-error --location --retry 4 --retry-delay 4 --retry-all-errors "${BASE}&v=111" -o /tmp/broad-overview.csv
+          curl --fail --silent --show-error --location --retry 4 --retry-delay 4 --retry-all-errors "${BASE}&v=131" -o /tmp/broad-ownership.csv
+          test -s /tmp/broad-overview.csv
+          test -s /tmp/broad-ownership.csv
+      - name: Build uncapped de-duplicated universe
+        run: |
+          python - <<'PY'
+          import csv,json,datetime,pathlib,re
+          def read(path):
+              with open(path,newline='',encoding='utf-8-sig') as f:return list(csv.DictReader(f))
+          def sym(r):return str(r.get('Ticker') or r.get('Symbol') or '').upper().strip()
+          def choose(*v):
+              for x in v:
+                  if x not in (None,''):return x
+              return ''
+          ov={sym(r):r for r in read('/tmp/broad-overview.csv') if sym(r)}
+          ow={sym(r):r for r in read('/tmp/broad-ownership.csv') if sym(r)}
+          symbols=sorted(set(ov)|set(ow))
+          now=datetime.datetime.now(datetime.timezone.utc).isoformat()
+          rows=[]
+          for t in symbols:
+              a,b=ov.get(t,{}),ow.get(t,{})
+              rows.append({
+                  'Ticker':t,'Company':choose(a.get('Company'),b.get('Company')),'Sector':choose(a.get('Sector'),b.get('Sector')),'Industry':choose(a.get('Industry'),b.get('Industry')),'Country':choose(a.get('Country'),b.get('Country')),
+                  'Market Cap':choose(a.get('Market Cap'),b.get('Market Cap')),'Price':choose(a.get('Price'),b.get('Price')),'Change':choose(a.get('Change'),b.get('Change')),'Volume':choose(a.get('Volume'),b.get('Volume')),'Avg Volume':choose(a.get('Avg Volume'),a.get('Average Volume'),b.get('Avg Volume'),b.get('Average Volume')),
+                  'Float':choose(b.get('Float'),b.get('Shares Float')),'Outstanding':choose(b.get('Outstanding'),b.get('Shares Outstanding')),'Short Float':choose(b.get('Short Float')),'_snapshotTimestampUTC':now,'_source':'Finviz Elite broad universe','_discoveryOnly':True
+              })
+          payload={'schemaVersion':1,'source':'Finviz Elite broad US equity universe','sourceType':'BROAD_RESEARCH_UNIVERSE','filter':['sh_avgvol_o50'],'views':[111,131],'updatedAt':now,'count':len(rows),'executionEligibility':'SEPARATE_SHARIA_AND_DATA_GATES_REQUIRED','trainingEligible':False,'rows':rows}
+          pathlib.Path('tag/data/universe-broad.json').write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8')
+          print('broad universe rows',len(rows))
+          if len(rows)<2000: raise SystemExit('Broad universe unexpectedly below 2000 symbols; fail closed')
+          PY
+      - name: Commit broad universe
+        run: |
+          git config user.name 'TAGX Broad Universe Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tag/data/universe-broad.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: refresh broad US equity universe'
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*5)); done
+          exit 1
