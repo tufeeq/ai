@@ -44,7 +44,7 @@ jobs:
           print('ET',et.isoformat(),'active',active)
           PY
 
-      - name: Fetch lightweight proactive lanes
+      - name: Fetch proactive and marketwide anomaly lanes
         if: steps.guard.outputs.active == 'true'
         env:
           FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
@@ -52,14 +52,16 @@ jobs:
           test -n "$FINVIZ_TOKEN" || (echo "FINVIZ_TOKEN missing" && exit 1)
           for SPEC in \
             "general|cap_smallunder,sh_avgvol_o100,sh_price_u20,sh_relvol_o0.5" \
-            "nano_low_float|cap_smallunder,sh_avgvol_o100,sh_price_u10,sh_float_u20"; do
+            "nano_low_float|cap_smallunder,sh_avgvol_o100,sh_price_u10,sh_float_u20" \
+            "abnormal_volume|cap_smallunder,sh_price_u20,sh_relvol_o3" \
+            "penny_anomaly|cap_smallunder,sh_price_u5,sh_relvol_o2"; do
             NAME="${SPEC%%|*}"; FILTERS="${SPEC#*|}"
             URL="https://elite.finviz.com/export.ashx?v=141&f=${FILTERS}&auth=${FINVIZ_TOKEN}"
             curl --fail --silent --show-error --location --retry 3 --retry-delay 2 --retry-all-errors "$URL" -o "/tmp/tagx-${NAME}.csv"
             test -s "/tmp/tagx-${NAME}.csv" || exit 1
           done
 
-      - name: Build fast discovery trace with early-pattern score
+      - name: Build fast discovery trace with anomaly-first score
         if: steps.guard.outputs.active == 'true'
         run: |
           python - <<'PY'
@@ -72,7 +74,8 @@ jobs:
           same_day=str(old.get('sessionDateET') or '')==et.date().isoformat()
           prev={str(x.get('Ticker') or '').upper():x for x in (old.get('rows') or [])} if same_day else {}
           merged={}; lanes={}
-          for name in ('general','nano_low_float'):
+          lane_names=('general','nano_low_float','abnormal_volume','penny_anomaly')
+          for name in lane_names:
             with open(f'/tmp/tagx-{name}.csv',newline='',encoding='utf-8-sig') as f:
               for r in csv.DictReader(f):
                 t=str(r.get('Ticker') or r.get('Symbol') or '').strip().upper()
@@ -87,7 +90,8 @@ jobs:
           repaired_first_price=0
           for t,r in merged.items():
             oldr=prev.get(t,{})
-            r['Ticker']=t; r['_fastDiscoveryLanes']=lanes.get(t,[])
+            ls=lanes.get(t,[])
+            r['Ticker']=t; r['_fastDiscoveryLanes']=ls
             r['_snapshotTimestampUTC']=now.isoformat();r['_snapshotTimestampET']=et.isoformat()
             r['_firstFastObservedTimestampUTC']=oldr.get('_firstFastObservedTimestampUTC',now.isoformat())
             r['_firstFastObservedTimestampET']=oldr.get('_firstFastObservedTimestampET',et.isoformat())
@@ -96,47 +100,40 @@ jobs:
             r['_firstFastObservedPrice']=oldr.get('_firstFastObservedPrice',r.get('Price'))
 
             first_change=p(r.get('_firstFastObservedChange')); first_vol=p(r.get('_firstFastObservedVolume')); first_price=p(r.get('_firstFastObservedPrice'))
-            cur_change=p(r.get('Change')); cur_vol=p(r.get('Volume')); cur_price=p(r.get('Price'))
+            cur_change=p(r.get('Change')); cur_vol=p(r.get('Volume')); cur_price=p(r.get('Price')); relvol=p(r.get('Rel Volume') or r.get('Relative Volume'))
 
-            # Legacy repair: first-price was introduced after first-change/time existed for some
-            # same-day rows, so it could be seeded with a much later current price. When the stored
-            # first price is effectively the current price but the two change-vs-prev-close values
-            # materially differ, reconstruct the point-in-time first price from the common prior close.
             legacy_inconsistent=(first_price is not None and cur_price is not None and first_change is not None and cur_change is not None and abs(first_price-cur_price)/max(abs(cur_price),1e-9)<=0.002 and abs(cur_change-first_change)>=3 and (1+cur_change/100)>0 and (1+first_change/100)>0)
             if legacy_inconsistent:
               derived=cur_price*(1+first_change/100)/(1+cur_change/100)
               if derived>0:
-                first_price=derived
-                r['_firstFastObservedPrice']=round(derived,6)
-                r['_firstFastObservedPriceAuthority']='DERIVED_FROM_COMMON_PREV_CLOSE_LEGACY_REPAIR'
-                repaired_first_price+=1
-            else:
-              r['_firstFastObservedPriceAuthority']=oldr.get('_firstFastObservedPriceAuthority','OBSERVED_IMMUTABLE')
+                first_price=derived; r['_firstFastObservedPrice']=round(derived,6); r['_firstFastObservedPriceAuthority']='DERIVED_FROM_COMMON_PREV_CLOSE_LEGACY_REPAIR'; repaired_first_price+=1
+            else:r['_firstFastObservedPriceAuthority']=oldr.get('_firstFastObservedPriceAuthority','OBSERVED_IMMUTABLE')
 
             vol_exp=(cur_vol/first_vol) if first_vol and first_vol>0 and cur_vol is not None else None
             move_first=((cur_price-first_price)/first_price*100) if first_price and first_price>0 and cur_price is not None else None
             quiet=first_change is not None and abs(first_change)<=4
             participation=clamp(math.log10(1+vol_exp)*35) if vol_exp is not None and vol_exp>=0 else None
             displacement=clamp(max(0,move_first)*3.1) if move_first is not None else None
+            relative_volume_score=clamp(math.log10(1+max(0,relvol or 0))*42) if relvol is not None else None
             quiet_score=88 if quiet else (58 if first_change is not None and abs(first_change)<=8 else 25)
-            lane_score=85 if 'nano_low_float' in lanes.get(t,[]) else 60
-            parts=[(participation,.45),(displacement,.27),(quiet_score,.18),(lane_score,.10)]
+            anomaly_lane=('abnormal_volume' in ls or 'penny_anomaly' in ls)
+            lane_score=95 if anomaly_lane else (85 if 'nano_low_float' in ls else 60)
+            parts=[(participation,.28),(relative_volume_score,.27),(displacement,.20),(quiet_score,.13),(lane_score,.12)]
             valid=[(v,w) for v,w in parts if v is not None]
             pattern=sum(v*w for v,w in valid)/sum(w for _,w in valid) if valid else 0
-            price_holding=(move_first is None or (-2<=move_first<18))
-            current_holding=(cur_change is None or cur_change>-4)
-            latent=bool(quiet and vol_exp is not None and vol_exp>=4 and (cur_vol or 0)>=2500 and price_holding and current_holding)
+            price_holding=(move_first is None or (-3<=move_first<25)); current_holding=(cur_change is None or cur_change>-6)
+            latent=bool(current_holding and price_holding and ((quiet and vol_exp is not None and vol_exp>=4 and (cur_vol or 0)>=2500) or (anomaly_lane and relvol is not None and relvol>=3)))
             r['_volumeExpansionFromFirst']=round(vol_exp,2) if vol_exp is not None else None
             r['_moveFromFirstPct']=round(move_first,2) if move_first is not None else None
-            r['_quietBase']=quiet
-            r['_latentIgnition']=latent
-            r['_earlyPatternScore']=round(pattern,2)
-            r['_patternVersion']='quiet-base-participation-v1.2-first-price-integrity'
+            r['_relativeVolumeObserved']=round(relvol,2) if relvol is not None else None
+            r['_marketwideAnomaly']=anomaly_lane
+            r['_quietBase']=quiet; r['_latentIgnition']=latent; r['_earlyPatternScore']=round(pattern,2)
+            r['_patternVersion']='marketwide-anomaly-participation-v2'
             rows.append(r)
-          rows.sort(key=lambda x:(1 if x.get('_latentIgnition') else 0,p(x.get('_earlyPatternScore')) or 0,p(x.get('Change')) or -999),reverse=True)
-          payload={'schemaVersion':3,'source':'Finviz Elite TAGX lightweight proactive lane','sourceType':'FAST_PROACTIVE_DISCOVERY','sessionDateET':et.date().isoformat(),'updatedAt':now.isoformat(),'snapshotTimestampUTC':now.isoformat(),'snapshotTimestampET':et.isoformat(),'session':'pre-market' if et.hour<9 or (et.hour==9 and et.minute<30) else ('regular' if et.hour<16 else 'after-hours'),'count':len(rows),'trainingEligible':False,'groundTruthEligible':False,'purpose':'COLD_START_AND_CADENCE_CHALLENGER','rankingMethod':'QUIET_BASE_PARTICIPATION_ACCELERATION_V1_2_FIRST_PRICE_INTEGRITY','firstPriceIntegrity':{'legacyRowsRepaired':repaired_first_price,'policy':'FIRST_PRICE_IMMUTABLE; legacy inconsistency derived only from common previous-close identity'},'rows':rows}
+          rows.sort(key=lambda x:(1 if x.get('_latentIgnition') else 0,1 if x.get('_marketwideAnomaly') else 0,p(x.get('_earlyPatternScore')) or 0,p(x.get('Rel Volume') or x.get('Relative Volume')) or 0),reverse=True)
+          payload={'schemaVersion':4,'source':'Finviz Elite TAGX proactive + marketwide anomaly lanes','sourceType':'FAST_PROACTIVE_DISCOVERY','sessionDateET':et.date().isoformat(),'updatedAt':now.isoformat(),'snapshotTimestampUTC':now.isoformat(),'snapshotTimestampET':et.isoformat(),'session':'pre-market' if et.hour<9 or (et.hour==9 and et.minute<30) else ('regular' if et.hour<16 else 'after-hours'),'count':len(rows),'trainingEligible':False,'groundTruthEligible':False,'purpose':'COLD_START_MARKETWIDE_ANOMALY_AND_CADENCE_CHALLENGER','rankingMethod':'MARKETWIDE_ANOMALY_PARTICIPATION_V2','laneCounts':{name:sum(1 for r in rows if name in (r.get('_fastDiscoveryLanes') or [])) for name in lane_names},'firstPriceIntegrity':{'legacyRowsRepaired':repaired_first_price,'policy':'FIRST_PRICE_IMMUTABLE; legacy inconsistency derived only from common previous-close identity'},'rows':rows}
           out.parent.mkdir(parents=True,exist_ok=True);out.write_text(json.dumps(payload,ensure_ascii=False,indent=2))
-          print('fast discovery rows',len(rows),'latent ignition',sum(1 for r in rows if r.get('_latentIgnition')),'first price repaired',repaired_first_price)
+          print('fast discovery rows',len(rows),'latent',sum(1 for r in rows if r.get('_latentIgnition')),'marketwide anomalies',sum(1 for r in rows if r.get('_marketwideAnomaly')))
           PY
 
       - name: Commit fast discovery trace
@@ -146,6 +143,6 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add tag/data/discovery-fast.json
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Refresh TAGX fast discovery trace"
+          git commit -m "Refresh TAGX marketwide anomaly discovery trace"
           git pull --rebase origin main
           git push origin main
