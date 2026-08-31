@@ -69,9 +69,9 @@ jobs:
               ['updatedAtUTC','snapshotTimestampUTC','updatedAt']
           )
 
-          # Fail-open only for triggering recovery, never for trading decisions.
-          # Discovery is refreshed at >=4m; live quotes at >=7m. Direct live dispatch
-          # removes dependence on a successful upstream workflow_run chain.
+          # Recovery trigger only; downstream trading decisions remain fail-closed.
+          # Push/dispatch/schedule all execute the same freshness guard so this workflow
+          # can self-heal a stale live publisher without fabricating timestamps or freshness.
           dispatch_discovery=in_session and discovery_age >= 4.0
           dispatch_live=in_session and live_age >= 7.0
 
