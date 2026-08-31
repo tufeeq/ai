@@ -1,0 +1,126 @@
+name: TAGX Extended Sessions v3
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 8-23 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagx-extended-sessions-v3
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Build current premarket/after-hours observations
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime, urllib.request, urllib.parse, time, concurrent.futures
+          from zoneinfo import ZoneInfo
+
+          now_utc=datetime.datetime.now(datetime.timezone.utc)
+          now_et=now_utc.astimezone(ZoneInfo('America/New_York'))
+          if now_et.weekday()>=5:
+              raise SystemExit('Weekend')
+          if datetime.time(4,0)<=now_et.time()<datetime.time(9,30): session='pre-market'
+          elif datetime.time(16,0)<=now_et.time()<=datetime.time(20,0): session='after-hours'
+          else:
+              raise SystemExit('Outside extended-hours session')
+
+          discovery_path=pathlib.Path('tag/data/discovery.json')
+          if not discovery_path.exists(): raise SystemExit('discovery.json unavailable')
+          discovery=json.loads(discovery_path.read_text(encoding='utf-8'))
+          rows=discovery.get('rows') or []
+          def num(v):
+              try:return float(str(v or '').replace('%','').replace(',','').replace('$',''))
+              except:return 0.0
+          rows=sorted(rows,key=lambda r:(num(r.get('Rel Volume')),abs(num(r.get('Change')))),reverse=True)
+          symbols=[]
+          for r in rows:
+              s=str(r.get('Ticker') or r.get('symbol') or '').upper().strip()
+              if s and s not in symbols: symbols.append(s)
+              if len(symbols)>=180: break
+          old_path=pathlib.Path('tag/data/extended-hours.json')
+          try:
+              old=json.loads(old_path.read_text(encoding='utf-8')) if old_path.exists() else {}
+              for s in (old.get('rows') or {}).keys():
+                  if s not in symbols: symbols.append(s)
+                  if len(symbols)>=240: break
+          except Exception: pass
+
+          tz=ZoneInfo('America/New_York')
+          def fetch_one(symbol):
+              safe=urllib.parse.quote(symbol,safe='')
+              url=f'https://query1.finance.yahoo.com/v8/finance/chart/{safe}?interval=1m&range=1d&includePrePost=true&events=div%2Csplits'
+              req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 TAGX3 extended-session research'})
+              data=None
+              for attempt in range(3):
+                  try:
+                      with urllib.request.urlopen(req,timeout=9) as r: data=json.loads(r.read().decode('utf-8'));break
+                  except Exception:
+                      if attempt==2:return None
+                      time.sleep(0.5*(attempt+1))
+              result=((data or {}).get('chart') or {}).get('result') or []
+              if not result:return None
+              c=result[0];ts=c.get('timestamp') or [];q=(((c.get('indicators') or {}).get('quote') or [{}])[0]);cl=q.get('close') or [];vol=q.get('volume') or []
+              pts=[]
+              for i,t in enumerate(ts):
+                  if i>=len(cl) or cl[i] is None:continue
+                  dt=datetime.datetime.fromtimestamp(t,datetime.timezone.utc).astimezone(tz)
+                  pts.append((dt,float(cl[i]),vol[i] if i<len(vol) and vol[i] is not None else 0))
+              if not pts:return None
+              rth=[p for p in pts if datetime.time(9,30)<=p[0].time()<datetime.time(16,0)]
+              ext=[p for p in pts if (datetime.time(4,0)<=p[0].time()<datetime.time(9,30))] if session=='pre-market' else [p for p in pts if datetime.time(16,0)<=p[0].time()<=datetime.time(20,0)]
+              if not ext:return None
+              last=ext[-1];meta=c.get('meta') or {};prev=meta.get('chartPreviousClose') or meta.get('previousClose')
+              rth_close=rth[-1][1] if rth else prev
+              base=prev if session=='pre-market' else rth_close
+              if not base:return None
+              change=(last[1]/float(base)-1)*100
+              def velocity(minutes):
+                  target=last[0]-datetime.timedelta(minutes=minutes)
+                  before=[p for p in ext if p[0]<=target]
+                  if not before:return None
+                  p=before[-1][1]
+                  return (last[1]/p-1)*100 if p else None
+              return {'ticker':symbol,'session':session,'last':round(last[1],6),'timestampUTC':last[0].astimezone(datetime.timezone.utc).isoformat(),'rthClose':rth_close,'sessionBase':base,'previousClose':prev,'sessionChangePct':round(change,3),'changeVsPreviousClosePct':round((last[1]/float(prev)-1)*100,3) if prev else None,'priceVelocity5mPct':None if velocity(5) is None else round(velocity(5),3),'priceVelocity15mPct':None if velocity(15) is None else round(velocity(15),3),'extendedVolume':int(sum(p[2] or 0 for p in ext)),'source':'Yahoo Finance chart includePrePost=true'}
+
+          found={}
+          with concurrent.futures.ThreadPoolExecutor(max_workers=12) as ex:
+              futs={ex.submit(fetch_one,s):s for s in symbols}
+              for fut in concurrent.futures.as_completed(futs):
+                  try:
+                      x=fut.result()
+                      if x: found[x['ticker']]=x
+                  except Exception: pass
+          minimum=max(5,min(25,len(symbols)//12))
+          if len(found)<minimum: raise SystemExit(f'Extended feed coverage too low: {len(found)}/{len(symbols)}; preserve previous file')
+          payload={'schemaVersion':8,'updatedAtUTC':now_utc.isoformat(),'updatedAtET':now_et.isoformat(),'session':session,'source':'Yahoo Finance chart includePrePost=true candidate universe','scannerMode':'EXTENDED_SESSION_CONTINUOUS','dataConfidence':'HIGH' if len(found)>=50 else 'MEDIUM','candidateCount':len(symbols),'count':len(found),'rows':dict(sorted(found.items()))}
+          tmp=old_path.with_suffix('.tmp')
+          tmp.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8')
+          tmp.replace(old_path)
+          print(json.dumps({'session':session,'candidates':len(symbols),'observations':len(found),'updatedAtUTC':payload['updatedAtUTC']}))
+          PY
+
+      - name: Commit extended-session feed
+        run: |
+          git config user.name "TAGX Extended Sessions Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/extended-hours.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Refresh TAGX extended-session observations"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((i*5))
+          done
+          exit 1
