@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>TAGit — Early-Move Intelligence</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><div class="logo">TAGit</div><div class="tagline">Early-Move Intelligence</div></div>
+    <div class="status"><span id="modePill" class="pill demo"><span class="dot"></span><span id="modeText">DEMO DATA</span></span><span class="pill">Session: <b id="sessionText">—</b></span><span class="pill">As of: <b id="asOfText">—</b></span></div>
+  </header>
+
+  <section class="hero">
+    <h1>ما الذي يستحق الانتباه الآن؟</h1>
+    <p>TAGit يرتب الأسهم بحسب <b>قابلية التحرك المبكر</b> لا بحسب نسبة الارتفاع فقط. كل إشارة يجب أن تشرح لماذا ظهرت الآن، وما الذي يؤكدها، وما الذي يبطلها.</p>
+    <div class="controls" id="filters">
+      <button class="btn active" data-filter="ALL">الكل</button>
+      <button class="btn" data-filter="EMERGING">Emerging</button>
+      <button class="btn" data-filter="CONFIRMED">Confirmed</button>
+      <button class="btn" data-filter="RADAR">Radar</button>
+      <button class="btn" data-filter="EXTENDED">Extended</button>
+    </div>
+    <div class="feedbox">
+      <input id="feedUrl" type="url" placeholder="https://your-feed.example/api/scan">
+      <button id="connectBtn" class="btn primary">ربط مصدر حي</button>
+      <button id="demoBtn" class="btn">إعادة بيانات العرض</button>
+    </div>
+  </section>
+
+  <section class="metrics">
+    <div class="metric"><strong id="metricCandidates">0</strong><span>فرص قابلة للمراقبة</span></div>
+    <div class="metric"><strong id="metricConfirmed">0</strong><span>Confirmed</span></div>
+    <div class="metric"><strong id="metricEarly">0</strong><span>Early / Emerging</span></div>
+    <div class="metric"><strong id="metricRisk">0</strong><span>Extended / High risk</span></div>
+  </section>
+
+  <main class="grid">
+    <section class="panel">
+      <div class="panel-head"><div><div class="panel-title">Opportunity Radar</div><div class="panel-sub">مرتبة بحسب Actionability وليس الحركة الخام</div></div><button id="refreshBtn" class="btn">تحديث</button></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>السهم</th><th>المرحلة</th><th>TAGit</th><th>Action</th><th>السعر</th><th>الحركة</th><th>RVOL</th><th>لماذا الآن؟</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+    </section>
+    <aside class="panel">
+      <div class="panel-head"><div><div class="panel-title">Decision Card</div><div class="panel-sub">تفاصيل الإشارة المختارة</div></div></div>
+      <div id="detail" class="detail empty">اختر سهمًا من الرادار لعرض الأدلة والمخاطر وشروط التأكيد.</div>
+    </aside>
+  </main>
+
+  <div class="footer">TAGit أداة بحث ودعم قرار وليست توصية استثمارية. وضع DEMO لا يمثل أسعارًا حقيقية أو آنية.</div>
+</div>
+<script>window.TAGIT_FEED_URL=window.TAGIT_FEED_URL||'';</script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
