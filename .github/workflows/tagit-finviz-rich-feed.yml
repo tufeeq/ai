@@ -25,6 +25,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Sync main
         run: git pull --rebase origin main
       - name: Fetch Finviz Elite rich data within documented cadence
@@ -53,6 +56,10 @@ jobs:
           node --check tagit/core.js
           node --check tagit/build-signal-feed.mjs
           node tagit/build-signal-feed.mjs tag/data/finviz-rich.json tag/data/tagit-signal-feed.json
+      - name: Append derived shadow-learning features
+        run: |
+          python -m py_compile tagit/build-shadow-learning-ledger.py
+          python tagit/build-shadow-learning-ledger.py
       - name: Commit derived outputs only
         run: |
           if git ls-files --error-unmatch tag/data/finviz-rich.json >/dev/null 2>&1; then
@@ -62,9 +69,9 @@ jobs:
           fi
           git config user.name tagit-data-bot
           git config user.email actions@users.noreply.github.com
-          git add tag/data/tagit-signal-feed.json tag/data/finviz-rich-health.json tag/data/tagit-data-contract.json
+          git add tag/data/tagit-signal-feed.json tag/data/finviz-rich-health.json tag/data/tagit-data-contract.json tag/data/tagit-shadow-learning-ledger.json
           git diff --cached --quiet && exit 0
-          git commit -m 'data: refresh derived TAGit Elite signals and contract'
+          git commit -m 'data: refresh derived TAGit Elite signals contract and shadow ledger'
           for i in 1 2 3; do
             git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
             sleep $((i*6))
