@@ -1,46 +1,12 @@
 export const clamp=(n,min=0,max=100)=>Math.max(min,Math.min(max,n));
-const pct=(v,d=0)=>Number.isFinite(+v)?+v:d;
-const norm=(v,max)=>clamp((pct(v)/max)*100);
-
-export function scoreSymbol(s){
-  const quality=clamp(pct(s.dataQuality,0.75)*100);
-  const catalyst=clamp(pct(s.catalystStrength)*100);
-  const liquidity=clamp(norm(s.rvol,10)*0.45+norm(s.volumeAcceleration,12)*0.55);
-  const momentum=clamp(norm(Math.max(0,s.priceAcceleration||0),10)*0.45+clamp(pct(s.breakoutQuality)*100)*0.35+clamp((pct(s.vwapPosition)+1)*50)*0.2);
-  const structure=clamp(100-(norm(s.floatM,40)*0.45+norm(s.spreadPct,8)*0.25+pct(s.dilutionRisk)*100*0.3));
-  const risk=clamp(pct(s.dilutionRisk)*45+pct(s.haltRisk)*25+norm(s.spreadPct,10)*30);
-  const freshnessMin=pct(s.catalystFreshnessMin,999);
-  const freshness=freshnessMin<=30?100:freshnessMin<=90?80:freshnessMin<=240?55:freshnessMin<=720?30:10;
-  const raw=catalyst*.22+liquidity*.23+momentum*.22+structure*.14+freshness*.09+quality*.10;
-  const extensionPenalty=Math.max(0,(pct(s.changePct)-55)*0.25)+Math.max(0,(pct(s.rvol)-18)*0.35);
-  const riskPenalty=risk*.12;
-  const qualityPenalty=(100-quality)*.18;
-  const score=clamp(raw-extensionPenalty-riskPenalty-qualityPenalty);
-  const actionability=clamp(score-(Math.max(0,pct(s.changePct)-30)*.5)-risk*.18+(freshness>=80?6:0));
-  return {score:Math.round(score),actionability:Math.round(actionability),components:{catalyst:Math.round(catalyst),liquidity:Math.round(liquidity),momentum:Math.round(momentum),structure:Math.round(structure),freshness:Math.round(freshness),quality:Math.round(quality),risk:Math.round(risk)}};
-}
-
-export function deriveStage(s, scored){
-  const ch=pct(s.changePct), va=pct(s.volumeAcceleration), bq=pct(s.breakoutQuality), vw=pct(s.vwapPosition);
-  if(s.invalidated||((ch<0)&&(vw<0)&&(va<1))) return 'FAILED';
-  if(ch>=65||scored.actionability<45&&scored.score>=65) return 'EXTENDED';
-  if(scored.score>=75&&bq>=.6&&vw>=0&&va>=2.5) return 'CONFIRMED';
-  if(scored.score>=58&&va>=1.5) return 'EMERGING';
-  return 'RADAR';
-}
-
-export function summarize(s,scored,stage){
-  const c=scored.components;
-  const wins=[];
-  if(c.catalyst>=70) wins.push('محفز قوي');
-  if(c.liquidity>=70) wins.push('تسارع سيولة');
-  if(c.momentum>=65) wins.push('تأكيد سعري');
-  if(c.structure>=70) wins.push('بنية سهم مناسبة');
-  if(c.risk>=55) wins.push('مخاطر مرتفعة');
-  if(stage==='EXTENDED') wins.unshift('الحركة متقدمة');
-  return wins.slice(0,3).join(' • ')||'إشارة أولية تحتاج تأكيد';
-}
-
-export function enrich(symbols=[]){
-  return symbols.map(s=>{const scored=scoreSymbol(s);const stage=deriveStage(s,scored);return {...s,...scored,stage,summary:summarize(s,scored,stage)}}).sort((a,b)=>b.actionability-a.actionability);
-}
+const n=(v,d=0)=>Number.isFinite(+v)?+v:d;
+const maybe=v=>(v===null||v===undefined||v==='')?null:(Number.isFinite(+v)?+v:null);
+const norm=(v,max)=>clamp((n(v)/max)*100);
+export function marketRegime(m={}){const spy=n(m.spyChangePct),qqq=n(m.qqqChangePct),iwm=n(m.iwmChangePct),vix=n(m.vixChangePct),breadth=n(m.breadthPct,50);const score=clamp(50+spy*7+qqq*5+iwm*8-vix*1.8+(breadth-50)*.35);const label=score>=67?'RISK_ON':score<=35?'RISK_OFF':'NEUTRAL';return{score:Math.round(score),label,penalty:label==='RISK_OFF'?12:label==='NEUTRAL'?4:0}}
+export function features(s){const floatM=maybe(s.floatM),volume=n(s.volume),explicit=maybe(s.floatRotation),floatRotation=explicit!==null?explicit:(floatM&&floatM>0?volume/(floatM*1e6):null);let quality=n(s.dataQuality,.72);if(floatRotation===null)quality=Math.max(0,quality-.08);return{floatM,volume,floatRotation,volumeAcceleration:n(s.volumeAcceleration),priceAcceleration:n(s.priceAcceleration),rvol:n(s.rvol),spread:n(s.spreadPct,4),breakout:n(s.breakoutQuality),catalyst:n(s.catalystStrength),catalystAge:n(s.catalystFreshnessMin,9999),quality,dilution:n(s.dilutionRisk,.25),halt:n(s.haltRisk,.08),change:n(s.changePct),vwap:n(s.vwapPosition),distance:n(s.distanceToBreakoutPct)}}
+export function derivePhase(s,f=features(s)){if(s.invalidated||(f.change<0&&f.vwap<0&&f.volumeAcceleration<1))return'FAILED';if(f.change>=55||(f.floatRotation!==null&&f.floatRotation>=3.2)||(f.rvol>=20&&f.change>=35))return'EXHAUSTION';if(f.change>=24&&f.breakout>=.72&&f.volumeAcceleration>=5)return'EXPANSION';if(f.breakout>=.66&&f.vwap>=0&&f.volumeAcceleration>=3)return'BREAKOUT';if(f.volumeAcceleration>=2.2&&f.priceAcceleration>=1.8&&f.rvol>=2.3)return'ACCELERATION';if((f.volumeAcceleration>=1.35&&f.rvol>=1.5)||(f.catalyst>=.72&&f.catalystAge<=90))return'IGNITION';return'ANOMALY'}
+const fresh=a=>a<=15?100:a<=45?92:a<=90?78:a<=240?56:a<=720?30:10;
+export function scoreSymbol(s,market={}){const f=features(s),regime=marketRegime(market),phase=derivePhase(s,f),catalyst=clamp(f.catalyst*100),accel=clamp(norm(f.volumeAcceleration,8)*.55+norm(Math.max(0,f.priceAcceleration),7)*.45),rotation=f.floatRotation===null?0:norm(f.floatRotation,1.5),participation=clamp(norm(f.rvol,10)*.7+rotation*.3),structure=clamp(f.breakout*45+clamp((f.vwap+1)*35)+Math.max(0,20-Math.abs(f.distance)*3)),liquidity=clamp(100-norm(f.spread,8)*.65+Math.min(35,norm(f.volume,4e6)*.35)),freshness=fresh(f.catalystAge),quality=clamp(f.quality*100),risk=clamp(f.dilution*42+f.halt*23+norm(f.spread,10)*20+Math.max(0,f.change-35)*.45),bonus={ANOMALY:1,IGNITION:10,ACCELERATION:13,BREAKOUT:7,EXPANSION:-4,EXHAUSTION:-18,FAILED:-30}[phase]||0,extension=Math.max(0,f.change-28)*.28+(f.floatRotation===null?0:Math.max(0,f.floatRotation-1.8)*6),raw=catalyst*.17+accel*.23+participation*.18+structure*.15+liquidity*.10+freshness*.08+quality*.09,score=clamp(raw+bonus-risk*.13-regime.penalty-extension),actionability=clamp(score-risk*.2-(phase==='EXPANSION'?8:0)-(phase==='EXHAUSTION'?22:0)+(['IGNITION','ACCELERATION'].includes(phase)?5:0));return{score:Math.round(score),actionability:Math.round(actionability),phase,regime,components:{catalyst:Math.round(catalyst),acceleration:Math.round(accel),participation:Math.round(participation),structure:Math.round(structure),liquidity:Math.round(liquidity),freshness:Math.round(freshness),quality:Math.round(quality),risk:Math.round(risk)},features:f}}
+export function analogEstimate(s,x){if(s.analogs&&Number.isFinite(+s.analogs.count))return{...s.analogs,source:'HISTORICAL'};const a=x.actionability,r=x.components.risk,b={IGNITION:5,ACCELERATION:9,BREAKOUT:7,ANOMALY:-5,EXPANSION:-3,EXHAUSTION:-14,FAILED:-30}[x.phase]||0;return{count:null,p5_30m:Math.round(clamp(28+a*.48+b-r*.1,3,88)),p10_1h:Math.round(clamp(12+a*.42+b-r*.14,2,78)),p20_day:Math.round(clamp(4+a*.28+b*.7-r*.16,1,58)),medianMFE:+clamp(3+a*.13+b*.08,1,30).toFixed(1),medianMAE:+clamp(2+r*.07+(x.phase==='EXHAUSTION'?5:0),1,18).toFixed(1),source:'MODELLED'}}
+export function riskGate(x){const r=x.components.risk,q=x.components.quality;if(x.phase==='FAILED')return{status:'REJECT',reason:'الإشارة فقدت بنيتها'};if(q<55)return{status:'REJECT',reason:'جودة البيانات غير كافية'};if(r>=72)return{status:'CAUTION',reason:'مخاطر التنفيذ/التخفيف مرتفعة'};if(x.phase==='EXHAUSTION')return{status:'CAUTION',reason:'الحركة متقدمة ومخاطر المطاردة مرتفعة'};if(x.actionability>=68&&['IGNITION','ACCELERATION','BREAKOUT'].includes(x.phase))return{status:'WATCH',reason:'إشارة مبكرة قابلة للمراقبة'};return{status:'OBSERVE',reason:'تحتاج تأكيدًا إضافيًا'}}
+export function enrich(symbols=[],market={}){return symbols.map(s=>{const x=scoreSymbol(s,market);return{...s,...x,analogs:analogEstimate(s,x),gate:riskGate(x)}}).sort((a,b)=>b.actionability-a.actionability)}
