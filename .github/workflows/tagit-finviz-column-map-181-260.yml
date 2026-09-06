@@ -1,0 +1,49 @@
+name: TAGit Finviz Quote Column Probe
+
+on:
+  push:
+    paths:
+      - '.github/workflows/tagit-finviz-column-map-181-260.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  map:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Probe columns 181-260
+        env:
+          FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
+        run: |
+          python - <<'PY'
+          import csv,io,json,os,time,urllib.request,datetime,pathlib
+          token=os.environ['FINVIZ_TOKEN'];base='https://elite.finviz.com/export.ashx?v=152&t=AAPL&ft=4&auth='+token
+          mapping={};errors=[]
+          for i in range(181,261):
+            try:
+              req=urllib.request.Request(base+f'&c=1,{i}',headers={'User-Agent':'Mozilla/5.0 TAGit/1.0'})
+              with urllib.request.urlopen(req,timeout=12) as r:text=r.read().decode('utf-8-sig','replace')
+              h=csv.DictReader(io.StringIO(text)).fieldnames or [];x=[z for z in h if z not in ('No.','Ticker')]
+              if x:mapping[str(i)]=x
+            except Exception as e:errors.append({'id':i,'error':type(e).__name__})
+            time.sleep(.15)
+          terms=['bid','ask','vwap','minute','premarket','pre-market','volume','quote','open','high','low','close']
+          matches={k:v for k,v in mapping.items() if any(t in ' '.join(v).lower() for t in terms)}
+          out={'generatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'mapping':mapping,'relevantMatches':matches,'errors':errors}
+          pathlib.Path('tag/data/finviz-column-map-181-260.json').write_text(json.dumps(out,indent=2,ensure_ascii=False)+'\n')
+          print(json.dumps({'mapped':len(mapping),'matches':matches,'errors':len(errors)},indent=2))
+          PY
+      - name: Commit map
+        run: |
+          git config user.name tagit-data-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/finviz-column-map-181-260.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: probe Finviz quote and intraday columns'
+          git pull --rebase origin main && git push origin HEAD:main
