@@ -1,0 +1,56 @@
+name: TAGit Finviz Column Map
+
+on:
+  push:
+    paths:
+      - '.github/workflows/tagit-finviz-column-map.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  map:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Discover Finviz custom columns
+        env:
+          FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
+        run: |
+          test -n "$FINVIZ_TOKEN" || exit 1
+          python - <<'PY'
+          import csv,io,json,os,time,urllib.request,datetime,pathlib
+          token=os.environ['FINVIZ_TOKEN']
+          base='https://elite.finviz.com/export.ashx?v=152&t=AAPL&ft=4&auth='+token
+          mapping={}; errors=[]
+          for i in range(1,121):
+              url=base+f'&c=1,{i}'
+              try:
+                  req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 TAGit/1.0','Accept':'text/csv,*/*'})
+                  with urllib.request.urlopen(req,timeout=15) as r:text=r.read().decode('utf-8-sig','replace')
+                  reader=csv.DictReader(io.StringIO(text)); headers=reader.fieldnames or []
+                  extras=[h for h in headers if h not in ('No.','Ticker')]
+                  if extras:mapping[str(i)]=extras
+              except Exception as e:
+                  errors.append({'id':i,'error':type(e).__name__})
+              time.sleep(.18)
+          desired=['Company','Sector','Industry','Country','Market Cap','Shares Outstanding','Shares Float','Short Float','Short Ratio','Short Interest','Average Volume','Relative Volume','ATR (14)','RSI (14)','Gap','SMA20','SMA50','SMA200','Volatility (Week)','Volatility (Month)','Performance (Week)','Performance (Month)','Performance (Quarter)','Performance (Half Year)','Performance (Year)','Earnings Date','Insider Ownership','Insider Transactions','Institutional Ownership','Institutional Transactions','Price','Change','Volume']
+          reverse={}
+          for cid,names in mapping.items():
+              for n in names: reverse.setdefault(n,[]).append(int(cid))
+          report={'generatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'probeTicker':'AAPL','range':'1-120','mapping':mapping,'reverse':reverse,'desiredCoverage':{d:reverse.get(d,[]) for d in desired},'errors':errors,'status':'PASS' if len(mapping)>=50 else 'DEGRADED'}
+          pathlib.Path('tag/data/finviz-column-map.json').write_text(json.dumps(report,indent=2,ensure_ascii=False)+'\n')
+          print(json.dumps({'mappedIds':len(mapping),'desiredCoverage':report['desiredCoverage'],'errors':len(errors)},indent=2))
+          PY
+      - name: Commit map
+        run: |
+          git config user.name tagit-data-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/finviz-column-map.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: map Finviz Elite custom columns'
+          git pull --rebase origin main
+          git push origin HEAD:main
