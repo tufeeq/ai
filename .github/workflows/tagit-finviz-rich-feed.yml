@@ -52,6 +52,11 @@ jobs:
             -o /tmp/tagit-rich/benchmarks.csv
       - name: Normalize provider data
         run: python tagit/finviz_provider.py
+      - name: Validate and derive shadow catalyst intelligence
+        run: |
+          python -m py_compile tagit/catalyst_intelligence.py tagit/attach-catalyst-derived.py
+          python tagit/catalyst_intelligence.py --self-test
+          python tagit/catalyst_intelligence.py
       - name: Audit provider data contract
         run: python tagit/audit_provider.py
       - name: Score v2.5 shadow model without blocking champion feed
@@ -85,6 +90,8 @@ jobs:
         run: |
           python -m py_compile tagit/build-shadow-learning-ledger.py
           python tagit/build-shadow-learning-ledger.py
+      - name: Attach catalyst shadow features to derived outputs
+        run: python tagit/attach-catalyst-derived.py
       - name: Commit derived outputs only
         run: |
           if git ls-files --error-unmatch tag/data/finviz-rich.json >/dev/null 2>&1; then
@@ -96,7 +103,7 @@ jobs:
           git config user.email actions@users.noreply.github.com
           git add tag/data/tagit-signal-feed.json tag/data/finviz-rich-health.json tag/data/tagit-data-contract.json tag/data/tagit-shadow-learning-ledger.json tag/data/tagit-v25-shadow.json
           git diff --cached --quiet && exit 0
-          git commit -m 'data: refresh TAGit Elite signals and v2.5 shadow output'
+          git commit -m 'data: refresh TAGit signals with catalyst shadow features'
           for i in 1 2 3; do
             git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
             sleep $((i*6))
