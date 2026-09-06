@@ -1,0 +1,44 @@
+name: TAGit 2.3 CI
+
+on:
+  push:
+    paths:
+      - 'tagit/core.js'
+      - 'tagit/app-v3.js'
+      - 'tagit/build-signal-feed.mjs'
+      - 'tagit/finviz_provider.py'
+      - 'tagit/index.html'
+      - 'tagit/state-v3.css'
+      - '.github/workflows/tagit-v23-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax and provider checks
+        run: |
+          node --check tagit/core.js
+          node --check tagit/app-v3.js
+          node --check tagit/build-signal-feed.mjs
+          python -m py_compile tagit/finviz_provider.py
+      - name: Derived feed contract
+        run: |
+          python - <<'PY'
+          import json,pathlib
+          p=pathlib.Path('tag/data/tagit-signal-feed.json')
+          if not p.exists():
+              print('Signal feed not yet generated; syntax checks passed')
+              raise SystemExit(0)
+          d=json.loads(p.read_text())
+          assert d.get('dataContract',{}).get('rawEliteRowsPublished') is False
+          assert d.get('dataContract',{}).get('nullPolicy')=='UNKNOWN_NOT_ZERO'
+          for x in d.get('items',[]):
+              assert x.get('state') in {'WATCH','DISCOVER','OBSERVE','CAUTION','REJECT','BLOCKED','CLOSED'}
+              assert 'executionVerified' in x
+          print({'items':len(d.get('items',[])),'contract':'PASS'})
+          PY
