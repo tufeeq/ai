@@ -1,0 +1,35 @@
+name: TAGit Precursor Diagnostic Fast
+
+on:
+  push:
+    paths:
+      - 'tagit/precursor-diagnostic-fast.mjs'
+      - '.github/workflows/tagit-precursor-diagnostic-fast.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          sparse-checkout: |
+            tag/data/discovery-fast.json
+            tagit/precursor-diagnostic-fast.mjs
+      - uses: actions/setup-node@v4
+        with: {node-version: 22}
+      - run: node --check tagit/precursor-diagnostic-fast.mjs
+      - run: node tagit/precursor-diagnostic-fast.mjs
+      - name: Commit diagnostic
+        run: |
+          git config user.name tagit-research-bot
+          git config user.email actions@users.noreply.github.com
+          git add -f tag/data/tagit-precursor-diagnostic-fast.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: update fast TAGit precursor diagnostic'
+          git pull --rebase origin main && git push origin HEAD:main
