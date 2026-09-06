@@ -1,13 +1,19 @@
-name: Deploy TAGX + TAGit Pages
+name: Deploy Personal TAGit Pages
 
 on:
   push:
     branches: [main]
     paths:
-      - 'tagx/**'
-      - 'tagx2/**'
-      - 'tagit/**'
-      - 'tag/data/**'
+      - 'tagit/index.html'
+      - 'tagit/styles.css'
+      - 'tagit/state-v3.css'
+      - 'tagit/core.js'
+      - 'tagit/app-v4.js'
+      - 'tagit/auth.js'
+      - 'tagit/auth.css'
+      - 'tagit/ledger.js'
+      - 'tag/data/tagit-signal-feed.json'
+      - 'tag/data/finviz.json'
       - '.github/workflows/pages-tagx-deploy.yml'
   workflow_dispatch:
 
@@ -29,12 +35,46 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Build restricted personal site artifact
+        run: |
+          rm -rf _site
+          mkdir -p _site/tagit _site/tag/data
+          cp tagit/index.html tagit/styles.css tagit/state-v3.css tagit/core.js tagit/app-v4.js tagit/auth.js tagit/auth.css tagit/ledger.js _site/tagit/
+          python - <<'PY'
+          import json,pathlib
+          sig=json.loads(pathlib.Path('tag/data/tagit-signal-feed.json').read_text())
+          base=json.loads(pathlib.Path('tag/data/finviz.json').read_text())
+          def num(v):
+              if v in (None,'','-','N/A'):return None
+              try:return float(str(v).replace(',','').replace('$','').replace('%','').replace('x',''))
+              except:return None
+          def shares(v):
+              if v in (None,'','-','N/A'):return None
+              s=str(v).strip().upper().replace(',','');m=1
+              if s.endswith('K'):m=1e3;s=s[:-1]
+              elif s.endswith('M'):m=1e6;s=s[:-1]
+              elif s.endswith('B'):m=1e9;s=s[:-1]
+              try:return float(s)*m
+              except:return None
+          bm={str(r.get('Ticker') or r.get('Symbol') or '').upper():r for r in (base.get('rows') or base.get('data') or [])}
+          for x in sig.get('items') or []:
+              r=bm.get(str(x.get('symbol') or '').upper(),{})
+              price=num(r.get('Price'));vol=num(r.get('Volume'));fl=shares(r.get('Shares Float') or r.get('Float') or r.get('Shs Float'))
+              x['price']=price;x['changePct']=num(r.get('Change'));x['rvol']=num(r.get('Relative Volume') if r.get('Relative Volume') is not None else r.get('Rel Volume'));x['floatRotation']=(vol/fl if vol is not None and fl else None)
+          sig['publicationPolicy']='PERSONAL_RESTRICTED_ARTIFACT_DERIVED_VIEW_ONLY'
+          pathlib.Path('_site/tag/data/tagit-view.json').write_text(json.dumps(sig,ensure_ascii=False,separators=(',',':')))
+          PY
+          find _site -maxdepth 3 -type f -print
+          test ! -e _site/tag/data/finviz.json
+          test ! -e _site/tag/data/tagit-v25-shadow.json
+          test ! -e _site/tag/data/tagit-shadow-learning-ledger.json
+          test ! -e _site/tag/model/tagit-v25-production.joblib
       - name: Configure Pages
         uses: actions/configure-pages@v5
-      - name: Upload site artifact
+      - name: Upload restricted site artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: '_site'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
