@@ -7,8 +7,11 @@ on:
       - 'tagit/app-v3.js'
       - 'tagit/build-signal-feed.mjs'
       - 'tagit/finviz_provider.py'
+      - 'tagit/audit_provider.py'
       - 'tagit/index.html'
       - 'tagit/state-v3.css'
+      - 'tag/data/tagit-data-contract.json'
+      - 'tag/data/tagit-signal-feed.json'
       - '.github/workflows/tagit-v23-ci.yml'
   workflow_dispatch:
 
@@ -25,20 +28,28 @@ jobs:
           node --check tagit/core.js
           node --check tagit/app-v3.js
           node --check tagit/build-signal-feed.mjs
-          python -m py_compile tagit/finviz_provider.py
-      - name: Derived feed contract
+          python -m py_compile tagit/finviz_provider.py tagit/audit_provider.py
+      - name: Derived feed and provider contracts
         run: |
           python - <<'PY'
           import json,pathlib
-          p=pathlib.Path('tag/data/tagit-signal-feed.json')
-          if not p.exists():
-              print('Signal feed not yet generated; syntax checks passed')
-              raise SystemExit(0)
-          d=json.loads(p.read_text())
+          sf=pathlib.Path('tag/data/tagit-signal-feed.json')
+          dc=pathlib.Path('tag/data/tagit-data-contract.json')
+          assert sf.exists(), 'derived signal feed missing'
+          assert dc.exists(), 'provider data contract missing'
+          d=json.loads(sf.read_text())
+          c=json.loads(dc.read_text())
+          assert d.get('schemaVersion')==2
           assert d.get('dataContract',{}).get('rawEliteRowsPublished') is False
           assert d.get('dataContract',{}).get('nullPolicy')=='UNKNOWN_NOT_ZERO'
+          assert d.get('dataContract',{}).get('promotionFreshness')=='same trading day + same session + <=90 minutes'
+          assert c.get('discoveryContractStatus')=='PASS'
+          assert not c.get('requiredFailures')
+          assert c.get('execution',{}).get('bidAskSpread',{}).get('status')=='MISSING'
           for x in d.get('items',[]):
               assert x.get('state') in {'WATCH','DISCOVER','OBSERVE','CAUTION','REJECT','BLOCKED','CLOSED'}
               assert 'executionVerified' in x
-          print({'items':len(d.get('items',[])),'contract':'PASS'})
+              if x.get('executionVerified') is False:
+                  assert x.get('executionNote')
+          print({'items':len(d.get('items',[])),'providerContract':c.get('discoveryContractStatus'),'contract':'PASS'})
           PY
