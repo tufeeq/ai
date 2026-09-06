@@ -44,8 +44,10 @@ jobs:
           curl --fail --silent --show-error --location --retry 5 --retry-delay 6 --retry-all-errors \
             "https://elite.finviz.com/export.ashx?v=152&t=SPY,QQQ,IWM&c=${COLS}&auth=${FINVIZ_TOKEN}&ft=4" \
             -o /tmp/tagit-rich/benchmarks.csv
-      - name: Normalize provider data and validate contract
+      - name: Normalize provider data
         run: python tagit/finviz_provider.py
+      - name: Audit provider data contract
+        run: python tagit/audit_provider.py
       - name: Build derived TAGit signal feed
         run: |
           node --check tagit/core.js
@@ -60,9 +62,9 @@ jobs:
           fi
           git config user.name tagit-data-bot
           git config user.email actions@users.noreply.github.com
-          git add tag/data/tagit-signal-feed.json tag/data/finviz-rich-health.json
+          git add tag/data/tagit-signal-feed.json tag/data/finviz-rich-health.json tag/data/tagit-data-contract.json
           git diff --cached --quiet && exit 0
-          git commit -m 'data: refresh derived TAGit Elite signals'
+          git commit -m 'data: refresh derived TAGit Elite signals and contract'
           for i in 1 2 3; do
             git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
             sleep $((i*6))
