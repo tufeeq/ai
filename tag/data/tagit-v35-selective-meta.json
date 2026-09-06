@@ -1,0 +1,189 @@
+{
+  "schemaVersion": 1,
+  "method": "TAGIT_V35_SELECTIVE_CLEAN_EXPLOSION_META",
+  "generatedAtUTC": "2026-09-06T23:04:27.086676+00:00",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "labelPolicy": {
+    "positiveTraining": "MFE>=10 and MAE>=-4",
+    "negativeTraining": "MFE<5",
+    "ambiguous": "excluded from meta training / ABSTAIN",
+    "evaluationPrimary": "all MFE>=10 winners"
+  },
+  "coverage": {
+    "rows": 4466,
+    "train": 2857,
+    "calibration": 672,
+    "holdout": 937,
+    "trainGeneralPos": 156,
+    "trainCleanPos": 124,
+    "holdoutGeneralPos": 36,
+    "holdoutCleanPos": 30
+  },
+  "antiLeakage": [
+    "inherits v3.4 fully-closed-bar ground truth contract",
+    "meta models train only on prior dates",
+    "ambiguous outcomes excluded only from training, never hidden in evaluation",
+    "thresholds selected on Aug25-26 only"
+  ],
+  "selectedConfig": {
+    "topK": 10,
+    "minMeta": 0.65,
+    "maxDisagreement": 0.4,
+    "minVotes": 1
+  },
+  "calibration": {
+    "count": 167,
+    "tp10": 14,
+    "precision10Pct": 8.38,
+    "recall10Pct": 45.16,
+    "cleanTP": 10,
+    "cleanPrecisionPct": 5.99,
+    "cleanRecallPct": 38.46,
+    "tickerDays": 90
+  },
+  "holdout": {
+    "count": 233,
+    "tp10": 19,
+    "precision10Pct": 8.15,
+    "recall10Pct": 52.78,
+    "cleanTP": 16,
+    "cleanPrecisionPct": 6.87,
+    "cleanRecallPct": 53.33,
+    "tickerDays": 177
+  },
+  "holdoutFrontier": [
+    {
+      "topK": 1,
+      "holdout": {
+        "count": 34,
+        "tp10": 2,
+        "precision10Pct": 5.88,
+        "recall10Pct": 5.56,
+        "cleanTP": 1,
+        "cleanPrecisionPct": 2.94,
+        "cleanRecallPct": 3.33,
+        "tickerDays": 34
+      }
+    },
+    {
+      "topK": 2,
+      "holdout": {
+        "count": 66,
+        "tp10": 5,
+        "precision10Pct": 7.58,
+        "recall10Pct": 13.89,
+        "cleanTP": 4,
+        "cleanPrecisionPct": 6.06,
+        "cleanRecallPct": 13.33,
+        "tickerDays": 60
+      }
+    },
+    {
+      "topK": 3,
+      "holdout": {
+        "count": 91,
+        "tp10": 6,
+        "precision10Pct": 6.59,
+        "recall10Pct": 16.67,
+        "cleanTP": 4,
+        "cleanPrecisionPct": 4.4,
+        "cleanRecallPct": 13.33,
+        "tickerDays": 81
+      }
+    },
+    {
+      "topK": 5,
+      "holdout": {
+        "count": 134,
+        "tp10": 13,
+        "precision10Pct": 9.7,
+        "recall10Pct": 36.11,
+        "cleanTP": 10,
+        "cleanPrecisionPct": 7.46,
+        "cleanRecallPct": 33.33,
+        "tickerDays": 112
+      }
+    },
+    {
+      "topK": 10,
+      "holdout": {
+        "count": 184,
+        "tp10": 13,
+        "precision10Pct": 7.07,
+        "recall10Pct": 36.11,
+        "cleanTP": 10,
+        "cleanPrecisionPct": 5.43,
+        "cleanRecallPct": 33.33,
+        "tickerDays": 145
+      }
+    }
+  ],
+  "holdoutBySession": {
+    "pre": {
+      "universe": {
+        "count": 156,
+        "tp10": 14,
+        "precision10Pct": 8.97,
+        "recall10Pct": 100.0,
+        "cleanTP": 11,
+        "cleanPrecisionPct": 7.05,
+        "cleanRecallPct": 100.0,
+        "tickerDays": 138
+      },
+      "alert": {
+        "count": 50,
+        "tp10": 9,
+        "precision10Pct": 18.0,
+        "recall10Pct": 64.29,
+        "cleanTP": 7,
+        "cleanPrecisionPct": 14.0,
+        "cleanRecallPct": 63.64,
+        "tickerDays": 49
+      }
+    },
+    "regular": {
+      "universe": {
+        "count": 598,
+        "tp10": 18,
+        "precision10Pct": 3.01,
+        "recall10Pct": 100.0,
+        "cleanTP": 16,
+        "cleanPrecisionPct": 2.68,
+        "cleanRecallPct": 100.0,
+        "tickerDays": 464
+      },
+      "alert": {
+        "count": 135,
+        "tp10": 8,
+        "precision10Pct": 5.93,
+        "recall10Pct": 44.44,
+        "cleanTP": 8,
+        "cleanPrecisionPct": 5.93,
+        "cleanRecallPct": 50.0,
+        "tickerDays": 122
+      }
+    },
+    "after": {
+      "universe": {
+        "count": 183,
+        "tp10": 4,
+        "precision10Pct": 2.19,
+        "recall10Pct": 100.0,
+        "cleanTP": 3,
+        "cleanPrecisionPct": 1.64,
+        "cleanRecallPct": 100.0,
+        "tickerDays": 145
+      },
+      "alert": {
+        "count": 48,
+        "tp10": 2,
+        "precision10Pct": 4.17,
+        "recall10Pct": 50.0,
+        "cleanTP": 1,
+        "cleanPrecisionPct": 2.08,
+        "cleanRecallPct": 33.33,
+        "tickerDays": 35
+      }
+    }
+  }
+}
