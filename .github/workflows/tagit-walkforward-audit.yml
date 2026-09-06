@@ -1,0 +1,109 @@
+name: TAGit Walk-Forward Audit
+
+on:
+  push:
+    paths:
+      - '.github/workflows/tagit-walkforward-audit.yml'
+      - 'tag/data/emergence-signal-ledger.json'
+      - 'tag/data/discovery-ledger.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run point-in-time audit
+        shell: python
+        run: |
+          import json, math, statistics, pathlib
+          from datetime import datetime
+
+          root = pathlib.Path('.')
+          sig = json.loads((root/'tag/data/emergence-signal-ledger.json').read_text())
+          disc = json.loads((root/'tag/data/discovery-ledger.json').read_text())
+          ds = disc.get('tickers', {})
+          rows=[]
+          for ticker, rec in sig.get('tickers', {}).items():
+              fs=rec.get('firstSignal') or {}
+              if not (fs.get('pointInTime') is True and fs.get('lookAheadUsed') is False):
+                  continue
+              p0=fs.get('price')
+              t0=fs.get('timestampET') or fs.get('timestampUTC')
+              try: p0=float(p0)
+              except: continue
+              if not p0 or p0<=0: continue
+              obs=[]
+              for o in rec.get('observations', []):
+                  if o.get('pointInTime') is not True or o.get('lookAheadUsed') is not False: continue
+                  try: p=float(o.get('price'))
+                  except: continue
+                  ts=o.get('timestampET') or o.get('timestampUTC')
+                  if p>0 and ts and t0 and ts>t0: obs.append((ts,p))
+              obs.sort()
+              fwd=[(p/p0-1)*100 for _,p in obs]
+              d=ds.get(ticker) or {}
+              end_ret=None
+              if d.get('lastPrice') is not None and d.get('lastSeenET') and t0 and d.get('lastSeenET')>t0:
+                  try: end_ret=(float(d['lastPrice'])/p0-1)*100
+                  except: pass
+              rows.append({
+                  'ticker':ticker,'signalTime':t0,'signalPrice':p0,
+                  'signalChangePct':fs.get('changePct'),'ERS':fs.get('earlyRegimeShiftScore'),
+                  'ignition':fs.get('ignitionScore'),'confidence':fs.get('dataConfidence'),
+                  'laterSignalObservations':len(obs),
+                  'mfeObservedPct': max(fwd) if fwd else None,
+                  'maeObservedPct': min(fwd) if fwd else None,
+                  'lastObservedPct': fwd[-1] if fwd else None,
+                  'endLedgerReturnPct': end_ret,
+              })
+
+          def med(xs):
+              xs=[x for x in xs if x is not None and math.isfinite(x)]
+              return round(statistics.median(xs),2) if xs else None
+          def mean(xs):
+              xs=[x for x in xs if x is not None and math.isfinite(x)]
+              return round(statistics.mean(xs),2) if xs else None
+          def rate(xs,threshold):
+              xs=[x for x in xs if x is not None and math.isfinite(x)]
+              return round(sum(x>=threshold for x in xs)/len(xs)*100,1) if xs else None
+          def neg_rate(xs):
+              xs=[x for x in xs if x is not None and math.isfinite(x)]
+              return round(sum(x<0 for x in xs)/len(xs)*100,1) if xs else None
+          mfe=[r['mfeObservedPct'] for r in rows if r['mfeObservedPct'] is not None]
+          mae=[r['maeObservedPct'] for r in rows if r['maeObservedPct'] is not None]
+          end=[r['endLedgerReturnPct'] for r in rows if r['endLedgerReturnPct'] is not None]
+          early=[r for r in rows if abs(float(r.get('signalChangePct') or 0))<10]
+          high=[r for r in rows if float(r.get('ERS') or 0)>=80 and float(r.get('ignition') or 0)>=80]
+          def segment(rs):
+              e=[r['endLedgerReturnPct'] for r in rs if r['endLedgerReturnPct'] is not None]
+              m=[r['mfeObservedPct'] for r in rs if r['mfeObservedPct'] is not None]
+              return {'signals':len(rs),'endOutcomes':len(e),'medianEndReturnPct':med(e),'meanEndReturnPct':mean(e),'endPositiveRatePct':round(sum(x>0 for x in e)/len(e)*100,1) if e else None,'observedMFEOutcomes':len(m),'hit5ObservedPct':rate(m,5),'hit10ObservedPct':rate(m,10),'hit20ObservedPct':rate(m,20)}
+          report={
+              'schemaVersion':1,
+              'method':'POINT_IN_TIME_WALK_FORWARD_AUDIT',
+              'sessionDateET':sig.get('sessionDateET'),
+              'rules':{'pointInTimeRequired':True,'lookAheadUsedRequired':False,'oneEventPerTicker':'firstSignal','MFE_MAE':'only later timestamped emergence observations','endReturn':'discovery-ledger lastPrice only when later than signal'},
+              'coverage':{'eligibleUniqueSignals':len(rows),'signalsWithLaterEmergenceObservation':len(mfe),'signalsWithLaterEndLedgerPrice':len(end)},
+              'metrics':{'observedHit5Pct':rate(mfe,5),'observedHit10Pct':rate(mfe,10),'observedHit20Pct':rate(mfe,20),'medianObservedMFEPct':med(mfe),'medianObservedMAEPct':med(mae),'medianEndLedgerReturnPct':med(end),'meanEndLedgerReturnPct':mean(end),'endPositiveRatePct':round(sum(x>0 for x in end)/len(end)*100,1) if end else None,'endNegativeRatePct':neg_rate(end)},
+              'segments':{'early_under_10pct_at_signal':segment(early),'high_ERS80_ignition80':segment(high)},
+              'rows':rows,
+              'limitations':['Single historical session in the current point-in-time ledger.','MFE/MAE are computed only from later timestamped emergence observations; end-ledger prices do not prove intraday peaks/troughs.','Discovery ledger maxChangePct is intentionally not used because its semantics are not a verified forward-price maximum.','No transaction costs, spread or slippage are included.']
+          }
+          out=root/'tag/data/tagit-walkforward-audit.json'
+          out.write_text(json.dumps(report,indent=2,ensure_ascii=False)+'\n')
+          print(json.dumps({k:report[k] for k in ('coverage','metrics','segments')},indent=2))
+      - name: Commit report
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add tag/data/tagit-walkforward-audit.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'Update TAGit walk-forward audit'
+          git push
