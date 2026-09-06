@@ -1,13 +1,59 @@
 export const clamp=(n,min=0,max=100)=>Math.max(min,Math.min(max,n));
-const n=(v,d=0)=>Number.isFinite(+v)?+v:d;
+const n=(v,d=0)=>(v===null||v===undefined||v===''||!Number.isFinite(+v))?d:+v;
 const maybe=v=>(v===null||v===undefined||v==='')?null:(Number.isFinite(+v)?+v:null);
 const norm=(v,max)=>clamp((n(v)/max)*100);
-export function marketRegime(m={}){const spy=n(m.spyChangePct),qqq=n(m.qqqChangePct),iwm=n(m.iwmChangePct),vix=n(m.vixChangePct),breadth=n(m.breadthPct,50);const score=clamp(50+spy*7+qqq*5+iwm*8-vix*1.8+(breadth-50)*.35);const label=score>=67?'RISK_ON':score<=35?'RISK_OFF':'NEUTRAL';return{score:Math.round(score),label,penalty:label==='RISK_OFF'?12:label==='NEUTRAL'?4:0}}
-export function features(s){const floatM=maybe(s.floatM),volume=n(s.volume),explicit=maybe(s.floatRotation),floatRotation=explicit!==null?explicit:(floatM&&floatM>0?volume/(floatM*1e6):null);let quality=n(s.dataQuality,.72);if(floatRotation===null)quality=Math.max(0,quality-.08);return{floatM,volume,floatRotation,volumeAcceleration:n(s.volumeAcceleration),priceAcceleration:n(s.priceAcceleration),rvol:n(s.rvol),spread:n(s.spreadPct,4),breakout:n(s.breakoutQuality),catalyst:n(s.catalystStrength),catalystAge:n(s.catalystFreshnessMin,9999),quality,dilution:n(s.dilutionRisk,.25),halt:n(s.haltRisk,.08),change:n(s.changePct),vwap:n(s.vwapPosition),distance:n(s.distanceToBreakoutPct)}}
-export function derivePhase(s,f=features(s)){if(s.invalidated||(f.change<0&&f.vwap<0&&f.volumeAcceleration<1))return'FAILED';if(f.change>=55||(f.floatRotation!==null&&f.floatRotation>=3.2)||(f.rvol>=20&&f.change>=35))return'EXHAUSTION';if(f.change>=24&&f.breakout>=.72&&f.volumeAcceleration>=5)return'EXPANSION';if(f.breakout>=.66&&f.vwap>=0&&f.volumeAcceleration>=3)return'BREAKOUT';if(f.volumeAcceleration>=2.2&&f.priceAcceleration>=1.8&&f.rvol>=2.3)return'ACCELERATION';if((f.volumeAcceleration>=1.35&&f.rvol>=1.5)||(f.catalyst>=.72&&f.catalystAge<=90))return'IGNITION';return'ANOMALY'}
+
+export function marketRegime(m={}){
+  const spy=n(m.spyChangePct),qqq=n(m.qqqChangePct),iwm=n(m.iwmChangePct),vix=n(m.vixChangePct),breadth=n(m.breadthPct,50);
+  const score=clamp(50+spy*7+qqq*5+iwm*8-vix*1.8+(breadth-50)*.35);
+  const label=score>=67?'RISK_ON':score<=35?'RISK_OFF':'NEUTRAL';
+  return{score:Math.round(score),label,penalty:label==='RISK_OFF'?12:label==='NEUTRAL'?4:0};
+}
+
+export function features(s){
+  const floatM=maybe(s.floatM),volume=n(s.volume),explicit=maybe(s.floatRotation);
+  const floatRotation=explicit!==null?explicit:(floatM&&floatM>0?volume/(floatM*1e6):null);
+  const spreadRaw=maybe(s.spreadPct),spread=spreadRaw===null?4:spreadRaw;
+  let quality=n(s.dataQuality,.68);
+  if(floatRotation===null)quality=Math.max(0,quality-.07);
+  if(spreadRaw===null)quality=Math.max(0,quality-.05);
+  if(maybe(s.rvol)===null)quality=Math.max(0,quality-.08);
+  return{floatM,volume,floatRotation,volumeAcceleration:n(s.volumeAcceleration),priceAcceleration:n(s.priceAcceleration),rvol:n(s.rvol),spread,spreadKnown:spreadRaw!==null,breakout:n(s.breakoutQuality),catalyst:n(s.catalystStrength),catalystAge:n(s.catalystFreshnessMin,9999),quality,dilution:n(s.dilutionRisk,.25),halt:n(s.haltRisk,.08),change:n(s.changePct),vwap:n(s.vwapPosition),distance:n(s.distanceToBreakoutPct)};
+}
+
+export function derivePhase(s,f=features(s)){
+  if(s.invalidated||(f.change<0&&f.vwap<0&&f.volumeAcceleration<1))return'FAILED';
+  if(f.change>=55||(f.floatRotation!==null&&f.floatRotation>=3.2)||(f.rvol>=20&&f.change>=35))return'EXHAUSTION';
+  if(f.change>=24&&f.breakout>=.72&&f.volumeAcceleration>=5)return'EXPANSION';
+  if(f.breakout>=.66&&f.vwap>=0&&f.volumeAcceleration>=3)return'BREAKOUT';
+  if(f.volumeAcceleration>=2.2&&f.priceAcceleration>=1.8&&f.rvol>=2.3)return'ACCELERATION';
+  if((f.volumeAcceleration>=1.35&&f.rvol>=1.5)||(f.catalyst>=.72&&f.catalystAge<=90))return'IGNITION';
+  return'ANOMALY';
+}
 const fresh=a=>a<=15?100:a<=45?92:a<=90?78:a<=240?56:a<=720?30:10;
-export function scoreSymbol(s,market={}){const f=features(s),regime=marketRegime(market),phase=derivePhase(s,f),catalyst=clamp(f.catalyst*100),accel=clamp(norm(f.volumeAcceleration,8)*.55+norm(Math.max(0,f.priceAcceleration),7)*.45),rotation=f.floatRotation===null?0:norm(f.floatRotation,1.5),participation=clamp(norm(f.rvol,10)*.7+rotation*.3),structure=clamp(f.breakout*45+clamp((f.vwap+1)*35)+Math.max(0,20-Math.abs(f.distance)*3)),liquidity=clamp(100-norm(f.spread,8)*.65+Math.min(35,norm(f.volume,4e6)*.35)),freshness=fresh(f.catalystAge),quality=clamp(f.quality*100),risk=clamp(f.dilution*42+f.halt*23+norm(f.spread,10)*20+Math.max(0,f.change-35)*.45),bonus={ANOMALY:1,IGNITION:10,ACCELERATION:13,BREAKOUT:7,EXPANSION:-4,EXHAUSTION:-18,FAILED:-30}[phase]||0,extension=Math.max(0,f.change-28)*.28+(f.floatRotation===null?0:Math.max(0,f.floatRotation-1.8)*6),raw=catalyst*.17+accel*.23+participation*.18+structure*.15+liquidity*.10+freshness*.08+quality*.09,score=clamp(raw+bonus-risk*.13-regime.penalty-extension),actionability=clamp(score-risk*.2-(phase==='EXPANSION'?8:0)-(phase==='EXHAUSTION'?22:0)+(['IGNITION','ACCELERATION'].includes(phase)?5:0));return{score:Math.round(score),actionability:Math.round(actionability),phase,regime,components:{catalyst:Math.round(catalyst),acceleration:Math.round(accel),participation:Math.round(participation),structure:Math.round(structure),liquidity:Math.round(liquidity),freshness:Math.round(freshness),quality:Math.round(quality),risk:Math.round(risk)},features:f}}
-export function analogEstimate(s,x){if(s.analogs&&Number.isFinite(+s.analogs.count))return{...s.analogs,source:'HISTORICAL'};const a=x.actionability,r=x.components.risk,b={IGNITION:5,ACCELERATION:9,BREAKOUT:7,ANOMALY:-5,EXPANSION:-3,EXHAUSTION:-14,FAILED:-30}[x.phase]||0;return{count:null,p5_30m:Math.round(clamp(28+a*.48+b-r*.1,3,88)),p10_1h:Math.round(clamp(12+a*.42+b-r*.14,2,78)),p20_day:Math.round(clamp(4+a*.28+b*.7-r*.16,1,58)),medianMFE:+clamp(3+a*.13+b*.08,1,30).toFixed(1),medianMAE:+clamp(2+r*.07+(x.phase==='EXHAUSTION'?5:0),1,18).toFixed(1),source:'MODELLED'}}
-export function riskGate(x){const r=x.components.risk,q=x.components.quality;if(x.phase==='FAILED')return{status:'REJECT',reason:'الإشارة فقدت بنيتها'};if(q<55)return{status:'REJECT',reason:'جودة البيانات غير كافية'};if(r>=72)return{status:'CAUTION',reason:'مخاطر التنفيذ/التخفيف مرتفعة'};if(x.phase==='EXHAUSTION')return{status:'CAUTION',reason:'الحركة متقدمة ومخاطر المطاردة مرتفعة'};if(x.actionability>=68&&['IGNITION','ACCELERATION','BREAKOUT'].includes(x.phase))return{status:'WATCH',reason:'إشارة مبكرة قابلة للمراقبة'};return{status:'OBSERVE',reason:'تحتاج تأكيدًا إضافيًا'}}
-function summary(x){const c=x.components,f=x.features,w=[];if(c.catalyst>=72)w.push('محفز قوي/حديث');if(c.acceleration>=68)w.push('تسارع سعر وحجم');if(f.floatRotation!==null&&f.floatRotation>=.45)w.push(`دوران Float ${f.floatRotation.toFixed(2)}x`);if(c.structure>=68)w.push('بنية اختراق جيدة');if(c.risk>=60)w.push('مخاطر مرتفعة');if(x.phase==='EXHAUSTION')w.unshift('الحركة متقدمة');return w.slice(0,3).join(' • ')||'شذوذ مبكر يحتاج تأكيد'}
-export function enrich(symbols=[],market={}){return symbols.map(s=>{const x=scoreSymbol(s,market);return{...s,...x,analogs:analogEstimate(s,x),gate:riskGate(x),summary:summary(x)}}).sort((a,b)=>b.actionability-a.actionability)}
+
+export function scoreSymbol(s,market={}){
+  const f=features(s),regime=marketRegime(market),phase=derivePhase(s,f),catalyst=clamp(f.catalyst*100),accel=clamp(norm(f.volumeAcceleration,8)*.55+norm(Math.max(0,f.priceAcceleration),7)*.45),rotation=f.floatRotation===null?0:norm(f.floatRotation,1.5),participation=clamp(norm(f.rvol,10)*.7+rotation*.3),structure=clamp(f.breakout*45+clamp((f.vwap+1)*35)+Math.max(0,20-Math.abs(f.distance)*3)),liquidity=clamp(100-norm(f.spread,8)*.65+Math.min(35,norm(f.volume,4e6)*.35)),freshness=fresh(f.catalystAge),quality=clamp(f.quality*100),risk=clamp(f.dilution*42+f.halt*23+norm(f.spread,10)*20+Math.max(0,f.change-35)*.45),bonus={ANOMALY:1,IGNITION:10,ACCELERATION:13,BREAKOUT:7,EXPANSION:-4,EXHAUSTION:-18,FAILED:-30}[phase]||0,extension=Math.max(0,f.change-28)*.28+(f.floatRotation===null?0:Math.max(0,f.floatRotation-1.8)*6),raw=catalyst*.17+accel*.23+participation*.18+structure*.15+liquidity*.10+freshness*.08+quality*.09,score=clamp(raw+bonus-risk*.13-regime.penalty-extension),actionability=clamp(score-risk*.2-(phase==='EXPANSION'?8:0)-(phase==='EXHAUSTION'?22:0)+(['IGNITION','ACCELERATION'].includes(phase)?5:0));
+  return{score:Math.round(score),actionability:Math.round(actionability),phase,regime,components:{catalyst:Math.round(catalyst),acceleration:Math.round(accel),participation:Math.round(participation),structure:Math.round(structure),liquidity:Math.round(liquidity),freshness:Math.round(freshness),quality:Math.round(quality),risk:Math.round(risk)},features:f};
+}
+
+export function analogEstimate(s,x){
+  if(s.analogs&&Number.isFinite(+s.analogs.count))return{...s.analogs,source:'HISTORICAL'};
+  const a=x.actionability,r=x.components.risk,b={IGNITION:5,ACCELERATION:9,BREAKOUT:7,ANOMALY:-5,EXPANSION:-3,EXHAUSTION:-14,FAILED:-30}[x.phase]||0;
+  return{count:null,p5_30m:Math.round(clamp(28+a*.48+b-r*.1,3,88)),p10_1h:Math.round(clamp(12+a*.42+b-r*.14,2,78)),p20_day:Math.round(clamp(4+a*.28+b*.7-r*.16,1,58)),medianMFE:+clamp(3+a*.13+b*.08,1,30).toFixed(1),medianMAE:+clamp(2+r*.07+(x.phase==='EXHAUSTION'?5:0),1,18).toFixed(1),source:'MODELLED'};
+}
+
+export function riskGate(x){
+  const r=x.components.risk,q=x.components.quality;
+  if(x.phase==='FAILED')return{status:'REJECT',reason:'الإشارة فقدت بنيتها'};
+  if(q<55)return{status:'REJECT',reason:'جودة البيانات غير كافية'};
+  if(r>=72)return{status:'CAUTION',reason:'مخاطر التنفيذ/التخفيف مرتفعة'};
+  if(x.phase==='EXHAUSTION')return{status:'CAUTION',reason:'الحركة متقدمة ومخاطر المطاردة مرتفعة'};
+  if(x.actionability>=68&&['IGNITION','ACCELERATION','BREAKOUT'].includes(x.phase))return{status:'WATCH',reason:'إشارة مبكرة قابلة للمراقبة'};
+  return{status:'OBSERVE',reason:'تحتاج تأكيدًا إضافيًا'};
+}
+function summary(x){const c=x.components,f=x.features,w=[];if(c.catalyst>=72)w.push('محفز قوي/حديث');if(c.acceleration>=68)w.push('تسارع سعر وحجم');if(f.floatRotation!==null&&f.floatRotation>=.45)w.push(`دوران Float ${f.floatRotation.toFixed(2)}x`);if(c.structure>=68)w.push('بنية اختراق جيدة');if(c.risk>=60)w.push('مخاطر مرتفعة');if(x.phase==='EXHAUSTION')w.unshift('الحركة متقدمة');return w.slice(0,3).join(' • ')||'شذوذ مبكر يحتاج تأكيد';}
+
+export function enrich(symbols=[],market={}){
+  return symbols.map(s=>{const x=scoreSymbol(s,market);let gate=riskGate(x);if(s.gateOverride?.status)gate=s.gateOverride;return{...s,...x,analogs:analogEstimate(s,x),gate,summary:summary(x)}}).sort((a,b)=>b.actionability-a.actionability);
+}
