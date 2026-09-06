@@ -34,10 +34,10 @@ jobs:
           for SIGNAL in ta_topgainers ta_unusualvolume ta_mostactive; do
             URL="https://elite.finviz.com/export/screener?s=${SIGNAL}&v=111&auth=${FINVIZ_TOKEN}"
             curl --fail --silent --show-error --location \
-              --retry 5 --retry-delay 5 --retry-all-errors \
+              --retry 5 --retry-delay 6 --retry-all-errors \
               "$URL" -o "/tmp/finviz-${SIGNAL}.csv"
             test -s "/tmp/finviz-${SIGNAL}.csv" || (echo "Finviz ${SIGNAL} returned empty" && exit 1)
-            sleep 3
+            sleep 6
           done
 
       - name: Merge and timestamp TAG5 snapshot
@@ -163,10 +163,6 @@ jobs:
               try: return float(str(v or '0').replace(',','').replace('$',''))
               except: return 0.0
 
-          # Extended-hours field freeze test. Finviz screener fields may remain regular-session
-          # values after 16:00 ET. If Change/Volume are essentially unchanged for >=80% of at
-          # least 10 common tickers between consecutive snapshots, treat them as non-native
-          # extended-hours fields and block persistence-derived learning/actionability.
           field_integrity_state = 'NOT_APPLICABLE'
           freeze_common_tickers = 0
           change_freeze_ratio = None
@@ -281,8 +277,7 @@ jobs:
                       '_qualificationDecisionScore': None,
                       '_qualificationDecisionReasonCodes': [
                           'INCOMPLETE_MODEL_INPUTS',
-                          'CATALYST_SWEEP_NOT_AVAILABLE',
-                          'SHARIA_STATUS_NOT_AVAILABLE'
+                          'CATALYST_SWEEP_NOT_AVAILABLE'
                       ],
                   })
                   if signal not in dst['_signals']:
