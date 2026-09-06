@@ -1,0 +1,202 @@
+{
+  "schemaVersion": 1,
+  "method": "TAGIT_23_HISTORICAL_FEATURE_INTERSECTION_WALK_FORWARD",
+  "generatedAtUTC": "2026-09-06T20:50:55.977Z",
+  "antiLeakageRules": [
+    "Same 107 historical Git snapshots are replayed point-in-time.",
+    "Only current/prior observations enter DISCOVER/PROMOTE.",
+    "1m/2m/3m, Trades, ATR, spread, news and SEC fields are not backfilled when absent historically.",
+    "Cross-sectional precursor score re-normalizes over available historical fields only.",
+    "Forward prices enter evaluation only after state is frozen."
+  ],
+  "coverage": {
+    "gitRevisions": 107,
+    "snapshots": 107,
+    "parseFailures": 0,
+    "rawSnapshotRows": 140839,
+    "causalObservations": 140839,
+    "eligibleObservations": 84128,
+    "opportunityTickerDays": 107
+  },
+  "v23HistoricalIntersection": {
+    "discover": {
+      "count": 1020,
+      "uniqueEvents": 395,
+      "precision10_60mPct": 0.88,
+      "hit5_30mPct": 1.57,
+      "hit20_dayPct": 1.76,
+      "medianMFE60Pct": 0,
+      "medianMAE60Pct": 0,
+      "falseStart10_60mPct": 99.12,
+      "capturedTickerDays": 8,
+      "recallTickerDayPct": 7.48
+    },
+    "promotion": {
+      "count": 39,
+      "uniqueEvents": 31,
+      "precision10_60mPct": 2.56,
+      "hit5_30mPct": 2.56,
+      "hit20_dayPct": 0,
+      "medianMFE60Pct": 0,
+      "medianMAE60Pct": -1.1,
+      "falseStart10_60mPct": 97.44,
+      "firstEventMetrics": {
+        "count": 31,
+        "uniqueEvents": 31,
+        "precision10_60mPct": 0,
+        "hit5_30mPct": 0,
+        "hit20_dayPct": 0,
+        "medianMFE60Pct": 0,
+        "medianMAE60Pct": -0.84,
+        "falseStart10_60mPct": 100
+      },
+      "truePositives": 1,
+      "recallObservationPct": 0.41,
+      "capturedTickerDays": 1,
+      "recallTickerDayPct": 0.93
+    },
+    "byDay": {
+      "2026-08-25": {
+        "eligible": 51511,
+        "positives": 149,
+        "discover": 600,
+        "discoverTP": 6,
+        "promoted": 36,
+        "promotedTP": 1,
+        "discoverPrecisionPct": 1,
+        "promotionPrecisionPct": 2.78
+      },
+      "2026-08-26": {
+        "eligible": 16132,
+        "positives": 88,
+        "discover": 255,
+        "discoverTP": 2,
+        "promoted": 3,
+        "promotedTP": 0,
+        "discoverPrecisionPct": 0.78,
+        "promotionPrecisionPct": 0
+      },
+      "2026-09-01": {
+        "eligible": 4197,
+        "positives": 1,
+        "discover": 45,
+        "discoverTP": 0,
+        "promoted": 0,
+        "promotedTP": 0,
+        "discoverPrecisionPct": 0,
+        "promotionPrecisionPct": null
+      },
+      "2026-09-02": {
+        "eligible": 4718,
+        "positives": 3,
+        "discover": 45,
+        "discoverTP": 0,
+        "promoted": 0,
+        "promotedTP": 0,
+        "discoverPrecisionPct": 0,
+        "promotionPrecisionPct": null
+      },
+      "2026-09-03": {
+        "eligible": 1763,
+        "positives": 0,
+        "discover": 15,
+        "discoverTP": 0,
+        "promoted": 0,
+        "promotedTP": 0,
+        "discoverPrecisionPct": 0,
+        "promotionPrecisionPct": null
+      },
+      "2026-09-04": {
+        "eligible": 5807,
+        "positives": 3,
+        "discover": 60,
+        "discoverTP": 1,
+        "promoted": 0,
+        "promotedTP": 0,
+        "discoverPrecisionPct": 1.67,
+        "promotionPrecisionPct": null
+      }
+    }
+  },
+  "comparison": {
+    "v04": {
+      "rawSnapshotRows": 140839,
+      "eligibleObservations": 89934,
+      "watch": {
+        "count": 223,
+        "hit5_30mPct": 3.59,
+        "hit10_60mPct": 3.59,
+        "hit20_dayPct": 2.69,
+        "medianMFE30Pct": 0,
+        "medianMAE30Pct": 0,
+        "medianMFE60Pct": 0,
+        "medianMAE60Pct": -0.98,
+        "medianMFEDayPct": 0,
+        "medianMAEDayPct": -2.03
+      },
+      "classification": {
+        "candidates": 223,
+        "positivesInUniverse": 221,
+        "truePositives": 8,
+        "precisionPct": 3.59,
+        "recallPct": 3.62,
+        "f1Pct": 3.6
+      },
+      "earlyOpportunityRecall": {
+        "opportunityTickerDays": 79,
+        "tagitCapturedTickerDays": 5,
+        "tagitRecallPct": 6.33,
+        "baselineCapturedTickerDays": 4,
+        "baselineRecallPct": 5.06
+      }
+    },
+    "v06": {
+      "coverage": {
+        "gitRevisions": 107,
+        "snapshots": 107,
+        "parseFailures": 0,
+        "eligibleObservations": 84128,
+        "opportunityTickerDays": 107
+      },
+      "discover": {
+        "count": 829,
+        "uniqueEvents": 240,
+        "precision10_60mPct": 1.81,
+        "hit5_30mPct": 2.17,
+        "hit20_dayPct": 1.93,
+        "medianMFE60Pct": 0,
+        "medianMAE60Pct": 0,
+        "capturedTickerDays": 12,
+        "recallTickerDayPct": 11.21
+      },
+      "promotion": {
+        "count": 102,
+        "uniqueEvents": 64,
+        "precision10_60mPct": 5.88,
+        "hit5_30mPct": 3.92,
+        "hit20_dayPct": 3.92,
+        "medianMFE60Pct": 0,
+        "medianMAE60Pct": -0.95,
+        "firstEventMetrics": {
+          "count": 64,
+          "uniqueEvents": 64,
+          "precision10_60mPct": 6.25,
+          "hit5_30mPct": 1.56,
+          "hit20_dayPct": 3.13,
+          "medianMFE60Pct": -0.85,
+          "medianMAE60Pct": -1.45
+        },
+        "truePositives": 6,
+        "recallObservationPct": 2.46,
+        "capturedTickerDays": 6,
+        "recallTickerDayPct": 5.61
+      }
+    }
+  },
+  "limitations": [
+    "This tests the current architecture on the historical feature intersection, not the full Elite-rich production feature set.",
+    "Historical snapshots are sampled rather than one-minute bars; intraperiod peaks can be missed.",
+    "No bid/ask, slippage or transaction costs are available in this replay.",
+    "A result may therefore validate the hardened state machine but cannot quantify the incremental value of fields that did not exist historically."
+  ]
+}
