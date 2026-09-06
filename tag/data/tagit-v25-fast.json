@@ -1,0 +1,438 @@
+{
+  "schemaVersion": 1,
+  "method": "TAGIT_V25_FAST_LEAK_FREE_PARETO_HIERARCHICAL",
+  "generatedAtUTC": "2026-09-06T21:29:15.131110+00:00",
+  "objective": "+10% MFE within 60m, discovered while day change <10%",
+  "antiLeakageRules": [
+    "training dates strictly precede scoring date",
+    "test score percentiles anchored to training score distributions only",
+    "session used only to choose historical anchors",
+    "market heat current snapshot only",
+    "persistence prior same-ticker observations only",
+    "thresholds selected on Aug-26; September untouched"
+  ],
+  "coverage": {
+    "dates": [
+      "2026-08-25",
+      "2026-08-26",
+      "2026-09-01",
+      "2026-09-02",
+      "2026-09-03",
+      "2026-09-04"
+    ],
+    "trainCalibration": 48836,
+    "calibration": 15540,
+    "calibrationPositives": 61,
+    "trainHoldout": 64376,
+    "holdoutSeptember": 15858,
+    "holdoutPositives": 5
+  },
+  "chosenAlert": {
+    "config": {
+      "topK": 1,
+      "minEnsemble": 0.8,
+      "minAnalogRate": 0,
+      "minMarketHeat": 0.45,
+      "requirePersistence": false
+    },
+    "credible90OnCalibration": false,
+    "calibration": {
+      "count": 17,
+      "tp": 4,
+      "precision10_60mPct": 23.53,
+      "recallObsPct": 6.56,
+      "uniqueEvents": 15,
+      "capturedTickerDays": 3,
+      "hit5_30mPct": 23.53,
+      "hit20_dayPct": 17.65
+    },
+    "holdoutSeptember": {
+      "count": 11,
+      "tp": 0,
+      "precision10_60mPct": 0.0,
+      "recallObsPct": 0.0,
+      "uniqueEvents": 11,
+      "capturedTickerDays": 0,
+      "hit5_30mPct": 0.0,
+      "hit20_dayPct": 0.0
+    }
+  },
+  "frontiers": {
+    "bestAny": {
+      "config": [
+        1,
+        0.99,
+        0,
+        0.45,
+        true
+      ],
+      "calibration": {
+        "count": 2,
+        "tp": 1,
+        "precision10_60mPct": 50.0,
+        "recallObsPct": 1.64,
+        "uniqueEvents": 2,
+        "capturedTickerDays": 1,
+        "hit5_30mPct": 50.0,
+        "hit20_dayPct": 50.0
+      },
+      "holdout": {
+        "count": 0,
+        "tp": 0,
+        "precision10_60mPct": null,
+        "recallObsPct": 0.0,
+        "uniqueEvents": 0,
+        "capturedTickerDays": 0,
+        "hit5_30mPct": null,
+        "hit20_dayPct": null
+      }
+    },
+    "min10_3tp": {
+      "config": [
+        1,
+        0.99,
+        0.005,
+        0.45,
+        false
+      ],
+      "calibration": {
+        "count": 11,
+        "tp": 3,
+        "precision10_60mPct": 27.27,
+        "recallObsPct": 4.92,
+        "uniqueEvents": 10,
+        "capturedTickerDays": 2,
+        "hit5_30mPct": 27.27,
+        "hit20_dayPct": 27.27
+      },
+      "holdout": {
+        "count": 6,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": 0.0,
+        "uniqueEvents": 6,
+        "capturedTickerDays": 0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0
+      }
+    },
+    "min20_5tp": {
+      "config": [
+        8,
+        0.97,
+        0.03,
+        0.45,
+        false
+      ],
+      "calibration": {
+        "count": 85,
+        "tp": 8,
+        "precision10_60mPct": 9.41,
+        "recallObsPct": 13.11,
+        "uniqueEvents": 57,
+        "capturedTickerDays": 6,
+        "hit5_30mPct": 8.24,
+        "hit20_dayPct": 10.59
+      },
+      "holdout": {
+        "count": 26,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": 0.0,
+        "uniqueEvents": 26,
+        "capturedTickerDays": 0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0
+      }
+    },
+    "min30_5tp": {
+      "config": [
+        8,
+        0.97,
+        0.03,
+        0.45,
+        false
+      ],
+      "calibration": {
+        "count": 85,
+        "tp": 8,
+        "precision10_60mPct": 9.41,
+        "recallObsPct": 13.11,
+        "uniqueEvents": 57,
+        "capturedTickerDays": 6,
+        "hit5_30mPct": 8.24,
+        "hit20_dayPct": 10.59
+      },
+      "holdout": {
+        "count": 26,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": 0.0,
+        "uniqueEvents": 26,
+        "capturedTickerDays": 0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0
+      }
+    }
+  },
+  "lanes": {
+    "calibration": {
+      "radar": {
+        "count": 255,
+        "tp": 8,
+        "precision10_60mPct": 3.14,
+        "recallObsPct": 13.11,
+        "uniqueEvents": 149,
+        "capturedTickerDays": 6,
+        "hit5_30mPct": 4.31,
+        "hit20_dayPct": 5.49
+      },
+      "discover": {
+        "count": 20,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": 0.0,
+        "uniqueEvents": 19,
+        "capturedTickerDays": 0,
+        "hit5_30mPct": 10.0,
+        "hit20_dayPct": 5.0
+      },
+      "alert": {
+        "count": 17,
+        "tp": 4,
+        "precision10_60mPct": 23.53,
+        "recallObsPct": 6.56,
+        "uniqueEvents": 15,
+        "capturedTickerDays": 3,
+        "hit5_30mPct": 23.53,
+        "hit20_dayPct": 17.65
+      }
+    },
+    "holdoutSeptember": {
+      "radar": {
+        "count": 165,
+        "tp": 1,
+        "precision10_60mPct": 0.61,
+        "recallObsPct": 20.0,
+        "uniqueEvents": 121,
+        "capturedTickerDays": 1,
+        "hit5_30mPct": 0.61,
+        "hit20_dayPct": 0.0
+      },
+      "discover": {
+        "count": 55,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": 0.0,
+        "uniqueEvents": 51,
+        "capturedTickerDays": 0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0
+      },
+      "alert": {
+        "count": 11,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": 0.0,
+        "uniqueEvents": 11,
+        "capturedTickerDays": 0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0
+      }
+    }
+  },
+  "byDay": {
+    "radar": {
+      "2026-08-26": {
+        "eligible": 15540,
+        "positives": 61,
+        "count": 255,
+        "tp": 8,
+        "precision10_60mPct": 3.14,
+        "recallObsPct": 13.11,
+        "uniqueEvents": 149,
+        "capturedTickerDays": 6,
+        "hit5_30mPct": 4.31,
+        "hit20_dayPct": 5.49
+      },
+      "2026-09-01": {
+        "eligible": 4073,
+        "positives": 0,
+        "count": 45,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": null,
+        "uniqueEvents": 37,
+        "capturedTickerDays": 0,
+        "hit5_30mPct": 2.22,
+        "hit20_dayPct": 0.0
+      },
+      "2026-09-02": {
+        "eligible": 4513,
+        "positives": 3,
+        "count": 45,
+        "tp": 1,
+        "precision10_60mPct": 2.22,
+        "recallObsPct": 33.33,
+        "uniqueEvents": 35,
+        "capturedTickerDays": 1,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0
+      },
+      "2026-09-03": {
+        "eligible": 1662,
+        "positives": 0,
+        "count": 15,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": null,
+        "uniqueEvents": 15,
+        "capturedTickerDays": 0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0
+      },
+      "2026-09-04": {
+        "eligible": 5610,
+        "positives": 2,
+        "count": 60,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": 0.0,
+        "uniqueEvents": 34,
+        "capturedTickerDays": 0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0
+      }
+    },
+    "discover": {
+      "2026-08-26": {
+        "eligible": 15540,
+        "positives": 61,
+        "count": 20,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": 0.0,
+        "uniqueEvents": 19,
+        "capturedTickerDays": 0,
+        "hit5_30mPct": 10.0,
+        "hit20_dayPct": 5.0
+      },
+      "2026-09-01": {
+        "eligible": 4073,
+        "positives": 0,
+        "count": 15,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": null,
+        "uniqueEvents": 14,
+        "capturedTickerDays": 0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0
+      },
+      "2026-09-02": {
+        "eligible": 4513,
+        "positives": 3,
+        "count": 15,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": 0.0,
+        "uniqueEvents": 14,
+        "capturedTickerDays": 0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0
+      },
+      "2026-09-03": {
+        "eligible": 1662,
+        "positives": 0,
+        "count": 5,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": null,
+        "uniqueEvents": 5,
+        "capturedTickerDays": 0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0
+      },
+      "2026-09-04": {
+        "eligible": 5610,
+        "positives": 2,
+        "count": 20,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": 0.0,
+        "uniqueEvents": 18,
+        "capturedTickerDays": 0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0
+      }
+    },
+    "alert": {
+      "2026-08-26": {
+        "eligible": 15540,
+        "positives": 61,
+        "count": 17,
+        "tp": 4,
+        "precision10_60mPct": 23.53,
+        "recallObsPct": 6.56,
+        "uniqueEvents": 15,
+        "capturedTickerDays": 3,
+        "hit5_30mPct": 23.53,
+        "hit20_dayPct": 17.65
+      },
+      "2026-09-01": {
+        "eligible": 4073,
+        "positives": 0,
+        "count": 3,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": null,
+        "uniqueEvents": 3,
+        "capturedTickerDays": 0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0
+      },
+      "2026-09-02": {
+        "eligible": 4513,
+        "positives": 3,
+        "count": 3,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": 0.0,
+        "uniqueEvents": 3,
+        "capturedTickerDays": 0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0
+      },
+      "2026-09-03": {
+        "eligible": 1662,
+        "positives": 0,
+        "count": 1,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": null,
+        "uniqueEvents": 1,
+        "capturedTickerDays": 0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0
+      },
+      "2026-09-04": {
+        "eligible": 5610,
+        "positives": 2,
+        "count": 4,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": 0.0,
+        "uniqueEvents": 4,
+        "capturedTickerDays": 0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0
+      }
+    }
+  },
+  "baselineV06": {
+    "promotionPrecision10_60mPct": 5.88,
+    "promotionRecallObservationPct": 2.46,
+    "promotionRecallTickerDayPct": 5.61
+  },
+  "interpretationRule": "90% is accepted only with >=20 alerts, >=5 true positives on calibration and survival on untouched holdout; otherwise ALERT abstains and 90% is not claimed."
+}
