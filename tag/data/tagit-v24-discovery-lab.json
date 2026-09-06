@@ -1,0 +1,674 @@
+{
+  "schemaVersion": 1,
+  "method": "TAGIT_V24_RARE_EVENT_ENSEMBLE_EXPANDING_WALK_FORWARD",
+  "generatedAtUTC": "2026-09-06T21:00:09.806963+00:00",
+  "objective": "+10% maximum favorable excursion within 60 minutes while discovered before +10% day change",
+  "antiLeakageRules": [
+    "All features use current/prior snapshots only.",
+    "Models for each test day train only on earlier dates.",
+    "Ranks are within the current snapshot only.",
+    "Aug-26 selects the abstention configuration; September is untouched holdout.",
+    "Forward MFE is label-only."
+  ],
+  "coverage": {
+    "gitRevisions": 107,
+    "snapshots": 107,
+    "parseFailures": 0,
+    "rawRows": 140839,
+    "eligibleEarlyObservations": 80234,
+    "walkForwardPredictions": 31398,
+    "dates": [
+      "2026-08-25",
+      "2026-08-26",
+      "2026-09-01",
+      "2026-09-02",
+      "2026-09-03",
+      "2026-09-04"
+    ]
+  },
+  "architecture": {
+    "RADAR": "recall lane: top-15 ensemble >= .75",
+    "DISCOVER": "precision lane: top-5 ensemble >= .90 and model disagreement <= .30",
+    "ALERT": "calibration-selected abstention lane; 90% is only claimed with >=20 alerts and >=5 true positives",
+    "models": [
+      "ExtraTrees nonlinear interactions",
+      "Histogram Gradient Boosting with rare-event weights",
+      "Balanced Logistic Regression anchor",
+      "Nearest-neighbor analog memory"
+    ],
+    "featureCount": 23,
+    "features": [
+      "change",
+      "logRvol",
+      "logVolumeVelocity",
+      "shortRate",
+      "rvolDeltaPerMin",
+      "volumeVelocityAccel",
+      "m5",
+      "m10",
+      "m30",
+      "m60",
+      "turn",
+      "curvature5v10",
+      "curvature10v30",
+      "quietBase",
+      "positiveSteps",
+      "rvolUpSteps",
+      "logDollarVolume",
+      "logFloat",
+      "floatRotation",
+      "gap",
+      "sma20",
+      "perfWeek",
+      "sessionCode"
+    ]
+  },
+  "selection": {
+    "calibrationDay": "2026-08-26",
+    "chosenConfig": {
+      "topK": 5,
+      "minEnsemble": 0.98,
+      "maxDisagreement": 0.12,
+      "minAnalogRate": 0.04
+    },
+    "credible90FoundOnCalibration": false,
+    "calibration": {
+      "count": 37,
+      "tp": 8,
+      "precision10_60mPct": 21.62,
+      "hit5_30mPct": 10.81,
+      "hit20_dayPct": 24.32,
+      "uniqueEvents": 22,
+      "capturedTickerDays": 6
+    },
+    "holdoutSeptember": {
+      "count": 6,
+      "tp": 1,
+      "precision10_60mPct": 16.67,
+      "hit5_30mPct": 0.0,
+      "hit20_dayPct": 0.0,
+      "uniqueEvents": 6,
+      "capturedTickerDays": 1
+    }
+  },
+  "lanes": {
+    "calibration": {
+      "radar": {
+        "count": 240,
+        "tp": 11,
+        "precision10_60mPct": 4.58,
+        "hit5_30mPct": 6.67,
+        "hit20_dayPct": 6.67,
+        "uniqueEvents": 139,
+        "capturedTickerDays": 9
+      },
+      "discover": {
+        "count": 80,
+        "tp": 9,
+        "precision10_60mPct": 11.25,
+        "hit5_30mPct": 7.5,
+        "hit20_dayPct": 12.5,
+        "uniqueEvents": 47,
+        "capturedTickerDays": 7
+      },
+      "alert": {
+        "count": 37,
+        "tp": 8,
+        "precision10_60mPct": 21.62,
+        "hit5_30mPct": 10.81,
+        "hit20_dayPct": 24.32,
+        "uniqueEvents": 22,
+        "capturedTickerDays": 6
+      }
+    },
+    "holdoutSeptember": {
+      "radar": {
+        "count": 105,
+        "tp": 1,
+        "precision10_60mPct": 0.95,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.95,
+        "uniqueEvents": 95,
+        "capturedTickerDays": 1
+      },
+      "discover": {
+        "count": 35,
+        "tp": 1,
+        "precision10_60mPct": 2.86,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 2.86,
+        "uniqueEvents": 32,
+        "capturedTickerDays": 1
+      },
+      "alert": {
+        "count": 6,
+        "tp": 1,
+        "precision10_60mPct": 16.67,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0,
+        "uniqueEvents": 6,
+        "capturedTickerDays": 1
+      }
+    }
+  },
+  "byDay": {
+    "radar": {
+      "2026-08-26": {
+        "eligible": 15540,
+        "positives": 61,
+        "count": 240,
+        "tp": 11,
+        "precision10_60mPct": 4.58,
+        "hit5_30mPct": 6.67,
+        "hit20_dayPct": 6.67,
+        "uniqueEvents": 139,
+        "capturedTickerDays": 9
+      },
+      "2026-09-01": {
+        "eligible": 4073,
+        "positives": 0,
+        "count": 30,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0,
+        "uniqueEvents": 30,
+        "capturedTickerDays": 0
+      },
+      "2026-09-02": {
+        "eligible": 4513,
+        "positives": 3,
+        "count": 30,
+        "tp": 1,
+        "precision10_60mPct": 3.33,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 3.33,
+        "uniqueEvents": 26,
+        "capturedTickerDays": 1
+      },
+      "2026-09-03": {
+        "eligible": 1662,
+        "positives": 0,
+        "count": 15,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0,
+        "uniqueEvents": 15,
+        "capturedTickerDays": 0
+      },
+      "2026-09-04": {
+        "eligible": 5610,
+        "positives": 2,
+        "count": 30,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0,
+        "uniqueEvents": 24,
+        "capturedTickerDays": 0
+      }
+    },
+    "discover": {
+      "2026-08-26": {
+        "eligible": 15540,
+        "positives": 61,
+        "count": 80,
+        "tp": 9,
+        "precision10_60mPct": 11.25,
+        "hit5_30mPct": 7.5,
+        "hit20_dayPct": 12.5,
+        "uniqueEvents": 47,
+        "capturedTickerDays": 7
+      },
+      "2026-09-01": {
+        "eligible": 4073,
+        "positives": 0,
+        "count": 10,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0,
+        "uniqueEvents": 10,
+        "capturedTickerDays": 0
+      },
+      "2026-09-02": {
+        "eligible": 4513,
+        "positives": 3,
+        "count": 10,
+        "tp": 1,
+        "precision10_60mPct": 10.0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 10.0,
+        "uniqueEvents": 8,
+        "capturedTickerDays": 1
+      },
+      "2026-09-03": {
+        "eligible": 1662,
+        "positives": 0,
+        "count": 5,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0,
+        "uniqueEvents": 5,
+        "capturedTickerDays": 0
+      },
+      "2026-09-04": {
+        "eligible": 5610,
+        "positives": 2,
+        "count": 10,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0,
+        "uniqueEvents": 9,
+        "capturedTickerDays": 0
+      }
+    },
+    "alert": {
+      "2026-08-26": {
+        "eligible": 15540,
+        "positives": 61,
+        "count": 37,
+        "tp": 8,
+        "precision10_60mPct": 21.62,
+        "hit5_30mPct": 10.81,
+        "hit20_dayPct": 24.32,
+        "uniqueEvents": 22,
+        "capturedTickerDays": 6
+      },
+      "2026-09-01": {
+        "eligible": 4073,
+        "positives": 0,
+        "count": 4,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0,
+        "uniqueEvents": 4,
+        "capturedTickerDays": 0
+      },
+      "2026-09-02": {
+        "eligible": 4513,
+        "positives": 3,
+        "count": 1,
+        "tp": 1,
+        "precision10_60mPct": 100.0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0,
+        "uniqueEvents": 1,
+        "capturedTickerDays": 1
+      },
+      "2026-09-03": {
+        "eligible": 1662,
+        "positives": 0,
+        "count": 0,
+        "tp": 0,
+        "precision10_60mPct": null,
+        "hit5_30mPct": null,
+        "hit20_dayPct": null,
+        "uniqueEvents": 0,
+        "capturedTickerDays": 0
+      },
+      "2026-09-04": {
+        "eligible": 5610,
+        "positives": 2,
+        "count": 1,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "hit5_30mPct": 0.0,
+        "hit20_dayPct": 0.0,
+        "uniqueEvents": 1,
+        "capturedTickerDays": 0
+      }
+    }
+  },
+  "topFeatureImportanceDescriptive": [
+    {
+      "feature": "sessionCode",
+      "importance": 0.33146
+    },
+    {
+      "feature": "quietBase",
+      "importance": 0.22981
+    },
+    {
+      "feature": "change",
+      "importance": 0.09554
+    },
+    {
+      "feature": "m30",
+      "importance": 0.06421
+    },
+    {
+      "feature": "logDollarVolume",
+      "importance": 0.05334
+    },
+    {
+      "feature": "logRvol",
+      "importance": 0.04832
+    },
+    {
+      "feature": "m60",
+      "importance": 0.04392
+    },
+    {
+      "feature": "rvolUpSteps",
+      "importance": 0.02962
+    },
+    {
+      "feature": "positiveSteps",
+      "importance": 0.02958
+    },
+    {
+      "feature": "perfWeek",
+      "importance": 0.02503
+    },
+    {
+      "feature": "logVolumeVelocity",
+      "importance": 0.0124
+    },
+    {
+      "feature": "m10",
+      "importance": 0.01126
+    },
+    {
+      "feature": "curvature10v30",
+      "importance": 0.00858
+    },
+    {
+      "feature": "rvolDeltaPerMin",
+      "importance": 0.00579
+    },
+    {
+      "feature": "shortRate",
+      "importance": 0.00531
+    }
+  ],
+  "baselineV06": {
+    "discoverPrecision10_60mPct": 1.81,
+    "discoverRecallTickerDayPct": 11.21,
+    "promotionPrecision10_60mPct": 5.88,
+    "promotionRecallObservationPct": 2.46,
+    "promotionRecallTickerDayPct": 5.61
+  },
+  "bestCalibrationConfigs": [
+    {
+      "config": {
+        "topK": 5,
+        "minEnsemble": 0.98,
+        "maxDisagreement": 0.12,
+        "minAnalogRate": 0.04
+      },
+      "credible90": false,
+      "calibration": {
+        "count": 37,
+        "tp": 8,
+        "precision10_60mPct": 21.62,
+        "hit5_30mPct": 10.81,
+        "hit20_dayPct": 24.32,
+        "uniqueEvents": 22,
+        "capturedTickerDays": 6
+      }
+    },
+    {
+      "config": {
+        "topK": 5,
+        "minEnsemble": 0.98,
+        "maxDisagreement": 0.18,
+        "minAnalogRate": 0.04
+      },
+      "credible90": false,
+      "calibration": {
+        "count": 37,
+        "tp": 8,
+        "precision10_60mPct": 21.62,
+        "hit5_30mPct": 10.81,
+        "hit20_dayPct": 24.32,
+        "uniqueEvents": 22,
+        "capturedTickerDays": 6
+      }
+    },
+    {
+      "config": {
+        "topK": 5,
+        "minEnsemble": 0.98,
+        "maxDisagreement": 0.25,
+        "minAnalogRate": 0.04
+      },
+      "credible90": false,
+      "calibration": {
+        "count": 37,
+        "tp": 8,
+        "precision10_60mPct": 21.62,
+        "hit5_30mPct": 10.81,
+        "hit20_dayPct": 24.32,
+        "uniqueEvents": 22,
+        "capturedTickerDays": 6
+      }
+    },
+    {
+      "config": {
+        "topK": 5,
+        "minEnsemble": 0.98,
+        "maxDisagreement": 0.4,
+        "minAnalogRate": 0.04
+      },
+      "credible90": false,
+      "calibration": {
+        "count": 37,
+        "tp": 8,
+        "precision10_60mPct": 21.62,
+        "hit5_30mPct": 10.81,
+        "hit20_dayPct": 24.32,
+        "uniqueEvents": 22,
+        "capturedTickerDays": 6
+      }
+    },
+    {
+      "config": {
+        "topK": 10,
+        "minEnsemble": 0.98,
+        "maxDisagreement": 0.12,
+        "minAnalogRate": 0.04
+      },
+      "credible90": false,
+      "calibration": {
+        "count": 48,
+        "tp": 9,
+        "precision10_60mPct": 18.75,
+        "hit5_30mPct": 10.42,
+        "hit20_dayPct": 20.83,
+        "uniqueEvents": 32,
+        "capturedTickerDays": 7
+      }
+    },
+    {
+      "config": {
+        "topK": 10,
+        "minEnsemble": 0.98,
+        "maxDisagreement": 0.18,
+        "minAnalogRate": 0.04
+      },
+      "credible90": false,
+      "calibration": {
+        "count": 48,
+        "tp": 9,
+        "precision10_60mPct": 18.75,
+        "hit5_30mPct": 10.42,
+        "hit20_dayPct": 20.83,
+        "uniqueEvents": 32,
+        "capturedTickerDays": 7
+      }
+    },
+    {
+      "config": {
+        "topK": 10,
+        "minEnsemble": 0.98,
+        "maxDisagreement": 0.25,
+        "minAnalogRate": 0.04
+      },
+      "credible90": false,
+      "calibration": {
+        "count": 48,
+        "tp": 9,
+        "precision10_60mPct": 18.75,
+        "hit5_30mPct": 10.42,
+        "hit20_dayPct": 20.83,
+        "uniqueEvents": 32,
+        "capturedTickerDays": 7
+      }
+    },
+    {
+      "config": {
+        "topK": 10,
+        "minEnsemble": 0.98,
+        "maxDisagreement": 0.4,
+        "minAnalogRate": 0.04
+      },
+      "credible90": false,
+      "calibration": {
+        "count": 48,
+        "tp": 9,
+        "precision10_60mPct": 18.75,
+        "hit5_30mPct": 10.42,
+        "hit20_dayPct": 20.83,
+        "uniqueEvents": 32,
+        "capturedTickerDays": 7
+      }
+    },
+    {
+      "config": {
+        "topK": 5,
+        "minEnsemble": 0.99,
+        "maxDisagreement": 0.12,
+        "minAnalogRate": 0.04
+      },
+      "credible90": false,
+      "calibration": {
+        "count": 30,
+        "tp": 7,
+        "precision10_60mPct": 23.33,
+        "hit5_30mPct": 10.0,
+        "hit20_dayPct": 30.0,
+        "uniqueEvents": 18,
+        "capturedTickerDays": 5
+      }
+    },
+    {
+      "config": {
+        "topK": 5,
+        "minEnsemble": 0.99,
+        "maxDisagreement": 0.18,
+        "minAnalogRate": 0.04
+      },
+      "credible90": false,
+      "calibration": {
+        "count": 30,
+        "tp": 7,
+        "precision10_60mPct": 23.33,
+        "hit5_30mPct": 10.0,
+        "hit20_dayPct": 30.0,
+        "uniqueEvents": 18,
+        "capturedTickerDays": 5
+      }
+    },
+    {
+      "config": {
+        "topK": 5,
+        "minEnsemble": 0.99,
+        "maxDisagreement": 0.25,
+        "minAnalogRate": 0.04
+      },
+      "credible90": false,
+      "calibration": {
+        "count": 30,
+        "tp": 7,
+        "precision10_60mPct": 23.33,
+        "hit5_30mPct": 10.0,
+        "hit20_dayPct": 30.0,
+        "uniqueEvents": 18,
+        "capturedTickerDays": 5
+      }
+    },
+    {
+      "config": {
+        "topK": 5,
+        "minEnsemble": 0.99,
+        "maxDisagreement": 0.4,
+        "minAnalogRate": 0.04
+      },
+      "credible90": false,
+      "calibration": {
+        "count": 30,
+        "tp": 7,
+        "precision10_60mPct": 23.33,
+        "hit5_30mPct": 10.0,
+        "hit20_dayPct": 30.0,
+        "uniqueEvents": 18,
+        "capturedTickerDays": 5
+      }
+    },
+    {
+      "config": {
+        "topK": 5,
+        "minEnsemble": 0.8,
+        "maxDisagreement": 0.12,
+        "minAnalogRate": 0.04
+      },
+      "credible90": false,
+      "calibration": {
+        "count": 39,
+        "tp": 8,
+        "precision10_60mPct": 20.51,
+        "hit5_30mPct": 12.82,
+        "hit20_dayPct": 23.08,
+        "uniqueEvents": 23,
+        "capturedTickerDays": 6
+      }
+    },
+    {
+      "config": {
+        "topK": 5,
+        "minEnsemble": 0.88,
+        "maxDisagreement": 0.12,
+        "minAnalogRate": 0.04
+      },
+      "credible90": false,
+      "calibration": {
+        "count": 39,
+        "tp": 8,
+        "precision10_60mPct": 20.51,
+        "hit5_30mPct": 12.82,
+        "hit20_dayPct": 23.08,
+        "uniqueEvents": 23,
+        "capturedTickerDays": 6
+      }
+    },
+    {
+      "config": {
+        "topK": 5,
+        "minEnsemble": 0.92,
+        "maxDisagreement": 0.12,
+        "minAnalogRate": 0.04
+      },
+      "credible90": false,
+      "calibration": {
+        "count": 39,
+        "tp": 8,
+        "precision10_60mPct": 20.51,
+        "hit5_30mPct": 12.82,
+        "hit20_dayPct": 23.08,
+        "uniqueEvents": 23,
+        "capturedTickerDays": 6
+      }
+    }
+  ],
+  "limitations": [
+    "Only 107 sampled historical snapshots are available; not one-minute bars.",
+    "Most positive examples are concentrated on Aug-25/Aug-26, making September holdout sparse.",
+    "Rich production-only fields such as 1m/2m/3m, trades, ATR, spread, news direction and SEC event semantics cannot be credited historically when absent.",
+    "90% precision is not considered established unless it survives untouched holdout with meaningful support; the system abstains rather than fabricates confidence."
+  ]
+}
