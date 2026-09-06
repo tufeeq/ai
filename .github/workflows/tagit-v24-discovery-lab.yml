@@ -1,0 +1,41 @@
+name: TAGit v2.4 Rare Event Discovery Lab
+
+on:
+  push:
+    paths:
+      - 'tagit/discovery-lab-v24.py'
+      - '.github/workflows/tagit-v24-discovery-lab.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: blob:none
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install research dependencies
+        run: python -m pip install --disable-pip-version-check numpy scikit-learn
+      - name: Syntax check
+        run: python -m py_compile tagit/discovery-lab-v24.py
+      - name: Run rare-event expanding walk-forward
+        run: python tagit/discovery-lab-v24.py
+      - name: Commit research report
+        run: |
+          git config user.name tagit-v24-research-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/tagit-v24-discovery-lab.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: add TAGit v2.4 discovery lab results'
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            sleep $((i*4))
+          done
+          exit 1
