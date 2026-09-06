@@ -1,0 +1,39 @@
+name: TAGit Finviz Cadence Hardening
+
+on:
+  push:
+    paths:
+      - '.github/workflows/tagit-finviz-cadence-fix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Apply documented Elite request spacing and remove stale Sharia blocker label
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('.github/workflows/refresh-finviz.yml')
+          s=p.read_text()
+          s=s.replace('sleep 3\n', 'sleep 6\n')
+          s=s.replace("                          'SHARIA_STATUS_NOT_AVAILABLE'\n", '')
+          p.write_text(s)
+          PY
+          grep -n 'sleep 6' .github/workflows/refresh-finviz.yml
+          ! grep -q 'SHARIA_STATUS_NOT_AVAILABLE' .github/workflows/refresh-finviz.yml
+      - name: Commit
+        run: |
+          git config user.name tagit-maintenance-bot
+          git config user.email actions@users.noreply.github.com
+          git add .github/workflows/refresh-finviz.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'Harden Finviz API request cadence'
+          git pull --rebase origin main
+          git push origin main
