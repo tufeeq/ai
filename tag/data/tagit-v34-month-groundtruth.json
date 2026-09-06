@@ -1,0 +1,469 @@
+{
+  "schemaVersion": 1,
+  "method": "TAGIT_V34_MONTH_5M_GROUND_TRUTH_HARD_NEGATIVE_RANKER",
+  "generatedAtUTC": "2026-09-06T23:01:36.492173+00:00",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "coverage": {
+    "snapshotEntries": 231,
+    "eligibleSnapshotRows": 5457,
+    "uniqueTickers": 1346,
+    "yahooSucceeded": 1346,
+    "yahooFailed": 0,
+    "qualityLabelledRows": 4466,
+    "coveragePct": 81.84
+  },
+  "split": {
+    "trainRows": 2857,
+    "trainPositives": 156,
+    "calRows": 672,
+    "calPositives": 31,
+    "holdRows": 937,
+    "holdPositives": 36
+  },
+  "antiLeakage": [
+    "only fully closed 5m bars may enter features",
+    "future bars are label-only",
+    "field-level requalification ignores legacy snapshot-wide trainingEligible flag",
+    "Aug11-24 train; Aug25-26 calibration; Aug27-Sep4 untouched thresholds holdout",
+    "Finviz/Yahoo current price parity <=7.5%"
+  ],
+  "byDay": {
+    "2026-08-11": {
+      "rows": 183,
+      "positives": 12,
+      "tickerDays": 110
+    },
+    "2026-08-12": {
+      "rows": 153,
+      "positives": 9,
+      "tickerDays": 83
+    },
+    "2026-08-13": {
+      "rows": 206,
+      "positives": 11,
+      "tickerDays": 117
+    },
+    "2026-08-14": {
+      "rows": 227,
+      "positives": 11,
+      "tickerDays": 114
+    },
+    "2026-08-17": {
+      "rows": 366,
+      "positives": 28,
+      "tickerDays": 146
+    },
+    "2026-08-18": {
+      "rows": 378,
+      "positives": 24,
+      "tickerDays": 162
+    },
+    "2026-08-19": {
+      "rows": 216,
+      "positives": 15,
+      "tickerDays": 106
+    },
+    "2026-08-20": {
+      "rows": 395,
+      "positives": 20,
+      "tickerDays": 159
+    },
+    "2026-08-21": {
+      "rows": 255,
+      "positives": 14,
+      "tickerDays": 113
+    },
+    "2026-08-24": {
+      "rows": 478,
+      "positives": 12,
+      "tickerDays": 178
+    },
+    "2026-08-25": {
+      "rows": 283,
+      "positives": 9,
+      "tickerDays": 135
+    },
+    "2026-08-26": {
+      "rows": 389,
+      "positives": 22,
+      "tickerDays": 174
+    },
+    "2026-08-27": {
+      "rows": 29,
+      "positives": 1,
+      "tickerDays": 23
+    },
+    "2026-08-28": {
+      "rows": 276,
+      "positives": 11,
+      "tickerDays": 138
+    },
+    "2026-08-31": {
+      "rows": 156,
+      "positives": 7,
+      "tickerDays": 114
+    },
+    "2026-09-01": {
+      "rows": 142,
+      "positives": 7,
+      "tickerDays": 101
+    },
+    "2026-09-02": {
+      "rows": 129,
+      "positives": 4,
+      "tickerDays": 103
+    },
+    "2026-09-03": {
+      "rows": 91,
+      "positives": 4,
+      "tickerDays": 71
+    },
+    "2026-09-04": {
+      "rows": 114,
+      "positives": 2,
+      "tickerDays": 88
+    }
+  },
+  "results": [
+    {
+      "mode": "base",
+      "features": 11,
+      "selectedConfig": {
+        "topK": 15,
+        "minEnsemble": 0.35,
+        "maxDisagreement": 0.4
+      },
+      "calibration": {
+        "count": 303,
+        "tp": 22,
+        "precisionPct": 7.26,
+        "recallObsPct": 70.97,
+        "tickerDays": 163,
+        "capturedTickerDays": 20,
+        "meanMFE": 3.29,
+        "meanMAE": -2.98
+      },
+      "holdout": {
+        "count": 424,
+        "tp": 27,
+        "precisionPct": 6.37,
+        "recallObsPct": 75.0,
+        "tickerDays": 323,
+        "capturedTickerDays": 26,
+        "meanMFE": 3.08,
+        "meanMAE": -2.45
+      },
+      "holdoutTopK": {
+        "1": {
+          "count": 34,
+          "tp": 1,
+          "precisionPct": 2.94,
+          "recallObsPct": 2.78,
+          "tickerDays": 31,
+          "capturedTickerDays": 1,
+          "meanMFE": 2.29,
+          "meanMAE": -2.96
+        },
+        "3": {
+          "count": 100,
+          "tp": 6,
+          "precisionPct": 6.0,
+          "recallObsPct": 16.67,
+          "tickerDays": 88,
+          "capturedTickerDays": 6,
+          "meanMFE": 2.66,
+          "meanMAE": -2.57
+        },
+        "5": {
+          "count": 166,
+          "tp": 12,
+          "precisionPct": 7.23,
+          "recallObsPct": 33.33,
+          "tickerDays": 145,
+          "capturedTickerDays": 12,
+          "meanMFE": 3.08,
+          "meanMAE": -2.39
+        },
+        "10": {
+          "count": 326,
+          "tp": 22,
+          "precisionPct": 6.75,
+          "recallObsPct": 61.11,
+          "tickerDays": 258,
+          "capturedTickerDays": 21,
+          "meanMFE": 3.12,
+          "meanMAE": -2.31
+        },
+        "20": {
+          "count": 585,
+          "tp": 34,
+          "precisionPct": 5.81,
+          "recallObsPct": 94.44,
+          "tickerDays": 426,
+          "capturedTickerDays": 32,
+          "meanMFE": 2.82,
+          "meanMAE": -2.24
+        }
+      },
+      "holdoutBySession": {
+        "pre": {
+          "count": 91,
+          "tp": 12,
+          "precisionPct": 13.19,
+          "recallObsPct": 85.71,
+          "tickerDays": 85,
+          "capturedTickerDays": 12,
+          "meanMFE": 5.53,
+          "meanMAE": -3.39
+        },
+        "regular": {
+          "count": 237,
+          "tp": 12,
+          "precisionPct": 5.06,
+          "recallObsPct": 66.67,
+          "tickerDays": 207,
+          "capturedTickerDays": 12,
+          "meanMFE": 2.8,
+          "meanMAE": -2.53
+        },
+        "after": {
+          "count": 96,
+          "tp": 3,
+          "precisionPct": 3.12,
+          "recallObsPct": 75.0,
+          "tickerDays": 79,
+          "capturedTickerDays": 3,
+          "meanMFE": 1.44,
+          "meanMAE": -1.35
+        }
+      }
+    },
+    {
+      "mode": "base+seq",
+      "features": 23,
+      "selectedConfig": {
+        "topK": 20,
+        "minEnsemble": 0.35,
+        "maxDisagreement": 0.4
+      },
+      "calibration": {
+        "count": 362,
+        "tp": 25,
+        "precisionPct": 6.91,
+        "recallObsPct": 80.65,
+        "tickerDays": 201,
+        "capturedTickerDays": 24,
+        "meanMFE": 3.11,
+        "meanMAE": -2.99
+      },
+      "holdout": {
+        "count": 504,
+        "tp": 31,
+        "precisionPct": 6.15,
+        "recallObsPct": 86.11,
+        "tickerDays": 378,
+        "capturedTickerDays": 29,
+        "meanMFE": 3.09,
+        "meanMAE": -2.35
+      },
+      "holdoutTopK": {
+        "1": {
+          "count": 34,
+          "tp": 1,
+          "precisionPct": 2.94,
+          "recallObsPct": 2.78,
+          "tickerDays": 32,
+          "capturedTickerDays": 1,
+          "meanMFE": 2.7,
+          "meanMAE": -2.41
+        },
+        "3": {
+          "count": 100,
+          "tp": 8,
+          "precisionPct": 8.0,
+          "recallObsPct": 22.22,
+          "tickerDays": 91,
+          "capturedTickerDays": 8,
+          "meanMFE": 3.47,
+          "meanMAE": -2.6
+        },
+        "5": {
+          "count": 166,
+          "tp": 12,
+          "precisionPct": 7.23,
+          "recallObsPct": 33.33,
+          "tickerDays": 151,
+          "capturedTickerDays": 12,
+          "meanMFE": 3.65,
+          "meanMAE": -2.51
+        },
+        "10": {
+          "count": 326,
+          "tp": 23,
+          "precisionPct": 7.06,
+          "recallObsPct": 63.89,
+          "tickerDays": 266,
+          "capturedTickerDays": 22,
+          "meanMFE": 3.21,
+          "meanMAE": -2.29
+        },
+        "20": {
+          "count": 585,
+          "tp": 32,
+          "precisionPct": 5.47,
+          "recallObsPct": 88.89,
+          "tickerDays": 437,
+          "capturedTickerDays": 30,
+          "meanMFE": 2.84,
+          "meanMAE": -2.2
+        }
+      },
+      "holdoutBySession": {
+        "pre": {
+          "count": 100,
+          "tp": 12,
+          "precisionPct": 12.0,
+          "recallObsPct": 85.71,
+          "tickerDays": 93,
+          "capturedTickerDays": 12,
+          "meanMFE": 5.23,
+          "meanMAE": -3.39
+        },
+        "regular": {
+          "count": 294,
+          "tp": 15,
+          "precisionPct": 5.1,
+          "recallObsPct": 83.33,
+          "tickerDays": 254,
+          "capturedTickerDays": 15,
+          "meanMFE": 3.0,
+          "meanMAE": -2.37
+        },
+        "after": {
+          "count": 110,
+          "tp": 4,
+          "precisionPct": 3.64,
+          "recallObsPct": 100.0,
+          "tickerDays": 86,
+          "capturedTickerDays": 4,
+          "meanMFE": 1.41,
+          "meanMAE": -1.34
+        }
+      }
+    },
+    {
+      "mode": "base+seq+micro",
+      "features": 34,
+      "selectedConfig": {
+        "topK": 20,
+        "minEnsemble": 0.35,
+        "maxDisagreement": 0.4
+      },
+      "calibration": {
+        "count": 360,
+        "tp": 25,
+        "precisionPct": 6.94,
+        "recallObsPct": 80.65,
+        "tickerDays": 195,
+        "capturedTickerDays": 22,
+        "meanMFE": 3.31,
+        "meanMAE": -3.01
+      },
+      "holdout": {
+        "count": 500,
+        "tp": 33,
+        "precisionPct": 6.6,
+        "recallObsPct": 91.67,
+        "tickerDays": 367,
+        "capturedTickerDays": 31,
+        "meanMFE": 3.25,
+        "meanMAE": -2.44
+      },
+      "holdoutTopK": {
+        "1": {
+          "count": 34,
+          "tp": 2,
+          "precisionPct": 5.88,
+          "recallObsPct": 5.56,
+          "tickerDays": 32,
+          "capturedTickerDays": 2,
+          "meanMFE": 4.2,
+          "meanMAE": -3.62
+        },
+        "3": {
+          "count": 100,
+          "tp": 6,
+          "precisionPct": 6.0,
+          "recallObsPct": 16.67,
+          "tickerDays": 85,
+          "capturedTickerDays": 6,
+          "meanMFE": 3.95,
+          "meanMAE": -3.68
+        },
+        "5": {
+          "count": 166,
+          "tp": 13,
+          "precisionPct": 7.83,
+          "recallObsPct": 36.11,
+          "tickerDays": 138,
+          "capturedTickerDays": 12,
+          "meanMFE": 4.13,
+          "meanMAE": -3.05
+        },
+        "10": {
+          "count": 326,
+          "tp": 26,
+          "precisionPct": 7.98,
+          "recallObsPct": 72.22,
+          "tickerDays": 256,
+          "capturedTickerDays": 24,
+          "meanMFE": 3.71,
+          "meanMAE": -2.56
+        },
+        "20": {
+          "count": 585,
+          "tp": 33,
+          "precisionPct": 5.64,
+          "recallObsPct": 91.67,
+          "tickerDays": 429,
+          "capturedTickerDays": 31,
+          "meanMFE": 2.87,
+          "meanMAE": -2.26
+        }
+      },
+      "holdoutBySession": {
+        "pre": {
+          "count": 99,
+          "tp": 13,
+          "precisionPct": 13.13,
+          "recallObsPct": 92.86,
+          "tickerDays": 91,
+          "capturedTickerDays": 13,
+          "meanMFE": 5.41,
+          "meanMAE": -3.42
+        },
+        "regular": {
+          "count": 298,
+          "tp": 16,
+          "precisionPct": 5.37,
+          "recallObsPct": 88.89,
+          "tickerDays": 252,
+          "capturedTickerDays": 16,
+          "meanMFE": 3.08,
+          "meanMAE": -2.52
+        },
+        "after": {
+          "count": 103,
+          "tp": 4,
+          "precisionPct": 3.88,
+          "recallObsPct": 100.0,
+          "tickerDays": 84,
+          "capturedTickerDays": 4,
+          "meanMFE": 1.67,
+          "meanMAE": -1.27
+        }
+      }
+    }
+  ],
+  "failedTickerSample": {}
+}
