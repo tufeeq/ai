@@ -1,0 +1,41 @@
+name: TAGit Historical Backfill Scope Audit
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tagit/historical-backfill-audit.py'
+      - '.github/workflows/tagit-historical-backfill-audit.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: blob:none
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check numpy scikit-learn
+      - name: Syntax check
+        run: python -m py_compile tagit/historical-backfill-audit.py
+      - name: Audit scope
+        run: python tagit/historical-backfill-audit.py
+      - name: Commit report
+        run: |
+          git config user.name tagit-backfill-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/tagit-backfill-scope.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: add TAGit historical backfill scope'
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            sleep $((i*4))
+          done
+          exit 1
