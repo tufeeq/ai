@@ -45,97 +45,26 @@ jobs:
             "https://elite.finviz.com/export.ashx?v=152&t=SPY,QQQ,IWM&c=${COLS}&auth=${FINVIZ_TOKEN}&ft=4" \
             -o /tmp/tagit-rich/benchmarks.csv
       - name: Normalize provider data and validate contract
-        run: |
-          python - <<'PY'
-          import csv,json,pathlib,datetime,statistics
-          root=pathlib.Path('.')
-          now=datetime.datetime.now(datetime.timezone.utc)
-          def read(path,default):
-            try:return json.loads(path.read_text(encoding='utf-8'))
-            except:return default
-          base=read(root/'tag/data/finviz.json',{})
-          enrichment=read(root/'tag/data/enrichment.json',{})
-          def csvrows(path):
-            with open(path,newline='',encoding='utf-8-sig') as f:return list(csv.DictReader(f))
-          def missing(v):return v in (None,'','-','N/A')
-          def number(v):
-            if missing(v):return None
-            s=str(v).replace(',','').replace('$','').strip().upper();m=1
-            if s.endswith('K'):m=1e3;s=s[:-1]
-            elif s.endswith('M'):m=1e6;s=s[:-1]
-            elif s.endswith('B'):m=1e9;s=s[:-1]
-            try:return float(s)*m
-            except:return None
-          def pct(v):
-            if missing(v):return None
-            try:return float(str(v).replace('%','').replace(',','').strip())
-            except:return None
-          def millions_field(v):
-            if missing(v):return None
-            s=str(v).strip().upper();x=number(v)
-            if x is None:return None
-            return x if s.endswith(('K','M','B')) else x*1e6
-          def avg_volume(v):
-            if missing(v):return None
-            s=str(v).strip().upper();x=number(v)
-            if x is None:return None
-            return x if s.endswith(('K','M','B')) else x*1000
-          def div(a,b):return a/b if a is not None and b not in (None,0) else None
-          merged={}
-          for sig in ['ta_topgainers','ta_unusualvolume','ta_mostactive']:
-            for r in csvrows(f'/tmp/tagit-rich/{sig}.csv'):
-              ticker=str(r.get('Ticker') or '').strip().upper()
-              if not ticker:continue
-              x=merged.setdefault(ticker,{'Ticker':ticker,'_signals':[]})
-              if sig not in x['_signals']:x['_signals'].append(sig)
-              for k,v in r.items():
-                if k and not missing(v):x[k]=v
-          base_map={str(r.get('Ticker') or '').upper():r for r in (base.get('rows') or base.get('data') or [])}
-          out=[]
-          for ticker,r in merged.items():
-            b=base_map.get(ticker,{})
-            for k,v in b.items():
-              if str(k).startswith('_') and k not in r:r[k]=v
-            price=number(r.get('Price'));volume=number(r.get('Volume'));av=avg_volume(r.get('Average Volume'));rv=pct(r.get('Relative Volume'));fl=millions_field(r.get('Shares Float'));so=millions_field(r.get('Shares Outstanding'));mc=millions_field(r.get('Market Cap'));atr=number(r.get('Average True Range'))
-            mom={str(k):pct(r.get(label)) for k,label in [(1,'Performance (1 Minute)'),(2,'Performance (2 Minutes)'),(3,'Performance (3 Minutes)'),(5,'Performance (5 Minutes)'),(10,'Performance (10 Minutes)'),(15,'Performance (15 Minutes)'),(30,'Performance (30 Minutes)'),(60,'Performance (1 Hour)'),(120,'Performance (2 Hours)')]}
-            micro=[mom[str(k)] for k in (1,2,3,5,10) if mom[str(k)] is not None]
-            consistency=sum(x>0 for x in micro)/len(micro) if micro else None
-            accel=(mom['1']-mom['5']/5) if mom['1'] is not None and mom['5'] is not None else None
-            rates=[mom[str(k)]/k for k in (1,2,3,5) if mom[str(k)] is not None]
-            short_rate=statistics.median(rates) if rates else None
-            sec=(enrichment.get('rows') or {}).get(ticker,{}) if isinstance(enrichment,dict) else {}
-            dilution_forms={'S-1','S-3','424B3','424B5','EFFECT','F-1','F-3'}
-            dilution=any(str(f.get('form','')).upper() in dilution_forms for f in (sec.get('filings') or [])[:8])
-            news_title=r.get('News Title');news_time=r.get('News Time');news_url=r.get('News URL')
-            cats=['finviz_latest_news'] if news_title else []
-            ch=pct(r.get('Change'));gap=pct(r.get('Gap'));sma20=pct(r.get('20-Day Simple Moving Average'));perfw=pct(r.get('Performance (Week)'))
-            late=max(0,(ch or 0)-22)*.45+max(0,(gap or 0)-18)*.35+max(0,(sma20 or 0)-35)*.20+max(0,(perfw or 0)-45)*.12
-            r['_tagit']={'price':price,'dayChangePct':ch,'volume':volume,'averageVolumeShares':av,'relativeVolume':rv,'floatShares':fl,'sharesOutstanding':so,'marketCapUsd':mc,'shortFloatPct':pct(r.get('Short Float')),'shortRatio':number(r.get('Short Ratio')),'atrPct':div(atr*100,price) if atr is not None else None,'gapPct':gap,'sma20Pct':sma20,'sma50Pct':pct(r.get('50-Day Simple Moving Average')),'sma200Pct':pct(r.get('200-Day Simple Moving Average')),'rsi14':pct(r.get('Relative Strength Index (14)')),'perfWeekPct':perfw,'perfMonthPct':pct(r.get('Performance (Month)')),'volatilityWeekPct':pct(r.get('Volatility (Week)')),'volatilityMonthPct':pct(r.get('Volatility (Month)')),'trades':number(r.get('Trades')),'dollarVolume':price*volume if price is not None and volume is not None else None,'averageDollarVolume':price*av if price is not None and av is not None else None,'floatRotation':div(volume,fl),'momentumPct':mom,'momentumConsistency':consistency,'priceAccelerationPctPerMin':accel,'shortMomentumRatePctPerMin':short_rate,'lateExtensionRiskRaw':round(late,3),'afterHoursClose':number(r.get('After-Hours Close')),'afterHoursChangePct':pct(r.get('After-Hours Change')),'afterHoursVolume':number(r.get('After-Hours Volume')),'exchange':r.get('Exchange'),'securityType':r.get('Security Type'),'latestNewsTitle':news_title,'latestNewsTime':news_time,'latestNewsUrl':news_url,'catalystSignals':cats,'recentDilutionFiling':dilution,'finvizRich':True}
-            out.append(r)
-          market={}
-          for r in csvrows('/tmp/tagit-rich/benchmarks.csv'):
-            ticker=str(r.get('Ticker') or '').upper();market[ticker]={'changePct':pct(r.get('Change')),'m1':pct(r.get('Performance (1 Minute)')),'m5':pct(r.get('Performance (5 Minutes)')),'m30':pct(r.get('Performance (30 Minutes)')),'h1':pct(r.get('Performance (1 Hour)'))}
-          required=['Ticker','Price','Change','Volume','Average Volume','Relative Volume','Average True Range','Gap','Trades','Performance (1 Minute)','Performance (2 Minutes)','Performance (3 Minutes)','Performance (5 Minutes)','Performance (10 Minutes)','Performance (30 Minutes)','Performance (1 Hour)']
-          coverage={k:round(sum(not missing(r.get(k)) for r in out)/len(out)*100,2) if out else 0 for k in required}
-          failures=[f'{k}:{coverage[k]}' for k in required if coverage[k]<95]
-          payload={'schemaVersion':2,'source':'Finviz Elite Rich','updatedAt':now.isoformat(),'session':base.get('session','unknown'),'sessionBucket':base.get('sessionBucket'),'cadenceStatus':base.get('cadenceStatus'),'bucketContinuityStatus':base.get('bucketContinuityStatus'),'extendedHoursFieldIntegrity':base.get('extendedHoursFieldIntegrity'),'independentSourceCount':base.get('independentSourceCount',1),'richHealthStatus':'PASS' if not failures else 'DEGRADED','richCoveragePct':coverage,'richFailures':failures,'marketBenchmarks':market,'rows':out}
-          (root/'tag/data/finviz-rich.json').write_text(json.dumps(payload,ensure_ascii=False),encoding='utf-8')
-          health={'updatedAtUTC':now.isoformat(),'status':payload['richHealthStatus'],'rows':len(out),'coveragePct':coverage,'failures':failures,'floatCoveragePct':round(sum((r.get('_tagit') or {}).get('floatShares') is not None for r in out)/len(out)*100,2) if out else 0,'rsiCoveragePct':round(sum((r.get('_tagit') or {}).get('rsi14') is not None for r in out)/len(out)*100,2) if out else 0,'newsCoveragePct':round(sum(bool((r.get('_tagit') or {}).get('latestNewsTitle')) for r in out)/len(out)*100,2) if out else 0,'marketBenchmarks':market,'rawPersistence':'EPHEMERAL_ONLY'}
-          (root/'tag/data/finviz-rich-health.json').write_text(json.dumps(health,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-          print(json.dumps(health,indent=2))
-          PY
+        run: python tagit/finviz_provider.py
       - name: Build derived TAGit signal feed
         run: |
           node --check tagit/core.js
           node --check tagit/build-signal-feed.mjs
           node tagit/build-signal-feed.mjs tag/data/finviz-rich.json tag/data/tagit-signal-feed.json
-      - name: Commit only derived outputs
+      - name: Commit derived outputs only
         run: |
-          rm -f tag/data/finviz-rich.json
+          if git ls-files --error-unmatch tag/data/finviz-rich.json >/dev/null 2>&1; then
+            git checkout -- tag/data/finviz-rich.json
+          else
+            rm -f tag/data/finviz-rich.json
+          fi
           git config user.name tagit-data-bot
           git config user.email actions@users.noreply.github.com
           git add tag/data/tagit-signal-feed.json tag/data/finviz-rich-health.json
           git diff --cached --quiet && exit 0
           git commit -m 'data: refresh derived TAGit Elite signals'
-          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*6)); done
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            sleep $((i*6))
+          done
           exit 1
