@@ -1,0 +1,56 @@
+name: TAGit Finviz Elite Metadata
+
+on:
+  workflow_run:
+    workflows: ["TAGit Finviz Elite Rich Feed"]
+    types: [completed]
+  push:
+    paths:
+      - '.github/workflows/tagit-finviz-metadata.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  metadata:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main}
+      - name: Fetch metadata columns
+        env:
+          FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
+        run: |
+          test -n "$FINVIZ_TOKEN" || exit 1
+          mkdir -p /tmp/tagit-meta tag/data
+          COLS='1,68,71,72,135,136,137,141,151'
+          for SIGNAL in ta_topgainers ta_unusualvolume ta_mostactive; do
+            curl --fail --silent --show-error --location --retry 4 --retry-delay 3 \
+              "https://elite.finviz.com/export.ashx?v=152&s=${SIGNAL}&c=${COLS}&auth=${FINVIZ_TOKEN}&ft=4" -o "/tmp/tagit-meta/${SIGNAL}.csv"
+          done
+          python - <<'PY'
+          import csv,json,pathlib,datetime
+          out={}
+          for sig in ['ta_topgainers','ta_unusualvolume','ta_mostactive']:
+            with open('/tmp/tagit-meta/'+sig+'.csv',newline='',encoding='utf-8-sig') as f:
+              for r in csv.DictReader(f):
+                t=str(r.get('Ticker') or '').strip().upper()
+                if not t:continue
+                x=out.setdefault(t,{'ticker':t,'signals':[]})
+                if sig not in x['signals']:x['signals'].append(sig)
+                for k,v in r.items():
+                  if k and v not in (None,''):x[k]=v
+          payload={'updatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'source':'Finviz Elite','fields':['Earnings Date','After-Hours Close','After-Hours Change','News Time','News URL','News Title','After-Hours Volume','Security Type'],'rows':out}
+          pathlib.Path('tag/data/finviz-metadata.json').write_text(json.dumps(payload,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps({'tickers':len(out),'news':sum(bool(x.get('News Title')) for x in out.values()),'ahVolume':sum(bool(x.get('After-Hours Volume')) for x in out.values()),'securityType':sum(bool(x.get('Security Type')) for x in out.values())},indent=2))
+          PY
+      - name: Commit metadata
+        run: |
+          git config user.name tagit-data-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/finviz-metadata.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: refresh Finviz Elite metadata'
+          git pull --rebase origin main && git push origin HEAD:main
