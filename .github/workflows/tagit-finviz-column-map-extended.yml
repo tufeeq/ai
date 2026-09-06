@@ -1,0 +1,44 @@
+name: TAGit Finviz Extended Column Map
+
+on:
+  push:
+    paths:
+      - '.github/workflows/tagit-finviz-column-map-extended.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  map:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main}
+      - name: Probe Finviz columns 121-180
+        env:
+          FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
+        run: |
+          python - <<'PY'
+          import csv,io,json,os,time,urllib.request,datetime,pathlib
+          token=os.environ['FINVIZ_TOKEN']; base='https://elite.finviz.com/export.ashx?v=152&t=AAPL&ft=4&auth='+token
+          mapping={};errors=[]
+          for i in range(121,181):
+            try:
+              req=urllib.request.Request(base+f'&c=1,{i}',headers={'User-Agent':'Mozilla/5.0 TAGit/1.0'})
+              with urllib.request.urlopen(req,timeout=12) as r:text=r.read().decode('utf-8-sig','replace')
+              h=csv.DictReader(io.StringIO(text)).fieldnames or [];x=[z for z in h if z not in ('No.','Ticker')]
+              if x:mapping[str(i)]=x
+            except Exception as e:errors.append({'id':i,'error':type(e).__name__})
+            time.sleep(.16)
+          out={'generatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'mapping':mapping,'errors':errors}
+          pathlib.Path('tag/data/finviz-column-map-extended.json').write_text(json.dumps(out,indent=2,ensure_ascii=False)+'\n')
+          print(json.dumps(out,indent=2))
+          PY
+      - name: Commit map
+        run: |
+          git config user.name tagit-data-bot; git config user.email actions@users.noreply.github.com
+          git add tag/data/finviz-column-map-extended.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: map extended Finviz Elite columns'
+          git pull --rebase origin main && git push origin HEAD:main
