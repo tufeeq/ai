@@ -1,0 +1,165 @@
+{
+  "schemaVersion": 1,
+  "method": "TAGIT_V32_YAHOO_5M_CAUSAL_BACKFILL_CHALLENGER",
+  "generatedAtUTC": "2026-09-06T22:55:03.610598+00:00",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "cohort": {
+    "radarObservations": 1360,
+    "uniqueRadarTickers": 312,
+    "yahooTickersSucceeded": 312,
+    "yahooTickersFailed": 0,
+    "minuteFeatureCoveragePct": 85.07
+  },
+  "split": {
+    "trainAug25": 800,
+    "calibrationAug26": 340,
+    "holdoutSep1to4": 220,
+    "trainPositives": 10,
+    "calibrationPositives": 3,
+    "holdoutPositives": 1
+  },
+  "antiLeakage": [
+    "RADAR cohort selected from current point-in-time features only",
+    "minute bars at or before observation only",
+    "future MFE labels never enter features",
+    "thresholds selected on Aug26 only",
+    "Sep1-4 untouched holdout"
+  ],
+  "results": [
+    {
+      "mode": "base",
+      "featureCount": 23,
+      "selectedConfig": {
+        "topK": 8,
+        "minEnsemble": 0.6,
+        "maxDisagreement": 0.15
+      },
+      "calibration": {
+        "count": 63,
+        "tp": 1,
+        "precision10_60mPct": 1.59,
+        "recallObsPct": 33.33,
+        "tickerDays": 27,
+        "capturedTickerDays": 1
+      },
+      "holdout": {
+        "count": 42,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": 0.0,
+        "tickerDays": 32,
+        "capturedTickerDays": 0
+      },
+      "holdoutTopK": {
+        "1": {
+          "count": 11,
+          "tp": 0,
+          "precision10_60mPct": 0.0,
+          "recallObsPct": 0.0,
+          "tickerDays": 9,
+          "capturedTickerDays": 0
+        },
+        "3": {
+          "count": 33,
+          "tp": 0,
+          "precision10_60mPct": 0.0,
+          "recallObsPct": 0.0,
+          "tickerDays": 25,
+          "capturedTickerDays": 0
+        },
+        "5": {
+          "count": 55,
+          "tp": 1,
+          "precision10_60mPct": 1.82,
+          "recallObsPct": 100.0,
+          "tickerDays": 39,
+          "capturedTickerDays": 1
+        },
+        "10": {
+          "count": 110,
+          "tp": 1,
+          "precision10_60mPct": 0.91,
+          "recallObsPct": 100.0,
+          "tickerDays": 69,
+          "capturedTickerDays": 1
+        },
+        "20": {
+          "count": 220,
+          "tp": 1,
+          "precision10_60mPct": 0.45,
+          "recallObsPct": 100.0,
+          "tickerDays": 123,
+          "capturedTickerDays": 1
+        }
+      }
+    },
+    {
+      "mode": "base+minute",
+      "featureCount": 35,
+      "selectedConfig": {
+        "topK": 10,
+        "minEnsemble": 0.45,
+        "maxDisagreement": 0.15
+      },
+      "calibration": {
+        "count": 80,
+        "tp": 1,
+        "precision10_60mPct": 1.25,
+        "recallObsPct": 33.33,
+        "tickerDays": 36,
+        "capturedTickerDays": 1
+      },
+      "holdout": {
+        "count": 47,
+        "tp": 0,
+        "precision10_60mPct": 0.0,
+        "recallObsPct": 0.0,
+        "tickerDays": 36,
+        "capturedTickerDays": 0
+      },
+      "holdoutTopK": {
+        "1": {
+          "count": 11,
+          "tp": 0,
+          "precision10_60mPct": 0.0,
+          "recallObsPct": 0.0,
+          "tickerDays": 9,
+          "capturedTickerDays": 0
+        },
+        "3": {
+          "count": 33,
+          "tp": 0,
+          "precision10_60mPct": 0.0,
+          "recallObsPct": 0.0,
+          "tickerDays": 24,
+          "capturedTickerDays": 0
+        },
+        "5": {
+          "count": 55,
+          "tp": 0,
+          "precision10_60mPct": 0.0,
+          "recallObsPct": 0.0,
+          "tickerDays": 35,
+          "capturedTickerDays": 0
+        },
+        "10": {
+          "count": 110,
+          "tp": 1,
+          "precision10_60mPct": 0.91,
+          "recallObsPct": 100.0,
+          "tickerDays": 68,
+          "capturedTickerDays": 1
+        },
+        "20": {
+          "count": 220,
+          "tp": 1,
+          "precision10_60mPct": 0.45,
+          "recallObsPct": 100.0,
+          "tickerDays": 123,
+          "capturedTickerDays": 1
+        }
+      }
+    }
+  ],
+  "failedTickerSample": {}
+}
