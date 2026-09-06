@@ -1,0 +1,308 @@
+{
+  "schemaVersion": 1,
+  "method": "TAGIT_V31_SEQUENCE_NATIVE_CAUSAL_RANKING",
+  "generatedAtUTC": "2026-09-06T22:48:39.368773+00:00",
+  "objective": "+10% MFE by next observed snapshots within 75m while current day change <10%",
+  "antiLeakage": [
+    "features use current/prior same-day snapshot only",
+    "labels use later same-day snapshots only",
+    "calibration Aug25-26 selects thresholds",
+    "Aug27-Sep4 is untouched for threshold selection",
+    "holdout model may train through calibration dates but never on holdout labels"
+  ],
+  "coverage": {
+    "snapshots": 231,
+    "flattenedRows": 20938,
+    "labeledEarlyRows": 2578,
+    "dates": [
+      "2026-08-11",
+      "2026-08-12",
+      "2026-08-13",
+      "2026-08-14",
+      "2026-08-17",
+      "2026-08-18",
+      "2026-08-19",
+      "2026-08-20",
+      "2026-08-21",
+      "2026-08-24",
+      "2026-08-25",
+      "2026-08-26",
+      "2026-08-27",
+      "2026-08-28",
+      "2026-09-02",
+      "2026-09-03"
+    ],
+    "trainRows": 2127,
+    "calibrationRows": 315,
+    "holdoutRows": 136,
+    "trainPositives": 42,
+    "calibrationPositives": 4,
+    "holdoutPositives": 1,
+    "medianFutureObservationGapMin": 59.48
+  },
+  "byDay": {
+    "2026-08-11": {
+      "rows": 93,
+      "positives": 2,
+      "tickerDays": 56
+    },
+    "2026-08-12": {
+      "rows": 67,
+      "positives": 3,
+      "tickerDays": 48
+    },
+    "2026-08-13": {
+      "rows": 110,
+      "positives": 2,
+      "tickerDays": 67
+    },
+    "2026-08-14": {
+      "rows": 138,
+      "positives": 4,
+      "tickerDays": 70
+    },
+    "2026-08-17": {
+      "rows": 308,
+      "positives": 8,
+      "tickerDays": 111
+    },
+    "2026-08-18": {
+      "rows": 352,
+      "positives": 9,
+      "tickerDays": 124
+    },
+    "2026-08-19": {
+      "rows": 157,
+      "positives": 4,
+      "tickerDays": 71
+    },
+    "2026-08-20": {
+      "rows": 305,
+      "positives": 5,
+      "tickerDays": 115
+    },
+    "2026-08-21": {
+      "rows": 184,
+      "positives": 3,
+      "tickerDays": 81
+    },
+    "2026-08-24": {
+      "rows": 413,
+      "positives": 2,
+      "tickerDays": 134
+    },
+    "2026-08-25": {
+      "rows": 141,
+      "positives": 2,
+      "tickerDays": 70
+    },
+    "2026-08-26": {
+      "rows": 174,
+      "positives": 2,
+      "tickerDays": 85
+    },
+    "2026-08-27": {
+      "rows": 7,
+      "positives": 0,
+      "tickerDays": 7
+    },
+    "2026-08-28": {
+      "rows": 96,
+      "positives": 1,
+      "tickerDays": 68
+    },
+    "2026-09-02": {
+      "rows": 9,
+      "positives": 0,
+      "tickerDays": 9
+    },
+    "2026-09-03": {
+      "rows": 24,
+      "positives": 0,
+      "tickerDays": 24
+    }
+  },
+  "ablation": [
+    {
+      "layer": "technical",
+      "groups": [
+        "technical"
+      ],
+      "featureCount": 11,
+      "selectedConfig": {
+        "topK": 8,
+        "minEnsemble": 0.6,
+        "maxDisagreement": 0.12
+      },
+      "calibration": {
+        "count": 58,
+        "tp": 3,
+        "precision10_75mPct": 5.17,
+        "recallObsPct": 75.0,
+        "uniqueTickerDays": 43,
+        "capturedTickerDays": 3,
+        "hit20Pct": 1.72
+      },
+      "holdout": {
+        "count": 20,
+        "tp": 1,
+        "precision10_75mPct": 5.0,
+        "recallObsPct": 100.0,
+        "uniqueTickerDays": 17,
+        "capturedTickerDays": 1,
+        "hit20Pct": 5.0
+      },
+      "radarTop15": {
+        "calibration": {
+          "count": 221,
+          "tp": 3,
+          "precision10_75mPct": 1.36,
+          "recallObsPct": 75.0,
+          "uniqueTickerDays": 125,
+          "capturedTickerDays": 3,
+          "hit20Pct": 0.45
+        },
+        "holdout": {
+          "count": 76,
+          "tp": 1,
+          "precision10_75mPct": 1.32,
+          "recallObsPct": 100.0,
+          "uniqueTickerDays": 66,
+          "capturedTickerDays": 1,
+          "hit20Pct": 1.32
+        }
+      },
+      "top1Holdout": {
+        "count": 6,
+        "tp": 0,
+        "precision10_75mPct": 0.0,
+        "recallObsPct": 0.0,
+        "uniqueTickerDays": 6,
+        "capturedTickerDays": 0,
+        "hit20Pct": 0.0
+      }
+    },
+    {
+      "layer": "technical+sequence",
+      "groups": [
+        "technical",
+        "sequence"
+      ],
+      "featureCount": 22,
+      "selectedConfig": {
+        "topK": 8,
+        "minEnsemble": 0.6,
+        "maxDisagreement": 0.12
+      },
+      "calibration": {
+        "count": 61,
+        "tp": 2,
+        "precision10_75mPct": 3.28,
+        "recallObsPct": 50.0,
+        "uniqueTickerDays": 44,
+        "capturedTickerDays": 2,
+        "hit20Pct": 1.64
+      },
+      "holdout": {
+        "count": 18,
+        "tp": 0,
+        "precision10_75mPct": 0.0,
+        "recallObsPct": 0.0,
+        "uniqueTickerDays": 18,
+        "capturedTickerDays": 0,
+        "hit20Pct": 0.0
+      },
+      "radarTop15": {
+        "calibration": {
+          "count": 221,
+          "tp": 3,
+          "precision10_75mPct": 1.36,
+          "recallObsPct": 75.0,
+          "uniqueTickerDays": 124,
+          "capturedTickerDays": 3,
+          "hit20Pct": 0.45
+        },
+        "holdout": {
+          "count": 76,
+          "tp": 1,
+          "precision10_75mPct": 1.32,
+          "recallObsPct": 100.0,
+          "uniqueTickerDays": 67,
+          "capturedTickerDays": 1,
+          "hit20Pct": 1.32
+        }
+      },
+      "top1Holdout": {
+        "count": 6,
+        "tp": 0,
+        "precision10_75mPct": 0.0,
+        "recallObsPct": 0.0,
+        "uniqueTickerDays": 6,
+        "capturedTickerDays": 0,
+        "hit20Pct": 0.0
+      }
+    },
+    {
+      "layer": "technical+sequence+regime",
+      "groups": [
+        "technical",
+        "sequence",
+        "regime"
+      ],
+      "featureCount": 27,
+      "selectedConfig": {
+        "topK": 10,
+        "minEnsemble": 0.45,
+        "maxDisagreement": 0.12
+      },
+      "calibration": {
+        "count": 60,
+        "tp": 2,
+        "precision10_75mPct": 3.33,
+        "recallObsPct": 50.0,
+        "uniqueTickerDays": 49,
+        "capturedTickerDays": 2,
+        "hit20Pct": 1.67
+      },
+      "holdout": {
+        "count": 24,
+        "tp": 1,
+        "precision10_75mPct": 4.17,
+        "recallObsPct": 100.0,
+        "uniqueTickerDays": 23,
+        "capturedTickerDays": 1,
+        "hit20Pct": 4.17
+      },
+      "radarTop15": {
+        "calibration": {
+          "count": 221,
+          "tp": 3,
+          "precision10_75mPct": 1.36,
+          "recallObsPct": 75.0,
+          "uniqueTickerDays": 125,
+          "capturedTickerDays": 3,
+          "hit20Pct": 0.45
+        },
+        "holdout": {
+          "count": 76,
+          "tp": 1,
+          "precision10_75mPct": 1.32,
+          "recallObsPct": 100.0,
+          "uniqueTickerDays": 68,
+          "capturedTickerDays": 1,
+          "hit20Pct": 1.32
+        }
+      },
+      "top1Holdout": {
+        "count": 6,
+        "tp": 0,
+        "precision10_75mPct": 0.0,
+        "recallObsPct": 0.0,
+        "uniqueTickerDays": 6,
+        "capturedTickerDays": 0,
+        "hit20Pct": 0.0
+      }
+    }
+  ],
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE"
+}
