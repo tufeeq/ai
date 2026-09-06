@@ -1,0 +1,74 @@
+name: TAGit Finviz Elite Capability Probe
+
+on:
+  push:
+    paths:
+      - '.github/workflows/tagit-finviz-elite-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Probe Finviz Elite full export
+        env:
+          FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
+        run: |
+          test -n "$FINVIZ_TOKEN" || (echo 'FINVIZ_TOKEN missing' && exit 1)
+          mkdir -p tag/data /tmp/tagit-finviz
+          for SIGNAL in ta_topgainers ta_unusualvolume ta_mostactive; do
+            curl --fail --silent --show-error --location --retry 4 --retry-delay 3 \
+              "https://elite.finviz.com/export.ashx?v=152&s=${SIGNAL}&auth=${FINVIZ_TOKEN}&ft=4" \
+              -o "/tmp/tagit-finviz/${SIGNAL}.csv"
+            test -s "/tmp/tagit-finviz/${SIGNAL}.csv"
+            sleep 2
+          done
+          python - <<'PY'
+          import csv,json,pathlib,datetime
+          files=list(pathlib.Path('/tmp/tagit-finviz').glob('*.csv'))
+          critical=['Ticker','Price','Change','Volume','Average Volume','Relative Volume','Shares Float','Short Float','ATR (14)','RSI (14)','Gap','SMA20','SMA50','SMA200','Market Cap','Earnings Date','Insider Ownership','Institutional Ownership']
+          aliases={
+            'Shares Float':['Shares Float','Shs Float','Float'],
+            'Short Float':['Short Float','Short Float %'],
+            'Average Volume':['Average Volume','Avg Volume'],
+            'Relative Volume':['Relative Volume','Rel Volume'],
+            'ATR (14)':['ATR (14)','ATR'],
+            'RSI (14)':['RSI (14)','RSI'],
+            'Insider Ownership':['Insider Ownership','Insider Own'],
+            'Institutional Ownership':['Institutional Ownership','Inst Own'],
+          }
+          all_headers=set();rows=[];per={}
+          for p in files:
+            with p.open(newline='',encoding='utf-8-sig') as f:
+              r=csv.DictReader(f); data=list(r); headers=r.fieldnames or []
+            all_headers.update(headers); rows.extend(data); per[p.stem]={'rows':len(data),'headers':headers}
+          def value(row,key):
+            for k in aliases.get(key,[key]):
+              v=row.get(k)
+              if v not in (None,'','-','N/A'): return v
+            return None
+          coverage={k: round(sum(value(r,k) is not None for r in rows)/len(rows)*100,2) if rows else 0 for k in critical}
+          report={'generatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'endpoint':'elite.finviz.com/export.ashx?v=152','signals':per,'uniqueRowsRaw':len(rows),'headerCount':len(all_headers),'headers':sorted(all_headers),'criticalCoveragePct':coverage,'requiredMinimums':{'Ticker':100,'Price':95,'Change':95,'Volume':95,'Relative Volume':70,'Shares Float':50,'Short Float':40,'ATR (14)':70,'RSI (14)':70},'status':'PASS'}
+          failures=[]
+          for k,minv in report['requiredMinimums'].items():
+            if coverage.get(k,0)<minv: failures.append(f'{k}:{coverage.get(k,0)}<{minv}')
+          if failures: report['status']='DEGRADED';report['failures']=failures
+          pathlib.Path('tag/data/finviz-elite-capabilities.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps({'status':report['status'],'headerCount':report['headerCount'],'coverage':coverage,'failures':failures},indent=2))
+          PY
+      - name: Commit capability report
+        run: |
+          git config user.name tagit-data-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/finviz-elite-capabilities.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: record Finviz Elite full-export capabilities'
+          git pull --rebase origin main
+          git push origin HEAD:main
