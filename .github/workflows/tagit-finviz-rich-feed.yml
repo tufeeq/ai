@@ -30,6 +30,9 @@ jobs:
           python-version: '3.12'
       - name: Sync main
         run: git pull --rebase origin main
+      - name: Install optional v2.5 shadow scorer dependencies
+        continue-on-error: true
+        run: python -m pip install --disable-pip-version-check numpy scikit-learn joblib
       - name: Fetch Finviz Elite rich data within documented cadence
         env:
           FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
@@ -51,6 +54,28 @@ jobs:
         run: python tagit/finviz_provider.py
       - name: Audit provider data contract
         run: python tagit/audit_provider.py
+      - name: Score v2.5 shadow model without blocking champion feed
+        run: |
+          if python - <<'PY'
+          import importlib.util
+          assert importlib.util.find_spec('numpy')
+          assert importlib.util.find_spec('sklearn')
+          assert importlib.util.find_spec('joblib')
+          PY
+          then
+            python -m py_compile tagit/score-v25-live.py
+            python tagit/score-v25-live.py || python - <<'PY'
+          import json,datetime,pathlib
+          p={'schemaVersion':1,'source':'TAGit v2.5 shadow scorer','updatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'status':'DEGRADED','reason':'SHADOW_SCORER_RUNTIME_FAILURE','policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','championUnaffected':True,'counts':{'total':0,'radar':0,'discover':0,'alert':0},'items':[],'stateCache':{}}
+          pathlib.Path('tag/data/tagit-v25-shadow.json').write_text(json.dumps(p,indent=2)+'\n')
+          PY
+          else
+            python - <<'PY'
+          import json,datetime,pathlib
+          p={'schemaVersion':1,'source':'TAGit v2.5 shadow scorer','updatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'status':'DEGRADED','reason':'SHADOW_DEPENDENCY_UNAVAILABLE','policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','championUnaffected':True,'counts':{'total':0,'radar':0,'discover':0,'alert':0},'items':[],'stateCache':{}}
+          pathlib.Path('tag/data/tagit-v25-shadow.json').write_text(json.dumps(p,indent=2)+'\n')
+          PY
+          fi
       - name: Build derived TAGit signal feed
         run: |
           node --check tagit/core.js
@@ -69,9 +94,9 @@ jobs:
           fi
           git config user.name tagit-data-bot
           git config user.email actions@users.noreply.github.com
-          git add tag/data/tagit-signal-feed.json tag/data/finviz-rich-health.json tag/data/tagit-data-contract.json tag/data/tagit-shadow-learning-ledger.json
+          git add tag/data/tagit-signal-feed.json tag/data/finviz-rich-health.json tag/data/tagit-data-contract.json tag/data/tagit-shadow-learning-ledger.json tag/data/tagit-v25-shadow.json
           git diff --cached --quiet && exit 0
-          git commit -m 'data: refresh derived TAGit Elite signals contract and shadow ledger'
+          git commit -m 'data: refresh TAGit Elite signals and v2.5 shadow output'
           for i in 1 2 3; do
             git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
             sleep $((i*6))
