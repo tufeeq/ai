@@ -5,6 +5,12 @@ on:
     workflows: ["TAG5 Mover Snapshot"]
     types: [completed]
   workflow_dispatch:
+  push:
+    paths:
+      - 'tagit/score-v3-live.py'
+      - 'tag/model/tagit-v3-ranker.joblib'
+      - 'tagit/build-shadow-learning-ledger.py'
+      - '.github/workflows/tagit-finviz-rich-feed.yml'
 
 permissions:
   contents: write
@@ -15,7 +21,7 @@ concurrency:
 
 jobs:
   enrich:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
