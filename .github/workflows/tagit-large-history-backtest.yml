@@ -1,0 +1,32 @@
+name: TAGit Large Historical Backtest
+
+on:
+  push:
+    paths:
+      - 'tagit/backtest_history.py'
+      - '.github/workflows/tagit-large-history-backtest.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run large point-in-time replay
+        run: python tagit/backtest_history.py
+      - name: Commit report
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add tag/data/tagit-large-walkforward.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'Update TAGit large historical walk-forward report'
+          git push
