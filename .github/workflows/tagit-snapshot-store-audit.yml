@@ -1,0 +1,31 @@
+name: TAGit Snapshot Store Audit
+
+on:
+  push:
+    paths:
+      - 'tagit/audit-snapshot-store.py'
+      - '.github/workflows/tagit-snapshot-store-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Audit consolidated store
+        run: python tagit/audit-snapshot-store.py
+      - name: Commit report
+        run: |
+          git config user.name tagit-snapshot-audit-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/tagit-snapshot-store-audit.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: audit consolidated snapshot store'
+          git pull --rebase --autostash origin main
+          git push origin HEAD:main
