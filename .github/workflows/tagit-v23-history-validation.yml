@@ -1,0 +1,40 @@
+name: TAGit 2.3 Historical Intersection Validation
+
+on:
+  push:
+    paths:
+      - 'tagit/backtest-v23-history.mjs'
+      - '.github/workflows/tagit-v23-history-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax check
+        run: |
+          node --check tagit/core.js
+          node --check tagit/backtest-v23-history.mjs
+      - name: Replay 140k historical observations
+        run: node tagit/backtest-v23-history.mjs
+      - name: Commit comparison report
+        run: |
+          git config user.name tagit-v23-validation-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/tagit-v23-history-comparison.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: add TAGit 2.3 historical comparison'
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            sleep $((i*4))
+          done
+          exit 1
