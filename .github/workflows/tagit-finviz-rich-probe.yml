@@ -1,0 +1,45 @@
+name: TAGit Finviz Rich Combined Probe
+
+on:
+  push:
+    paths:
+      - '.github/workflows/tagit-finviz-rich-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Probe combined custom table
+        env:
+          FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
+        run: |
+          test -n "$FINVIZ_TOKEN" || exit 1
+          COLS='1,2,3,4,5,6,7,22,23,24,25,26,27,28,30,31,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,88,89,90,91,92,93,94,95,96,97,98'
+          curl --fail --silent --show-error --location --retry 4 --retry-delay 3 \
+            "https://elite.finviz.com/export.ashx?v=152&s=ta_unusualvolume&c=${COLS}&auth=${FINVIZ_TOKEN}&ft=4" -o /tmp/rich.csv
+          python - <<'PY'
+          import csv,json,pathlib,datetime
+          with open('/tmp/rich.csv',newline='',encoding='utf-8-sig') as f:
+            rd=csv.DictReader(f); rows=list(rd); headers=rd.fieldnames or []
+          wanted=['Ticker','Market Cap','Shares Outstanding','Shares Float','Short Float','Short Ratio','Average Volume','Relative Volume','Average True Range','RSI (14)','Gap','20-Day Simple Moving Average','50-Day Simple Moving Average','200-Day Simple Moving Average','Performance (Week)','Performance (Month)','Performance (Quarter)','Performance (Half Year)','Performance (Year)','Volatility (Week)','Volatility (Month)','Price','Change','Volume','Trades','Performance (1 Minute)','Performance (2 Minutes)','Performance (3 Minutes)','Performance (5 Minutes)','Performance (10 Minutes)','Performance (30 Minutes)','Performance (1 Hour)','Performance (2 Hours)','After-Hours Close','After-Hours Change','Earnings Date']
+          cov={k:round(sum(str(r.get(k,'')).strip() not in ('','-','N/A') for r in rows)/len(rows)*100,2) if rows else 0 for k in wanted}
+          report={'generatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'rows':len(rows),'headers':headers,'coveragePct':cov,'sample':[{k:r.get(k) for k in wanted if k in headers} for r in rows[:3]],'status':'PASS' if len(headers)>=25 else 'DEGRADED'}
+          pathlib.Path('tag/data/finviz-rich-probe.json').write_text(json.dumps(report,indent=2,ensure_ascii=False)+'\n')
+          print(json.dumps({'headers':headers,'coverage':cov},indent=2))
+          PY
+      - name: Commit report
+        run: |
+          git config user.name tagit-data-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/finviz-rich-probe.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: verify combined Finviz Elite rich columns'
+          git pull --rebase origin main
+          git push origin HEAD:main
