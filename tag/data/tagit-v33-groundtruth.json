@@ -1,0 +1,228 @@
+{
+  "schemaVersion": 1,
+  "method": "TAGIT_V33_YAHOO_5M_INDEPENDENT_GROUND_TRUTH",
+  "generatedAtUTC": "2026-09-06T22:58:30.218874+00:00",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "cohort": {
+    "radarTopK": 50,
+    "pointInTimeObservations": 3400,
+    "uniqueTickers": 699,
+    "yahooSucceeded": 699,
+    "yahooFailed": 0,
+    "alignedObservations": 2772,
+    "qualityLabelledObservations": 2489,
+    "qualityCoveragePct": 73.21,
+    "parityRejected": 235
+  },
+  "groundTruth": {
+    "yahoo5mPositiveObservations": 114,
+    "oldSparsePositiveObservationsSameRows": 26,
+    "positiveLiftVsSparse": 4.38
+  },
+  "split": {
+    "train": {
+      "rows": 1515,
+      "positives": 74
+    },
+    "calibration": {
+      "rows": 705,
+      "positives": 29
+    },
+    "holdout": {
+      "rows": 269,
+      "positives": 11
+    }
+  },
+  "antiLeakage": [
+    "cohort selection uses only point-in-time TAG features",
+    "Yahoo bars <= observation are features only",
+    "Yahoo bars > observation and <=60m are labels only",
+    "Finviz/Yahoo current-price parity <=7.5% required",
+    "Aug26 selects thresholds; Sep1-4 untouched"
+  ],
+  "results": [
+    {
+      "mode": "base",
+      "featureCount": 23,
+      "selectedConfig": {
+        "topK": 20,
+        "minEnsemble": 0.35,
+        "maxDisagreement": 0.65
+      },
+      "calibration": {
+        "count": 333,
+        "tp": 18,
+        "precision10_60mPct": 5.41,
+        "recallObsPct": 62.07,
+        "tickerDays": 94,
+        "capturedTickerDays": 14,
+        "meanMFE": 3.57,
+        "meanMAE": -2.32
+      },
+      "holdout": {
+        "count": 154,
+        "tp": 11,
+        "precision10_60mPct": 7.14,
+        "recallObsPct": 100.0,
+        "tickerDays": 97,
+        "capturedTickerDays": 11,
+        "meanMFE": 2.85,
+        "meanMAE": -2.48
+      },
+      "holdoutTopK": {
+        "1": {
+          "count": 11,
+          "tp": 1,
+          "precision10_60mPct": 9.09,
+          "recallObsPct": 9.09,
+          "tickerDays": 9,
+          "capturedTickerDays": 1,
+          "meanMFE": 4.0,
+          "meanMAE": -2.96
+        },
+        "3": {
+          "count": 33,
+          "tp": 2,
+          "precision10_60mPct": 6.06,
+          "recallObsPct": 18.18,
+          "tickerDays": 24,
+          "capturedTickerDays": 2,
+          "meanMFE": 2.79,
+          "meanMAE": -2.66
+        },
+        "5": {
+          "count": 55,
+          "tp": 5,
+          "precision10_60mPct": 9.09,
+          "recallObsPct": 45.45,
+          "tickerDays": 38,
+          "capturedTickerDays": 5,
+          "meanMFE": 3.14,
+          "meanMAE": -2.26
+        },
+        "10": {
+          "count": 110,
+          "tp": 9,
+          "precision10_60mPct": 8.18,
+          "recallObsPct": 81.82,
+          "tickerDays": 75,
+          "capturedTickerDays": 9,
+          "meanMFE": 3.06,
+          "meanMAE": -2.43
+        },
+        "20": {
+          "count": 194,
+          "tp": 11,
+          "precision10_60mPct": 5.67,
+          "recallObsPct": 100.0,
+          "tickerDays": 126,
+          "capturedTickerDays": 11,
+          "meanMFE": 2.61,
+          "meanMAE": -2.31
+        },
+        "50": {
+          "count": 269,
+          "tp": 11,
+          "precision10_60mPct": 4.09,
+          "recallObsPct": 100.0,
+          "tickerDays": 182,
+          "capturedTickerDays": 11,
+          "meanMFE": 2.47,
+          "meanMAE": -2.37
+        }
+      }
+    },
+    {
+      "mode": "base+minute",
+      "featureCount": 35,
+      "selectedConfig": {
+        "topK": 20,
+        "minEnsemble": 0.5,
+        "maxDisagreement": 0.4
+      },
+      "calibration": {
+        "count": 308,
+        "tp": 15,
+        "precision10_60mPct": 4.87,
+        "recallObsPct": 51.72,
+        "tickerDays": 81,
+        "capturedTickerDays": 13,
+        "meanMFE": 3.67,
+        "meanMAE": -2.6
+      },
+      "holdout": {
+        "count": 126,
+        "tp": 9,
+        "precision10_60mPct": 7.14,
+        "recallObsPct": 81.82,
+        "tickerDays": 89,
+        "capturedTickerDays": 9,
+        "meanMFE": 3.44,
+        "meanMAE": -3.03
+      },
+      "holdoutTopK": {
+        "1": {
+          "count": 11,
+          "tp": 1,
+          "precision10_60mPct": 9.09,
+          "recallObsPct": 9.09,
+          "tickerDays": 8,
+          "capturedTickerDays": 1,
+          "meanMFE": 3.52,
+          "meanMAE": -2.58
+        },
+        "3": {
+          "count": 33,
+          "tp": 3,
+          "precision10_60mPct": 9.09,
+          "recallObsPct": 27.27,
+          "tickerDays": 23,
+          "capturedTickerDays": 3,
+          "meanMFE": 3.54,
+          "meanMAE": -3.12
+        },
+        "5": {
+          "count": 55,
+          "tp": 5,
+          "precision10_60mPct": 9.09,
+          "recallObsPct": 45.45,
+          "tickerDays": 39,
+          "capturedTickerDays": 5,
+          "meanMFE": 3.69,
+          "meanMAE": -2.58
+        },
+        "10": {
+          "count": 110,
+          "tp": 8,
+          "precision10_60mPct": 7.27,
+          "recallObsPct": 72.73,
+          "tickerDays": 75,
+          "capturedTickerDays": 8,
+          "meanMFE": 3.13,
+          "meanMAE": -2.61
+        },
+        "20": {
+          "count": 194,
+          "tp": 10,
+          "precision10_60mPct": 5.15,
+          "recallObsPct": 90.91,
+          "tickerDays": 130,
+          "capturedTickerDays": 10,
+          "meanMFE": 2.8,
+          "meanMAE": -2.44
+        },
+        "50": {
+          "count": 269,
+          "tp": 11,
+          "precision10_60mPct": 4.09,
+          "recallObsPct": 100.0,
+          "tickerDays": 182,
+          "capturedTickerDays": 11,
+          "meanMFE": 2.47,
+          "meanMAE": -2.37
+        }
+      }
+    }
+  ],
+  "failedTickerSample": {}
+}
