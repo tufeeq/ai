@@ -9,6 +9,8 @@ from sklearn.neighbors import NearestNeighbors
 RAW=pathlib.Path('tag/data/finviz-rich.json')
 MODEL=pathlib.Path('tag/model/tagit-v25-production.joblib')
 OUT=pathlib.Path('tag/data/tagit-v25-shadow.json')
+MAX_PRICE=20.0
+MAX_MARKET_CAP=2_000_000_000.0
 
 def finite(v):
     try:return v is not None and v!='' and math.isfinite(float(v))
@@ -28,7 +30,7 @@ def read(p,d):
     except:return d
 
 def write_degraded(reason,raw=None):
-    payload={'schemaVersion':1,'source':'TAGit v2.5 shadow scorer','updatedAt':datetime.now(timezone.utc).isoformat(),'status':'DEGRADED','reason':reason,'session':(raw or {}).get('session'),'policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','counts':{'total':0,'radar':0,'discover':0,'alert':0},'items':[],'stateCache':{}}
+    payload={'schemaVersion':1,'source':'TAGit v2.5 shadow scorer','updatedAt':datetime.now(timezone.utc).isoformat(),'status':'DEGRADED','reason':reason,'session':(raw or {}).get('session'),'marketHeatPct':None,'domainPolicy':{'maxPriceUsd':MAX_PRICE,'maxMarketCapUsd':MAX_MARKET_CAP,'unknownMarketCap':'ALLOW_AS_UNKNOWN'},'policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','championUnaffected':True,'counts':{'total':0,'radar':0,'discover':0,'alert':0},'items':[],'stateCache':{}}
     OUT.write_text(json.dumps(payload,indent=2)+'\n');print(json.dumps(payload,indent=2));return
 
 raw=read(RAW,{})
@@ -41,13 +43,18 @@ prev=read(OUT,{})
 prev_cache=prev.get('stateCache') or {}
 rows=raw.get('rows') or []
 asof=raw.get('updatedAt') or datetime.now(timezone.utc).isoformat();day=asof[:10];session=str(raw.get('session') or 'unknown').lower();sess=skey(session)
+active=session in ('pre-market','regular','after-hours')
 try:cur_ts=datetime.fromisoformat(asof.replace('Z','+00:00')).timestamp()*1000
 except:cur_ts=datetime.now(timezone.utc).timestamp()*1000
 
-built=[]
+built=[];domain_excluded=0
 for r in rows:
-    t=r.get('_tagit') or {};sym=str(r.get('Ticker') or '').upper();price=q(t.get('price'),None) if finite(t.get('price')) else None
+    t=r.get('_tagit') or {};sym=str(r.get('Ticker') or '').upper();price=q(t.get('price'),None) if finite(t.get('price')) else None;market_cap=q(t.get('marketCapUsd'),None) if finite(t.get('marketCapUsd')) else None
     if not sym or price is None or price<.15:continue
+    # Match the historical discovery-fast domain: cap_smallunder and price <= $20.
+    # Missing market cap remains UNKNOWN rather than being treated as zero/eligible evidence.
+    if price>MAX_PRICE or (market_cap is not None and market_cap>MAX_MARKET_CAP):
+        domain_excluded+=1;continue
     change=q(t.get('dayChangePct'));rvol=t.get('relativeVolume');vol=t.get('volume');avg=t.get('averageVolumeShares');pm=prev_cache.get(sym) or {}
     same=pm.get('day')==day and pm.get('session')==session and finite(pm.get('ts'))
     dt=(cur_ts-q(pm.get('ts')))/60000 if same else None
@@ -69,10 +76,10 @@ for r in rows:
     rvol_up=sum(1 for i in range(1,len(hist)) if finite(hist[i].get('rvol')) and finite(hist[i-1].get('rvol')) and q(hist[i].get('rvol'))>q(hist[i-1].get('rvol')))
     feat=[change,slog(rvol),slog(vv),q(short),q(rdelta),q(vvdelta),q(m5),q(m10),q(m30),q(m60),q(turn),q(curv),q(lcurv),quiet,pos_steps,rvol_up,slog(t.get('dollarVolume')),slog(t.get('floatShares')),q(t.get('floatRotation')),q(t.get('gapPct')),q(t.get('sma20Pct')),q(t.get('perfWeekPct'))]
     if not (-20<=change<10):continue
-    built.append({'symbol':sym,'r':r,'t':t,'features':feat,'history':hist,'price':price,'change':change,'rvol':q(rvol,None) if finite(rvol) else None,'volume':q(vol,None) if finite(vol) else None,'volumeVelocity':q(vv,None) if finite(vv) else None})
+    built.append({'symbol':sym,'r':r,'t':t,'features':feat,'history':hist,'price':price,'marketCapUsd':market_cap,'change':change,'rvol':q(rvol,None) if finite(rvol) else None,'volume':q(vol,None) if finite(vol) else None,'volumeVelocity':q(vv,None) if finite(vv) else None})
 
 if not built:
-    payload={'schemaVersion':1,'source':'TAGit v2.5 shadow scorer','updatedAt':asof,'status':'PASS','session':session,'policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','counts':{'total':0,'radar':0,'discover':0,'alert':0},'items':[],'stateCache':{}}
+    payload={'schemaVersion':1,'source':'TAGit v2.5 shadow scorer','updatedAt':asof,'status':'PASS','session':session,'marketHeatPct':None,'domainPolicy':{'maxPriceUsd':MAX_PRICE,'maxMarketCapUsd':MAX_MARKET_CAP,'unknownMarketCap':'ALLOW_AS_UNKNOWN','excludedRows':domain_excluded},'policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','championUnaffected':True,'counts':{'total':0,'radar':0,'discover':0,'alert':0},'items':[],'stateCache':{}}
     OUT.write_text(json.dumps(payload,indent=2)+'\n');print(json.dumps(payload,indent=2));raise SystemExit(0)
 X=np.asarray([x['features'] for x in built],dtype=float);Xs=art['scaler'].transform(X)
 pe=art['extraTrees'].predict_proba(X)[:,1];ph=art['histGradientBoosting'].predict_proba(X)[:,1];pl=art['logistic'].predict_proba(Xs)[:,1]
@@ -92,7 +99,7 @@ for i,x in enumerate(built,1):x['rank']=i
 ens=[x['ensemble'] for x in built];top3=sum(ens[:3])/max(1,len(ens[:3]));high=min(1,sum(1 for z in ens if z>=.90)/5)
 rvol_hot=sum(1 for x in built if x['features'][1]>=math.log1p(3))/len(built);vv_hot=sum(1 for x in built if x['features'][2]>=math.log1p(1.5))/len(built);m5_hot=sum(1 for x in built if x['features'][6]>=.5)/len(built);quiet_hot=sum(1 for x in built if x['features'][13]>=1 and x['features'][1]>=math.log1p(2))/len(built)
 heat=clamp(.34*top3+.22*high+.12*min(1,rvol_hot*8)+.12*min(1,vv_hot*8)+.10*min(1,m5_hot*8)+.10*min(1,quiet_hot*8))
-cfg=art.get('alertConfig') or {};active=session in ('pre-market','regular','after-hours');healthy=raw.get('richHealthStatus')=='PASS'
+cfg=art.get('alertConfig') or {};healthy=raw.get('richHealthStatus')=='PASS'
 items=[];cache={}
 for x in built:
     pm=prev_cache.get(x['symbol']) or {};same=pm.get('day')==day and pm.get('session')==session and finite(pm.get('ts'));dt=(cur_ts-q(pm.get('ts')))/60000 if same else None
@@ -108,8 +115,8 @@ for x in built:
     elif discover:state='DISCOVER'
     elif radar:state='RADAR'
     else:state='ABSTAIN'
-    items.append({'symbol':x['symbol'],'state':state,'rank':x['rank'],'ensembleScore':round(x['ensemble']*100,2),'modelDisagreement':round(x['disagreement'],4),'analogRatePct':round(x['analogRate']*100,2),'marketHeatPct':round(heat*100,2),'persistent':persistent,'riskOverlay':risk_overlay,'latestNewsPresent':bool(x['t'].get('latestNewsTitle')),'dayChangePct':round(x['change'],2),'policy':'SHADOW_ONLY'})
+    items.append({'symbol':x['symbol'],'state':state,'rank':x['rank'],'ensembleScore':round(x['ensemble']*100,2),'modelDisagreement':round(x['disagreement'],4),'analogRatePct':round(x['analogRate']*100,2),'marketHeatPct':round(heat*100,2) if active else None,'persistent':persistent,'riskOverlay':risk_overlay,'latestNewsPresent':bool(x['t'].get('latestNewsTitle')),'marketCapUsd':round(x['marketCapUsd'],2) if x['marketCapUsd'] is not None else None,'dayChangePct':round(x['change'],2),'policy':'SHADOW_ONLY'})
     cache[x['symbol']]={'ts':cur_ts,'day':day,'session':session,'price':x['price'],'rvol':x['rvol'],'volume':x['volume'],'volumeVelocity':x['volumeVelocity'],'ensemble':x['ensemble'],'rank':x['rank'],'history':x['history'][-4:]}
 items.sort(key=lambda z:({'ALERT':6,'ALERT_RISK_BLOCKED':5,'DISCOVER':4,'RADAR':3,'ABSTAIN':2,'BLOCKED_DATA':1,'CLOSED':0}.get(z['state'],0),z['ensembleScore']),reverse=True)
-payload={'schemaVersion':1,'source':'TAGit v2.5 leak-free hierarchical model','modelTrainedAtUTC':art.get('trainedAtUTC'),'updatedAt':asof,'status':'PASS' if healthy else 'DEGRADED','session':session,'marketHeatPct':round(heat*100,2),'policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','championUnaffected':True,'counts':{'total':len(items),'radar':sum(z['state']=='RADAR' for z in items),'discover':sum(z['state']=='DISCOVER' for z in items),'alert':sum(z['state']=='ALERT' for z in items),'riskBlocked':sum(z['state']=='ALERT_RISK_BLOCKED' for z in items)},'items':items[:100],'stateCache':cache}
+payload={'schemaVersion':1,'source':'TAGit v2.5 leak-free hierarchical model','modelTrainedAtUTC':art.get('trainedAtUTC'),'updatedAt':asof,'status':'PASS' if healthy else 'DEGRADED','session':session,'marketHeatPct':round(heat*100,2) if active else None,'domainPolicy':{'maxPriceUsd':MAX_PRICE,'maxMarketCapUsd':MAX_MARKET_CAP,'unknownMarketCap':'ALLOW_AS_UNKNOWN','excludedRows':domain_excluded},'policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','championUnaffected':True,'counts':{'total':len(items),'radar':sum(z['state']=='RADAR' for z in items),'discover':sum(z['state']=='DISCOVER' for z in items),'alert':sum(z['state']=='ALERT' for z in items),'riskBlocked':sum(z['state']=='ALERT_RISK_BLOCKED' for z in items)},'items':items[:100],'stateCache':cache}
 OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2)+'\n');print(json.dumps({k:v for k,v in payload.items() if k not in ('items','stateCache')},indent=2))
