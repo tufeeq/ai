@@ -54,11 +54,13 @@ jobs:
         run: python tagit/finviz_provider.py
       - name: Validate and derive shadow catalyst intelligence
         run: |
-          python -m py_compile tagit/catalyst_intelligence.py tagit/attach-catalyst-derived.py
+          python -m py_compile tagit/catalyst_intelligence.py tagit/attach-catalyst-derived.py tagit/update-shadow-outcomes.py tagit/build-catalyst-calibration.py
           python tagit/catalyst_intelligence.py --self-test
           python tagit/catalyst_intelligence.py
       - name: Audit provider data contract
         run: python tagit/audit_provider.py
+      - name: Update prior shadow outcomes point-in-time
+        run: python tagit/update-shadow-outcomes.py
       - name: Score v2.5 shadow model without blocking champion feed
         run: |
           if python - <<'PY'
@@ -92,6 +94,8 @@ jobs:
           python tagit/build-shadow-learning-ledger.py
       - name: Attach catalyst shadow features to derived outputs
         run: python tagit/attach-catalyst-derived.py
+      - name: Build catalyst calibration report
+        run: python tagit/build-catalyst-calibration.py
       - name: Commit derived outputs only
         run: |
           if git ls-files --error-unmatch tag/data/finviz-rich.json >/dev/null 2>&1; then
@@ -101,9 +105,9 @@ jobs:
           fi
           git config user.name tagit-data-bot
           git config user.email actions@users.noreply.github.com
-          git add tag/data/tagit-signal-feed.json tag/data/finviz-rich-health.json tag/data/tagit-data-contract.json tag/data/tagit-shadow-learning-ledger.json tag/data/tagit-v25-shadow.json
+          git add tag/data/tagit-signal-feed.json tag/data/finviz-rich-health.json tag/data/tagit-data-contract.json tag/data/tagit-shadow-learning-ledger.json tag/data/tagit-v25-shadow.json tag/data/tagit-catalyst-calibration.json
           git diff --cached --quiet && exit 0
-          git commit -m 'data: refresh TAGit signals with catalyst shadow features'
+          git commit -m 'data: refresh TAGit catalyst shadow learning outputs'
           for i in 1 2 3; do
             git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
             sleep $((i*6))
