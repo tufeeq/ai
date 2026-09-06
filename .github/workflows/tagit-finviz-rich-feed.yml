@@ -1,0 +1,184 @@
+name: TAGit Finviz Elite Rich Feed
+
+on:
+  workflow_run:
+    workflows: ["TAG5 Mover Snapshot"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-finviz-rich-feed-main
+  cancel-in-progress: true
+
+jobs:
+  enrich:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+      - name: Sync main
+        run: git pull --rebase origin main
+      - name: Fetch and validate Finviz Elite rich data
+        env:
+          FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
+        run: |
+          test -n "$FINVIZ_TOKEN" || (echo 'FINVIZ_TOKEN missing' && exit 1)
+          mkdir -p /tmp/tagit-rich tag/data
+          COLS='1,2,3,4,5,6,7,22,23,24,25,26,27,28,30,31,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,88,89,90,91,92,93,94,95,96,97,98'
+          for SIGNAL in ta_topgainers ta_unusualvolume ta_mostactive; do
+            curl --fail --silent --show-error --location --retry 4 --retry-delay 3 --retry-all-errors \
+              "https://elite.finviz.com/export.ashx?v=152&s=${SIGNAL}&c=${COLS}&auth=${FINVIZ_TOKEN}&ft=4" \
+              -o "/tmp/tagit-rich/${SIGNAL}.csv"
+            test -s "/tmp/tagit-rich/${SIGNAL}.csv"
+            sleep 2
+          done
+          curl --fail --silent --show-error --location --retry 4 --retry-delay 3 --retry-all-errors \
+            "https://elite.finviz.com/export.ashx?v=152&t=SPY,QQQ,IWM&c=${COLS}&auth=${FINVIZ_TOKEN}&ft=4" \
+            -o /tmp/tagit-rich/benchmarks.csv
+          python - <<'PY'
+          import csv,json,pathlib,datetime,math,statistics,subprocess,os,urllib.request,time
+          from zoneinfo import ZoneInfo
+          root=pathlib.Path('.')
+          now=datetime.datetime.now(datetime.timezone.utc)
+          def read_json(path,default):
+            try:return json.loads(path.read_text(encoding='utf-8'))
+            except:return default
+          base=read_json(root/'tag/data/finviz.json',{})
+          prev=read_json(root/'tag/data/finviz-rich.json',{})
+          enrichment=read_json(root/'tag/data/enrichment.json',{})
+          base_rows=base.get('rows') or base.get('data') or []
+          base_map={str(r.get('Ticker') or r.get('Symbol') or '').upper():r for r in base_rows}
+          def csvrows(path):
+            with open(path,newline='',encoding='utf-8-sig') as f:return list(csv.DictReader(f))
+          merged={}
+          for sig in ['ta_topgainers','ta_unusualvolume','ta_mostactive']:
+            for r in csvrows(f'/tmp/tagit-rich/{sig}.csv'):
+              t=str(r.get('Ticker') or '').strip().upper()
+              if not t:continue
+              x=merged.setdefault(t,{'Ticker':t,'_signals':[]})
+              if sig not in x['_signals']:x['_signals'].append(sig)
+              for k,v in r.items():
+                if k and v not in (None,''):x[k]=v
+          # Catalyst lanes are slower-changing; refresh every ~15 min and carry forward between refreshes.
+          prev_cat=prev.get('catalystSignals',{}) if isinstance(prev,dict) else {}
+          last_cat=prev.get('catalystFetchedAtUTC') if isinstance(prev,dict) else None
+          age=999
+          try:age=(now-datetime.datetime.fromisoformat(last_cat)).total_seconds()/60
+          except:pass
+          catalyst={k:list(v) for k,v in prev_cat.items()} if age<15 else {}
+          if age>=15:
+            token=os.environ['FINVIZ_TOKEN']
+            for sig in ['n_majornews','n_earningsbefore','n_earningsafter']:
+              url=f'https://elite.finviz.com/export.ashx?v=111&s={sig}&auth={token}&ft=4'
+              try:
+                req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 TAGit/1.0'})
+                with urllib.request.urlopen(req,timeout=20) as resp:text=resp.read().decode('utf-8-sig','replace')
+                for r in csv.DictReader(text.splitlines()):
+                  t=str(r.get('Ticker') or '').strip().upper()
+                  if t:catalyst.setdefault(t,[]).append(sig)
+              except Exception as e: print('catalyst lane failed',sig,type(e).__name__)
+              time.sleep(1)
+            last_cat=now.isoformat()
+          def pct(v):
+            if v in (None,'','-','N/A'):return None
+            try:return float(str(v).replace('%','').replace(',','').strip())
+            except:return None
+          def rawnum(v):
+            if v in (None,'','-','N/A'):return None
+            s=str(v).replace(',','').replace('$','').strip().upper();m=1
+            if s.endswith('K'):m=1e3;s=s[:-1]
+            elif s.endswith('M'):m=1e6;s=s[:-1]
+            elif s.endswith('B'):m=1e9;s=s[:-1]
+            try:return float(s)*m
+            except:return None
+          def finviz_millions(v):
+            if v in (None,'','-','N/A'):return None
+            s=str(v).strip().upper()
+            n=rawnum(v)
+            if n is None:return None
+            return n if s.endswith(('K','M','B')) else n*1e6
+          def finviz_avg_volume(v):
+            if v in (None,'','-','N/A'):return None
+            s=str(v).strip().upper(); n=rawnum(v)
+            if n is None:return None
+            return n if s.endswith(('K','M','B')) else n*1000
+          def finviz_float(v):return finviz_millions(v)
+          def safe_div(a,b):return a/b if a is not None and b not in (None,0) else None
+          def momentum(r):
+            windows={1:pct(r.get('Performance (1 Minute)')),2:pct(r.get('Performance (2 Minutes)')),3:pct(r.get('Performance (3 Minutes)')),5:pct(r.get('Performance (5 Minutes)')),10:pct(r.get('Performance (10 Minutes)')),15:pct(r.get('Performance (15 Minutes)')),30:pct(r.get('Performance (30 Minutes)')),60:pct(r.get('Performance (1 Hour)')),120:pct(r.get('Performance (2 Hours)'))}
+            short=[windows[k] for k in (1,2,3,5,10) if windows[k] is not None]
+            consistency=sum(x>0 for x in short)/len(short) if short else None
+            accel=(windows[1]-windows[5]/5) if windows[1] is not None and windows[5] is not None else None
+            rates=[windows[k]/k for k in (1,2,3,5) if windows[k] is not None]
+            rate=statistics.median(rates) if rates else None
+            return windows,consistency,accel,rate
+          enriched_rows=[]
+          for t,r in merged.items():
+            b=base_map.get(t,{})
+            for k,v in b.items():
+              if k.startswith('_') and k not in r:r[k]=v
+            p=rawnum(r.get('Price')); ch=pct(r.get('Change')); vol=rawnum(r.get('Volume'))
+            av=finviz_avg_volume(r.get('Average Volume')); rv=pct(r.get('Relative Volume'))
+            fl=finviz_float(r.get('Shares Float')); so=finviz_float(r.get('Shares Outstanding')); mc=finviz_millions(r.get('Market Cap'))
+            atr=rawnum(r.get('Average True Range')); atrpct=safe_div(atr*100,p)
+            short=pct(r.get('Short Float')); gap=pct(r.get('Gap'))
+            sma20=pct(r.get('20-Day Simple Moving Average'));sma50=pct(r.get('50-Day Simple Moving Average'));sma200=pct(r.get('200-Day Simple Moving Average'))
+            perfw=pct(r.get('Performance (Week)'));perfm=pct(r.get('Performance (Month)'))
+            vw=pct(r.get('Volatility (Week)'));vm=pct(r.get('Volatility (Month)'))
+            trades=rawnum(r.get('Trades')); ahc=rawnum(r.get('After-Hours Close')); ahchg=pct(r.get('After-Hours Change'))
+            wins,consistency,accel,rate=momentum(r)
+            floatrot=safe_div(vol,fl)
+            dollar=(p*vol) if p is not None and vol is not None else None
+            avgdollar=(p*av) if p is not None and av is not None else None
+            ext=0
+            if ch is not None:ext+=max(0,ch-22)*.45
+            if gap is not None:ext+=max(0,gap-18)*.35
+            if sma20 is not None:ext+=max(0,sma20-35)*.20
+            if perfw is not None:ext+=max(0,perfw-45)*.12
+            cat=catalyst.get(t,[])
+            sec=(enrichment.get('rows') or {}).get(t,{}) if isinstance(enrichment,dict) else {}
+            filings=sec.get('filings') or []
+            dilution_forms={'S-1','S-3','424B3','424B5','EFFECT','F-1','F-3'}
+            dilution_recent=any(str(f.get('form','')).upper() in dilution_forms for f in filings[:8])
+            r['_catalystSignals']=cat
+            r['_tagit']={'price':p,'dayChangePct':ch,'volume':vol,'averageVolumeShares':av,'relativeVolume':rv,'floatShares':fl,'sharesOutstanding':so,'marketCapUsd':mc,'shortFloatPct':short,'shortRatio':rawnum(r.get('Short Ratio')),'atrPct':atrpct,'gapPct':gap,'sma20Pct':sma20,'sma50Pct':sma50,'sma200Pct':sma200,'perfWeekPct':perfw,'perfMonthPct':perfm,'volatilityWeekPct':vw,'volatilityMonthPct':vm,'trades':trades,'dollarVolume':dollar,'averageDollarVolume':avgdollar,'floatRotation':floatrot,'momentumPct':{str(k):v for k,v in wins.items()},'momentumConsistency':consistency,'priceAccelerationPctPerMin':accel,'shortMomentumRatePctPerMin':rate,'lateExtensionRiskRaw':round(ext,3),'afterHoursClose':ahc,'afterHoursChangePct':ahchg,'catalystSignals':cat,'recentDilutionFiling':dilution_recent,'finvizRich':True}
+            enriched_rows.append(r)
+          # Benchmark context from the same paid feed.
+          market={}
+          for r in csvrows('/tmp/tagit-rich/benchmarks.csv'):
+            t=str(r.get('Ticker') or '').upper(); market[t]={'changePct':pct(r.get('Change')),'m5':pct(r.get('Performance (5 Minutes)')),'m30':pct(r.get('Performance (30 Minutes)')),'h1':pct(r.get('Performance (1 Hour)'))}
+          # Data contract / drift guard.
+          required=['Ticker','Price','Change','Volume','Average Volume','Relative Volume','Average True Range','Gap','Performance (1 Minute)','Performance (5 Minutes)','Performance (30 Minutes)','Performance (1 Hour)']
+          coverage={k:round(sum(str(r.get(k,'')).strip() not in ('','-','N/A') for r in enriched_rows)/len(enriched_rows)*100,2) if enriched_rows else 0 for k in required}
+          failures=[f'{k}:{coverage[k]}' for k in required if coverage[k]<95]
+          status='PASS' if not failures else 'DEGRADED'
+          payload={
+            'schemaVersion':1,'source':'Finviz Elite Rich','asOf':now.isoformat(),'updatedAt':now.isoformat(),
+            'session':base.get('session','unknown'),'sessionBucket':base.get('sessionBucket'),
+            'cadenceStatus':base.get('cadenceStatus'),'bucketContinuityStatus':base.get('bucketContinuityStatus'),
+            'extendedHoursFieldIntegrity':base.get('extendedHoursFieldIntegrity'),'independentSourceCount':base.get('independentSourceCount',1),
+            'dataIntegrityState':base.get('dataIntegrityState'),'baseSnapshotTimestampUTC':base.get('snapshotTimestampUTC'),
+            'richHealthStatus':status,'richCoveragePct':coverage,'richFailures':failures,
+            'catalystFetchedAtUTC':last_cat,'catalystSignals':catalyst,'marketBenchmarks':market,
+            'rows':enriched_rows
+          }
+          (root/'tag/data/finviz-rich.json').write_text(json.dumps(payload,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          health={'updatedAtUTC':now.isoformat(),'status':status,'rows':len(enriched_rows),'coveragePct':coverage,'failures':failures,'marketBenchmarks':market,'floatCoveragePct':round(sum((r.get('_tagit') or {}).get('floatShares') is not None for r in enriched_rows)/len(enriched_rows)*100,2) if enriched_rows else 0,'catalystTickerCount':len(catalyst)}
+          (root/'tag/data/finviz-rich-health.json').write_text(json.dumps(health,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print(json.dumps(health,indent=2))
+          PY
+      - name: Commit rich feed
+        run: |
+          git config user.name tagit-data-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/finviz-rich.json tag/data/finviz-rich-health.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: refresh Finviz Elite rich TAGit feed'
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*4)); done
+          exit 1
