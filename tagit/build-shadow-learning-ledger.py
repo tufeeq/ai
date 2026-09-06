@@ -4,6 +4,7 @@ from datetime import datetime, timezone, timedelta
 
 RICH=pathlib.Path('tag/data/finviz-rich.json')
 SIGNALS=pathlib.Path('tag/data/tagit-signal-feed.json')
+V3=pathlib.Path('tag/data/tagit-v3-shadow.json')
 OUT=pathlib.Path('tag/data/tagit-shadow-learning-ledger.json')
 
 def read(p,d):
@@ -52,7 +53,7 @@ def momentum_shape(m):
     if pos<=.2:return 'WEAK_DOWN'
     return 'MIXED'
 
-rich=read(RICH,{}); sig=read(SIGNALS,{})
+rich=read(RICH,{}); sig=read(SIGNALS,{}); v3=read(V3,{})
 session=str(rich.get('session') or sig.get('session') or 'unknown').lower();ts=rich.get('updatedAt') or sig.get('updatedAt')
 ledger=read(OUT,{'schemaVersion':1,'policy':'DERIVED_FEATURES_ONLY_NO_RAW_ELITE_ROWS','records':[]})
 if session not in ('pre-market','regular','after-hours'):
@@ -60,6 +61,7 @@ if session not in ('pre-market','regular','after-hours'):
     OUT.write_text(json.dumps(ledger,indent=2)+'\n');print(json.dumps({'skipped':True,'session':session}));raise SystemExit(0)
 rows=rich.get('rows') or []
 items={str(x.get('symbol') or '').upper():x for x in (sig.get('items') or [])}
+v3items={str(x.get('symbol') or '').upper():x for x in (v3.get('items') or [])}
 fields={
  'rvol':[(r.get('_tagit') or {}).get('relativeVolume') for r in rows],
  'volume':[(r.get('_tagit') or {}).get('volume') for r in rows],
@@ -73,16 +75,16 @@ fields={
  'm3':[((r.get('_tagit') or {}).get('momentumPct') or {}).get('3') for r in rows],
  'm5':[((r.get('_tagit') or {}).get('momentumPct') or {}).get('5') for r in rows],
  'm10':[((r.get('_tagit') or {}).get('momentumPct') or {}).get('10') for r in rows]}
-# Current-snapshot market heat: breadth of abnormal participation and micro momentum.
 N=max(1,len(rows)); heat=round(100*(.30*sum(finite(x) and float(x)>=2 for x in fields['rvol'])/N + .20*sum(finite(x) and float(x)>=.15 for x in fields['m1'])/N + .20*sum(finite(x) and float(x)>=.5 for x in fields['m5'])/N + .15*sum(finite(x) and float(x)>=1.5 for x in fields['atr'])/N + .15*sum(finite(x) and float(x)>=0 for x in fields['accel'])/N),2)
 new=[]
 for r in rows:
     t=r.get('_tagit') or {}; sym=str(r.get('Ticker') or '').upper(); s=items.get(sym)
     if not sym or not s:continue
-    m=t.get('momentumPct') or {}
+    vr=v3items.get(sym) or {};m=t.get('momentumPct') or {}
     rec={'timestamp':ts,'session':session,'symbol':sym,'referencePrice':round(float(t['price']),6) if finite(t.get('price')) else None,
       'state':s.get('state'),'phase':s.get('phase'),'precursorScore':s.get('precursorScore'),'continuationScore':s.get('continuationScore'),'tradabilityScore':s.get('tradabilityScore'),'riskScore':s.get('riskScore'),
-      'marketHeat':heat,'featurePercentiles':{
+      'v3State':vr.get('state'),'v3Rank':vr.get('rank'),'v3RankScorePct':vr.get('rankScorePct'),'v3ModelDisagreement':vr.get('modelDisagreement'),'v3RawRelevanceScore':vr.get('rawRelevanceScore'),
+      'v3Tracked':bool(vr),'v3Policy':v3.get('policy'),'marketHeat':heat,'featurePercentiles':{
         'rvol':pct_rank(fields['rvol'],t.get('relativeVolume')),'volume':pct_rank(fields['volume'],t.get('volume')),'dollarVolume':pct_rank(fields['dollar'],t.get('dollarVolume')),
         'trades':pct_rank(fields['trades'],t.get('trades')),'atr':pct_rank(fields['atr'],t.get('atrPct')),'floatTightness':pct_rank(fields['float'],t.get('floatShares'),True),
         'shortFloat':pct_rank(fields['short'],t.get('shortFloatPct')),'priceAcceleration':pct_rank(fields['accel'],t.get('priceAccelerationPctPerMin')),
@@ -90,12 +92,11 @@ for r in rows:
       'microShape':momentum_shape(m),'catalystClass':catalyst_class(t.get('latestNewsTitle')),'hasFreshNewsField':bool(t.get('latestNewsTitle')),'recentDilutionFlag':bool(t.get('recentDilutionFiling')),
       'signalSources':r.get('_signals') or [],'label':None}
     new.append(rec)
-# Dedupe exact timestamp/symbol; retain 60 calendar days and cap for repository safety.
 records=ledger.get('records') or []; keys={(x.get('timestamp'),x.get('symbol')) for x in records}
 records.extend(x for x in new if (x['timestamp'],x['symbol']) not in keys)
 try: cutoff=datetime.now(timezone.utc)-timedelta(days=60);records=[x for x in records if datetime.fromisoformat(str(x.get('timestamp')).replace('Z','+00:00'))>=cutoff]
 except: pass
 records=records[-50000:]
-ledger.update({'schemaVersion':2,'updatedAtUTC':datetime.now(timezone.utc).isoformat(),'policy':'DERIVED_FEATURES_ONLY_NO_RAW_ELITE_ROWS','session':session,'latestSnapshot':ts,'latestMarketHeat':heat,'latestRecordsAdded':len(new),'records':records})
+ledger.update({'schemaVersion':3,'updatedAtUTC':datetime.now(timezone.utc).isoformat(),'policy':'DERIVED_FEATURES_ONLY_NO_RAW_ELITE_ROWS','session':session,'latestSnapshot':ts,'latestMarketHeat':heat,'latestRecordsAdded':len(new),'v3TrackingEnabled':True,'records':records})
 OUT.write_text(json.dumps(ledger,separators=(',',':'))+'\n')
-print(json.dumps({'recordsTotal':len(records),'added':len(new),'session':session,'marketHeat':heat}))
+print(json.dumps({'recordsTotal':len(records),'added':len(new),'session':session,'marketHeat':heat,'v3Tracked':sum(bool(x.get('v3Tracked')) for x in new)}))
