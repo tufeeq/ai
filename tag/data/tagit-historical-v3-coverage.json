@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 3,
+  "generatedAtUTC": "2026-09-06T22:35:17.562242+00:00",
+  "method": "TAGIT_HISTORICAL_COMPLETE_V3_CAUSAL_RECONSTRUCTION",
+  "baseHistory": {
+    "gitRevisions": 107,
+    "rawRows": 140839,
+    "eligibleEarlyRows": 80234,
+    "dates": [
+      "2026-08-25",
+      "2026-08-26",
+      "2026-09-01",
+      "2026-09-02",
+      "2026-09-03",
+      "2026-09-04"
+    ],
+    "parseFailures": 0
+  },
+  "sequenceLedger": {
+    "snapshotEntries": 231,
+    "nestedRows": 20938,
+    "joinedObservations": 1480,
+    "coveragePct": 1.84,
+    "policy": "RECONSTRUCTED_CAUSAL_CANDIDATE; current/prior snapshot fields only"
+  },
+  "catalystClock": {
+    "enrichmentGitRevisions": 508,
+    "uniqueTimestampedEvents": 29603,
+    "joinedObservations24h": 4718,
+    "coveragePct": 5.88,
+    "availabilityPolicy": "max(source publication/filing time, first Git revision time where TAG could observe event)"
+  },
+  "featureGroups": {
+    "technical": [
+      "change",
+      "logRvol",
+      "logVolumeVelocity",
+      "shortRate",
+      "m5",
+      "m10",
+      "m30",
+      "m60",
+      "logDollarVolume"
+    ],
+    "sequence": [
+      "rvolDeltaPerMin",
+      "volumeVelocityAccel",
+      "turn",
+      "curvature5v10",
+      "curvature10v30",
+      "quietBase",
+      "positiveSteps",
+      "rvolUpSteps",
+      "seqAge",
+      "seqPersistenceSlope",
+      "seqGainRetention",
+      "firstObservedDelta",
+      "firstObservedAge",
+      "seqBucketCount"
+    ],
+    "structure": [
+      "logFloat",
+      "floatRotation",
+      "gap",
+      "sma20",
+      "perfWeek",
+      "logTrades",
+      "atrPct",
+      "rsi14",
+      "m1raw",
+      "m2raw",
+      "m3raw",
+      "missFloat",
+      "missTrades",
+      "missATR",
+      "missRSI",
+      "missM1",
+      "missM2",
+      "missM3"
+    ],
+    "regime": [
+      "sessionPre",
+      "sessionRegular",
+      "sessionAfter",
+      "regimeBreadth",
+      "regimeRvol3",
+      "regimeVV15",
+      "regimeUp3",
+      "regimeDown3",
+      "regimeDispersion",
+      "regimeAbsP90"
+    ],
+    "catalyst": [
+      "cat24h",
+      "cat6h",
+      "catPositive",
+      "catNegative",
+      "catMateriality",
+      "catFreshness",
+      "catDilution",
+      "catMA",
+      "catClinical",
+      "catContract",
+      "catEarnings"
+    ]
+  },
+  "rawDatasetPersisted": false,
+  "unknownPolicy": "UNKNOWN_NOT_ZERO_WITH_MISSING_FLAGS",
+  "antiLeakage": [
+    "forward MFE/MAE used as labels only",
+    "sequence join requires snapshot timestamp <= observation",
+    "catalyst availability timestamp <= observation",
+    "regime uses current cross-section only",
+    "calibration Aug-26 only; September untouched holdout"
+  ]
+}
