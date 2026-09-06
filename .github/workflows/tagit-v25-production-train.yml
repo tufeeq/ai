@@ -1,0 +1,47 @@
+name: TAGit v2.5 Production Model Train
+
+on:
+  push:
+    paths:
+      - 'tagit/train-v25-production.py'
+      - '.github/workflows/tagit-v25-production-train.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '15 11 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-v25-production-train
+  cancel-in-progress: true
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: blob:none
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install model dependencies
+        run: python -m pip install --disable-pip-version-check numpy scikit-learn joblib
+      - name: Validate trainer
+        run: python -m py_compile tagit/train-v25-production.py
+      - name: Train frozen shadow model from point-in-time history
+        run: python tagit/train-v25-production.py
+      - name: Commit model artifact and metadata
+        run: |
+          git config user.name tagit-v25-model-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/model/tagit-v25-production.joblib tag/data/tagit-v25-model-meta.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'model: refresh TAGit v2.5 shadow production artifact'
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            sleep $((i*6))
+          done
+          exit 1
