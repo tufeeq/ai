@@ -1,0 +1,20 @@
+name: TAGit Rich Feed Launch
+
+on:
+  push:
+    paths:
+      - '.github/workflows/tagit-rich-feed-launch.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  launch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch rich feed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST repos/${{ github.repository }}/actions/workflows/tagit-finviz-rich-feed.yml/dispatches -f ref=main
