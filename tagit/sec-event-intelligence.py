@@ -3,6 +3,8 @@
 
 Uses SEC public submissions data only. Persists derived event context, never raw filings.
 No SEC event changes v4/v4.1 eligibility; this is forward-measurement context only.
+Ticker-to-CIK resolution prefers SEC; a public pre-generated mapping is only a fallback
+for identifier resolution when www.sec.gov/files blocks a hosted runner.
 """
 import json, os, pathlib, time, urllib.request, urllib.error
 from datetime import datetime, timezone, timedelta
@@ -10,8 +12,9 @@ from datetime import datetime, timezone, timedelta
 V4=pathlib.Path('tag/data/tagit-v4-shadow.json')
 OUT=pathlib.Path('tag/data/tagit-sec-event-shadow.json')
 MAP_URLS=['https://www.sec.gov/files/company_tickers.json','https://www.sec.gov/files/company_tickers_exchange.json']
+FALLBACK_MAP_URL='https://raw.githubusercontent.com/jadchaar/sec-cik-mapper/main/mappings/stocks/ticker_to_cik.json'
 SUB_URL='https://data.sec.gov/submissions/CIK{cik:010d}.json'
-UA=os.environ.get('SEC_USER_AGENT','TAGit/4.4 tufeeq@users.noreply.github.com')
+UA=os.environ.get('SEC_USER_AGENT','TAGit/4.5 tufeeq@users.noreply.github.com')
 MAX_CANDIDATES=20
 LOOKBACK_DAYS=7
 FRESH_HOURS=72
@@ -63,6 +66,16 @@ def parse_mapping(m):
                 except:pass
     return out
 
+def parse_fallback_mapping(m):
+    out={}
+    if not isinstance(m,dict):return out
+    for t,c in m.items():
+        try:
+            t=str(t).upper().strip();ci=int(str(c).lstrip('0') or '0')
+            if t and ci>0:out[t]=ci
+        except Exception:continue
+    return out
+
 def rows_from_recent(recent):
     if not isinstance(recent,dict):return []
     n=max([len(v) for v in recent.values() if isinstance(v,list)] or [0]);out=[]
@@ -95,7 +108,7 @@ candidates=[]
 for x in v4.get('items') or []:
     if x.get('shadowGatePassed') or int(x.get('rank') or 999)<=MAX_CANDIDATES:candidates.append((int(x.get('rank') or 999),str(x.get('symbol') or '').upper()))
 candidates=sorted({(r,s) for r,s in candidates if s})[:MAX_CANDIDATES]
-payload={'schemaVersion':1,'source':'SEC data.sec.gov submissions derived event clock','sourceOfficial':True,'updatedAtUTC':datetime.now(timezone.utc).isoformat(),'asOfUTC':asof.isoformat(),'tradingDateET':day,'session':session,'policy':'SHADOW_CONTEXT_ONLY_NO_ALERT_OVERRIDE','futureSafe':True,'rawFilingsPersisted':False,'candidateLimit':MAX_CANDIDATES,'lookbackDays':LOOKBACK_DAYS,'freshHours':FRESH_HOURS,'counts':{'requested':len(candidates),'mapped':0,'succeeded':0,'withRecentEvent':0,'withFreshEvent':0,'withRiskFlag':0},'errors':{},'items':[]}
+payload={'schemaVersion':2,'source':'SEC data.sec.gov submissions derived event clock','sourceOfficial':True,'updatedAtUTC':datetime.now(timezone.utc).isoformat(),'asOfUTC':asof.isoformat(),'tradingDateET':day,'session':session,'policy':'SHADOW_CONTEXT_ONLY_NO_ALERT_OVERRIDE','futureSafe':True,'rawFilingsPersisted':False,'candidateLimit':MAX_CANDIDATES,'lookbackDays':LOOKBACK_DAYS,'freshHours':FRESH_HOURS,'counts':{'requested':len(candidates),'mapped':0,'succeeded':0,'withRecentEvent':0,'withFreshEvent':0,'withRiskFlag':0},'errors':{},'items':[]}
 if not candidates:
     payload['status']='PASS';OUT.write_text(json.dumps(payload,indent=2)+'\n');print(json.dumps(payload,indent=2));raise SystemExit(0)
 
@@ -107,9 +120,18 @@ for url in MAP_URLS:
         map_errors.append(url+':EMPTY_MAPPING')
     except Exception as e:map_errors.append(url+':'+str(e)[:180])
 if not by_ticker:
+    try:
+        z=parse_fallback_mapping(get_json(FALLBACK_MAP_URL))
+        if z:
+            by_ticker=z;map_source='sec-cik-mapper-pre-generated-fallback'
+        else:map_errors.append(FALLBACK_MAP_URL+':EMPTY_MAPPING')
+    except Exception as e:map_errors.append(FALLBACK_MAP_URL+':'+str(e)[:180])
+if not by_ticker:
     payload['status']='DEGRADED';payload['reason']='SEC_TICKER_MAP_UNAVAILABLE';payload['errors']['mapping']=map_errors;payload['mappingUserAgent']=UA
     OUT.write_text(json.dumps(payload,indent=2)+'\n');print(json.dumps(payload,indent=2));raise SystemExit(0)
 payload['mappingSource']=map_source
+payload['mappingFallbackUsed']=map_source=='sec-cik-mapper-pre-generated-fallback'
+if map_errors:payload['mappingPrimaryErrors']=map_errors
 
 cut=asof-timedelta(days=LOOKBACK_DAYS)
 for rank,sym in candidates:
