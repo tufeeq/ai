@@ -1,0 +1,73 @@
+name: TAGit v5.7 Cumulative Opportunity
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["TAGit v5.6 Session Opportunity Hunter"]
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-v57-cumulative-opportunity
+  cancel-in-progress: false
+
+jobs:
+  research:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -q numpy scikit-learn
+
+      - name: Syntax check
+        run: python -m py_compile tagit/cumulative-opportunity-v57.py
+
+      - name: Train cumulative recurrent-pattern architecture
+        run: python tagit/cumulative-opportunity-v57.py
+
+      - name: Verify accuracy and anti-leakage contract
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('tag/data/tagit-v57-cumulative-opportunities.json')
+          assert p.exists(), 'v5.7 report missing'
+          r=json.loads(p.read_text())
+          assert r['status']=='COMPLETE', r.get('status')
+          assert r['objective']['primary'].startswith('detect actionable +10% opportunity')
+          assert r['calibration']['count'] is not None
+          assert r['holdout']['count'] is not None
+          assert 'precisionActionablePct' in r['holdout']
+          assert 'wilsonLower90Pct' in r['holdout']
+          assert r['training']['experienceMemoryRule'].startswith('only archetypes ending before current holdout start')
+          assert any('holdout outcomes never update experience' in x for x in r['antiLeakage'])
+          gate=r['accuracyGate']
+          if gate['credible90Claim']:
+              assert gate['holdoutSupport']>=30
+              assert gate['holdoutPrecisionPct']>=90
+              assert r['calibration']['precisionActionablePct']>=90
+          print('V5.7 accuracy:', gate)
+          PY
+
+      - name: Commit derived reports and cumulative experience
+        run: |
+          git config user.name "TAGit Research Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagit-v57-cumulative-opportunities.json tag/data/tagit-v57-case-library.json tag/data/tagit-cumulative-experience.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "research: update v5.7 cumulative opportunity evidence"
+          git pull --rebase origin main
+          git push origin main
