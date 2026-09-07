@@ -14,6 +14,7 @@ import json, math
 from collections import defaultdict
 import numpy as np
 
+# Explicit trigger marker: validation revision 1.
 # v5.8.1 executes the base learner with purged split boundaries and leaves the
 # trained models, enriched calibration/holdout rows, candidate configs and
 # selection functions available in this namespace.
