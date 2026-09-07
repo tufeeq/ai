@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 4,
+  "modelVersion": "TAGit-v4-live21-shadow",
+  "trainedAtUTC": "2026-09-07T04:50:46.047846+00:00",
+  "policy": "SHADOW_ONLY_NO_CHAMPION_OVERRIDE",
+  "championUnaffected": true,
+  "datasetSha256": "19277cfddc8dbeaebee73ce70a6e6fad57213caae87959da7f3e5e859a88773b",
+  "trainingRows": 4466,
+  "trainingPositives": 223,
+  "featureCount": 21,
+  "featureNames": [
+    "log_price",
+    "day_change_div20",
+    "log1p_volume_div20",
+    "change_rank",
+    "volume_rank",
+    "signal_topgainers",
+    "signal_unusualvolume",
+    "signal_mostactive",
+    "session_pre",
+    "session_regular",
+    "session_after",
+    "price_velocity_10m_div5",
+    "change_velocity_10m_div5",
+    "log1p_volume_velocity_10m_div15",
+    "volume_velocity_accel_clamped",
+    "age_since_first_obs_div390",
+    "change_since_first_obs_div20",
+    "momentum5m_div10",
+    "momentum10m_div10",
+    "momentum30m_div20",
+    "momentum60m_div30"
+  ],
+  "featureContract": {
+    "base11": "LIVE_PARITY",
+    "sequenceFirst6": "LIVE_DERIVABLE_FROM_STATE_CACHE",
+    "microFirst4": "FINVIZ_5_10_30_60M_MOMENTUM_PARITY",
+    "excludedHistoricalMicro": "VWAP/HOD/LOD/range/bar-volume/age from Yahoo-only backfill",
+    "excludedSequence": "legacy persistence fields without guaranteed live provider parity"
+  },
+  "validationSource": "tag/data/tagit-v310-live-compatible.json",
+  "frozenHoldoutEvidence": {
+    "rows": 937,
+    "positives": 36,
+    "selectedGate": {
+      "topK": 20,
+      "minEnsemble": 0.5,
+      "maxDisagreement": 0.4
+    },
+    "selectedPrecisionPct": 6.67,
+    "selectedRecallPct": 80.56,
+    "top20PrecisionPct": 5.64,
+    "top20RecallPct": 91.67,
+    "top10PrecisionPct": 7.36,
+    "top10RecallPct": 66.67
+  },
+  "refitPolicy": "Architecture and feature contract validated on frozen Aug27-Sep4 holdout before final refit; final model refit uses all 4466 frozen rows for forward shadow only.",
+  "limitations": [
+    "Historical holdout evidence is not live production performance.",
+    "No bid/ask spread in this model; execution is never verified.",
+    "Catalyst is contextual side evidence only and cannot override rank."
+  ]
+}
