@@ -1,0 +1,205 @@
+{
+  "schemaVersion": "4.8-research",
+  "method": "TAGIT_V48_ACTIONABILITY_META",
+  "generatedAtUTC": "2026-09-07T16:36:40.501461+00:00",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "datasetSha256": "19277cfddc8dbeaebee73ce70a6e6fad57213caae87959da7f3e5e859a88773b",
+  "cleanTarget": "+10% within 60m AND MAE >= -4%; MFE/MAE labels never used as features",
+  "antiLeakage": [
+    "frozen v3.9 only",
+    "expanding OOF base candidates",
+    "meta train <=Aug24",
+    "calibration Aug25-26 only",
+    "Aug27-Sep4 untouched",
+    "MFE/MAE future values are labels only",
+    "first ticker/day event evaluation"
+  ],
+  "coverage": {
+    "rows": 4466,
+    "oofDays": [
+      "2026-08-17",
+      "2026-08-18",
+      "2026-08-19",
+      "2026-08-20",
+      "2026-08-21",
+      "2026-08-24",
+      "2026-08-25",
+      "2026-08-26"
+    ],
+    "trainEvents": 331,
+    "trainClearEvents": 278,
+    "trainCleanWinners": 17,
+    "calEvents": 89,
+    "calCleanWinners": 4,
+    "holdoutBaseEvents": 92,
+    "holdoutBaseCleanWinners": 8
+  },
+  "selected": {
+    "C": 0.03,
+    "threshold": 0.35,
+    "calibration": {
+      "count": 54,
+      "cleanTp": 2,
+      "rawPlus10Tp": 3,
+      "cleanPrecisionPct": 3.7,
+      "rawPlus10PrecisionPct": 5.56,
+      "cleanTickerDayRecallPct": 50.0
+    },
+    "calibrationWilsonLower90Pct": 1.23
+  },
+  "holdout": {
+    "base": {
+      "count": 92,
+      "cleanTp": 8,
+      "rawPlus10Tp": 10,
+      "cleanPrecisionPct": 8.7,
+      "rawPlus10PrecisionPct": 10.87,
+      "cleanTickerDayRecallPct": 100.0
+    },
+    "v48": {
+      "count": 79,
+      "cleanTp": 7,
+      "rawPlus10Tp": 9,
+      "cleanPrecisionPct": 8.86,
+      "rawPlus10PrecisionPct": 11.39,
+      "cleanTickerDayRecallPct": 87.5
+    },
+    "cleanPrecisionImprovementPp": 0.16,
+    "bySession": {
+      "pre": {
+        "base": {
+          "count": 75,
+          "cleanTp": 8,
+          "rawPlus10Tp": 10,
+          "cleanPrecisionPct": 10.67,
+          "rawPlus10PrecisionPct": 13.33,
+          "cleanTickerDayRecallPct": 100.0
+        },
+        "v48": {
+          "count": 72,
+          "cleanTp": 7,
+          "rawPlus10Tp": 9,
+          "cleanPrecisionPct": 9.72,
+          "rawPlus10PrecisionPct": 12.5,
+          "cleanTickerDayRecallPct": 87.5
+        }
+      },
+      "regular": {
+        "base": {
+          "count": 17,
+          "cleanTp": 0,
+          "rawPlus10Tp": 0,
+          "cleanPrecisionPct": 0.0,
+          "rawPlus10PrecisionPct": 0.0,
+          "cleanTickerDayRecallPct": null
+        },
+        "v48": {
+          "count": 7,
+          "cleanTp": 0,
+          "rawPlus10Tp": 0,
+          "cleanPrecisionPct": 0.0,
+          "rawPlus10PrecisionPct": 0.0,
+          "cleanTickerDayRecallPct": null
+        }
+      }
+    }
+  },
+  "coefficientDiagnostics": [
+    {
+      "feature": "streak",
+      "coefficient": -0.32694
+    },
+    {
+      "feature": "disagreement",
+      "coefficient": -0.23321
+    },
+    {
+      "feature": "isPre",
+      "coefficient": -0.20162
+    },
+    {
+      "feature": "isRegular",
+      "coefficient": 0.20162
+    },
+    {
+      "feature": "ensembleXagreement",
+      "coefficient": 0.18057
+    },
+    {
+      "feature": "continuation",
+      "coefficient": -0.1499
+    },
+    {
+      "feature": "persistenceXcontinuation",
+      "coefficient": -0.13101
+    },
+    {
+      "feature": "continuationXheat",
+      "coefficient": -0.12498
+    },
+    {
+      "feature": "m5",
+      "coefficient": -0.12349
+    },
+    {
+      "feature": "inverseRank",
+      "coefficient": -0.11908
+    },
+    {
+      "feature": "ensembleXcontinuation",
+      "coefficient": -0.11764
+    },
+    {
+      "feature": "m5MinusM10",
+      "coefficient": -0.11448
+    },
+    {
+      "feature": "ensemble",
+      "coefficient": 0.09364
+    },
+    {
+      "feature": "m60",
+      "coefficient": -0.08395
+    },
+    {
+      "feature": "m30",
+      "coefficient": -0.06309
+    },
+    {
+      "feature": "m10MinusM30",
+      "coefficient": 0.05811
+    },
+    {
+      "feature": "ensembleXpersistence",
+      "coefficient": -0.05194
+    },
+    {
+      "feature": "persistence",
+      "coefficient": -0.05077
+    },
+    {
+      "feature": "rankImprovement",
+      "coefficient": -0.01947
+    },
+    {
+      "feature": "m10",
+      "coefficient": 0.01595
+    },
+    {
+      "feature": "progression",
+      "coefficient": -0.0121
+    },
+    {
+      "feature": "marketHeat",
+      "coefficient": -0.00413
+    }
+  ],
+  "promotionRule": {
+    "autoPromotion": false,
+    "minHoldoutEvents": 20,
+    "minCleanWinners": 5,
+    "mustImproveCleanPrecisionByPp": 3,
+    "retainAtLeastHalfBaseCleanRecall": true
+  },
+  "verdict": "DO_NOT_PROMOTE_V48"
+}
