@@ -1,0 +1,61 @@
+name: TAGit v4.5 SEC Structural Risk Validation
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tagit/sec-risk-v45-backtest.py'
+      - 'tagit/event-conviction-v41-backtest.py'
+      - 'tag/data/tagit-v39-frozen-groundtruth.json'
+      - '.github/workflows/tagit-v45-sec-risk.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-v45-sec-risk-main
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Sync main
+        run: git pull --rebase origin main
+      - name: Install research dependencies
+        run: python -m pip install --disable-pip-version-check numpy scikit-learn
+      - name: Compile v4.5 backtest
+        run: python -m py_compile tagit/event-conviction-v41-backtest.py tagit/sec-risk-v45-backtest.py
+      - name: Run point-in-time SEC validation
+        run: python tagit/sec-risk-v45-backtest.py
+      - name: Verify causal contract
+        run: |
+          python - <<'PY'
+          import json,pathlib
+          p=json.loads(pathlib.Path('tag/data/tagit-v45-sec-risk-backtest.json').read_text())
+          assert p['datasetSha256']=='19277cfddc8dbeaebee73ce70a6e6fad57213caae87959da7f3e5e859a88773b'
+          assert p['policy']=='RESEARCH_ONLY_NO_CHAMPION_OVERRIDE'
+          assert p['promotionRule']['autoPromotion'] is False
+          assert len(p['coverage']['oofDays'])>=4
+          print(json.dumps({'verdict':p['verdict'],'coverage':p['coverage'],'riskDistribution':p['oofRiskDistribution'],'selectedPolicy':p['selectedPolicy'],'holdout':p['holdout']},indent=2))
+          PY
+      - name: Commit derived report only
+        run: |
+          git config user.name tagit-research-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/tagit-v41-event-conviction-backtest.json tag/data/tagit-v45-sec-risk-backtest.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: refresh TAGit v4.5 SEC structural-risk validation'
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            sleep $((i*6))
+          done
+          exit 1
