@@ -1,0 +1,27 @@
+name: TAGit SEC Submissions Direct Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/tagit-sec-data-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test data.sec.gov submissions directly
+        run: |
+          python - <<'PY'
+          import json,urllib.request
+          url='https://data.sec.gov/submissions/CIK0001651721.json'
+          req=urllib.request.Request(url,headers={'User-Agent':'TAGit/4.4 tufeeq@users.noreply.github.com','Accept':'application/json'})
+          with urllib.request.urlopen(req,timeout=15) as r:
+              p=json.loads(r.read().decode())
+          print({'cik':p.get('cik'),'name':p.get('name'),'recentForms':len(((p.get('filings') or {}).get('recent') or {}).get('form') or [])})
+          assert str(p.get('cik')).lstrip('0')=='1651721'
+          PY
