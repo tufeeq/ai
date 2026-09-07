@@ -1,0 +1,183 @@
+{
+  "schemaVersion": "4.1-research",
+  "method": "TAGIT_V41_FROZEN_EVENT_CONVICTION_POLICY",
+  "generatedAtUTC": "2026-09-07T09:20:38.584235+00:00",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "datasetSha256": "19277cfddc8dbeaebee73ce70a6e6fad57213caae87959da7f3e5e859a88773b",
+  "antiLeakage": [
+    "frozen v3.9 dataset only; no network calls",
+    "Aug11-24 train; Aug25-26 policy calibration; Aug27-Sep4 untouched holdout",
+    "market heat uses same-snapshot causal features only",
+    "persistence/rank-improvement use prior observations of same ticker/day only",
+    "catalyst excluded because frozen dataset has no point-in-time catalyst fields"
+  ],
+  "coverage": {
+    "rows": 4466,
+    "train": 2857,
+    "calibration": 672,
+    "holdout": 937,
+    "holdoutPositives": 36
+  },
+  "baseGate": {
+    "topK": 20,
+    "minEnsemble": 0.5,
+    "maxDisagreement": 0.4
+  },
+  "selectedPolicy": {
+    "weights": [
+      0.45,
+      0.3,
+      0.15,
+      0.1
+    ],
+    "preThr": 55,
+    "regThr": 65,
+    "regMinPersistence": 30,
+    "minHeat": 0
+  },
+  "calibration": {
+    "v4Observation": {
+      "count": 179,
+      "tp": 15,
+      "precisionPct": 8.38,
+      "recallObsPct": 48.39,
+      "tickerDays": 87,
+      "winnerTickerDays": 15,
+      "recallTickerDayPct": 53.57
+    },
+    "v4FirstEvent": {
+      "count": 87,
+      "tp": 5,
+      "precisionPct": 5.75,
+      "recallObsPct": 16.13,
+      "tickerDays": 87,
+      "winnerTickerDays": 5,
+      "recallTickerDayPct": 17.86
+    },
+    "v41Observation": {
+      "count": 125,
+      "tp": 13,
+      "precisionPct": 10.4,
+      "recallObsPct": 41.94,
+      "tickerDays": 64,
+      "winnerTickerDays": 13,
+      "recallTickerDayPct": 46.43
+    },
+    "v41FirstEvent": {
+      "count": 64,
+      "tp": 8,
+      "precisionPct": 12.5,
+      "recallObsPct": 25.81,
+      "tickerDays": 64,
+      "winnerTickerDays": 8,
+      "recallTickerDayPct": 28.57
+    }
+  },
+  "holdout": {
+    "v4Observation": {
+      "count": 109,
+      "tp": 12,
+      "precisionPct": 11.01,
+      "recallObsPct": 33.33,
+      "tickerDays": 92,
+      "winnerTickerDays": 12,
+      "recallTickerDayPct": 35.29
+    },
+    "v4FirstEvent": {
+      "count": 92,
+      "tp": 10,
+      "precisionPct": 10.87,
+      "recallObsPct": 27.78,
+      "tickerDays": 92,
+      "winnerTickerDays": 10,
+      "recallTickerDayPct": 29.41
+    },
+    "v41Observation": {
+      "count": 56,
+      "tp": 6,
+      "precisionPct": 10.71,
+      "recallObsPct": 16.67,
+      "tickerDays": 48,
+      "winnerTickerDays": 6,
+      "recallTickerDayPct": 17.65
+    },
+    "v41FirstEvent": {
+      "count": 48,
+      "tp": 6,
+      "precisionPct": 12.5,
+      "recallObsPct": 16.67,
+      "tickerDays": 48,
+      "winnerTickerDays": 6,
+      "recallTickerDayPct": 17.65
+    }
+  },
+  "holdoutBySession": {
+    "pre": {
+      "observation": {
+        "count": 33,
+        "tp": 5,
+        "precisionPct": 15.15,
+        "recallObsPct": 35.71,
+        "tickerDays": 31,
+        "winnerTickerDays": 5,
+        "recallTickerDayPct": 35.71
+      },
+      "firstEvent": {
+        "count": 31,
+        "tp": 5,
+        "precisionPct": 16.13,
+        "recallObsPct": 35.71,
+        "tickerDays": 31,
+        "winnerTickerDays": 5,
+        "recallTickerDayPct": 35.71
+      }
+    },
+    "regular": {
+      "observation": {
+        "count": 23,
+        "tp": 1,
+        "precisionPct": 4.35,
+        "recallObsPct": 5.56,
+        "tickerDays": 19,
+        "winnerTickerDays": 1,
+        "recallTickerDayPct": 5.56
+      },
+      "firstEvent": {
+        "count": 19,
+        "tp": 1,
+        "precisionPct": 5.26,
+        "recallObsPct": 5.56,
+        "tickerDays": 19,
+        "winnerTickerDays": 1,
+        "recallTickerDayPct": 5.56
+      }
+    },
+    "after": {
+      "observation": {
+        "count": 0,
+        "tp": 0,
+        "precisionPct": null,
+        "recallObsPct": 0.0,
+        "tickerDays": 0,
+        "winnerTickerDays": 0,
+        "recallTickerDayPct": 0.0
+      },
+      "firstEvent": {
+        "count": 0,
+        "tp": 0,
+        "precisionPct": null,
+        "recallObsPct": 0.0,
+        "tickerDays": 0,
+        "winnerTickerDays": 0,
+        "recallTickerDayPct": 0.0
+      }
+    }
+  },
+  "promotionRule": {
+    "requiresFirstEventPrecisionImprovement": true,
+    "requiresSupportAtLeast": 12,
+    "requiresWinnerEventsAtLeast": 4,
+    "autoPromotion": false
+  },
+  "verdict": "V41_POLICY_SHADOW_CANDIDATE"
+}
