@@ -1,0 +1,66 @@
+name: TAGit v5.12.2 Feed-Aware Pre-Open
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tagit/preopen-fixed-cutoff-v5122.py'
+      - '.github/workflows/tagit-v5122-preopen-fixed-cutoff.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-v5122-preopen-fixed-cutoff
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -q numpy scikit-learn
+      - name: Syntax check
+        run: python -m py_compile tagit/preopen-fixed-cutoff-v5122.py
+      - name: Run feed-aware fixed-cutoff validation
+        run: python tagit/preopen-fixed-cutoff-v5122.py
+      - name: Verify causal and uncertainty contract
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('tag/data/tagit-v5122-preopen-fixed-cutoff.json')
+          assert p.exists()
+          r=json.loads(p.read_text())
+          assert r['schemaVersion']=='5.12.2'
+          assert r['realDiscoveryPrecisionPct'] is None or r.get('universeIntegrity') is True
+          assert 'dataQualityPolicy' in r
+          assert r['status'] in ('COMPLETE','INSUFFICIENT_DATA')
+          if r['status']=='COMPLETE':
+              h=r['holdout']
+              assert 'wilsonLower90Pct' in h
+              assert 'dayBlockBootstrapLower90Pct' in h
+              assert 'top3DailyPrecisionPct' in h
+              assert 'winnerDayRecallPct' in h
+              print('v5.12.2 holdout', h)
+          else:
+              print('v5.12.2 insufficient', r.get('populationDiagnostics'))
+          PY
+      - name: Commit evidence
+        run: |
+          git config user.name "TAGit Research Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagit-v5122-preopen-fixed-cutoff.json tag/data/tagit-v5122-preopen-cases.json 2>/dev/null || true
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "research: record v5.12.2 feed-aware pre-open evidence"
+          git pull --rebase origin main
+          git push origin main
