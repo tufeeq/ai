@@ -7,6 +7,7 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - 'tagit/market-calendar-guard.py'
       - 'tagit/finviz_provider.py'
       - 'tagit/audit_provider.py'
       - 'tagit/score-v3-live.py'
@@ -17,6 +18,7 @@ on:
       - 'tagit/sec-event-intelligence.py'
       - 'tagit/score-v41-live.py'
       - 'tagit/build-shadow-learning-ledger.py'
+      - 'tagit/purge-invalid-calendar-events.py'
       - 'tagit/attach-sec-event-context.py'
       - 'tagit/follow-v4-events.py'
       - 'tagit/summarize-v4-forward.py'
@@ -67,6 +69,11 @@ jobs:
           curl --fail --silent --show-error --location --retry 5 --retry-delay 6 --retry-all-errors \
             "https://elite.finviz.com/export.ashx?v=152&t=SPY,QQQ,IWM&c=${COLS}&auth=${FINVIZ_TOKEN}&ft=4" \
             -o /tmp/tagit-rich/benchmarks.csv
+      - name: Enforce market calendar guard inside rich pipeline
+        run: |
+          python -m py_compile tagit/market-calendar-guard.py
+          python tagit/market-calendar-guard.py --self-test
+          python tagit/market-calendar-guard.py
       - name: Normalize provider data
         run: python tagit/finviz_provider.py
       - name: Validate and derive shadow catalyst intelligence
@@ -166,6 +173,10 @@ jobs:
         run: |
           python -m py_compile tagit/build-shadow-learning-ledger.py
           python tagit/build-shadow-learning-ledger.py
+      - name: Purge records from verified market-closed dates
+        run: |
+          python -m py_compile tagit/purge-invalid-calendar-events.py
+          python tagit/purge-invalid-calendar-events.py
       - name: Freeze SEC context into current shadow ledger records
         run: |
           python -m py_compile tagit/attach-sec-event-context.py
@@ -194,6 +205,7 @@ jobs:
           else
             rm -f tag/data/finviz-rich.json
           fi
+          git checkout -- tag/data/finviz.json tag/data/snapshots.json 2>/dev/null || true
           git config user.name tagit-data-bot
           git config user.email actions@users.noreply.github.com
           git add tag/data/tagit-signal-feed.json tag/data/finviz-rich-health.json tag/data/tagit-data-contract.json tag/data/tagit-shadow-learning-ledger.json tag/data/tagit-v25-shadow.json tag/data/tagit-v3-shadow.json tag/data/tagit-v4-shadow.json tag/data/tagit-v41-shadow.json tag/data/tagit-sec-event-shadow.json tag/data/tagit-v4-forward-eval.json tag/data/tagit-sec-event-forward.json tag/data/tagit-catalyst-calibration.json
