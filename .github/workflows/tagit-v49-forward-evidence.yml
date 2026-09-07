@@ -9,6 +9,7 @@ on:
     paths:
       - 'tagit/build-v49-forward-evidence.py'
       - 'tagit/evaluate-v49-policy-readiness.py'
+      - 'tagit/validate-model-governance.py'
       - '.github/workflows/tagit-v49-forward-evidence.yml'
 
 permissions:
@@ -33,19 +34,22 @@ jobs:
           python-version: '3.12'
       - name: Sync latest main
         run: git pull --rebase origin main
-      - name: Validate collectors
-        run: python -m py_compile tagit/build-v49-forward-evidence.py tagit/evaluate-v49-policy-readiness.py
+      - name: Validate collectors and governance guard
+        run: python -m py_compile tagit/build-v49-forward-evidence.py tagit/evaluate-v49-policy-readiness.py tagit/validate-model-governance.py
       - name: Build immutable first-event evidence and update outcomes
         run: python tagit/build-v49-forward-evidence.py
       - name: Evaluate chronological policy readiness
         run: python tagit/evaluate-v49-policy-readiness.py
-      - name: Verify v4.9 causal contract
+      - name: Reconcile authoritative model governance
+        run: python tagit/validate-model-governance.py
+      - name: Verify v4.9 causal and champion contracts
         run: |
           python - <<'PY'
           import json,pathlib
           e=json.loads(pathlib.Path('tag/data/tagit-v49-forward-evidence.json').read_text())
           s=json.loads(pathlib.Path('tag/data/tagit-v49-evidence-summary.json').read_text())
           r=json.loads(pathlib.Path('tag/data/tagit-v49-policy-readiness.json').read_text())
+          g=json.loads(pathlib.Path('tag/data/tagit-model-governance.json').read_text())
           assert e['policy']=='SHADOW_EVIDENCE_ONLY_NO_CHAMPION_OVERRIDE'
           assert e['evidenceImmutable'] is True
           assert e['rawBarsPersisted'] is False
@@ -61,15 +65,18 @@ jobs:
           assert s['promotionPolicy']=='NO_AUTO_PROMOTION_FROM_FORWARD_STORE'
           assert r['autoPromotion'] is False
           assert r['status'] in ('NOT_READY','NO_TRAIN_CANDIDATE','REJECTED_ON_FORWARD_VALIDATION','VALIDATED_SHADOW_CANDIDATE')
-          print(json.dumps({'events':len(ids),'counts':s['counts'],'overall':s['overall'],'readiness':r['status']},indent=2))
+          assert g['currentChampion']['id']=='TAGit-v0.6'
+          assert g['promotionPolicy']['automaticPromotion'] is False
+          assert all(x.get('promotionEligible') is False for x in g.get('challengers',[]))
+          print(json.dumps({'events':len(ids),'counts':s['counts'],'overall':s['overall'],'readiness':r['status'],'governance':g['decision']},indent=2))
           PY
-      - name: Commit derived evidence only
+      - name: Commit derived evidence and governance only
         run: |
           git config user.name tagit-evidence-bot
           git config user.email actions@users.noreply.github.com
-          git add tag/data/tagit-v49-forward-evidence.json tag/data/tagit-v49-evidence-summary.json tag/data/tagit-v49-policy-readiness.json
+          git add tag/data/tagit-v49-forward-evidence.json tag/data/tagit-v49-evidence-summary.json tag/data/tagit-v49-policy-readiness.json tag/data/tagit-model-governance.json
           git diff --cached --quiet && exit 0
-          git commit -m 'data: refresh TAGit v4.9 forward evidence'
+          git commit -m 'data: refresh TAGit v4.9 evidence and governance'
           for i in 1 2 3; do
             git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
             sleep $((i*5))
