@@ -1,0 +1,134 @@
+{
+  "schemaVersion": "5.5-actionable-explosion",
+  "generatedAtUTC": "2026-09-07T20:14:22.149114+00:00",
+  "status": "COMPLETE",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "architecture": "EXPLOSION_PROPENSITY + ACTIONABLE_TIMING + ARCHETYPE_SIMILARITY + ABSTENTION",
+  "objective": {
+    "primary": "first +10% from current price occurs 15-75m after observation",
+    "decisionRunway": "minimum 15 minutes before first +10% hit",
+    "riskConstraint": "MAE before hit >= -5%",
+    "tooFast": "<15m is a negative, not a success",
+    "earlyEligibility": "current move vs previous regular close < +7%"
+  },
+  "data": {
+    "symbolsRequested": 450,
+    "symbolsSucceeded": 444,
+    "fetchFailures": 6,
+    "unique5mObservations": 2403654,
+    "decisionRows": 702626,
+    "tickerDays": 21000,
+    "days": 59,
+    "emergenceCases": 21000,
+    "explosionAnchorCases": 2123,
+    "met500kObservationGoal": true,
+    "augmentation": {
+      "used": false,
+      "provider": null,
+      "bars": 0,
+      "days": 0,
+      "plus20Sessions": 0,
+      "plus50Sessions": 0,
+      "reason": null
+    }
+  },
+  "splits": {
+    "trainRows": 468592,
+    "calibrationRows": 116026,
+    "holdoutRows": 118008,
+    "trainDays": 41,
+    "calibrationDays": 9,
+    "holdoutDays": 9,
+    "trainActionable": 5591,
+    "calibrationActionable": 1399,
+    "holdoutActionable": 985
+  },
+  "training": {
+    "timingModelTrainCount": 50319,
+    "timingModelPositiveCount": 5591,
+    "prop20TrainCount": 14063,
+    "prop20PositiveCount": 1096,
+    "prop50TrainCount": 14063,
+    "prop50PositiveCount": 272,
+    "hardNegativeDefinition": "false ignition, too-fast hit, or explosive-day state outside actionable window",
+    "criticalFixes": [
+      "session +20/+50 labels no longer drive timing threshold utility",
+      "actionable timing has explicit 15-75m lead-time target",
+      "too-fast moves are hard negatives",
+      "first-emergence ticker-day state trains explosion propensity",
+      "event archetypes are anchored before first +20 crossing",
+      "holdout uses frozen train-fitted models; no train+cal refit score drift",
+      "threshold selection optimizes actionable precision/Wilson support only"
+    ]
+  },
+  "selectedConfig": {
+    "decisionScore": 0.6201,
+    "minPAction": 0.6455,
+    "minP20": 0.3,
+    "maxActionDisagreement": 0.18,
+    "minArchetypeSimilarity": 0,
+    "sessions": [
+      0,
+      1
+    ]
+  },
+  "calibration": {
+    "count": 533,
+    "tp": 77,
+    "precisionActionablePct": 14.45,
+    "wilsonLower90Pct": 12.12,
+    "winnerTickerDays": 446,
+    "capturedWinnerTickerDays": 77,
+    "tickerDayRecallPct": 17.26,
+    "session20RatePct": 40.53,
+    "session50RatePct": 12.2,
+    "tooFastRatePct": 3.0,
+    "medianLeadMin": 35.0,
+    "p25LeadMin": 25.0,
+    "p75LeadMin": 50.0,
+    "activeDays": 9
+  },
+  "holdout": {
+    "count": 320,
+    "tp": 25,
+    "precisionActionablePct": 7.81,
+    "wilsonLower90Pct": 5.68,
+    "winnerTickerDays": 315,
+    "capturedWinnerTickerDays": 25,
+    "tickerDayRecallPct": 7.94,
+    "session20RatePct": 36.56,
+    "session50RatePct": 8.44,
+    "tooFastRatePct": 4.38,
+    "medianLeadMin": 35.0,
+    "p25LeadMin": 25.0,
+    "p75LeadMin": 50.0,
+    "activeDays": 9
+  },
+  "baselines": {
+    "v50HoldoutPrecisionPct": 23.91,
+    "v53HoldoutPrecisionPct": 10.62
+  },
+  "calibrationReached90": false,
+  "holdoutReached90": false,
+  "verdict": "V55_90_NOT_CONFIRMED",
+  "antiLeakage": [
+    "all model features use current/prior completed bars only",
+    "previous regular close is the session reference",
+    "future threshold times are labels only",
+    "same-time RVOL baselines use prior days only",
+    "chronological 70/15/15 date split",
+    "archetype clustering fit on train-period precursor cases only",
+    "configuration selected on calibration only",
+    "train-fitted models frozen for untouched holdout",
+    "first selected ticker-day event is the action unit",
+    "current discovery universe broadens symbols but is not represented as point-in-time historical membership"
+  ],
+  "errorsSample": {
+    "RAM": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "SPCH": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "SSPC": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "SECZ": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "USDE": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "METG": "HTTPError:HTTP Error 422: Unprocessable Entity"
+  }
+}
