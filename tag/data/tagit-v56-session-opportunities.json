@@ -1,0 +1,129 @@
+{
+  "schemaVersion": "5.6-session-opportunity-hunter",
+  "generatedAtUTC": "2026-09-07T20:30:25.352410+00:00",
+  "status": "COMPLETE",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "objective": {
+    "primary": "alert before actionable +10% move with 15-90 minute runway",
+    "secondary": "rank by expected remaining same-session upside",
+    "coverage": "pre-market + regular + after-hours",
+    "repeatPolicy": "up to 3 opportunity episodes per ticker/day; 30m cooldown and >=18% score improvement",
+    "notSuccess": "move occurring in <15m is too late for the primary actionable label"
+  },
+  "architecture": "ACTIONABILITY CLASSIFIER + PRIME MOVE CLASSIFIER + REMAINING-UPSIDΕ REGRESSOR + EXPLOSION ARCHETYPE SIMILARITY + ABSTENTION",
+  "data": {
+    "symbolsRequested": 550,
+    "symbolsSucceeded": 544,
+    "fetchFailures": 6,
+    "unique5mObservations": 2742970,
+    "decisionRows": 1589123,
+    "tickerDays": 25476,
+    "days": 59,
+    "explosionCases": 3333,
+    "met500kObservationGoal": true,
+    "augmentation": {
+      "used": false,
+      "provider": null,
+      "bars": 0,
+      "days": 0,
+      "plus20Sessions": 0,
+      "plus50Sessions": 0
+    }
+  },
+  "splits": {
+    "trainRows": 1068975,
+    "calibrationRows": 262930,
+    "holdoutRows": 257218,
+    "trainDays": 41,
+    "calibrationDays": 9,
+    "holdoutDays": 9,
+    "trainAction10": 19737,
+    "calAction10": 4853,
+    "holdAction10": 3250
+  },
+  "selectedConfig": {
+    "minOpportunityScore": 0.2516,
+    "minPAction10": 0.6626,
+    "minPredRemainingMfePct": 12.0,
+    "maxDisagreement": 0.12,
+    "minArchetypeSimilarity": 0.391,
+    "sessions": [
+      0,
+      1
+    ]
+  },
+  "calibration": {
+    "count": 61,
+    "tpAction10": 13,
+    "precisionAction10Pct": 21.31,
+    "wilsonLower90Pct": 14.0,
+    "tickerDayRecallPct": 1.76,
+    "medianLeadMin": 50.0,
+    "medianRemainingMfePct": 4.26,
+    "meanRemainingMfePct": 19.68,
+    "medianRemainingMaePct": -5.61,
+    "plus20RatePct": 22.95,
+    "plus50RatePct": 4.92,
+    "alertsPerDay": 6.78,
+    "activeDays": 9,
+    "sessionCounts": {
+      "pre": 0,
+      "regular": 61,
+      "after": 0
+    },
+    "top1DailyMedianRemainingMfePct": 4.67,
+    "top3MedianRemainingMfePct": 3.9
+  },
+  "holdout": {
+    "count": 43,
+    "tpAction10": 6,
+    "precisionAction10Pct": 13.95,
+    "wilsonLower90Pct": 7.39,
+    "tickerDayRecallPct": 1.22,
+    "medianLeadMin": 57.5,
+    "medianRemainingMfePct": 3.14,
+    "meanRemainingMfePct": 7.28,
+    "medianRemainingMaePct": -6.32,
+    "plus20RatePct": 18.6,
+    "plus50RatePct": 2.33,
+    "alertsPerDay": 4.78,
+    "activeDays": 9,
+    "sessionCounts": {
+      "pre": 0,
+      "regular": 43,
+      "after": 0
+    },
+    "top1DailyMedianRemainingMfePct": 4.75,
+    "top3MedianRemainingMfePct": 3.76
+  },
+  "baselines": {
+    "v50HoldoutPrecisionPct": 23.91,
+    "v53HoldoutPrecisionPct": 10.62
+  },
+  "successCriteria": {
+    "precisionIsNotOnlyObjective": true,
+    "mustHaveActionableRunway": true,
+    "mustPreserveRepeatedSessionOpportunities": true,
+    "mustImproveRemainingUpsideCapture": true
+  },
+  "antiLeakage": [
+    "features use current/prior completed bars only",
+    "previous regular close anchors session move",
+    "future highs/lows/times are labels only",
+    "same-time RVOL baseline uses prior days only",
+    "chronological 70/15/15 date split",
+    "models and archetypes fit on train only",
+    "thresholds selected on calibration only",
+    "untouched holdout evaluated after freeze",
+    "current discovery universe broadens symbols but is not treated as historical point-in-time membership"
+  ],
+  "verdict": "V56_RESEARCH_COMPLETE",
+  "errorsSample": {
+    "RAM": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "SPCH": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "SSPC": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "SECZ": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "USDE": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "METG": "HTTPError:HTTP Error 422: Unprocessable Entity"
+  }
+}
