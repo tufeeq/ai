@@ -47,8 +47,19 @@ def parse_ts(s):
 def event_ts(x):return parse_ts(x.get('ts'))
 
 def ticker_map():
-    raw=get_json('https://www.sec.gov/files/company_tickers.json')
-    return {str(v.get('ticker','')).upper():str(v.get('cik_str','')).zfill(10) for v in raw.values()}
+    # Prefer the SEC's own ticker map. GitHub-hosted runners can occasionally
+    # receive 403 from www.sec.gov/files, so fall back only for identifier
+    # resolution to sec-cik-mapper's pre-generated mapping. Filing/event data
+    # itself still comes exclusively from data.sec.gov below.
+    try:
+        raw=get_json('https://www.sec.gov/files/company_tickers.json')
+        out={str(v.get('ticker','')).upper():str(v.get('cik_str','')).zfill(10) for v in raw.values() if isinstance(v,dict)}
+        if out:return out
+    except Exception:
+        pass
+    from sec_cik_mapper import StockMapper
+    raw=StockMapper().ticker_to_cik
+    return {str(t).upper():str(c).zfill(10) for t,c in raw.items() if t and c}
 
 def submissions(cik):
     raw=get_json(f'https://data.sec.gov/submissions/CIK{cik}.json')
@@ -152,7 +163,7 @@ def risk_counts(xs):
 report={
  'schemaVersion':'4.5-research','method':'TAGIT_V45_POINT_IN_TIME_SEC_STRUCTURAL_RISK','generatedAtUTC':datetime.now(timezone.utc).isoformat(),'policy':'RESEARCH_ONLY_NO_CHAMPION_OVERRIDE','datasetSha256':sha,
  'antiLeakage':['frozen v3.9 ranker/ground truth','base OOF day trained only on earlier days','SEC acceptanceDateTime must be <= event timestamp','SEC policy selected on pre-Aug27 OOF only','Aug27-Sep4 evaluation not used to select SEC policy','no filing document text/current financial values/future filings'],
- 'secSource':'SEC submissions metadata via data.sec.gov; public point-in-time filing metadata','riskDefinition':{'1':'capital-markets form within 45d','2':'registration/EFFECT within 14d','3':'424B3/B4/B5 within 7d or 8-K Item 3.02 within 14d'},
+ 'secSource':'SEC submissions metadata via data.sec.gov; ticker-to-CIK resolution prefers SEC and may fall back to sec-cik-mapper','riskDefinition':{'1':'capital-markets form within 45d','2':'registration/EFFECT within 14d','3':'424B3/B4/B5 within 7d or 8-K Item 3.02 within 14d'},
  'coverage':{'oofDays':used,'oofEvents':len(oof),'holdoutEvents':len(he),'uniqueSymbols':len(symbols),'mappedSymbols':sum(s in cache for s in symbols),'unavailableSymbols':len(errors),'unavailableExamples':dict(list(errors.items())[:15])},
  'oofRiskDistribution':risk_counts(oof),'holdoutRiskDistribution':risk_counts(he),
  'oofCandidates':[{'mode':z[1],'metrics':z[2],'wilsonLower90Pct':z[3],'activeDays':z[4]} for z in cands],
