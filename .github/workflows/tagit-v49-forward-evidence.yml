@@ -8,6 +8,7 @@ on:
   push:
     paths:
       - 'tagit/build-v49-forward-evidence.py'
+      - 'tagit/evaluate-v49-policy-readiness.py'
       - '.github/workflows/tagit-v49-forward-evidence.yml'
 
 permissions:
@@ -32,16 +33,19 @@ jobs:
           python-version: '3.12'
       - name: Sync latest main
         run: git pull --rebase origin main
-      - name: Validate collector
-        run: python -m py_compile tagit/build-v49-forward-evidence.py
+      - name: Validate collectors
+        run: python -m py_compile tagit/build-v49-forward-evidence.py tagit/evaluate-v49-policy-readiness.py
       - name: Build immutable first-event evidence and update outcomes
         run: python tagit/build-v49-forward-evidence.py
+      - name: Evaluate chronological policy readiness
+        run: python tagit/evaluate-v49-policy-readiness.py
       - name: Verify v4.9 causal contract
         run: |
           python - <<'PY'
           import json,pathlib
           e=json.loads(pathlib.Path('tag/data/tagit-v49-forward-evidence.json').read_text())
           s=json.loads(pathlib.Path('tag/data/tagit-v49-evidence-summary.json').read_text())
+          r=json.loads(pathlib.Path('tag/data/tagit-v49-policy-readiness.json').read_text())
           assert e['policy']=='SHADOW_EVIDENCE_ONLY_NO_CHAMPION_OVERRIDE'
           assert e['evidenceImmutable'] is True
           assert e['rawBarsPersisted'] is False
@@ -55,13 +59,15 @@ jobs:
                   assert sec.get('causalStatus')=='ACCEPTED_BEFORE_OR_AT_EVENT'
               assert (ev.get('dataCompleteness') or {}).get('spreadStatus')=='UNKNOWN_NOT_ZERO'
           assert s['promotionPolicy']=='NO_AUTO_PROMOTION_FROM_FORWARD_STORE'
-          print(json.dumps({'events':len(ids),'counts':s['counts'],'overall':s['overall']},indent=2))
+          assert r['autoPromotion'] is False
+          assert r['status'] in ('NOT_READY','NO_TRAIN_CANDIDATE','REJECTED_ON_FORWARD_VALIDATION','VALIDATED_SHADOW_CANDIDATE')
+          print(json.dumps({'events':len(ids),'counts':s['counts'],'overall':s['overall'],'readiness':r['status']},indent=2))
           PY
       - name: Commit derived evidence only
         run: |
           git config user.name tagit-evidence-bot
           git config user.email actions@users.noreply.github.com
-          git add tag/data/tagit-v49-forward-evidence.json tag/data/tagit-v49-evidence-summary.json
+          git add tag/data/tagit-v49-forward-evidence.json tag/data/tagit-v49-evidence-summary.json tag/data/tagit-v49-policy-readiness.json
           git diff --cached --quiet && exit 0
           git commit -m 'data: refresh TAGit v4.9 forward evidence'
           for i in 1 2 3; do
