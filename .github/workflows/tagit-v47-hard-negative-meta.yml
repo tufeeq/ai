@@ -1,0 +1,57 @@
+name: TAGit v4.7 Hard-Negative Meta
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tagit/hard-negative-meta-v47-backtest.py'
+      - '.github/workflows/tagit-v47-hard-negative-meta.yml'
+      - 'tag/data/tagit-v39-frozen-groundtruth.json'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: tagit-v47-hard-negative-meta
+  cancel-in-progress: true
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Sync latest main
+        run: git pull --ff-only origin main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install research dependencies
+        run: pip install -q numpy scikit-learn
+      - name: Syntax check
+        run: python -m py_compile tagit/hard-negative-meta-v47-backtest.py
+      - name: Run v4.7 frozen holdout research
+        run: python tagit/hard-negative-meta-v47-backtest.py
+      - name: Contract checks
+        run: |
+          python - <<'PY'
+          import json
+          r=json.load(open('tag/data/tagit-v47-hard-negative-meta-backtest.json'))
+          assert r['datasetSha256']=='19277cfddc8dbeaebee73ce70a6e6fad57213caae87959da7f3e5e859a88773b'
+          assert r['policy']=='RESEARCH_ONLY_NO_CHAMPION_OVERRIDE'
+          assert r['coverage']['holdoutBaseWinners']>0
+          assert r['verdict'] in ('V47_SHADOW_CANDIDATE','DO_NOT_PROMOTE_V47')
+          print(r['verdict'], r['holdout'])
+          PY
+      - name: Commit research report safely
+        run: |
+          git config user.name 'tagit-research-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          # runpy executes v4.1 which refreshes its report; v4.7 is the only output of this workflow.
+          git restore tag/data/tagit-v41-event-conviction-backtest.json || true
+          git add tag/data/tagit-v47-hard-negative-meta-backtest.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'research: update TAGit v4.7 hard-negative meta report'
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            sleep $((i*5))
+          done
+          exit 1
