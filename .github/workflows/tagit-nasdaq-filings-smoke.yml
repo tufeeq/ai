@@ -1,0 +1,26 @@
+name: TAGit Nasdaq Filings Fallback Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/tagit-nasdaq-filings-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test Nasdaq company SEC filings endpoint
+        run: |
+          python - <<'PY'
+          import json,urllib.request
+          u='https://api.nasdaq.com/api/company/GIPR/sec-filings?limit=20'
+          h={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36','Accept':'application/json, text/plain, */*','Referer':'https://www.nasdaq.com/','Origin':'https://www.nasdaq.com'}
+          with urllib.request.urlopen(urllib.request.Request(u,headers=h),timeout=15) as r:p=json.loads(r.read().decode())
+          print(json.dumps(p,indent=2)[:5000])
+          assert p.get('data') is not None
+          PY
