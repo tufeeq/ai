@@ -9,6 +9,9 @@ on:
     paths:
       - 'tagit/score-v3-live.py'
       - 'tag/model/tagit-v3-ranker.joblib'
+      - 'tagit/score-v4-live.py'
+      - 'tag/model/tagit-v4-live-compatible.joblib'
+      - 'tag/model/tagit-v4-live-compatible-meta.json'
       - 'tagit/build-shadow-learning-ledger.py'
       - '.github/workflows/tagit-finviz-rich-feed.yml'
 
@@ -111,6 +114,28 @@ jobs:
           pathlib.Path('tag/data/tagit-v3-shadow.json').write_text(json.dumps(p,indent=2)+'\n')
           PY
           fi
+      - name: Score v4 frozen-live21 ranker without blocking champion feed
+        run: |
+          if test -s tag/model/tagit-v4-live-compatible.joblib && python - <<'PY'
+          import importlib.util
+          assert importlib.util.find_spec('numpy')
+          assert importlib.util.find_spec('sklearn')
+          assert importlib.util.find_spec('joblib')
+          PY
+          then
+            python -m py_compile tagit/score-v4-live.py
+            python tagit/score-v4-live.py || python - <<'PY'
+          import json,datetime,pathlib
+          p={'schemaVersion':4,'source':'TAGit v4 live21 shadow ranker','updatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'status':'DEGRADED','reason':'V4_SHADOW_RUNTIME_FAILURE','policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','championUnaffected':True,'executionVerified':False,'counts':{'total':0,'selectedGate':0,'lead':0,'shortlist':0,'radar':0},'items':[],'stateCache':{}}
+          pathlib.Path('tag/data/tagit-v4-shadow.json').write_text(json.dumps(p,indent=2)+'\n')
+          PY
+          else
+            python - <<'PY'
+          import json,datetime,pathlib
+          p={'schemaVersion':4,'source':'TAGit v4 live21 shadow ranker','updatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'status':'DEGRADED','reason':'V4_MODEL_OR_DEPENDENCY_UNAVAILABLE','policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','championUnaffected':True,'executionVerified':False,'counts':{'total':0,'selectedGate':0,'lead':0,'shortlist':0,'radar':0},'items':[],'stateCache':{}}
+          pathlib.Path('tag/data/tagit-v4-shadow.json').write_text(json.dumps(p,indent=2)+'\n')
+          PY
+          fi
       - name: Build derived TAGit signal feed
         run: |
           node --check tagit/core.js
@@ -133,9 +158,9 @@ jobs:
           fi
           git config user.name tagit-data-bot
           git config user.email actions@users.noreply.github.com
-          git add tag/data/tagit-signal-feed.json tag/data/finviz-rich-health.json tag/data/tagit-data-contract.json tag/data/tagit-shadow-learning-ledger.json tag/data/tagit-v25-shadow.json tag/data/tagit-v3-shadow.json tag/data/tagit-catalyst-calibration.json
+          git add tag/data/tagit-signal-feed.json tag/data/finviz-rich-health.json tag/data/tagit-data-contract.json tag/data/tagit-shadow-learning-ledger.json tag/data/tagit-v25-shadow.json tag/data/tagit-v3-shadow.json tag/data/tagit-v4-shadow.json tag/data/tagit-catalyst-calibration.json
           git diff --cached --quiet && exit 0
-          git commit -m 'data: refresh TAGit v3 ranking and catalyst shadow outputs'
+          git commit -m 'data: refresh TAGit v4 and legacy shadow outputs'
           for i in 1 2 3; do
             git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
             sleep $((i*6))
