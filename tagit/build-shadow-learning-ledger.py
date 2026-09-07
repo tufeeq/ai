@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 RICH=pathlib.Path('tag/data/finviz-rich.json')
 SIGNALS=pathlib.Path('tag/data/tagit-signal-feed.json')
 V3=pathlib.Path('tag/data/tagit-v3-shadow.json')
+V4=pathlib.Path('tag/data/tagit-v4-shadow.json')
 OUT=pathlib.Path('tag/data/tagit-shadow-learning-ledger.json')
 
 def read(p,d):
@@ -25,6 +26,14 @@ def pct_rank(vals,v,invert=False):
         else:hi=m
     p=lo/len(a)
     return round((1-p if invert else p)*100,2)
+
+def parse_dt(v):
+    try:return datetime.fromisoformat(str(v).replace('Z','+00:00'))
+    except:return None
+
+def age_min(start,end):
+    a=parse_dt(start);b=parse_dt(end)
+    return round((b-a).total_seconds()/60,2) if a and b else None
 
 def catalyst_class(title):
     t=(title or '').lower()
@@ -53,15 +62,17 @@ def momentum_shape(m):
     if pos<=.2:return 'WEAK_DOWN'
     return 'MIXED'
 
-rich=read(RICH,{}); sig=read(SIGNALS,{}); v3=read(V3,{})
+rich=read(RICH,{}); sig=read(SIGNALS,{}); v3=read(V3,{}); v4=read(V4,{})
 session=str(rich.get('session') or sig.get('session') or 'unknown').lower();ts=rich.get('updatedAt') or sig.get('updatedAt')
 ledger=read(OUT,{'schemaVersion':1,'policy':'DERIVED_FEATURES_ONLY_NO_RAW_ELITE_ROWS','records':[]})
 if session not in ('pre-market','regular','after-hours'):
     ledger['lastSkipped']={'timestamp':ts,'session':session,'reason':'inactive_session'}
-    OUT.write_text(json.dumps(ledger,indent=2)+'\n');print(json.dumps({'skipped':True,'session':session}));raise SystemExit(0)
+    ledger['v4TrackingEnabled']=bool(v4)
+    OUT.write_text(json.dumps(ledger,indent=2)+'\n');print(json.dumps({'skipped':True,'session':session,'v4Available':bool(v4)}));raise SystemExit(0)
 rows=rich.get('rows') or []
 items={str(x.get('symbol') or '').upper():x for x in (sig.get('items') or [])}
 v3items={str(x.get('symbol') or '').upper():x for x in (v3.get('items') or [])}
+v4items={str(x.get('symbol') or '').upper():x for x in (v4.get('items') or [])}
 fields={
  'rvol':[(r.get('_tagit') or {}).get('relativeVolume') for r in rows],
  'volume':[(r.get('_tagit') or {}).get('volume') for r in rows],
@@ -76,15 +87,35 @@ fields={
  'm5':[((r.get('_tagit') or {}).get('momentumPct') or {}).get('5') for r in rows],
  'm10':[((r.get('_tagit') or {}).get('momentumPct') or {}).get('10') for r in rows]}
 N=max(1,len(rows)); heat=round(100*(.30*sum(finite(x) and float(x)>=2 for x in fields['rvol'])/N + .20*sum(finite(x) and float(x)>=.15 for x in fields['m1'])/N + .20*sum(finite(x) and float(x)>=.5 for x in fields['m5'])/N + .15*sum(finite(x) and float(x)>=1.5 for x in fields['atr'])/N + .15*sum(finite(x) and float(x)>=0 for x in fields['accel'])/N),2)
-new=[]
+
+records=ledger.get('records') or []
+first_surface={}; surface_counts={}
+for old in records:
+    eid=old.get('v4EventId')
+    if not eid or not old.get('v4SurfaceEligible'):continue
+    ots=old.get('timestamp')
+    if eid not in first_surface or (parse_dt(ots) and parse_dt(first_surface[eid]) and parse_dt(ots)<parse_dt(first_surface[eid])):first_surface[eid]=ots
+    surface_counts[eid]=surface_counts.get(eid,0)+1
+
+new=[];day=str(ts or '')[:10]
 for r in rows:
-    t=r.get('_tagit') or {}; sym=str(r.get('Ticker') or '').upper(); s=items.get(sym)
-    if not sym or not s:continue
-    vr=v3items.get(sym) or {};m=t.get('momentumPct') or {}
+    t=r.get('_tagit') or {}; sym=str(r.get('Ticker') or '').upper(); s=items.get(sym) or {}; vr=v3items.get(sym) or {}; v4r=v4items.get(sym) or {}
+    if not sym or (not s and not vr and not v4r):continue
+    m=t.get('momentumPct') or {}; event_id=f'{sym}|{day}' if day else None
+    surface=bool(v4r.get('surfaceEligible')); first_at=first_surface.get(event_id) if event_id else None; is_first=False
+    if surface and event_id:
+        if not first_at:
+            first_at=ts;first_surface[event_id]=ts;is_first=True
+        surface_counts[event_id]=surface_counts.get(event_id,0)+1
     rec={'timestamp':ts,'session':session,'symbol':sym,'referencePrice':round(float(t['price']),6) if finite(t.get('price')) else None,
       'state':s.get('state'),'phase':s.get('phase'),'precursorScore':s.get('precursorScore'),'continuationScore':s.get('continuationScore'),'tradabilityScore':s.get('tradabilityScore'),'riskScore':s.get('riskScore'),
       'v3State':vr.get('state'),'v3Rank':vr.get('rank'),'v3RankScorePct':vr.get('rankScorePct'),'v3ModelDisagreement':vr.get('modelDisagreement'),'v3RawRelevanceScore':vr.get('rawRelevanceScore'),
-      'v3Tracked':bool(vr),'v3Policy':v3.get('policy'),'marketHeat':heat,'featurePercentiles':{
+      'v3Tracked':bool(vr),'v3Policy':v3.get('policy'),
+      'v4State':v4r.get('shadowState'),'v4Rank':v4r.get('rank'),'v4RankScorePct':v4r.get('rankScorePct'),'v4ModelDisagreement':v4r.get('modelDisagreement'),
+      'v4GatePassed':bool(v4r.get('shadowGatePassed')),'v4SurfaceEligible':surface,'v4EventPolicy':v4r.get('eventPolicy'),'v4ProgressionSeen':v4r.get('progressionSeen'),
+      'v4ExecutionVerified':bool(v4r.get('executionVerified')) if v4r else False,'v4Tracked':bool(v4r),'v4Policy':v4.get('policy'),'v4DatasetSha256':v4.get('datasetSha256'),
+      'v4EventId':event_id,'v4FirstSurfaceEvent':is_first,'v4FirstSurfaceAt':first_at,'v4EventAgeMin':age_min(first_at,ts) if first_at else None,'v4SurfaceEventOrdinal':surface_counts.get(event_id,0) if event_id else 0,
+      'marketHeat':heat,'featurePercentiles':{
         'rvol':pct_rank(fields['rvol'],t.get('relativeVolume')),'volume':pct_rank(fields['volume'],t.get('volume')),'dollarVolume':pct_rank(fields['dollar'],t.get('dollarVolume')),
         'trades':pct_rank(fields['trades'],t.get('trades')),'atr':pct_rank(fields['atr'],t.get('atrPct')),'floatTightness':pct_rank(fields['float'],t.get('floatShares'),True),
         'shortFloat':pct_rank(fields['short'],t.get('shortFloatPct')),'priceAcceleration':pct_rank(fields['accel'],t.get('priceAccelerationPctPerMin')),
@@ -92,11 +123,12 @@ for r in rows:
       'microShape':momentum_shape(m),'catalystClass':catalyst_class(t.get('latestNewsTitle')),'hasFreshNewsField':bool(t.get('latestNewsTitle')),'recentDilutionFlag':bool(t.get('recentDilutionFiling')),
       'signalSources':r.get('_signals') or [],'label':None}
     new.append(rec)
-records=ledger.get('records') or []; keys={(x.get('timestamp'),x.get('symbol')) for x in records}
+keys={(x.get('timestamp'),x.get('symbol')) for x in records}
 records.extend(x for x in new if (x['timestamp'],x['symbol']) not in keys)
 try: cutoff=datetime.now(timezone.utc)-timedelta(days=60);records=[x for x in records if datetime.fromisoformat(str(x.get('timestamp')).replace('Z','+00:00'))>=cutoff]
 except: pass
 records=records[-50000:]
-ledger.update({'schemaVersion':3,'updatedAtUTC':datetime.now(timezone.utc).isoformat(),'policy':'DERIVED_FEATURES_ONLY_NO_RAW_ELITE_ROWS','session':session,'latestSnapshot':ts,'latestMarketHeat':heat,'latestRecordsAdded':len(new),'v3TrackingEnabled':True,'records':records})
+ledger.update({'schemaVersion':4,'updatedAtUTC':datetime.now(timezone.utc).isoformat(),'policy':'DERIVED_FEATURES_ONLY_NO_RAW_ELITE_ROWS','session':session,'latestSnapshot':ts,'latestMarketHeat':heat,'latestRecordsAdded':len(new),'v3TrackingEnabled':True,'v4TrackingEnabled':True,
+               'v4EventIdentity':'symbol|UTC-day','v4EventPolicy':'first surface event is deduplicated; regular session requires v4 scorer progression; after-hours informational only','records':records})
 OUT.write_text(json.dumps(ledger,separators=(',',':'))+'\n')
-print(json.dumps({'recordsTotal':len(records),'added':len(new),'session':session,'marketHeat':heat,'v3Tracked':sum(bool(x.get('v3Tracked')) for x in new)}))
+print(json.dumps({'recordsTotal':len(records),'added':len(new),'session':session,'marketHeat':heat,'v3Tracked':sum(bool(x.get('v3Tracked')) for x in new),'v4Tracked':sum(bool(x.get('v4Tracked')) for x in new),'v4SurfaceEligible':sum(bool(x.get('v4SurfaceEligible')) for x in new),'v4FirstSurfaceEvents':sum(bool(x.get('v4FirstSurfaceEvent')) for x in new)}))
