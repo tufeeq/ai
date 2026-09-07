@@ -1,0 +1,59 @@
+name: TAGit v5.8.2 Multi-Session Stability
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tagit/multisession-continuation-v582.py'
+      - '.github/workflows/tagit-v582-multisession-stability.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-v582-multisession-stability
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -q numpy scikit-learn
+      - name: Syntax check
+        run: python -m py_compile tagit/multisession-continuation-v582.py
+      - name: Run stability-selected purged validation
+        run: python tagit/multisession-continuation-v582.py
+      - name: Verify strict validation contract
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('tag/data/tagit-v582-multisession-stability.json')
+          assert p.exists()
+          r=json.loads(p.read_text())
+          assert r['status']=='COMPLETE'
+          assert r['universeIntegrity']['realDiscoveryPrecisionClaimAllowed'] is False
+          assert r['claimGate']['credible90Claim'] is False
+          assert r['holdout']['activeDays'] >= 1
+          assert r['holdout']['dayBlockBootstrapLower90Pct'] is not None
+          print('v5.8.2 holdout',r['holdout'])
+          PY
+      - name: Commit evidence
+        run: |
+          git config user.name "TAGit Research Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagit-v582-multisession-stability.json tag/data/tagit-v581-multisession-continuation.json tag/data/tagit-v581-multisession-case-library.json tag/data/tagit-v581-carryover-watch.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "research: record v5.8.2 stability evidence"
+          git pull --rebase origin main
+          git push origin main
