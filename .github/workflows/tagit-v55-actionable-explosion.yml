@@ -1,0 +1,72 @@
+name: TAGit v5.5 Actionable Explosion
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tagit/actionable-explosion-v55.py'
+      - '.github/workflows/tagit-v55-actionable-explosion.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-v55-actionable-explosion
+  cancel-in-progress: true
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -q numpy scikit-learn
+
+      - name: Syntax check
+        run: python -m py_compile tagit/actionable-explosion-v55.py
+
+      - name: Train actionable explosion architecture
+        run: python tagit/actionable-explosion-v55.py
+
+      - name: Verify causal, lead-time, and honesty contract
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('tag/data/tagit-v55-actionable-explosion.json')
+          q=pathlib.Path('tag/data/tagit-v55-case-library.json')
+          assert p.exists() and q.exists(), 'v5.5 reports missing'
+          r=json.loads(p.read_text())
+          lib=json.loads(q.read_text())
+          assert r['objective']['decisionRunway']=='minimum 15 minutes before first +10% hit'
+          assert r['objective']['tooFast']=='<15m is a negative, not a success'
+          assert 'threshold selection optimizes actionable precision/Wilson support only' in r['training']['criticalFixes']
+          assert 'train-fitted models frozen for untouched holdout' in r['antiLeakage']
+          assert lib['policy']=='TRAIN_ONLY_ARCHETYPES_NO_HOLDOUT_LEAKAGE'
+          if r.get('verdict')=='V55_90_CONFIRMED':
+              assert r['calibration']['count']>=30 and r['holdout']['count']>=30
+              assert r['calibration']['precisionActionablePct']>=90
+              assert r['holdout']['precisionActionablePct']>=90
+          print('v5.5 contract PASS')
+          PY
+
+      - name: Commit derived reports
+        run: |
+          git config user.name "TAGit Research Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagit-v55-actionable-explosion.json tag/data/tagit-v55-case-library.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "research: record v5.5 actionable explosion results"
+          git pull --rebase origin main
+          git push origin main
