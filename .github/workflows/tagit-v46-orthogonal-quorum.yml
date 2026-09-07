@@ -1,0 +1,53 @@
+name: TAGit v4.6 Orthogonal Quorum
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tagit/orthogonal-quorum-v46-backtest.py'
+      - '.github/workflows/tagit-v46-orthogonal-quorum.yml'
+      - 'tag/data/tagit-v39-frozen-groundtruth.json'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: tagit-v46-orthogonal-quorum
+  cancel-in-progress: true
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Sync latest main
+        run: git pull --ff-only origin main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install research dependencies
+        run: pip install -q numpy scikit-learn
+      - name: Syntax check
+        run: python -m py_compile tagit/orthogonal-quorum-v46-backtest.py
+      - name: Run v4.6 frozen holdout research
+        run: python tagit/orthogonal-quorum-v46-backtest.py
+      - name: Contract checks
+        run: |
+          python - <<'PY'
+          import json
+          p='tag/data/tagit-v46-orthogonal-quorum-backtest.json'
+          r=json.load(open(p))
+          assert r['datasetSha256']=='19277cfddc8dbeaebee73ce70a6e6fad57213caae87959da7f3e5e859a88773b'
+          assert r['coverage']['holdoutPositives']==36
+          assert r['policy']=='RESEARCH_ONLY_NO_CHAMPION_OVERRIDE'
+          assert r['verdict'] in ('V46_SHADOW_CANDIDATE','DO_NOT_PROMOTE_V46')
+          print(r['verdict'], r['holdout']['v46FirstEvent'])
+          PY
+      - name: Commit research report
+        run: |
+          git config user.name 'tagit-research-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tag/data/tagit-v46-orthogonal-quorum-backtest.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'research: update TAGit v4.6 orthogonal quorum report'
+          git pull --rebase origin main
+          git push origin main
