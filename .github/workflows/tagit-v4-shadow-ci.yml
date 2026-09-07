@@ -1,0 +1,87 @@
+name: TAGit v4 Shadow CI
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tagit/score-v4-live.py'
+      - 'tag/model/tagit-v4-live-compatible.joblib'
+      - 'tag/model/tagit-v4-live-compatible-meta.json'
+      - '.github/workflows/tagit-v4-shadow-ci.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check numpy scikit-learn joblib
+      - name: Syntax and model contract
+        run: |
+          python -m py_compile tagit/score-v4-live.py
+          python - <<'PY'
+          import joblib,json
+          expected='19277cfddc8dbeaebee73ce70a6e6fad57213caae87959da7f3e5e859a88773b'
+          a=joblib.load('tag/model/tagit-v4-live-compatible.joblib')
+          m=json.load(open('tag/model/tagit-v4-live-compatible-meta.json'))
+          assert a['featureCount']==21 and len(a['featureNames'])==21
+          assert a['datasetSha256']==expected==m['datasetSha256']
+          assert a['policy']=='SHADOW_ONLY_NO_CHAMPION_OVERRIDE'
+          PY
+      - name: Build synthetic Finviz-rich feed
+        run: |
+          python - <<'PY'
+          import json,pathlib,datetime
+          now=datetime.datetime.now(datetime.timezone.utc).isoformat()
+          rows=[]
+          for i in range(1,31):
+              sym=f'T{i:02d}'; price=.5+i*.18; ch=-5+i*.42; vol=100000+i*33000
+              rows.append({'Ticker':sym,'_signals':['ta_unusualvolume'] if i%2 else ['ta_mostactive'],'_tagit':{
+                'price':price,'dayChangePct':ch,'volume':vol,'momentumPct':{'5':-1+i*.12,'10':-2+i*.14,'30':-3+i*.18,'60':-4+i*.22},
+                'recentDilutionFiling': i==7,'catalystType':'OTHER_NEWS' if i==9 else None}})
+          p={'schemaVersion':2,'source':'synthetic','updatedAt':now,'session':'pre-market','richHealthStatus':'PASS','rows':rows}
+          pathlib.Path('tag/data').mkdir(parents=True,exist_ok=True)
+          pathlib.Path('tag/data/finviz-rich.json').write_text(json.dumps(p))
+          PY
+      - name: Run v4 scorer and validate output
+        run: |
+          rm -f tag/data/tagit-v4-shadow.json
+          python tagit/score-v4-live.py
+          python - <<'PY'
+          import json
+          p=json.load(open('tag/data/tagit-v4-shadow.json'))
+          assert p['schemaVersion']==4
+          assert p['policy']=='SHADOW_ONLY_NO_CHAMPION_OVERRIDE'
+          assert p['championUnaffected'] is True
+          assert p['executionVerified'] is False
+          assert p['featureCount']==21
+          assert p['counts']['total']>0
+          assert all(x['executionVerified'] is False for x in p['items'])
+          assert all(x['policy']=='SHADOW_ONLY' for x in p['items'])
+          assert len(p['stateCache'])==p['counts']['total']
+          print('TAGit v4 synthetic scorer PASS',p['counts'])
+          PY
+      - name: Verify second observation state-cache path
+        run: |
+          python - <<'PY'
+          import json,datetime
+          p=json.load(open('tag/data/finviz-rich.json'))
+          p['updatedAt']=(datetime.datetime.fromisoformat(p['updatedAt'])+datetime.timedelta(minutes=10)).isoformat()
+          for i,r in enumerate(p['rows'],1):
+              r['_tagit']['price']*=1+(i%5)*.001
+              r['_tagit']['dayChangePct']+=(i%4)*.08
+              r['_tagit']['volume']+=15000+i*500
+          open('tag/data/finviz-rich.json','w').write(json.dumps(p))
+          PY
+          python tagit/score-v4-live.py
+          python - <<'PY'
+          import json
+          p=json.load(open('tag/data/tagit-v4-shadow.json'))
+          assert p['status']=='PASS'
+          assert p['counts']['total']>0
+          assert any(x.get('progressionSeen') is not None for x in p['items'])
+          print('TAGit v4 state-cache second pass PASS')
+          PY
