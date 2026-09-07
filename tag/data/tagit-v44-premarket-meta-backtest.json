@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "4.4-research",
+  "method": "TAGIT_V44_CAUSAL_PREMARKET_EVENT_META_RANKER",
+  "generatedAtUTC": "2026-09-07T14:50:16.192802+00:00",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "datasetSha256": "19277cfddc8dbeaebee73ce70a6e6fad57213caae87959da7f3e5e859a88773b",
+  "antiLeakage": [
+    "frozen v3.9 dataset only; no network calls",
+    "base ranker OOF day uses only earlier training days",
+    "meta OOF day uses only earlier OOF event-days",
+    "threshold selected only from expanding meta-OOF predictions",
+    "Aug27-Sep4 not used in model or threshold fitting",
+    "first pre-market base-gate event only",
+    "regular and after-hours disabled"
+  ],
+  "features": [
+    "rankScorePct",
+    "modelDisagreementPct",
+    "rank",
+    "persistence",
+    "continuation",
+    "streak",
+    "progression",
+    "rankImprovement",
+    "momentum5mPct",
+    "momentum10mPct"
+  ],
+  "coverage": {
+    "baseOofDays": [
+      "2026-08-17",
+      "2026-08-18",
+      "2026-08-19",
+      "2026-08-20",
+      "2026-08-21",
+      "2026-08-24",
+      "2026-08-25",
+      "2026-08-26"
+    ],
+    "baseOofEvents": 352,
+    "baseOofWinners": 25,
+    "metaOofDays": [
+      "2026-08-20",
+      "2026-08-21",
+      "2026-08-24",
+      "2026-08-25",
+      "2026-08-26"
+    ],
+    "metaOofEvents": 224,
+    "metaOofWinners": 16,
+    "holdoutBasePreEvents": 75,
+    "holdoutBasePreWinners": 10
+  },
+  "selectedThreshold": 0.3486,
+  "metaOof": {
+    "selected": {
+      "count": 144,
+      "tp": 14,
+      "precisionPct": 9.72,
+      "recallObsPct": 87.5,
+      "tickerDays": 144,
+      "winnerTickerDays": 14,
+      "recallTickerDayPct": 87.5
+    },
+    "wilsonLower90": 6.37,
+    "activeDays": 5
+  },
+  "holdout": {
+    "v4BasePreFirstEvent": {
+      "count": 75,
+      "tp": 10,
+      "precisionPct": 13.33,
+      "recallObsPct": 71.43,
+      "tickerDays": 75,
+      "winnerTickerDays": 10,
+      "recallTickerDayPct": 71.43
+    },
+    "v41PreFirstEvent": {
+      "count": 31,
+      "tp": 5,
+      "precisionPct": 16.13,
+      "recallObsPct": 35.71,
+      "tickerDays": 31,
+      "winnerTickerDays": 5,
+      "recallTickerDayPct": 35.71
+    },
+    "v44MetaFirstEvent": {
+      "count": 62,
+      "tp": 8,
+      "precisionPct": 12.9,
+      "recallObsPct": 57.14,
+      "tickerDays": 62,
+      "winnerTickerDays": 8,
+      "recallTickerDayPct": 57.14
+    },
+    "v44ActiveDays": 6
+  },
+  "promotionRule": {
+    "autoPromotion": false,
+    "mustBeatV41PrePrecisionByPp": 2,
+    "minHoldoutEvents": 15,
+    "minHoldoutWinners": 4,
+    "retainAtLeastHalfV41PreTickerDayRecall": true
+  },
+  "verdict": "DO_NOT_PROMOTE_V44"
+}
