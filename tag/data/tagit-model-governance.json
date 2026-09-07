@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "1.0-model-governance",
+  "generatedAtUTC": "2026-09-07T18:24:50.785529+00:00",
+  "decision": "KEEP_V06_CHAMPION",
+  "currentChampion": {
+    "id": "TAGit-v0.6",
+    "role": "REFERENCE_CHAMPION",
+    "source": "tag/data/tagit-v06-walkforward.json",
+    "precision10_60mPct": 5.88,
+    "recallObservationPct": 2.46,
+    "uniqueEvents": 64,
+    "truePositives": 6
+  },
+  "challengers": [
+    {
+      "id": "TAGit-v2.5",
+      "role": "SHADOW",
+      "source": "tag/data/tagit-v25-model-meta.json",
+      "policy": "SHADOW_ONLY_UNTIL_OUT_OF_SAMPLE_PROMOTION",
+      "credible90": false,
+      "calibration": {
+        "count": 40,
+        "precision10_60mPct": 22.5,
+        "recallObsPct": 14.75
+      },
+      "holdout": {
+        "count": 6,
+        "precision10_60mPct": 16.67,
+        "recallObsPct": 20.0
+      },
+      "promotionEligible": false,
+      "reason": "Insufficient independent credibility; model metadata explicitly remains shadow-only."
+    },
+    {
+      "id": "TAGit-v4.9",
+      "role": "FORWARD_EVIDENCE_CHALLENGER",
+      "source": "tag/data/tagit-v49-policy-readiness.json",
+      "status": "NOT_READY",
+      "minimumEvidence": {
+        "matureEvents": 60,
+        "tradingDays": 8,
+        "winners": 8
+      },
+      "currentEvidence": {
+        "count": 0,
+        "tp": 0,
+        "precisionPct": null,
+        "cleanTp": 0,
+        "cleanPrecisionPct": null,
+        "wilsonLower90Pct": null,
+        "tradingDays": 0
+      },
+      "promotionEligible": false,
+      "manualReviewReady": false,
+      "reason": "Forward evidence has not yet produced a validated shadow candidate."
+    }
+  ],
+  "promotionPolicy": {
+    "automaticPromotion": false,
+    "manualPromotionRequired": true,
+    "historicalBacktestAloneCanPromote": false,
+    "forwardResearchStatusRequired": "VALIDATED_SHADOW_CANDIDATE",
+    "currentForwardResearchStatus": "NOT_READY",
+    "manualReviewReady": false,
+    "rule": "No challenger may replace TAGit-v0.6 without independent forward validation and an explicit manual promotion commit."
+  }
+}
