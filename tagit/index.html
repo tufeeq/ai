@@ -4,103 +4,125 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow,noarchive">
-  <title>TAGit — Signal Intelligence Workstation</title>
+  <title>TAGit — Early-Move Intelligence Terminal</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="state-v3.css">
   <link rel="stylesheet" href="auth.css">
 </head>
 <body>
-<div class="terminal-shell">
-  <aside class="rail">
-    <div class="rail-brand"><span>T</span></div>
-    <nav class="rail-nav" aria-label="Sections">
-      <button class="rail-item active" title="Radar">R</button>
-      <button class="rail-item" title="Signals">S</button>
-      <button class="rail-item" title="Research">M</button>
-      <button class="rail-item" title="Risk">!</button>
-    </nav>
-    <div class="rail-foot"><span class="rail-live-dot"></span></div>
-  </aside>
+<div class="app shell">
+  <header class="commandbar">
+    <div class="brand-block">
+      <div class="logo-mark">T</div>
+      <div>
+        <div class="logo">TAGit <sup>TERMINAL 5</sup></div>
+        <div class="tagline">Early-Move Intelligence • US Small Caps</div>
+      </div>
+    </div>
+    <div class="command-status">
+      <span id="modePill" class="pill demo"><span class="dot"></span><span id="modeText">LOADING</span></span>
+      <span class="pill muted-pill">Research <b id="researchText">—</b></span>
+      <span class="pill muted-pill">Champion <b id="championText">—</b></span>
+      <span class="pill muted-pill">Session <b id="sessionText">—</b></span>
+      <span class="pill muted-pill">As of <b id="asOfText">—</b></span>
+      <button id="refreshBtn" class="icon-btn" title="تحديث">↻</button>
+    </div>
+  </header>
 
-  <div class="terminal-main">
-    <header class="commandbar">
-      <div class="brand-block">
+  <section class="market-strip">
+    <div class="market-copy">
+      <div class="eyebrow">REAL-TIME DISCOVERY LAYER</div>
+      <h1>اكتشاف الحركة قبل أن تصبح واضحة للسوق</h1>
+      <p>ترتيب الفرص بحسب جودة النمط، الاستمرارية، المحفز، وسياق المخاطر — مع فصل صريح بين الاستكشاف، التحقق، والتنفيذ.</p>
+    </div>
+    <div class="regime-card premium-card">
+      <span>MARKET REGIME</span>
+      <strong id="regimeText">—</strong>
+      <div class="regime-score"><small>Regime score</small><b id="regimeScore">—</b><em>/100</em></div>
+    </div>
+  </section>
+
+  <section class="kpi-grid">
+    <div class="kpi-card accent">
+      <div class="kpi-top"><span>HIGH-CONVICTION</span><small>Shadow alerts</small></div>
+      <strong id="metricCandidates">0</strong>
+      <div class="kpi-foot">فرص اجتازت Rank + Persistence + Conviction</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-top"><span>DISCOVERY</span><small>Watchlist</small></div>
+      <strong id="metricDiscover">0</strong>
+      <div class="kpi-foot">فرص مبكرة لم تصل بعد إلى بوابة الثقة</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-top"><span>PROGRESSION</span><small>Multi-snapshot</small></div>
+      <strong id="metricAcceleration">0</strong>
+      <div class="kpi-foot">تطور مثبت عبر أكثر من لقطة زمنية</div>
+    </div>
+    <div class="kpi-card danger-soft">
+      <div class="kpi-top"><span>RISK CONTEXT</span><small>Structural</small></div>
+      <strong id="metricRisk">0</strong>
+      <div class="kpi-foot">سياق مخاطر هيكلية يحتاج مراجعة قبل القرار</div>
+    </div>
+  </section>
+
+  <section class="workspace-toolbar">
+    <div class="controls" id="filters">
+      <button class="btn active" data-filter="ALL">الكل</button>
+      <button class="btn" data-filter="IGNITION">Ignition</button>
+      <button class="btn" data-filter="ACCELERATION">Acceleration</button>
+      <button class="btn" data-filter="BREAKOUT">Breakout</button>
+      <button class="btn" data-filter="EXPANSION">Expansion</button>
+      <button class="btn" data-filter="EXHAUSTION">Exhaustion</button>
+    </div>
+    <div class="feedbox">
+      <input id="feedUrl" type="url" placeholder="Personal derived feed is managed automatically">
+      <button id="connectBtn" class="btn">مصدر خارجي</button>
+      <button id="demoBtn" class="btn primary">تحديث السوق</button>
+    </div>
+  </section>
+
+  <section class="pipeline premium-card">
+    <span>Wide Radar</span><i>›</i><span>Relative Rank</span><i>›</i><span>Persistence</span><i>›</i><span>Continuation</span><i>›</i><span>Context Fusion</span><i>›</i><span>ALERT / ABSTAIN</span>
+  </section>
+
+  <main class="grid intelligence-grid">
+    <section class="panel radar-panel">
+      <div class="panel-head">
         <div>
-          <div class="logo">TAGit <sup>WORKSTATION 6</sup></div>
-          <div class="tagline">EARLY-MOVE SIGNAL INTELLIGENCE</div>
+          <div class="panel-kicker">OPPORTUNITY RADAR</div>
+          <div class="panel-title">أفضل الفرص الآن</div>
+          <div class="panel-sub">مرتبة حسب Event Conviction ثم Relative Rank — وليس بحسب نسبة الصعود فقط.</div>
         </div>
+        <div class="legend"><span><i class="legend-dot green"></i> Alert</span><span><i class="legend-dot blue"></i> Discover</span><span><i class="legend-dot amber"></i> Risk</span></div>
       </div>
-      <div class="command-status">
-        <span id="modePill" class="pill demo"><span class="dot"></span><span id="modeText">LOADING</span></span>
-        <span class="status-unit"><small>MODEL</small><b id="researchText">—</b></span>
-        <span class="status-unit"><small>CHAMPION</small><b id="championText">—</b></span>
-        <span class="status-unit"><small>SESSION</small><b id="sessionText">—</b></span>
-        <span class="status-unit"><small>AS OF</small><b id="asOfText">—</b></span>
-        <button id="refreshBtn" class="icon-btn" title="تحديث">↻</button>
-      </div>
-    </header>
-
-    <section class="market-tape">
-      <div class="tape-regime"><small>MARKET REGIME</small><strong id="regimeText">—</strong><span><b id="regimeScore">—</b>/100</span></div>
-      <div class="tape-metric hot"><small>HIGH CONVICTION</small><strong id="metricCandidates">0</strong><span>qualified shadow events</span></div>
-      <div class="tape-metric"><small>DISCOVERY</small><strong id="metricDiscover">0</strong><span>early watch candidates</span></div>
-      <div class="tape-metric"><small>PROGRESSION</small><strong id="metricAcceleration">0</strong><span>multi-snapshot confirmation</span></div>
-      <div class="tape-metric risk"><small>RISK FLAGS</small><strong id="metricRisk">0</strong><span>structural context</span></div>
-    </section>
-
-    <section class="toolbar-row">
-      <div class="controls" id="filters">
-        <button class="btn active" data-filter="ALL">ALL</button>
-        <button class="btn" data-filter="IGNITION">IGNITION</button>
-        <button class="btn" data-filter="ACCELERATION">ACCELERATION</button>
-        <button class="btn" data-filter="BREAKOUT">BREAKOUT</button>
-        <button class="btn" data-filter="EXPANSION">EXPANSION</button>
-        <button class="btn" data-filter="EXHAUSTION">EXHAUSTION</button>
-      </div>
-      <div class="toolbar-actions feedbox">
-        <input id="feedUrl" type="url" placeholder="Managed personal feed">
-        <button id="connectBtn" class="btn">SOURCE</button>
-        <button id="demoBtn" class="btn primary">REFRESH</button>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>السهم</th><th>State</th><th>Rank</th><th>Rank Score</th><th>Conviction</th><th>Persistence</th><th>Continuation</th><th>Catalyst</th><th>السعر</th><th>الحركة</th><th>لماذا الآن؟</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
       </div>
     </section>
 
-    <main class="workspace">
-      <section class="panel radar-panel">
-        <div class="panel-head compact-head">
-          <div>
-            <div class="panel-kicker">LIVE OPPORTUNITY STACK</div>
-            <div class="panel-title">الفرص مرتبة حسب جودة الإشارة</div>
-          </div>
-          <div class="legend"><span><i class="legend-dot green"></i> ALERT</span><span><i class="legend-dot blue"></i> DISCOVER</span><span><i class="legend-dot amber"></i> RISK</span></div>
+    <aside class="panel decision-panel">
+      <div class="panel-head sticky-head">
+        <div>
+          <div class="panel-kicker">DECISION WORKSPACE</div>
+          <div class="panel-title">تفاصيل الفرصة</div>
+          <div class="panel-sub">Pattern • Catalyst • Persistence • Risk • Governance</div>
         </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>SYMBOL</th><th>STATE</th><th>RANK</th><th>SCORE</th><th>CONVICTION</th><th>PERSIST</th><th>CONTINUE</th><th>CATALYST</th><th>PRICE</th><th>MOVE</th><th>WHY NOW</th></tr></thead>
-            <tbody id="rows"></tbody>
-          </table>
-        </div>
-      </section>
+      </div>
+      <div id="detail" class="detail empty">جارٍ تحميل أحدث فرصة…</div>
+    </aside>
+  </main>
 
-      <aside class="panel decision-panel">
-        <div class="decision-header">
-          <div><div class="panel-kicker">SELECTED SIGNAL</div><div class="panel-title">Decision Intelligence</div></div>
-          <span class="decision-mode">READ • VERIFY • ABSTAIN</span>
-        </div>
-        <div id="detail" class="detail empty">جارٍ تحميل أحدث فرصة…</div>
-      </aside>
-    </main>
+  <section id="calibration" class="panel calibration-panel" aria-label="TAGit calibration"></section>
 
-    <section class="lower-grid">
-      <section id="calibration" class="panel calibration-panel" aria-label="TAGit calibration"></section>
-      <section class="panel system-panel">
-        <div class="system-line"><span>DISCOVERY</span><b>Market pattern + catalyst context</b></div>
-        <div class="system-line"><span>VALIDATION</span><b>Chronological holdout only</b></div>
-        <div class="system-line"><span>EXECUTION</span><b>Blocked until bid/ask is verified</b></div>
-      </section>
-    </section>
+  <section class="system-note">
+    <div><b>Discovery ≠ Recommendation</b><span>الـEvent Conviction ليس احتمال نجاح معايرًا، وV4.1/V5.x ليست أوامر شراء.</span></div>
+    <div><b>Execution status</b><span>تبقى قابلية التنفيذ غير موثقة حتى تتوفر bid/ask/spread حقيقية.</span></div>
+  </section>
 
-    <footer class="footer"><span>TAGit Research Workstation</span><span>Discovery ≠ recommendation</span><span>Personal use</span></footer>
-  </div>
+  <footer class="footer">TAGit Research Terminal • Personal use • Model governance remains separate from the discovery UI.</footer>
 </div>
 <script src="auth.js"></script>
 <script type="module" src="ledger.js"></script>
