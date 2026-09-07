@@ -1,0 +1,112 @@
+{
+  "schemaVersion": "5.4-context-fusion-audit",
+  "generatedAtUTC": "2026-09-07T19:39:03.052258+00:00",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "ledgerRecords": 0,
+  "matureContextRecords": 0,
+  "currentRichRows": 0,
+  "currentSignalItems": 100,
+  "secItems": 20,
+  "ledgerCoverage": {
+    "catalystTypeV2": {
+      "count": 0,
+      "total": 0,
+      "pct": 0.0
+    },
+    "catalystPolarity": {
+      "count": 0,
+      "total": 0,
+      "pct": 0.0
+    },
+    "catalystMateriality": {
+      "count": 0,
+      "total": 0,
+      "pct": 0.0
+    },
+    "catalystConfidence": {
+      "count": 0,
+      "total": 0,
+      "pct": 0.0
+    },
+    "secLatestForm": {
+      "count": 0,
+      "total": 0,
+      "pct": 0.0
+    },
+    "secEventTypes": {
+      "count": 0,
+      "total": 0,
+      "pct": 0.0
+    },
+    "secRiskFlags": {
+      "count": 0,
+      "total": 0,
+      "pct": 0.0
+    },
+    "secFreshWithin72h": {
+      "count": 0,
+      "total": 0,
+      "pct": 0.0
+    },
+    "float": {
+      "count": 0,
+      "total": 0,
+      "pct": 0.0
+    },
+    "shortFloat": {
+      "count": 0,
+      "total": 0,
+      "pct": 0.0
+    },
+    "shortRatio": {
+      "count": 0,
+      "total": 0,
+      "pct": 0.0
+    },
+    "bid": {
+      "count": 0,
+      "total": 0,
+      "pct": 0.0
+    },
+    "ask": {
+      "count": 0,
+      "total": 0,
+      "pct": 0.0
+    },
+    "bidAskSpread": {
+      "count": 0,
+      "total": 0,
+      "pct": 0.0
+    }
+  },
+  "currentRichCoverage": {},
+  "currentExecutionCoverage": {
+    "signalItems": 100,
+    "withCatalystShadow": 100,
+    "withBidAskSpread": 0,
+    "withBid": 0,
+    "withAsk": 0
+  },
+  "matureStratifiedDiagnostics": {
+    "catalystTypeV2": {},
+    "catalystMateriality": {},
+    "secLatestForm": {},
+    "secFreshWithin72h": {}
+  },
+  "blockers": [
+    "Historical catalyst-at-observation coverage is too low for supervised fusion.",
+    "Historical SEC-at-observation coverage is too low for supervised fusion.",
+    "Execution spread history is insufficient; execution-ready labels cannot be trusted.",
+    "Too few mature outcome-linked context records for credible context lift measurement."
+  ],
+  "recommendedNextArchitecture": "V53_MARKET_PATTERN_BASE + V54_POINT_IN_TIME_CONTEXT_META_MODEL + ABSTENTION + EXECUTION_GATE",
+  "recommendedActions": [
+    "Freeze catalyst and SEC context into every new observation before outcomes mature.",
+    "Persist float/short context as point-in-time values; never backfill future-known values into old observations.",
+    "Add bid/ask/spread at signal emission and evaluate executable slippage separately from discovery precision.",
+    "Train context as a second-stage meta-model after v5.3 market-pattern probability, not as a replacement for causal market features.",
+    "Measure lift with chronological ablation: market-only vs +catalyst vs +SEC vs +float/short vs +execution.",
+    "Use abstention: emit no high-confidence call when context coverage or model agreement is weak."
+  ],
+  "readyForSupervisedContextFusion": false
+}
