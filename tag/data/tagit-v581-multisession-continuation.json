@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "5.8.1-purged-multisession-continuation",
+  "generatedAtUTC": "2026-09-07T21:31:09.599187+00:00",
+  "status": "COMPLETE",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "objective": {
+    "primary": "detect starter session that explodes >=20% in next session",
+    "secondary": "detect continuation/explosion over next two sessions and estimate remaining upside",
+    "carryover": "do not reset valid opportunities at session close"
+  },
+  "data": {
+    "symbolsRequested": 420,
+    "symbolsSucceeded": 393,
+    "fetchFailures": 27,
+    "eligibleSessionRows": 68217,
+    "days": 725,
+    "trainRows": 41048,
+    "calibrationRows": 11878,
+    "holdoutRows": 14819,
+    "trainPositiveNext1": 2513,
+    "trainPositiveNext2": 4754,
+    "positiveArchetypeCases": 3012,
+    "archetypes": 10
+  },
+  "selectedConfig": {
+    "minCarryScore": 0.65,
+    "minPNext1Explode20": 0.25,
+    "minPNext2Explode20": 0.3,
+    "minPredNext2MaxGainPct": 20,
+    "maxDisagreement": 0.12
+  },
+  "calibration": {
+    "count": 145,
+    "next1Precision20Pct": 27.59,
+    "next2Precision20Pct": 34.48,
+    "next2Precision40Pct": 15.86,
+    "wilsonLower90Next1Pct": 21.93,
+    "medianNext2MaxGainPct": 12.29,
+    "p75Next2MaxGainPct": 25.29,
+    "activeDays": 75
+  },
+  "holdout": {
+    "count": 237,
+    "next1Precision20Pct": 29.11,
+    "next2Precision20Pct": 37.55,
+    "next2Precision40Pct": 21.94,
+    "wilsonLower90Next1Pct": 24.52,
+    "medianNext2MaxGainPct": 12.34,
+    "p75Next2MaxGainPct": 32.01,
+    "activeDays": 94
+  },
+  "baselineV57HoldoutPrecisionPct": null,
+  "antiLeakage": [
+    "features use current/prior completed sessions only",
+    "future sessions are labels only",
+    "chronological 70/15/15 split",
+    "thresholds selected on calibration only",
+    "untouched chronological holdout evaluated after freeze",
+    "latest carryover watch is scored without using future outcomes",
+    "multi-session label horizons end strictly before the next split boundary"
+  ],
+  "verdict": "V58_RESEARCH_COMPLETE",
+  "errorsSample": {
+    "ETHA": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "XXI": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "MSTX": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "FBLG": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "CDTG": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "ACTU": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "TWG": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "EHGO": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "WBTN": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "MTEN": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "ZBAO": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "FRNM": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "SUGP": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "BITU": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "PSIG": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "EPRX": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "WOK": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "PBK": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "SHIM": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "YXT": "HTTPError:HTTP Error 422: Unprocessable Entity"
+  },
+  "validationHardening": {
+    "calibrationStart": "2025-10-21",
+    "holdoutStart": "2026-03-31",
+    "trainBoundaryPurgedRows": 227,
+    "calibrationBoundaryPurgedRows": 245,
+    "rule": "every train/calibration multi-session label horizon ends strictly before the next split boundary"
+  }
+}
