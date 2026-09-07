@@ -54,12 +54,37 @@ jobs:
           assert 'wilsonLower90Pct' in r['holdout']
           assert r['training']['experienceMemoryRule'].startswith('only archetypes ending before current holdout start')
           assert any('holdout outcomes never update experience' in x for x in r['antiLeakage'])
+
           gate=r['accuracyGate']
-          if gate['credible90Claim']:
-              assert gate['holdoutSupport']>=30
-              assert gate['holdoutPrecisionPct']>=90
-              assert r['calibration']['precisionActionablePct']>=90
-          print('V5.7 accuracy:', gate)
+          hp=float(gate.get('holdoutPrecisionPct') or 0)
+          hs=int(gate.get('holdoutSupport') or 0)
+          hw=float(r['holdout'].get('wilsonLower90Pct') or 0)
+          cp=float(r['calibration'].get('precisionActionablePct') or 0)
+          ca=int(r['calibration'].get('count') or 0)
+          ha=int(r['holdout'].get('activeDays') or 0)
+          recall=float(r['holdout'].get('winnerTickerDayRecallPct') or r['holdout'].get('tickerDayRecallPct') or 0)
+
+          # A 90% point estimate on a tiny, cherry-pickable tail is not credible evidence.
+          statistically_credible = (
+              hs >= 100 and ca >= 100 and ha >= 5 and
+              hp >= 90 and cp >= 90 and hw >= 80
+          )
+          # Holdout can only establish a candidate. Production-level confirmation needs
+          # subsequent forward observations collected after this model/config is frozen.
+          forward_confirmed = bool(gate.get('forwardConfirmed', False))
+          genuine_90 = statistically_credible and forward_confirmed
+
+          if gate.get('credible90Claim'):
+              assert statistically_credible, (
+                  'Existing credible90Claim is too permissive: require >=100 holdout and '
+                  'calibration alerts, >=5 active holdout days, >=90% precision in both, '
+                  'and >=80% 90%-Wilson lower bound.'
+              )
+          assert not genuine_90 or forward_confirmed
+          print('V5.7 measured gate:', gate)
+          print('V5.7 stricter statistical credibility:', statistically_credible)
+          print('V5.7 genuine 90 after forward confirmation:', genuine_90)
+          print('V5.7 holdout recall diagnostic:', recall)
           PY
 
       - name: Commit derived reports and cumulative experience
