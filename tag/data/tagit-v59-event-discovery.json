@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "5.9-independent-event-discovery",
+  "generatedAtUTC": "2026-09-07T22:34:43.986985+00:00",
+  "status": "COMPLETE",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "statisticalUnit": "FIRST_EXECUTABLE_IGNITION_EVENT_PER_TICKER_DAY_FOR_PRECISION",
+  "eventDefinition": "causal ignition transition; renewed event requires >= 45m cooldown",
+  "label": "first +10% hit 15-90m after event with MAE to hit >= -5%",
+  "data": {
+    "symbolsRequested": 500,
+    "symbolsSucceeded": 494,
+    "fetchFailures": 6,
+    "unique5mBars": 2642408,
+    "eventRows": 136559,
+    "tickerDays": 23466,
+    "days": 59
+  },
+  "splits": {
+    "trainEvents": 82660,
+    "calibrationEvents": 23632,
+    "holdoutEvents": 30267,
+    "trainDays": 38,
+    "calibrationDays": 9,
+    "holdoutDays": 12,
+    "trainPositiveEvents": 1939,
+    "calPositiveEvents": 635,
+    "holdPositiveEvents": 558
+  },
+  "training": {
+    "fitRows": 15512,
+    "positiveFitRows": 1939,
+    "hardNegativeMining": true,
+    "tickerDaySampleWeighting": true
+  },
+  "selectedThreshold": 0.9,
+  "thresholdSelectionRule": "calibration only; support/day penalties; untouched holdout never enters selection",
+  "calibration": {
+    "rawEventCount": 77,
+    "independentTickerDays": 77,
+    "tpAction10": 22,
+    "precisionPct": 28.57,
+    "wilsonLower90Pct": 20.94,
+    "dayBlockBootstrapLower90Pct": 23.08,
+    "activeDays": 9,
+    "action20RatePct": 11.69,
+    "sameSession50RatePct": 7.79,
+    "medianRemainingMfePct": 10.24,
+    "medianLead10Min": 45.0
+  },
+  "holdout": {
+    "rawEventCount": 75,
+    "independentTickerDays": 73,
+    "tpAction10": 9,
+    "precisionPct": 12.33,
+    "wilsonLower90Pct": 7.32,
+    "dayBlockBootstrapLower90Pct": 7.62,
+    "activeDays": 12,
+    "action20RatePct": 6.85,
+    "sameSession50RatePct": 5.48,
+    "medianRemainingMfePct": 9.17,
+    "medianLead10Min": 30.0
+  },
+  "priorV57HoldoutPrecisionPct": 17.65,
+  "credibilityGate": {
+    "candidate90OnHistoricalHoldout": false,
+    "requiredIndependentEvents": 100,
+    "requiredActiveDays": 10,
+    "requiredPointPrecisionPct": 90,
+    "requiredWilsonLower90Pct": 80,
+    "requiredDayBootstrapLower90Pct": 80,
+    "forwardConfirmationStillRequired": true
+  },
+  "antiLeakage": [
+    "all features use current/prior bars only",
+    "future bars are labels only",
+    "same-time RVOL baseline uses prior completed days only",
+    "chronological 65/15/20 date split",
+    "model fit on train only",
+    "threshold selected on calibration only",
+    "holdout evaluated once after threshold freeze",
+    "precision collapses repeated ticker-day events to first executable event"
+  ],
+  "verdict": "V59_RESEARCH_COMPLETE_NOT_90",
+  "errorsSample": {
+    "RAM": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "SPCH": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "SSPC": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "SECZ": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "USDE": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "METG": "HTTPError:HTTP Error 422: Unprocessable Entity"
+  }
+}
