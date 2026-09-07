@@ -1,0 +1,143 @@
+{
+  "schemaVersion": "5.7-cumulative-opportunity",
+  "generatedAtUTC": "2026-09-07T22:25:52.711160+00:00",
+  "status": "COMPLETE",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "architecture": "ACTIONABILITY + PRIME15 + REMAINING_UPSIDE + SUCCESS/FAILURE ARCHETYPES + CUMULATIVE EXPERIENCE + REPEATED EPISODES",
+  "objective": {
+    "primary": "detect actionable +10% opportunity 15-90m before first hit",
+    "secondary": "maximize remaining same-session upside",
+    "coverage": "pre-market + regular + after-hours",
+    "repeatPolicy": "up to 4 episodes per ticker/day with 25m cooldown and material score/upside improvement"
+  },
+  "data": {
+    "symbolsRequested": 600,
+    "symbolsSucceeded": 594,
+    "fetchFailures": 6,
+    "unique5mObservations": 2993051,
+    "decisionRows": 1755802,
+    "tickerDays": 27875,
+    "days": 59,
+    "trainSuccessCases": 15646,
+    "trainFailureCases": 405753,
+    "priorExperienceArchetypesUsed": 0,
+    "currentArchetypes": 20,
+    "cumulativeArchetypesAfterCompaction": 9,
+    "met500kObservationGoal": true,
+    "augmentation": {
+      "used": false,
+      "provider": null,
+      "bars": 0,
+      "days": 0,
+      "plus20Sessions": 0,
+      "plus50Sessions": 0
+    }
+  },
+  "splits": {
+    "trainRows": 1182073,
+    "calibrationRows": 289203,
+    "holdoutRows": 284526,
+    "trainDays": 41,
+    "calibrationDays": 9,
+    "holdoutDays": 9,
+    "trainAction10": 20286,
+    "calAction10": 5048,
+    "holdAction10": 3577
+  },
+  "selectedConfig": {
+    "minOpportunityScore": 0.65,
+    "minPAction": 0.78,
+    "minPredRemainingMfePct": 2.38,
+    "maxDisagreement": 0.1,
+    "minPatternLift": 0.1,
+    "sessions": [
+      0,
+      1,
+      2
+    ]
+  },
+  "calibration": {
+    "count": 104,
+    "tpAction10": 26,
+    "precisionActionablePct": 25.0,
+    "wilsonLower90Pct": 18.71,
+    "prime15RatePct": 9.62,
+    "medianRemainingMfePct": 8.77,
+    "p75RemainingMfePct": 13.45,
+    "medianLeadMin": 37.5,
+    "activeDays": 9,
+    "winnerDays": 9,
+    "capturedWinnerDays": 9,
+    "winnerDayRecallPct": 100.0,
+    "top3DailyCount": 27,
+    "top3DailyPrecisionPct": 37.04,
+    "sessionCounts": {
+      "0": 0,
+      "1": 72,
+      "2": 32
+    }
+  },
+  "holdout": {
+    "count": 51,
+    "tpAction10": 9,
+    "precisionActionablePct": 17.65,
+    "wilsonLower90Pct": 10.57,
+    "prime15RatePct": 13.73,
+    "medianRemainingMfePct": 8.15,
+    "p75RemainingMfePct": 12.33,
+    "medianLeadMin": 30.0,
+    "activeDays": 9,
+    "winnerDays": 9,
+    "capturedWinnerDays": 6,
+    "winnerDayRecallPct": 66.67,
+    "top3DailyCount": 27,
+    "top3DailyPrecisionPct": 18.52,
+    "sessionCounts": {
+      "0": 0,
+      "1": 32,
+      "2": 19
+    }
+  },
+  "baselines": {
+    "v50HoldoutPrecisionPct": 23.91,
+    "v53HoldoutPrecisionPct": 10.62,
+    "v56HoldoutPrecisionPct": null
+  },
+  "training": {
+    "actionModelTrainCount": 202860,
+    "actionModelPositives": 20286,
+    "primeModelTrainCount": 109250,
+    "primeModelPositives": 10925,
+    "experienceMemoryRule": "only archetypes ending before current holdout start are eligible",
+    "falsePatternLearning": true,
+    "successPatternLearning": true
+  },
+  "accuracyGate": {
+    "holdoutSupport": 51,
+    "holdoutPrecisionPct": 17.65,
+    "holdoutWilsonLower90Pct": 10.57,
+    "holdoutTop3DailyPrecisionPct": 18.52,
+    "holdoutMedianRemainingMfePct": 8.15,
+    "credible90Claim": false
+  },
+  "antiLeakage": [
+    "features use current/prior completed bars only",
+    "future highs/lows/times are labels only",
+    "same-time RVOL baselines use prior days only",
+    "chronological 70/15/15 split",
+    "success/failure archetypes fit on train only",
+    "cumulative experience must end before current holdout start",
+    "configuration selected on calibration only",
+    "untouched holdout evaluated after configuration freeze",
+    "holdout outcomes never update experience used in same run"
+  ],
+  "verdict": "V57_RESEARCH_COMPLETE_NOT_90",
+  "errorsSample": {
+    "SPCH": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "RAM": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "SSPC": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "SECZ": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "USDE": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "METG": "HTTPError:HTTP Error 422: Unprocessable Entity"
+  }
+}
