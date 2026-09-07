@@ -1,0 +1,52 @@
+name: TAGit v3.9 Freeze Ground Truth
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tagit/freeze-groundtruth-v39.py'
+      - '.github/workflows/tagit-v39-freeze-groundtruth.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  freeze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check numpy scikit-learn
+      - name: Syntax check
+        run: python -m py_compile tagit/freeze-groundtruth-v39.py
+      - name: Freeze derived causal dataset
+        run: python tagit/freeze-groundtruth-v39.py
+      - name: Verify frozen contract
+        run: |
+          python - <<'PY'
+          import hashlib,json
+          p='tag/data/tagit-v39-frozen-groundtruth.json'
+          r=json.load(open(p)); rows=r['data']
+          canon=json.dumps(rows,sort_keys=True,separators=(',',':'),ensure_ascii=False)
+          assert hashlib.sha256(canon.encode()).hexdigest()==r['datasetSha256']
+          assert r['policy']=='RESEARCH_DATASET_IMMUTABLE_BASELINE'
+          assert r['rows']>4000 and r['splitPositives']['holdout']>0
+          print('TAGit v3.9 frozen dataset contract PASS',r['datasetSha256'])
+          PY
+      - name: Commit frozen dataset
+        run: |
+          git config user.name tagit-v39-research-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/tagit-v39-frozen-groundtruth.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: freeze TAGit v3.9 causal ground truth'
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            sleep $((i*4))
+          done
+          exit 1
