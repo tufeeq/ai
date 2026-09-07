@@ -39,7 +39,7 @@ def scode(s):
 def degraded(reason,raw=None):
     p={'schemaVersion':4,'source':'TAGit v4 live21 shadow ranker','updatedAt':datetime.now(timezone.utc).isoformat(),'status':'DEGRADED','reason':reason,
        'session':(raw or {}).get('session'),'policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','championUnaffected':True,'executionVerified':False,
-       'scoreMeaning':'RELATIVE_RANK_NOT_CALIBRATED_SUCCESS_PROBABILITY','counts':{'total':0,'selectedGate':0,'lead':0,'shortlist':0,'radar':0},'items':[],'stateCache':{}}
+       'scoreMeaning':'RELATIVE_RANK_NOT_CALIBRATED_SUCCESS_PROBABILITY','counts':{'total':0,'selectedGate':0,'surfaceEligible':0,'lead':0,'shortlist':0,'radar':0},'items':[],'stateCache':{}}
     OUT.write_text(json.dumps(p,indent=2)+'\n');print(json.dumps({k:v for k,v in p.items() if k not in ('items','stateCache')},indent=2))
 
 raw=read(RAW,{})
@@ -68,7 +68,7 @@ for r in raw.get('rows') or []:
 if not elig:
     p={'schemaVersion':4,'source':'TAGit v4 live21 shadow ranker','modelVersion':art.get('modelVersion'),'modelTrainedAtUTC':art.get('trainedAtUTC'),'datasetSha256':EXPECTED,'updatedAt':asof,
        'status':'PASS' if raw.get('richHealthStatus')=='PASS' else 'DEGRADED','session':session,'policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','championUnaffected':True,'executionVerified':False,
-       'scoreMeaning':'RELATIVE_RANK_NOT_CALIBRATED_SUCCESS_PROBABILITY','selectedGate':SELECTED,'excludedRows':excluded,'counts':{'total':0,'selectedGate':0,'lead':0,'shortlist':0,'radar':0},'items':[],'stateCache':{}}
+       'scoreMeaning':'RELATIVE_RANK_NOT_CALIBRATED_SUCCESS_PROBABILITY','selectedGate':SELECTED,'excludedRows':excluded,'counts':{'total':0,'selectedGate':0,'surfaceEligible':0,'lead':0,'shortlist':0,'radar':0},'items':[],'stateCache':{}}
     OUT.write_text(json.dumps(p,indent=2)+'\n');print(json.dumps(p,indent=2));raise SystemExit(0)
 
 cr=rank01([x['change'] for x in elig]);vr=rank01([x['volume'] for x in elig])
@@ -118,10 +118,14 @@ for x in built:
     elif s==1:event='REGULAR_PROGRESSION_CANDIDATE' if x['progressionSeen'] else 'REGULAR_REQUIRE_PROGRESSION'
     elif s==2:event='AFTER_HOURS_INFORMATIONAL_ONLY'
     else:event='INACTIVE_SESSION'
+    # Surface eligibility is deliberately stricter than the mathematical model gate.
+    # Pre-market can surface a selected first event; regular requires progression;
+    # after-hours remains informational pending stronger forward evidence.
+    surface=bool(active and healthy and selected and (s==0 or (s==1 and x['progressionSeen'])))
     t=x['t'];cat={k:t.get(k) for k in ('catalystType','catalystPolarity','catalystMateriality','catalystConfidence') if t.get(k) is not None}
     risk=[]
     if t.get('recentDilutionFiling'):risk.append('RECENT_DILUTION_FILING')
-    items.append({'symbol':x['symbol'],'shadowState':shadow,'rank':x['rank'],'rankScorePct':round(x['ensemble']*100,2),'modelDisagreement':round(x['disagreement'],4),'shadowGatePassed':selected,
+    items.append({'symbol':x['symbol'],'shadowState':shadow,'rank':x['rank'],'rankScorePct':round(x['ensemble']*100,2),'modelDisagreement':round(x['disagreement'],4),'shadowGatePassed':selected,'surfaceEligible':surface,
                   'eventPolicy':event,'progressionSeen':x['progressionSeen'],'dayChangePct':round(x['change'],2),'momentum5mPct':round(float(x['mom']['5']),2),'momentum10mPct':round(float(x['mom']['10']),2),
                   'riskContext':risk or None,'catalystContext':cat or None,'executionVerified':False,'interpretation':'RELATIVE_RANK_NOT_SUCCESS_PROBABILITY','policy':'SHADOW_ONLY'})
     cache[x['symbol']]={'ts':now,'day':day,'price':x['price'],'change':x['change'],'volume':x['volume'],'rawVvel':x['rawVvel'],'firstTs':x['firstTs'],'firstChange':x['firstChange'],'rank':x['rank'],'rankScore':x['ensemble']}
@@ -130,6 +134,6 @@ payload={'schemaVersion':4,'source':'TAGit v4 live21 causal shadow ranker','mode
          'objective':art.get('objective'),'featureCount':21,'featureParity':'LIVE21_VERIFIED_ON_FROZEN_V310','scoreMeaning':'RELATIVE_RANK_NOT_CALIBRATED_SUCCESS_PROBABILITY','selectedGate':SELECTED,
          'eventPolicyNotes':{'pre':'first selected event may be surfaced for forward research','regular':'selected rank still requires progression evidence before event surfacing','after':'informational only due low historical support'},
          'policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','championUnaffected':True,'executionVerified':False,'excludedRows':excluded,
-         'counts':{'total':len(items),'selectedGate':sum(bool(z['shadowGatePassed']) for z in items),'lead':sum(z['shadowState']=='LEAD' for z in items),'shortlist':sum(z['shadowState']=='SHORTLIST' for z in items),'radar':sum(z['shadowState']=='RADAR' for z in items)},
+         'counts':{'total':len(items),'selectedGate':sum(bool(z['shadowGatePassed']) for z in items),'surfaceEligible':sum(bool(z['surfaceEligible']) for z in items),'lead':sum(z['shadowState']=='LEAD' for z in items),'shortlist':sum(z['shadowState']=='SHORTLIST' for z in items),'radar':sum(z['shadowState']=='RADAR' for z in items)},
          'items':items[:100],'stateCache':cache}
 OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2)+'\n');print(json.dumps({k:v for k,v in payload.items() if k not in ('items','stateCache')},indent=2))
