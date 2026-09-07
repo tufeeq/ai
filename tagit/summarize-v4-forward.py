@@ -8,11 +8,13 @@ mechanism and not a trading recommendation.
 import json, math, pathlib, statistics
 from collections import defaultdict
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 LEDGER=pathlib.Path('tag/data/tagit-shadow-learning-ledger.json')
 OUT=pathlib.Path('tag/data/tagit-v4-forward-eval.json')
 MIN_MATURE_EVENTS=100
 MIN_DISTINCT_DAYS=10
+ET=ZoneInfo('America/New_York')
 
 
 def read(p,d):
@@ -23,12 +25,15 @@ def dt(v):
     try:return datetime.fromisoformat(str(v).replace('Z','+00:00'))
     except:return None
 
+def et_day(x):
+    if x.get('tradingDateET'):return str(x.get('tradingDateET'))
+    z=dt(x.get('v4FirstSurfaceAt') or x.get('timestamp'))
+    if not z:return None
+    if z.tzinfo is None:z=z.replace(tzinfo=timezone.utc)
+    return z.astimezone(ET).date().isoformat()
 def finite(v):
     try:return v is not None and v!='' and math.isfinite(float(v))
     except:return False
-
-def rnd(v,n=2):
-    return round(float(v),n) if finite(v) else None
 
 def med(xs):
     a=[float(x) for x in xs if finite(x)]
@@ -54,7 +59,7 @@ def metrics(xs):
       'meanMae60Pct':mean([x.get('v4OutcomeMae60Pct') for x in mature]),
       'censored60':cens,
       'openOrUnresolved':len(open_),
-      'distinctUtcDays':len({str(x.get('v4FirstSurfaceAt') or x.get('timestamp') or '')[:10] for x in xs if x.get('v4FirstSurfaceAt') or x.get('timestamp')})
+      'distinctTradingDaysET':len({et_day(x) for x in xs if et_day(x)})
     }
 
 ledger=read(LEDGER,{})
@@ -78,23 +83,23 @@ for x in events:
 bysession=defaultdict(list)
 for x in events:bysession[str(x.get('session') or 'unknown')].append(x)
 overall=metrics(events)
-ready=overall['mature60']>=MIN_MATURE_EVENTS and overall['distinctUtcDays']>=MIN_DISTINCT_DAYS
+ready=overall['mature60']>=MIN_MATURE_EVENTS and overall['distinctTradingDaysET']>=MIN_DISTINCT_DAYS
 latest=max((dt(x.get('v4FirstSurfaceAt') or x.get('timestamp')) for x in events if dt(x.get('v4FirstSurfaceAt') or x.get('timestamp'))),default=None)
 payload={
-  'schemaVersion':1,
+  'schemaVersion':2,
   'method':'TAGIT_V4_FORWARD_FIRST_SURFACE_EVENT_EVALUATION',
   'updatedAtUTC':now.isoformat(),
   'policy':'MEASUREMENT_ONLY_NO_CHAMPION_OVERRIDE',
   'championUnaffected':True,
   'executionVerified':False,
-  'eventIdentity':'symbol|UTC-day; first v4 surface event only',
+  'eventIdentity':'symbol|America/New_York trading date; first v4 surface event only',
   'outcomeDefinition':'+10% MFE within 60 minutes after first surfaced event; Yahoo 1m transient follow-up; missing coverage is censored, never forced negative',
   'status':'FORWARD_SAMPLE_READY_FOR_REVIEW' if ready else 'COLLECTING_FORWARD_EVIDENCE',
   'reviewReadiness':{
     'minimumMatureEvents':MIN_MATURE_EVENTS,
-    'minimumDistinctDays':MIN_DISTINCT_DAYS,
+    'minimumDistinctTradingDaysET':MIN_DISTINCT_DAYS,
     'matureEventsObserved':overall['mature60'],
-    'distinctDaysObserved':overall['distinctUtcDays'],
+    'distinctTradingDaysETObserved':overall['distinctTradingDaysET'],
     'readyForHumanReview':ready,
     'autoPromotionAllowed':False
   },
@@ -113,4 +118,4 @@ payload={
   ]
 }
 OUT.write_text(json.dumps(payload,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-print(json.dumps({'status':payload['status'],'events':overall['events'],'mature60':overall['mature60'],'precision10_60mPct':overall['precision10_60mPct'],'stale':len(stale)}))
+print(json.dumps({'status':payload['status'],'events':overall['events'],'mature60':overall['mature60'],'precision10_60mPct':overall['precision10_60mPct'],'distinctTradingDaysET':overall['distinctTradingDaysET'],'stale':len(stale)}))
