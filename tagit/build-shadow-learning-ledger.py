@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 import json, math, pathlib, re
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 
 RICH=pathlib.Path('tag/data/finviz-rich.json')
 SIGNALS=pathlib.Path('tag/data/tagit-signal-feed.json')
 V3=pathlib.Path('tag/data/tagit-v3-shadow.json')
 V4=pathlib.Path('tag/data/tagit-v4-shadow.json')
 OUT=pathlib.Path('tag/data/tagit-shadow-learning-ledger.json')
+ET=ZoneInfo('America/New_York')
 
 def read(p,d):
     try:return json.loads(p.read_text())
@@ -30,6 +32,12 @@ def pct_rank(vals,v,invert=False):
 def parse_dt(v):
     try:return datetime.fromisoformat(str(v).replace('Z','+00:00'))
     except:return None
+
+def trading_day_et(v):
+    z=parse_dt(v)
+    if not z:return None
+    if z.tzinfo is None:z=z.replace(tzinfo=timezone.utc)
+    return z.astimezone(ET).date().isoformat()
 
 def age_min(start,end):
     a=parse_dt(start);b=parse_dt(end)
@@ -97,7 +105,7 @@ for old in records:
     if eid not in first_surface or (parse_dt(ots) and parse_dt(first_surface[eid]) and parse_dt(ots)<parse_dt(first_surface[eid])):first_surface[eid]=ots
     surface_counts[eid]=surface_counts.get(eid,0)+1
 
-new=[];day=str(ts or '')[:10]
+new=[];day=v4.get('tradingDateET') or trading_day_et(ts)
 for r in rows:
     t=r.get('_tagit') or {}; sym=str(r.get('Ticker') or '').upper(); s=items.get(sym) or {}; vr=v3items.get(sym) or {}; v4r=v4items.get(sym) or {}
     if not sym or (not s and not vr and not v4r):continue
@@ -107,7 +115,7 @@ for r in rows:
         if not first_at:
             first_at=ts;first_surface[event_id]=ts;is_first=True
         surface_counts[event_id]=surface_counts.get(event_id,0)+1
-    rec={'timestamp':ts,'session':session,'symbol':sym,'referencePrice':round(float(t['price']),6) if finite(t.get('price')) else None,
+    rec={'timestamp':ts,'tradingDateET':day,'session':session,'symbol':sym,'referencePrice':round(float(t['price']),6) if finite(t.get('price')) else None,
       'state':s.get('state'),'phase':s.get('phase'),'precursorScore':s.get('precursorScore'),'continuationScore':s.get('continuationScore'),'tradabilityScore':s.get('tradabilityScore'),'riskScore':s.get('riskScore'),
       'v3State':vr.get('state'),'v3Rank':vr.get('rank'),'v3RankScorePct':vr.get('rankScorePct'),'v3ModelDisagreement':vr.get('modelDisagreement'),'v3RawRelevanceScore':vr.get('rawRelevanceScore'),
       'v3Tracked':bool(vr),'v3Policy':v3.get('policy'),
@@ -128,7 +136,7 @@ records.extend(x for x in new if (x['timestamp'],x['symbol']) not in keys)
 try: cutoff=datetime.now(timezone.utc)-timedelta(days=60);records=[x for x in records if datetime.fromisoformat(str(x.get('timestamp')).replace('Z','+00:00'))>=cutoff]
 except: pass
 records=records[-50000:]
-ledger.update({'schemaVersion':4,'updatedAtUTC':datetime.now(timezone.utc).isoformat(),'policy':'DERIVED_FEATURES_ONLY_NO_RAW_ELITE_ROWS','session':session,'latestSnapshot':ts,'latestMarketHeat':heat,'latestRecordsAdded':len(new),'v3TrackingEnabled':True,'v4TrackingEnabled':True,
-               'v4EventIdentity':'symbol|UTC-day','v4EventPolicy':'first surface event is deduplicated; regular session requires v4 scorer progression; after-hours informational only','records':records})
+ledger.update({'schemaVersion':4,'updatedAtUTC':datetime.now(timezone.utc).isoformat(),'policy':'DERIVED_FEATURES_ONLY_NO_RAW_ELITE_ROWS','session':session,'latestSnapshot':ts,'latestTradingDateET':day,'latestMarketHeat':heat,'latestRecordsAdded':len(new),'v3TrackingEnabled':True,'v4TrackingEnabled':True,
+               'v4EventIdentity':'symbol|America/New_York trading date','v4EventPolicy':'first surface event is deduplicated by ET trading date; regular session requires v4 scorer progression; after-hours informational only','records':records})
 OUT.write_text(json.dumps(ledger,separators=(',',':'))+'\n')
-print(json.dumps({'recordsTotal':len(records),'added':len(new),'session':session,'marketHeat':heat,'v3Tracked':sum(bool(x.get('v3Tracked')) for x in new),'v4Tracked':sum(bool(x.get('v4Tracked')) for x in new),'v4SurfaceEligible':sum(bool(x.get('v4SurfaceEligible')) for x in new),'v4FirstSurfaceEvents':sum(bool(x.get('v4FirstSurfaceEvent')) for x in new)}))
+print(json.dumps({'recordsTotal':len(records),'added':len(new),'session':session,'tradingDateET':day,'marketHeat':heat,'v3Tracked':sum(bool(x.get('v3Tracked')) for x in new),'v4Tracked':sum(bool(x.get('v4Tracked')) for x in new),'v4SurfaceEligible':sum(bool(x.get('v4SurfaceEligible')) for x in new),'v4FirstSurfaceEvents':sum(bool(x.get('v4FirstSurfaceEvent')) for x in new)}))
