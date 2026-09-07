@@ -1,0 +1,32 @@
+name: TAGit SEC Event Clock Smoke Test
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tagit/sec-event-intelligence.py'
+      - '.github/workflows/tagit-sec-event-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Run SEC event clock against saved v4 Top-20
+        run: |
+          python -m py_compile tagit/sec-event-intelligence.py
+          python tagit/sec-event-intelligence.py
+          python - <<'PY'
+          import json,pathlib
+          p=json.loads(pathlib.Path('tag/data/tagit-sec-event-shadow.json').read_text())
+          print(json.dumps({k:v for k,v in p.items() if k!='items'},indent=2))
+          assert p['counts']['requested']>0
+          assert p['counts']['mapped']>0, p.get('errors')
+          assert p['counts']['succeeded']>0, p.get('errors')
+          assert p['futureSafe'] is True
+          PY
