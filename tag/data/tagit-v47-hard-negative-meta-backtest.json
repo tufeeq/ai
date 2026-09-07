@@ -1,0 +1,213 @@
+{
+  "schemaVersion": "4.7-research",
+  "method": "TAGIT_V47_HARD_NEGATIVE_META",
+  "generatedAtUTC": "2026-09-07T16:33:47.172640+00:00",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "datasetSha256": "19277cfddc8dbeaebee73ce70a6e6fad57213caae87959da7f3e5e859a88773b",
+  "antiLeakage": [
+    "frozen v3.9 dataset only",
+    "base meta-training candidates are expanding OOF day-by-day",
+    "meta train <=Aug24",
+    "threshold/hyperparameter selection Aug25-26 only",
+    "Aug27-Sep4 untouched until final evaluation",
+    "first event ticker/day is action unit",
+    "no catalyst/SEC/network/future data in features"
+  ],
+  "coverage": {
+    "rows": 4466,
+    "oofDays": [
+      "2026-08-17",
+      "2026-08-18",
+      "2026-08-19",
+      "2026-08-20",
+      "2026-08-21",
+      "2026-08-24",
+      "2026-08-25",
+      "2026-08-26"
+    ],
+    "metaTrainEvents": 331,
+    "metaTrainWinners": 23,
+    "calEvents": 89,
+    "calWinners": 5,
+    "holdoutBaseEvents": 92,
+    "holdoutBaseWinners": 10
+  },
+  "selected": {
+    "C": 0.03,
+    "preThreshold": 0.4,
+    "regularThreshold": 0.4,
+    "enabledSessions": {
+      "pre": false,
+      "regular": false
+    },
+    "calibrationMetrics": {
+      "count": 0,
+      "tp": 0,
+      "precisionPct": null,
+      "recallObsPct": 0.0,
+      "tickerDays": 0,
+      "winnerTickerDays": 0,
+      "recallTickerDayPct": 0.0
+    },
+    "calibrationWilsonLower90Pct": 0.0,
+    "calibrationActiveDays": 0
+  },
+  "holdout": {
+    "v4BaseFirstEvent": {
+      "count": 92,
+      "tp": 10,
+      "precisionPct": 10.87,
+      "recallObsPct": 100.0,
+      "tickerDays": 92,
+      "winnerTickerDays": 10,
+      "recallTickerDayPct": 100.0
+    },
+    "v47FirstEvent": {
+      "count": 0,
+      "tp": 0,
+      "precisionPct": null,
+      "recallObsPct": 0.0,
+      "tickerDays": 0,
+      "winnerTickerDays": 0,
+      "recallTickerDayPct": 0.0
+    },
+    "precisionImprovementPp": -10.87,
+    "bySession": {
+      "pre": {
+        "enabled": false,
+        "threshold": 0.4,
+        "base": {
+          "count": 75,
+          "tp": 10,
+          "precisionPct": 13.33,
+          "recallObsPct": 100.0,
+          "tickerDays": 75,
+          "winnerTickerDays": 10,
+          "recallTickerDayPct": 100.0
+        },
+        "v47": {
+          "count": 0,
+          "tp": 0,
+          "precisionPct": null,
+          "recallObsPct": 0.0,
+          "tickerDays": 0,
+          "winnerTickerDays": 0,
+          "recallTickerDayPct": 0.0
+        }
+      },
+      "regular": {
+        "enabled": false,
+        "threshold": 0.4,
+        "base": {
+          "count": 17,
+          "tp": 0,
+          "precisionPct": 0.0,
+          "recallObsPct": null,
+          "tickerDays": 17,
+          "winnerTickerDays": 0,
+          "recallTickerDayPct": null
+        },
+        "v47": {
+          "count": 0,
+          "tp": 0,
+          "precisionPct": null,
+          "recallObsPct": null,
+          "tickerDays": 0,
+          "winnerTickerDays": 0,
+          "recallTickerDayPct": null
+        }
+      }
+    }
+  },
+  "residualCoefficientDiagnostics": [
+    {
+      "feature": "streak",
+      "coefficient": -0.33318
+    },
+    {
+      "feature": "m5",
+      "coefficient": -0.22447
+    },
+    {
+      "feature": "disagreement",
+      "coefficient": -0.20602
+    },
+    {
+      "feature": "m10",
+      "coefficient": 0.15544
+    },
+    {
+      "feature": "ensembleXagreement",
+      "coefficient": 0.15149
+    },
+    {
+      "feature": "m60",
+      "coefficient": -0.14142
+    },
+    {
+      "feature": "isPre",
+      "coefficient": -0.11611
+    },
+    {
+      "feature": "isRegular",
+      "coefficient": 0.11611
+    },
+    {
+      "feature": "continuation",
+      "coefficient": -0.11102
+    },
+    {
+      "feature": "progression",
+      "coefficient": 0.10996
+    },
+    {
+      "feature": "persistenceXcontinuation",
+      "coefficient": -0.10707
+    },
+    {
+      "feature": "inverseRank",
+      "coefficient": -0.10076
+    },
+    {
+      "feature": "continuationXheat",
+      "coefficient": -0.08663
+    },
+    {
+      "feature": "rankImprovement",
+      "coefficient": -0.07915
+    },
+    {
+      "feature": "marketHeat",
+      "coefficient": -0.07907
+    },
+    {
+      "feature": "persistence",
+      "coefficient": -0.07291
+    },
+    {
+      "feature": "ensembleXcontinuation",
+      "coefficient": -0.06814
+    },
+    {
+      "feature": "ensemble",
+      "coefficient": 0.06701
+    },
+    {
+      "feature": "ensembleXpersistence",
+      "coefficient": -0.06167
+    },
+    {
+      "feature": "m30",
+      "coefficient": -0.02369
+    }
+  ],
+  "promotionRule": {
+    "autoPromotion": false,
+    "minHoldoutEvents": 20,
+    "minWinnerEvents": 5,
+    "mustImprovePrecisionByPp": 2,
+    "retainAtLeastHalfBaseTickerDayRecall": true,
+    "noEnabledSessionZeroWinnerCollapse": true
+  },
+  "verdict": "DO_NOT_PROMOTE_V47"
+}
