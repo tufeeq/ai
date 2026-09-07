@@ -1,0 +1,155 @@
+{
+  "schemaVersion": "4.5-research",
+  "method": "TAGIT_V45_POINT_IN_TIME_SEC_STRUCTURAL_RISK",
+  "generatedAtUTC": "2026-09-07T16:51:30.328288+00:00",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "datasetSha256": "19277cfddc8dbeaebee73ce70a6e6fad57213caae87959da7f3e5e859a88773b",
+  "antiLeakage": [
+    "frozen v3.9 ranker/ground truth",
+    "base OOF day trained only on earlier days",
+    "SEC acceptanceDateTime must be <= event timestamp",
+    "SEC policy selected on pre-Aug27 OOF only",
+    "Aug27-Sep4 evaluation not used to select SEC policy",
+    "no filing document text/current financial values/future filings"
+  ],
+  "secSource": "SEC submissions metadata via data.sec.gov; ticker-to-CIK resolution prefers SEC and may fall back to sec-cik-mapper",
+  "riskDefinition": {
+    "1": "capital-markets form within 45d",
+    "2": "registration/EFFECT within 14d",
+    "3": "424B3/B4/B5 within 7d or 8-K Item 3.02 within 14d"
+  },
+  "coverage": {
+    "oofDays": [
+      "2026-08-17",
+      "2026-08-18",
+      "2026-08-19",
+      "2026-08-20",
+      "2026-08-21",
+      "2026-08-24",
+      "2026-08-25",
+      "2026-08-26"
+    ],
+    "oofEvents": 352,
+    "holdoutEvents": 75,
+    "uniqueSymbols": 322,
+    "mappedSymbols": 0,
+    "unavailableSymbols": 322,
+    "unavailableExamples": {
+      "ABTC": "HTTPError",
+      "ADBT": "HTTPError",
+      "ACTU": "HTTPError",
+      "ACRV": "HTTPError",
+      "AEI": "HTTPError",
+      "AGIG": "HTTPError",
+      "AFJK": "HTTPError",
+      "ADXN": "HTTPError",
+      "AGPU": "HTTPError",
+      "AIAI": "HTTPError",
+      "AIB": "HTTPError",
+      "AIM": "HTTPError",
+      "AIRE": "HTTPError",
+      "ALM": "HTTPError",
+      "AIXI": "HTTPError"
+    }
+  },
+  "oofRiskDistribution": {
+    "UNKNOWN": {
+      "events": 352,
+      "winners": 25
+    }
+  },
+  "holdoutRiskDistribution": {
+    "UNKNOWN": {
+      "events": 75,
+      "winners": 10
+    }
+  },
+  "oofCandidates": [
+    {
+      "mode": "BASE",
+      "metrics": {
+        "count": 352,
+        "tp": 25,
+        "precisionPct": 7.1,
+        "recallObsPct": 100.0,
+        "tickerDays": 352,
+        "winnerTickerDays": 25,
+        "recallTickerDayPct": 100.0
+      },
+      "wilsonLower90Pct": 5.16,
+      "activeDays": 8
+    },
+    {
+      "mode": "VETO_IMMEDIATE",
+      "metrics": {
+        "count": 0,
+        "tp": 0,
+        "precisionPct": null,
+        "recallObsPct": 0.0,
+        "tickerDays": 0,
+        "winnerTickerDays": 0,
+        "recallTickerDayPct": 0.0
+      },
+      "wilsonLower90Pct": 0.0,
+      "activeDays": 0
+    },
+    {
+      "mode": "VETO_REGISTRATION",
+      "metrics": {
+        "count": 0,
+        "tp": 0,
+        "precisionPct": null,
+        "recallObsPct": 0.0,
+        "tickerDays": 0,
+        "winnerTickerDays": 0,
+        "recallTickerDayPct": 0.0
+      },
+      "wilsonLower90Pct": 0.0,
+      "activeDays": 0
+    },
+    {
+      "mode": "ONLY_CLEAN",
+      "metrics": {
+        "count": 0,
+        "tp": 0,
+        "precisionPct": null,
+        "recallObsPct": 0.0,
+        "tickerDays": 0,
+        "winnerTickerDays": 0,
+        "recallTickerDayPct": 0.0
+      },
+      "wilsonLower90Pct": 0.0,
+      "activeDays": 0
+    }
+  ],
+  "selectedPolicy": "BASE",
+  "holdout": {
+    "basePreFirstEvent": {
+      "count": 75,
+      "tp": 10,
+      "precisionPct": 13.33,
+      "recallObsPct": 100.0,
+      "tickerDays": 75,
+      "winnerTickerDays": 10,
+      "recallTickerDayPct": 100.0
+    },
+    "v45SecFilteredFirstEvent": {
+      "count": 75,
+      "tp": 10,
+      "precisionPct": 13.33,
+      "recallObsPct": 100.0,
+      "tickerDays": 75,
+      "winnerTickerDays": 10,
+      "recallTickerDayPct": 100.0
+    },
+    "selectedCount": 75
+  },
+  "promotionRule": {
+    "autoPromotion": false,
+    "minHoldoutEvents": 15,
+    "minHoldoutWinners": 4,
+    "mustImprovePrecisionByPp": 2,
+    "retainAtLeastHalfBaseRecall": true
+  },
+  "verdict": "DO_NOT_PROMOTE_V45_SEC_FILTER"
+}
