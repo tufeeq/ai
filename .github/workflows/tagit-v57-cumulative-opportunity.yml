@@ -5,6 +5,10 @@ on:
   workflow_run:
     workflows: ["TAGit v5.6 Session Opportunity Hunter"]
     types: [completed]
+  push:
+    paths:
+      - '.github/workflows/tagit-v57-cumulative-opportunity.yml'
+      - 'tagit/cumulative-opportunity-v57.py'
 
 permissions:
   contents: write
@@ -15,15 +19,15 @@ concurrency:
 
 jobs:
   research:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
         with:
           ref: main
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -64,13 +68,10 @@ jobs:
           ha=int(r['holdout'].get('activeDays') or 0)
           recall=float(r['holdout'].get('winnerTickerDayRecallPct') or r['holdout'].get('tickerDayRecallPct') or 0)
 
-          # A 90% point estimate on a tiny, cherry-pickable tail is not credible evidence.
           statistically_credible = (
               hs >= 100 and ca >= 100 and ha >= 5 and
               hp >= 90 and cp >= 90 and hw >= 80
           )
-          # Holdout can only establish a candidate. Production-level confirmation needs
-          # subsequent forward observations collected after this model/config is frozen.
           forward_confirmed = bool(gate.get('forwardConfirmed', False))
           genuine_90 = statistically_credible and forward_confirmed
 
