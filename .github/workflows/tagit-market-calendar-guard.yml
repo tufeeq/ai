@@ -1,0 +1,51 @@
+name: TAG5 Market Calendar Guard
+
+on:
+  workflow_run:
+    workflows: ["TAG5 Mover Snapshot"]
+    types: [completed]
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tagit/market-calendar-guard.py'
+      - '.github/workflows/tagit-market-calendar-guard.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tag5-market-calendar-guard-main
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Sync main
+        run: git pull --rebase origin main
+      - name: Verify calendar contract
+        run: |
+          python -m py_compile tagit/market-calendar-guard.py
+          python tagit/market-calendar-guard.py --self-test
+      - name: Apply official-market calendar guard
+        run: python tagit/market-calendar-guard.py
+      - name: Commit corrected derived market state
+        run: |
+          git config user.name tagit-calendar-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/finviz.json tag/data/snapshots.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: apply US market calendar guard'
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            sleep $((i*4))
+          done
+          exit 1
