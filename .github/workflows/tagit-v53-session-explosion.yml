@@ -1,0 +1,52 @@
+name: TAGit v5.3 Exact Session Explosion
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tagit/session-explosion-v53.py'
+      - '.github/workflows/tagit-v53-session-explosion.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: tagit-v53-session-explosion
+  cancel-in-progress: true
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check -q numpy scikit-learn
+      - name: Syntax check
+        run: python -m py_compile tagit/session-explosion-v53.py
+      - name: Train exact session 10/20/50 models
+        run: python tagit/session-explosion-v53.py
+      - name: Verify causal and honesty contract
+        run: |
+          python - <<'PY'
+          import json
+          r=json.load(open('tag/data/tagit-v53-session-explosion.json'))
+          assert r['policy']=='RESEARCH_ONLY_NO_CHAMPION_OVERRIDE'
+          if r.get('status')=='COMPLETE':
+              assert r['targetDefinitions']['session20'].startswith('full-session high')
+              assert r['targetDefinitions']['session50'].startswith('full-session high')
+              if r.get('verdict')=='V53_90_CONFIRMED':
+                  assert r['calibrationReached90'] and r['holdoutReached90']
+                  assert r['holdout']['count']>=20 and r['holdout']['precision10Pct']>=90
+          print(r.get('verdict'), r.get('calibration'), r.get('holdout'))
+          PY
+      - name: Commit derived report
+        run: |
+          git config user.name tagit-v53-research-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/tagit-v53-session-explosion.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'research: add TAGit v5.3 exact session explosion result'
+          for i in 1 2 3; do git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0; sleep $((i*5)); done
+          exit 1
