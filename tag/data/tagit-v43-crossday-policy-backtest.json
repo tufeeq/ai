@@ -1,0 +1,292 @@
+{
+  "schemaVersion": "4.3-research",
+  "method": "TAGIT_V43_EXPANDING_CROSSDAY_POLICY_CALIBRATION",
+  "generatedAtUTC": "2026-09-07T09:25:11.380468+00:00",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "datasetSha256": "19277cfddc8dbeaebee73ce70a6e6fad57213caae87959da7f3e5e859a88773b",
+  "antiLeakage": [
+    "frozen v3.9 dataset only",
+    "policy inputs are expanding walk-forward out-of-fold predictions from days before Aug27",
+    "each OOF day is scored by a model trained only on earlier days",
+    "Aug27-Sep4 untouched until final evaluation",
+    "after-hours disabled",
+    "regular may be disabled if cross-day evidence is insufficient"
+  ],
+  "oofDays": [
+    "2026-08-17",
+    "2026-08-18",
+    "2026-08-19",
+    "2026-08-20",
+    "2026-08-21",
+    "2026-08-24",
+    "2026-08-25",
+    "2026-08-26"
+  ],
+  "oofRows": 2760,
+  "holdoutRows": 937,
+  "holdoutPositives": 36,
+  "selectedPolicies": {
+    "pre": {
+      "selected": {
+        "mode": "CONVICTION",
+        "weights": [
+          0.45,
+          0.35,
+          0.2
+        ],
+        "threshold": 55,
+        "maxRank": 20
+      },
+      "selectedMetrics": {
+        "count": 262,
+        "tp": 27,
+        "precisionPct": 10.31,
+        "recallObsPct": 27.55,
+        "tickerDays": 262,
+        "winnerTickerDays": 27,
+        "recallTickerDayPct": 32.14
+      },
+      "selectedWilson": 0.0761050208594043,
+      "baseMetrics": {
+        "count": 352,
+        "tp": 25,
+        "precisionPct": 7.1,
+        "recallObsPct": 25.51,
+        "tickerDays": 352,
+        "winnerTickerDays": 25,
+        "recallTickerDayPct": 29.76
+      },
+      "baseWilson": 0.05162258002423545
+    },
+    "regular": {
+      "selected": {
+        "enabled": true,
+        "mode": "DELAYED",
+        "weights": [
+          0.55,
+          0.25,
+          0.2
+        ],
+        "threshold": 75,
+        "minStreak": 2,
+        "minPersistence": 30,
+        "maxRank": 10,
+        "minRankImprovement": -8
+      },
+      "selectedMetrics": {
+        "count": 32,
+        "tp": 4,
+        "precisionPct": 12.5,
+        "recallObsPct": 9.09,
+        "tickerDays": 32,
+        "winnerTickerDays": 4,
+        "recallTickerDayPct": 9.09
+      },
+      "selectedWilson": 0.057373550463144164,
+      "baseMetrics": {
+        "count": 109,
+        "tp": 7,
+        "precisionPct": 6.42,
+        "recallObsPct": 15.91,
+        "tickerDays": 109,
+        "winnerTickerDays": 7,
+        "recallTickerDayPct": 15.91
+      },
+      "baseWilson": 0.035188402140601545,
+      "bestAttempt": {
+        "count": 32,
+        "tp": 4,
+        "precisionPct": 12.5,
+        "recallObsPct": 9.09,
+        "tickerDays": 32,
+        "winnerTickerDays": 4,
+        "recallTickerDayPct": 9.09
+      }
+    },
+    "after": {
+      "enabled": false
+    }
+  },
+  "oof": {
+    "v4FirstEvent": {
+      "count": 420,
+      "tp": 28,
+      "precisionPct": 6.67,
+      "recallObsPct": 19.44,
+      "tickerDays": 420,
+      "winnerTickerDays": 28,
+      "recallTickerDayPct": 22.76
+    },
+    "v43FirstEvent": {
+      "count": 276,
+      "tp": 28,
+      "precisionPct": 10.14,
+      "recallObsPct": 19.44,
+      "tickerDays": 276,
+      "winnerTickerDays": 28,
+      "recallTickerDayPct": 22.76
+    },
+    "v43BySession": {
+      "pre": {
+        "observation": {
+          "count": 517,
+          "tp": 51,
+          "precisionPct": 9.86,
+          "recallObsPct": 52.04,
+          "tickerDays": 262,
+          "winnerTickerDays": 45,
+          "recallTickerDayPct": 53.57
+        },
+        "firstEvent": {
+          "count": 262,
+          "tp": 27,
+          "precisionPct": 10.31,
+          "recallObsPct": 27.55,
+          "tickerDays": 262,
+          "winnerTickerDays": 27,
+          "recallTickerDayPct": 32.14
+        }
+      },
+      "regular": {
+        "observation": {
+          "count": 34,
+          "tp": 4,
+          "precisionPct": 11.76,
+          "recallObsPct": 9.09,
+          "tickerDays": 32,
+          "winnerTickerDays": 4,
+          "recallTickerDayPct": 9.09
+        },
+        "firstEvent": {
+          "count": 32,
+          "tp": 4,
+          "precisionPct": 12.5,
+          "recallObsPct": 9.09,
+          "tickerDays": 32,
+          "winnerTickerDays": 4,
+          "recallTickerDayPct": 9.09
+        }
+      },
+      "after": {
+        "observation": {
+          "count": 0,
+          "tp": 0,
+          "precisionPct": null,
+          "recallObsPct": 0.0,
+          "tickerDays": 0,
+          "winnerTickerDays": 0,
+          "recallTickerDayPct": 0.0
+        },
+        "firstEvent": {
+          "count": 0,
+          "tp": 0,
+          "precisionPct": null,
+          "recallObsPct": 0.0,
+          "tickerDays": 0,
+          "winnerTickerDays": 0,
+          "recallTickerDayPct": 0.0
+        }
+      }
+    }
+  },
+  "holdout": {
+    "v4FirstEvent": {
+      "count": 92,
+      "tp": 10,
+      "precisionPct": 10.87,
+      "recallObsPct": 27.78,
+      "tickerDays": 92,
+      "winnerTickerDays": 10,
+      "recallTickerDayPct": 29.41
+    },
+    "v43FirstEvent": {
+      "count": 42,
+      "tp": 5,
+      "precisionPct": 11.9,
+      "recallObsPct": 13.89,
+      "tickerDays": 42,
+      "winnerTickerDays": 5,
+      "recallTickerDayPct": 14.71
+    },
+    "v43Observation": {
+      "count": 44,
+      "tp": 5,
+      "precisionPct": 11.36,
+      "recallObsPct": 13.89,
+      "tickerDays": 42,
+      "winnerTickerDays": 5,
+      "recallTickerDayPct": 14.71
+    },
+    "v43BySession": {
+      "pre": {
+        "observation": {
+          "count": 40,
+          "tp": 5,
+          "precisionPct": 12.5,
+          "recallObsPct": 35.71,
+          "tickerDays": 38,
+          "winnerTickerDays": 5,
+          "recallTickerDayPct": 35.71
+        },
+        "firstEvent": {
+          "count": 38,
+          "tp": 5,
+          "precisionPct": 13.16,
+          "recallObsPct": 35.71,
+          "tickerDays": 38,
+          "winnerTickerDays": 5,
+          "recallTickerDayPct": 35.71
+        }
+      },
+      "regular": {
+        "observation": {
+          "count": 4,
+          "tp": 0,
+          "precisionPct": 0.0,
+          "recallObsPct": 0.0,
+          "tickerDays": 4,
+          "winnerTickerDays": 0,
+          "recallTickerDayPct": 0.0
+        },
+        "firstEvent": {
+          "count": 4,
+          "tp": 0,
+          "precisionPct": 0.0,
+          "recallObsPct": 0.0,
+          "tickerDays": 4,
+          "winnerTickerDays": 0,
+          "recallTickerDayPct": 0.0
+        }
+      },
+      "after": {
+        "observation": {
+          "count": 0,
+          "tp": 0,
+          "precisionPct": null,
+          "recallObsPct": 0.0,
+          "tickerDays": 0,
+          "winnerTickerDays": 0,
+          "recallTickerDayPct": 0.0
+        },
+        "firstEvent": {
+          "count": 0,
+          "tp": 0,
+          "precisionPct": null,
+          "recallObsPct": 0.0,
+          "tickerDays": 0,
+          "winnerTickerDays": 0,
+          "recallTickerDayPct": 0.0
+        }
+      }
+    }
+  },
+  "promotionRule": {
+    "autoPromotion": false,
+    "minFirstEvents": 20,
+    "minWinnerEvents": 4,
+    "precisionImprovementPp": 2,
+    "retainAtLeastHalfV4TickerDayRecall": true,
+    "noEnabledSessionZeroWinnerCollapse": true
+  },
+  "verdict": "DO_NOT_PROMOTE_V43"
+}
