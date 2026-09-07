@@ -1,0 +1,54 @@
+name: TAGit v4 Live Compatible Shadow Train
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tagit/train-v4-live-compatible.py'
+      - 'tag/data/tagit-v39-frozen-groundtruth.json'
+      - 'tag/data/tagit-v310-live-compatible.json'
+      - '.github/workflows/tagit-v4-live-compatible-train.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check numpy scikit-learn joblib
+      - name: Syntax check
+        run: python -m py_compile tagit/train-v4-live-compatible.py
+      - name: Train final-refit shadow artifact
+        run: python tagit/train-v4-live-compatible.py
+      - name: Verify v4 model contract
+        run: |
+          python - <<'PY'
+          import json,joblib
+          expected='19277cfddc8dbeaebee73ce70a6e6fad57213caae87959da7f3e5e859a88773b'
+          a=joblib.load('tag/model/tagit-v4-live-compatible.joblib')
+          m=json.load(open('tag/model/tagit-v4-live-compatible-meta.json'))
+          assert a['policy']=='SHADOW_ONLY_NO_CHAMPION_OVERRIDE'
+          assert a['datasetSha256']==expected==m['datasetSha256']
+          assert a['featureCount']==21==m['featureCount']==len(a['featureNames'])
+          assert m['championUnaffected'] is True
+          assert m['frozenHoldoutEvidence']['top20RecallPct']==91.67
+          print('TAGit v4 model contract PASS')
+          PY
+      - name: Commit shadow model artifact and metadata
+        run: |
+          git config user.name tagit-v4-shadow-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/model/tagit-v4-live-compatible.joblib tag/model/tagit-v4-live-compatible-meta.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'model: add TAGit v4 live21 shadow artifact'
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            sleep $((i*4))
+          done
+          exit 1
