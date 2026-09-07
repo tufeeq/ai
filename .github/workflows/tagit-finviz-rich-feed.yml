@@ -13,6 +13,7 @@ on:
       - 'tag/model/tagit-v4-live-compatible.joblib'
       - 'tag/model/tagit-v4-live-compatible-meta.json'
       - 'tagit/build-shadow-learning-ledger.py'
+      - 'tagit/follow-v4-events.py'
       - '.github/workflows/tagit-finviz-rich-feed.yml'
 
 permissions:
@@ -145,6 +146,11 @@ jobs:
         run: |
           python -m py_compile tagit/build-shadow-learning-ledger.py
           python tagit/build-shadow-learning-ledger.py
+      - name: Follow open v4 events independently
+        continue-on-error: true
+        run: |
+          python -m py_compile tagit/follow-v4-events.py
+          python tagit/follow-v4-events.py
       - name: Attach catalyst shadow features to derived outputs
         run: python tagit/attach-catalyst-derived.py
       - name: Build catalyst calibration report
