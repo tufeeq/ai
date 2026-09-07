@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "policy": "SIMULTANEOUS_OPPORTUNITIES_ALLOWED",
+  "globalTimestampAlertCap": null,
+  "allowMultipleTickersSameTimestamp": true,
+  "allowMultipleIndependentSetupsSameTimestamp": true,
+  "crossTickerTimestampDeduplication": false,
+  "marketWideTopNAtTimestamp": null,
+  "sameTickerDuplicatePolicy": {
+    "dedupeOnlyIdenticalSetup": true,
+    "allowDistinctSetupAtSameTimestamp": true,
+    "cooldownAppliesOnlyToRepeatedSameSetup": true
+  },
+  "rankingPolicy": "rank opportunities but never suppress qualified simultaneous opportunities solely because they share a timestamp",
+  "notes": [
+    "A timestamp is not a capacity limit.",
+    "Simultaneous qualified opportunities across different tickers must all survive selection.",
+    "If one ticker expresses multiple materially distinct setup families at the same timestamp, retain the setup labels rather than suppressing the opportunity.",
+    "Any future UI may sort or group simultaneous opportunities, but must not hide them because of a market-wide cap."
+  ]
+}
