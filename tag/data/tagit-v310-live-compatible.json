@@ -1,0 +1,750 @@
+{
+  "schemaVersion": 1,
+  "method": "TAGIT_V310_FROZEN_LIVE_COMPATIBLE_BENCHMARK",
+  "generatedAtUTC": "2026-09-07T04:46:31.497877+00:00",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "datasetSha256": "19277cfddc8dbeaebee73ce70a6e6fad57213caae87959da7f3e5e859a88773b",
+  "featureContract": {
+    "base11": "LIVE_PARITY",
+    "sequenceFirst6": "LIVE_DERIVABLE_FROM_STATE_CACHE",
+    "microFirst4": "FINVIZ_5_10_30_60M_MOMENTUM_PARITY",
+    "excludedHistoricalMicro": "VWAP/HOD/LOD/range/bar-volume/age from Yahoo-only backfill",
+    "excludedSequence": "legacy persistence fields without guaranteed live provider parity"
+  },
+  "antiLeakage": [
+    "frozen v3.9 dataset only; no network calls",
+    "Aug11-24 train; Aug25-26 calibration; Aug27-Sep4 untouched holdout",
+    "full34 is upper-bound comparator only and cannot be promoted live"
+  ],
+  "coverage": {
+    "rows": 4466,
+    "train": 2857,
+    "calibration": 672,
+    "holdout": 937,
+    "holdoutPositives": 36
+  },
+  "results": [
+    {
+      "mode": "base",
+      "featureCount": 11,
+      "selectedConfig": {
+        "topK": 20,
+        "minEnsemble": 0.35,
+        "maxDisagreement": 0.4
+      },
+      "calibration": {
+        "count": 365,
+        "tp": 23,
+        "precisionPct": 6.3,
+        "recallPct": 74.19,
+        "tickerDays": 188,
+        "winnerTickerDays": 21,
+        "meanMFE": 3.1,
+        "meanMAE": -2.9
+      },
+      "holdout": {
+        "count": 500,
+        "tp": 32,
+        "precisionPct": 6.4,
+        "recallPct": 88.89,
+        "tickerDays": 368,
+        "winnerTickerDays": 31,
+        "meanMFE": 3.09,
+        "meanMAE": -2.38
+      },
+      "holdoutTopK": {
+        "1": {
+          "count": 34,
+          "tp": 1,
+          "precisionPct": 2.94,
+          "recallPct": 2.78,
+          "tickerDays": 33,
+          "winnerTickerDays": 1,
+          "meanMFE": 2.08,
+          "meanMAE": -2.69
+        },
+        "3": {
+          "count": 100,
+          "tp": 6,
+          "precisionPct": 6.0,
+          "recallPct": 16.67,
+          "tickerDays": 86,
+          "winnerTickerDays": 6,
+          "meanMFE": 2.96,
+          "meanMAE": -2.49
+        },
+        "5": {
+          "count": 166,
+          "tp": 11,
+          "precisionPct": 6.63,
+          "recallPct": 30.56,
+          "tickerDays": 146,
+          "winnerTickerDays": 11,
+          "meanMFE": 3.02,
+          "meanMAE": -2.39
+        },
+        "10": {
+          "count": 326,
+          "tp": 22,
+          "precisionPct": 6.75,
+          "recallPct": 61.11,
+          "tickerDays": 258,
+          "winnerTickerDays": 21,
+          "meanMFE": 3.12,
+          "meanMAE": -2.33
+        },
+        "20": {
+          "count": 585,
+          "tp": 34,
+          "precisionPct": 5.81,
+          "recallPct": 94.44,
+          "tickerDays": 427,
+          "winnerTickerDays": 32,
+          "meanMFE": 2.83,
+          "meanMAE": -2.23
+        }
+      },
+      "holdoutBySession": {
+        "pre": {
+          "selected": {
+            "count": 102,
+            "tp": 13,
+            "precisionPct": 12.75,
+            "recallPct": 92.86,
+            "tickerDays": 92,
+            "winnerTickerDays": 13,
+            "meanMFE": 5.32,
+            "meanMAE": -3.24
+          },
+          "top10": {
+            "count": 70,
+            "tp": 11,
+            "precisionPct": 15.71,
+            "recallPct": 78.57,
+            "tickerDays": 64,
+            "winnerTickerDays": 11,
+            "meanMFE": 6.07,
+            "meanMAE": -3.54
+          },
+          "top20": {
+            "count": 123,
+            "tp": 13,
+            "precisionPct": 10.57,
+            "recallPct": 92.86,
+            "tickerDays": 113,
+            "winnerTickerDays": 13,
+            "meanMFE": 4.55,
+            "meanMAE": -2.97
+          }
+        },
+        "regular": {
+          "selected": {
+            "count": 293,
+            "tp": 16,
+            "precisionPct": 5.46,
+            "recallPct": 88.89,
+            "tickerDays": 249,
+            "winnerTickerDays": 16,
+            "meanMFE": 2.95,
+            "meanMAE": -2.45
+          },
+          "top10": {
+            "count": 171,
+            "tp": 10,
+            "precisionPct": 5.85,
+            "recallPct": 55.56,
+            "tickerDays": 149,
+            "winnerTickerDays": 10,
+            "meanMFE": 2.94,
+            "meanMAE": -2.4
+          },
+          "top20": {
+            "count": 325,
+            "tp": 17,
+            "precisionPct": 5.23,
+            "recallPct": 94.44,
+            "tickerDays": 276,
+            "winnerTickerDays": 17,
+            "meanMFE": 2.84,
+            "meanMAE": -2.39
+          }
+        },
+        "after": {
+          "selected": {
+            "count": 105,
+            "tp": 3,
+            "precisionPct": 2.86,
+            "recallPct": 75.0,
+            "tickerDays": 85,
+            "winnerTickerDays": 3,
+            "meanMFE": 1.31,
+            "meanMAE": -1.36
+          },
+          "top10": {
+            "count": 85,
+            "tp": 1,
+            "precisionPct": 1.18,
+            "recallPct": 25.0,
+            "tickerDays": 71,
+            "winnerTickerDays": 1,
+            "meanMFE": 1.04,
+            "meanMAE": -1.21
+          },
+          "top20": {
+            "count": 137,
+            "tp": 4,
+            "precisionPct": 2.92,
+            "recallPct": 100.0,
+            "tickerDays": 112,
+            "winnerTickerDays": 4,
+            "meanMFE": 1.23,
+            "meanMAE": -1.2
+          }
+        }
+      }
+    },
+    {
+      "mode": "live17",
+      "featureCount": 17,
+      "selectedConfig": {
+        "topK": 20,
+        "minEnsemble": 0.5,
+        "maxDisagreement": 0.4
+      },
+      "calibration": {
+        "count": 320,
+        "tp": 23,
+        "precisionPct": 7.19,
+        "recallPct": 74.19,
+        "tickerDays": 188,
+        "winnerTickerDays": 22,
+        "meanMFE": 3.37,
+        "meanMAE": -3.1
+      },
+      "holdout": {
+        "count": 435,
+        "tp": 28,
+        "precisionPct": 6.44,
+        "recallPct": 77.78,
+        "tickerDays": 336,
+        "winnerTickerDays": 27,
+        "meanMFE": 3.25,
+        "meanMAE": -2.52
+      },
+      "holdoutTopK": {
+        "1": {
+          "count": 34,
+          "tp": 2,
+          "precisionPct": 5.88,
+          "recallPct": 5.56,
+          "tickerDays": 33,
+          "winnerTickerDays": 2,
+          "meanMFE": 2.47,
+          "meanMAE": -2.44
+        },
+        "3": {
+          "count": 100,
+          "tp": 9,
+          "precisionPct": 9.0,
+          "recallPct": 25.0,
+          "tickerDays": 90,
+          "winnerTickerDays": 9,
+          "meanMFE": 3.49,
+          "meanMAE": -2.64
+        },
+        "5": {
+          "count": 166,
+          "tp": 15,
+          "precisionPct": 9.04,
+          "recallPct": 41.67,
+          "tickerDays": 146,
+          "winnerTickerDays": 15,
+          "meanMFE": 4.0,
+          "meanMAE": -2.46
+        },
+        "10": {
+          "count": 326,
+          "tp": 23,
+          "precisionPct": 7.06,
+          "recallPct": 63.89,
+          "tickerDays": 265,
+          "winnerTickerDays": 22,
+          "meanMFE": 3.25,
+          "meanMAE": -2.3
+        },
+        "20": {
+          "count": 585,
+          "tp": 32,
+          "precisionPct": 5.47,
+          "recallPct": 88.89,
+          "tickerDays": 441,
+          "winnerTickerDays": 30,
+          "meanMFE": 2.81,
+          "meanMAE": -2.23
+        }
+      },
+      "holdoutBySession": {
+        "pre": {
+          "selected": {
+            "count": 82,
+            "tp": 12,
+            "precisionPct": 14.63,
+            "recallPct": 85.71,
+            "tickerDays": 75,
+            "winnerTickerDays": 12,
+            "meanMFE": 6.05,
+            "meanMAE": -3.66
+          },
+          "top10": {
+            "count": 70,
+            "tp": 11,
+            "precisionPct": 15.71,
+            "recallPct": 78.57,
+            "tickerDays": 67,
+            "winnerTickerDays": 11,
+            "meanMFE": 6.38,
+            "meanMAE": -3.24
+          },
+          "top20": {
+            "count": 123,
+            "tp": 12,
+            "precisionPct": 9.76,
+            "recallPct": 85.71,
+            "tickerDays": 116,
+            "winnerTickerDays": 12,
+            "meanMFE": 4.46,
+            "meanMAE": -3.0
+          }
+        },
+        "regular": {
+          "selected": {
+            "count": 262,
+            "tp": 13,
+            "precisionPct": 4.96,
+            "recallPct": 72.22,
+            "tickerDays": 232,
+            "winnerTickerDays": 13,
+            "meanMFE": 3.01,
+            "meanMAE": -2.57
+          },
+          "top10": {
+            "count": 171,
+            "tp": 10,
+            "precisionPct": 5.85,
+            "recallPct": 55.56,
+            "tickerDays": 156,
+            "winnerTickerDays": 10,
+            "meanMFE": 3.0,
+            "meanMAE": -2.43
+          },
+          "top20": {
+            "count": 325,
+            "tp": 16,
+            "precisionPct": 4.92,
+            "recallPct": 88.89,
+            "tickerDays": 282,
+            "winnerTickerDays": 16,
+            "meanMFE": 2.84,
+            "meanMAE": -2.39
+          }
+        },
+        "after": {
+          "selected": {
+            "count": 91,
+            "tp": 3,
+            "precisionPct": 3.3,
+            "recallPct": 75.0,
+            "tickerDays": 73,
+            "winnerTickerDays": 3,
+            "meanMFE": 1.41,
+            "meanMAE": -1.37
+          },
+          "top10": {
+            "count": 85,
+            "tp": 2,
+            "precisionPct": 2.35,
+            "recallPct": 50.0,
+            "tickerDays": 70,
+            "winnerTickerDays": 2,
+            "meanMFE": 1.17,
+            "meanMAE": -1.24
+          },
+          "top20": {
+            "count": 137,
+            "tp": 4,
+            "precisionPct": 2.92,
+            "recallPct": 100.0,
+            "tickerDays": 110,
+            "winnerTickerDays": 4,
+            "meanMFE": 1.23,
+            "meanMAE": -1.17
+          }
+        }
+      }
+    },
+    {
+      "mode": "live21",
+      "featureCount": 21,
+      "selectedConfig": {
+        "topK": 20,
+        "minEnsemble": 0.5,
+        "maxDisagreement": 0.4
+      },
+      "calibration": {
+        "count": 320,
+        "tp": 24,
+        "precisionPct": 7.5,
+        "recallPct": 77.42,
+        "tickerDays": 181,
+        "winnerTickerDays": 22,
+        "meanMFE": 3.33,
+        "meanMAE": -3.03
+      },
+      "holdout": {
+        "count": 435,
+        "tp": 29,
+        "precisionPct": 6.67,
+        "recallPct": 80.56,
+        "tickerDays": 337,
+        "winnerTickerDays": 27,
+        "meanMFE": 3.33,
+        "meanMAE": -2.4
+      },
+      "holdoutTopK": {
+        "1": {
+          "count": 34,
+          "tp": 1,
+          "precisionPct": 2.94,
+          "recallPct": 2.78,
+          "tickerDays": 30,
+          "winnerTickerDays": 1,
+          "meanMFE": 3.28,
+          "meanMAE": -3.35
+        },
+        "3": {
+          "count": 100,
+          "tp": 7,
+          "precisionPct": 7.0,
+          "recallPct": 19.44,
+          "tickerDays": 88,
+          "winnerTickerDays": 7,
+          "meanMFE": 3.49,
+          "meanMAE": -3.03
+        },
+        "5": {
+          "count": 166,
+          "tp": 11,
+          "precisionPct": 6.63,
+          "recallPct": 30.56,
+          "tickerDays": 144,
+          "winnerTickerDays": 11,
+          "meanMFE": 3.55,
+          "meanMAE": -2.7
+        },
+        "10": {
+          "count": 326,
+          "tp": 24,
+          "precisionPct": 7.36,
+          "recallPct": 66.67,
+          "tickerDays": 263,
+          "winnerTickerDays": 22,
+          "meanMFE": 3.35,
+          "meanMAE": -2.43
+        },
+        "20": {
+          "count": 585,
+          "tp": 33,
+          "precisionPct": 5.64,
+          "recallPct": 91.67,
+          "tickerDays": 438,
+          "winnerTickerDays": 31,
+          "meanMFE": 2.84,
+          "meanMAE": -2.16
+        }
+      },
+      "holdoutBySession": {
+        "pre": {
+          "selected": {
+            "count": 83,
+            "tp": 11,
+            "precisionPct": 13.25,
+            "recallPct": 78.57,
+            "tickerDays": 77,
+            "winnerTickerDays": 11,
+            "meanMFE": 5.86,
+            "meanMAE": -3.47
+          },
+          "top10": {
+            "count": 70,
+            "tp": 10,
+            "precisionPct": 14.29,
+            "recallPct": 71.43,
+            "tickerDays": 68,
+            "winnerTickerDays": 10,
+            "meanMFE": 6.05,
+            "meanMAE": -3.52
+          },
+          "top20": {
+            "count": 123,
+            "tp": 13,
+            "precisionPct": 10.57,
+            "recallPct": 92.86,
+            "tickerDays": 116,
+            "winnerTickerDays": 13,
+            "meanMFE": 4.6,
+            "meanMAE": -2.95
+          }
+        },
+        "regular": {
+          "selected": {
+            "count": 260,
+            "tp": 14,
+            "precisionPct": 5.38,
+            "recallPct": 77.78,
+            "tickerDays": 227,
+            "winnerTickerDays": 14,
+            "meanMFE": 3.15,
+            "meanMAE": -2.41
+          },
+          "top10": {
+            "count": 171,
+            "tp": 11,
+            "precisionPct": 6.43,
+            "recallPct": 61.11,
+            "tickerDays": 154,
+            "winnerTickerDays": 11,
+            "meanMFE": 3.21,
+            "meanMAE": -2.6
+          },
+          "top20": {
+            "count": 325,
+            "tp": 16,
+            "precisionPct": 4.92,
+            "recallPct": 88.89,
+            "tickerDays": 280,
+            "winnerTickerDays": 16,
+            "meanMFE": 2.87,
+            "meanMAE": -2.26
+          }
+        },
+        "after": {
+          "selected": {
+            "count": 92,
+            "tp": 4,
+            "precisionPct": 4.35,
+            "recallPct": 100.0,
+            "tickerDays": 77,
+            "winnerTickerDays": 4,
+            "meanMFE": 1.55,
+            "meanMAE": -1.38
+          },
+          "top10": {
+            "count": 85,
+            "tp": 3,
+            "precisionPct": 3.53,
+            "recallPct": 75.0,
+            "tickerDays": 71,
+            "winnerTickerDays": 3,
+            "meanMFE": 1.4,
+            "meanMAE": -1.19
+          },
+          "top20": {
+            "count": 137,
+            "tp": 4,
+            "precisionPct": 2.92,
+            "recallPct": 100.0,
+            "tickerDays": 112,
+            "winnerTickerDays": 4,
+            "meanMFE": 1.19,
+            "meanMAE": -1.23
+          }
+        }
+      }
+    },
+    {
+      "mode": "full34",
+      "featureCount": 34,
+      "selectedConfig": {
+        "topK": 20,
+        "minEnsemble": 0.35,
+        "maxDisagreement": 0.4
+      },
+      "calibration": {
+        "count": 358,
+        "tp": 26,
+        "precisionPct": 7.26,
+        "recallPct": 83.87,
+        "tickerDays": 192,
+        "winnerTickerDays": 23,
+        "meanMFE": 3.36,
+        "meanMAE": -3.0
+      },
+      "holdout": {
+        "count": 495,
+        "tp": 32,
+        "precisionPct": 6.46,
+        "recallPct": 88.89,
+        "tickerDays": 364,
+        "winnerTickerDays": 30,
+        "meanMFE": 3.24,
+        "meanMAE": -2.45
+      },
+      "holdoutTopK": {
+        "1": {
+          "count": 34,
+          "tp": 3,
+          "precisionPct": 8.82,
+          "recallPct": 8.33,
+          "tickerDays": 32,
+          "winnerTickerDays": 3,
+          "meanMFE": 4.71,
+          "meanMAE": -3.76
+        },
+        "3": {
+          "count": 100,
+          "tp": 6,
+          "precisionPct": 6.0,
+          "recallPct": 16.67,
+          "tickerDays": 85,
+          "winnerTickerDays": 6,
+          "meanMFE": 4.29,
+          "meanMAE": -3.7
+        },
+        "5": {
+          "count": 166,
+          "tp": 14,
+          "precisionPct": 8.43,
+          "recallPct": 38.89,
+          "tickerDays": 137,
+          "winnerTickerDays": 13,
+          "meanMFE": 4.39,
+          "meanMAE": -3.04
+        },
+        "10": {
+          "count": 326,
+          "tp": 25,
+          "precisionPct": 7.67,
+          "recallPct": 69.44,
+          "tickerDays": 258,
+          "winnerTickerDays": 23,
+          "meanMFE": 3.65,
+          "meanMAE": -2.59
+        },
+        "20": {
+          "count": 585,
+          "tp": 32,
+          "precisionPct": 5.47,
+          "recallPct": 88.89,
+          "tickerDays": 429,
+          "winnerTickerDays": 30,
+          "meanMFE": 2.84,
+          "meanMAE": -2.26
+        }
+      },
+      "holdoutBySession": {
+        "pre": {
+          "selected": {
+            "count": 98,
+            "tp": 13,
+            "precisionPct": 13.27,
+            "recallPct": 92.86,
+            "tickerDays": 90,
+            "winnerTickerDays": 13,
+            "meanMFE": 5.47,
+            "meanMAE": -3.38
+          },
+          "top10": {
+            "count": 70,
+            "tp": 11,
+            "precisionPct": 15.71,
+            "recallPct": 78.57,
+            "tickerDays": 66,
+            "winnerTickerDays": 11,
+            "meanMFE": 6.36,
+            "meanMAE": -3.5
+          },
+          "top20": {
+            "count": 123,
+            "tp": 13,
+            "precisionPct": 10.57,
+            "recallPct": 92.86,
+            "tickerDays": 115,
+            "winnerTickerDays": 13,
+            "meanMFE": 4.63,
+            "meanMAE": -2.99
+          }
+        },
+        "regular": {
+          "selected": {
+            "count": 294,
+            "tp": 15,
+            "precisionPct": 5.1,
+            "recallPct": 83.33,
+            "tickerDays": 249,
+            "winnerTickerDays": 15,
+            "meanMFE": 3.04,
+            "meanMAE": -2.55
+          },
+          "top10": {
+            "count": 171,
+            "tp": 10,
+            "precisionPct": 5.85,
+            "recallPct": 55.56,
+            "tickerDays": 157,
+            "winnerTickerDays": 10,
+            "meanMFE": 3.44,
+            "meanMAE": -2.89
+          },
+          "top20": {
+            "count": 325,
+            "tp": 15,
+            "precisionPct": 4.62,
+            "recallPct": 83.33,
+            "tickerDays": 275,
+            "winnerTickerDays": 15,
+            "meanMFE": 2.83,
+            "meanMAE": -2.44
+          }
+        },
+        "after": {
+          "selected": {
+            "count": 103,
+            "tp": 4,
+            "precisionPct": 3.88,
+            "recallPct": 100.0,
+            "tickerDays": 84,
+            "winnerTickerDays": 4,
+            "meanMFE": 1.67,
+            "meanMAE": -1.26
+          },
+          "top10": {
+            "count": 85,
+            "tp": 4,
+            "precisionPct": 4.71,
+            "recallPct": 100.0,
+            "tickerDays": 69,
+            "winnerTickerDays": 4,
+            "meanMFE": 1.82,
+            "meanMAE": -1.24
+          },
+          "top20": {
+            "count": 137,
+            "tp": 4,
+            "precisionPct": 2.92,
+            "recallPct": 100.0,
+            "tickerDays": 112,
+            "winnerTickerDays": 4,
+            "meanMFE": 1.25,
+            "meanMAE": -1.16
+          }
+        }
+      }
+    }
+  ],
+  "live21VsFull34": {
+    "live21HoldoutPrecision": 6.67,
+    "live21HoldoutRecall": 80.56,
+    "full34HoldoutPrecision": 6.46,
+    "full34HoldoutRecall": 88.89
+  }
+}
