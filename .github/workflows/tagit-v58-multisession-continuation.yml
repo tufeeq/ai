@@ -1,0 +1,63 @@
+name: TAGit v5.8 Multi-Session Continuation
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["TAGit v5.7 Cumulative Opportunity"]
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-v58-multisession-continuation
+  cancel-in-progress: false
+
+jobs:
+  research:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -q numpy scikit-learn
+      - name: Syntax check
+        run: python -m py_compile tagit/multisession-continuation-v58.py
+      - name: Train multi-session continuation architecture
+        run: python tagit/multisession-continuation-v58.py
+      - name: Verify causal carryover contract
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('tag/data/tagit-v58-multisession-continuation.json')
+          w=pathlib.Path('tag/data/tagit-v58-carryover-watch.json')
+          assert p.exists() and w.exists()
+          r=json.loads(p.read_text())
+          assert r['status']=='COMPLETE', r.get('status')
+          assert r['policy']=='RESEARCH_ONLY_NO_CHAMPION_OVERRIDE'
+          assert r['objective']['primary'].startswith('detect starter session')
+          assert 'thresholds selected on calibration only' in r['antiLeakage']
+          assert 'untouched chronological holdout evaluated after freeze' in r['antiLeakage']
+          q=json.loads(w.read_text())
+          assert q['noGlobalTimestampCap'] is True
+          print('V5.8 holdout:', r['holdout'])
+          print('V5.8 carryover candidates:', len(q.get('candidates') or []))
+          PY
+      - name: Commit multi-session evidence and carryover watch
+        run: |
+          git config user.name "TAGit Research Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagit-v58-multisession-continuation.json tag/data/tagit-v58-multisession-case-library.json tag/data/tagit-v58-carryover-watch.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "research: record v5.8 multi-session continuation evidence"
+          git pull --rebase origin main
+          git push origin main
