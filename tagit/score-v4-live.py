@@ -7,6 +7,7 @@ execution because bid/ask is not part of this model.
 """
 import json,math,pathlib
 from datetime import datetime,timezone
+from zoneinfo import ZoneInfo
 import joblib
 import numpy as np
 
@@ -15,6 +16,7 @@ MODEL=pathlib.Path('tag/model/tagit-v4-live-compatible.joblib')
 OUT=pathlib.Path('tag/data/tagit-v4-shadow.json')
 EXPECTED='19277cfddc8dbeaebee73ce70a6e6fad57213caae87959da7f3e5e859a88773b'
 SELECTED={'topK':20,'minEnsemble':.50,'maxDisagreement':.40}
+ET=ZoneInfo('America/New_York')
 
 
 def finite(v):
@@ -50,9 +52,13 @@ if art.get('policy')!='SHADOW_ONLY_NO_CHAMPION_OVERRIDE' or art.get('datasetSha2
     degraded('MODEL_CONTRACT_MISMATCH',raw);raise SystemExit(0)
 
 prev=read(OUT,{}); cache0=prev.get('stateCache') or {}
-asof=raw.get('updatedAt') or datetime.now(timezone.utc).isoformat();day=asof[:10];session=str(raw.get('session') or 'unknown').lower();active=session in ('pre-market','regular','after-hours')
-try:now=datetime.fromisoformat(asof.replace('Z','+00:00')).timestamp()*1000
-except:now=datetime.now(timezone.utc).timestamp()*1000
+asof=raw.get('updatedAt') or datetime.now(timezone.utc).isoformat();session=str(raw.get('session') or 'unknown').lower();active=session in ('pre-market','regular','after-hours')
+try:
+    asof_dt=datetime.fromisoformat(asof.replace('Z','+00:00'))
+    if asof_dt.tzinfo is None:asof_dt=asof_dt.replace(tzinfo=timezone.utc)
+    now=asof_dt.timestamp()*1000;day=asof_dt.astimezone(ET).date().isoformat()
+except:
+    asof_dt=datetime.now(timezone.utc);now=asof_dt.timestamp()*1000;day=asof_dt.astimezone(ET).date().isoformat()
 
 # Field-level eligibility exactly mirrors the historical live21 domain.
 elig=[];excluded={'domain':0,'missingMomentum':0,'missingCore':0}
@@ -66,7 +72,7 @@ for r in raw.get('rows') or []:
     elig.append({'r':r,'t':t,'symbol':sym,'price':price,'change':ch,'volume':vol,'mom':mom})
 
 if not elig:
-    p={'schemaVersion':4,'source':'TAGit v4 live21 shadow ranker','modelVersion':art.get('modelVersion'),'modelTrainedAtUTC':art.get('trainedAtUTC'),'datasetSha256':EXPECTED,'updatedAt':asof,
+    p={'schemaVersion':4,'source':'TAGit v4 live21 shadow ranker','modelVersion':art.get('modelVersion'),'modelTrainedAtUTC':art.get('trainedAtUTC'),'datasetSha256':EXPECTED,'updatedAt':asof,'tradingDateET':day,
        'status':'PASS' if raw.get('richHealthStatus')=='PASS' else 'DEGRADED','session':session,'policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','championUnaffected':True,'executionVerified':False,
        'scoreMeaning':'RELATIVE_RANK_NOT_CALIBRATED_SUCCESS_PROBABILITY','selectedGate':SELECTED,'excludedRows':excluded,'counts':{'total':0,'selectedGate':0,'surfaceEligible':0,'lead':0,'shortlist':0,'radar':0},'items':[],'stateCache':{}}
     OUT.write_text(json.dumps(p,indent=2)+'\n');print(json.dumps(p,indent=2));raise SystemExit(0)
@@ -130,7 +136,7 @@ for x in built:
                   'riskContext':risk or None,'catalystContext':cat or None,'executionVerified':False,'interpretation':'RELATIVE_RANK_NOT_SUCCESS_PROBABILITY','policy':'SHADOW_ONLY'})
     cache[x['symbol']]={'ts':now,'day':day,'price':x['price'],'change':x['change'],'volume':x['volume'],'rawVvel':x['rawVvel'],'firstTs':x['firstTs'],'firstChange':x['firstChange'],'rank':x['rank'],'rankScore':x['ensemble']}
 
-payload={'schemaVersion':4,'source':'TAGit v4 live21 causal shadow ranker','modelVersion':art.get('modelVersion'),'modelTrainedAtUTC':art.get('trainedAtUTC'),'datasetSha256':EXPECTED,'updatedAt':asof,'status':'PASS' if healthy else 'DEGRADED','session':session,
+payload={'schemaVersion':4,'source':'TAGit v4 live21 causal shadow ranker','modelVersion':art.get('modelVersion'),'modelTrainedAtUTC':art.get('trainedAtUTC'),'datasetSha256':EXPECTED,'updatedAt':asof,'tradingDateET':day,'status':'PASS' if healthy else 'DEGRADED','session':session,
          'objective':art.get('objective'),'featureCount':21,'featureParity':'LIVE21_VERIFIED_ON_FROZEN_V310','scoreMeaning':'RELATIVE_RANK_NOT_CALIBRATED_SUCCESS_PROBABILITY','selectedGate':SELECTED,
          'eventPolicyNotes':{'pre':'first selected event may be surfaced for forward research','regular':'selected rank still requires progression evidence before event surfacing','after':'informational only due low historical support'},
          'policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','championUnaffected':True,'executionVerified':False,'excludedRows':excluded,
