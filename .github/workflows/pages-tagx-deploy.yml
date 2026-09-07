@@ -14,8 +14,14 @@ on:
       - 'tagit/ledger.js'
       - 'tag/data/tagit-signal-feed.json'
       - 'tag/data/tagit-v41-shadow.json'
+      - 'tag/data/tagit-model-governance.json'
       - 'tag/data/finviz.json'
       - '.github/workflows/pages-tagx-deploy.yml'
+  workflow_run:
+    workflows:
+      - 'TAGit Finviz Elite Rich Feed'
+      - 'TAGit v4.9 Forward Evidence'
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -29,14 +35,18 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout latest main
         uses: actions/checkout@v4
-      - name: Build restricted TAGit 4.1 artifact
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Build restricted TAGit current artifact
         run: |
           rm -rf _site
           mkdir -p _site/tagit _site/tag/data
@@ -47,6 +57,11 @@ jobs:
           base=json.loads(pathlib.Path('tag/data/finviz.json').read_text())
           v41p=pathlib.Path('tag/data/tagit-v41-shadow.json')
           v41=json.loads(v41p.read_text()) if v41p.exists() else {'items':[],'status':'DEGRADED','counts':{}}
+          govp=pathlib.Path('tag/data/tagit-model-governance.json')
+          gov=json.loads(govp.read_text()) if govp.exists() else {}
+          challengers=gov.get('challengers') or []
+          v49=next((x for x in challengers if str(x.get('id','')).lower()=='tagit-v4.9'),{})
+          champion=(gov.get('currentChampion') or {}).get('id') or 'TAGit-v0.6'
           def num(v):
               if v in (None,'','-','N/A'):return None
               try:return float(str(v).replace(',','').replace('$','').replace('%','').replace('x',''))
@@ -86,16 +101,24 @@ jobs:
               return (2 if s=='V41_ALERT' else 1 if s=='V41_DISCOVER' else 0, float(z.get('eventConviction') or x.get('actionability') or 0))
           items.sort(key=priority,reverse=True)
           sig['items']=items[:100]
-          sig['uiVersion']='TAGit 4.1 Personal'
+          sig['uiVersion']='TAGit UI 4.1 Personal'
           sig['v41Status']=v41.get('status')
           sig['v41Counts']=v41.get('counts') or {}
           sig['v41Policy']='SHADOW_ONLY_NO_CHAMPION_OVERRIDE'
+          sig['researchVersion']=v49.get('id') or 'TAGit-v4.9'
+          sig['researchStatus']=v49.get('status') or 'UNKNOWN'
+          sig['researchEvidence']=v49.get('currentEvidence') or {}
+          sig['champion']=champion
+          sig['governanceDecision']=gov.get('decision') or 'UNKNOWN'
+          sig['governanceGeneratedAtUTC']=gov.get('generatedAtUTC')
+          sig['automaticPromotion']=bool((gov.get('promotionPolicy') or {}).get('automaticPromotion',False))
           sig['publicationPolicy']='PERSONAL_RESTRICTED_ARTIFACT_DERIVED_VIEW_ONLY'
           pathlib.Path('_site/tag/data/tagit-view.json').write_text(json.dumps(sig,ensure_ascii=False,separators=(',',':')))
           PY
           find _site -maxdepth 3 -type f -print
           test ! -e _site/tag/data/finviz.json
           test ! -e _site/tag/data/tagit-v41-shadow.json
+          test ! -e _site/tag/data/tagit-model-governance.json
           test ! -e _site/tag/data/tagit-v4-shadow.json
           test ! -e _site/tag/data/tagit-shadow-learning-ledger.json
           test ! -e _site/tag/model/tagit-v4-live-compatible.joblib
