@@ -1,0 +1,56 @@
+name: TAGit v4.1 Event Conviction Shadow
+
+on:
+  workflow_run:
+    workflows: ["TAGit Finviz Elite Rich Feed"]
+    types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - 'tagit/score-v41-live.py'
+      - '.github/workflows/tagit-v41-shadow.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-v41-shadow-main
+  cancel-in-progress: true
+
+jobs:
+  score:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+      - name: Sync main
+        run: git pull --rebase origin main
+      - name: Build v4.1 event-conviction shadow
+        run: |
+          python -m py_compile tagit/score-v41-live.py
+          python tagit/score-v41-live.py
+          python - <<'PY'
+          import json,pathlib
+          p=json.loads(pathlib.Path('tag/data/tagit-v41-shadow.json').read_text())
+          assert p['policy']=='SHADOW_ONLY_NO_CHAMPION_OVERRIDE'
+          assert p['championUnaffected'] is True
+          assert p['executionVerified'] is False
+          assert p['schemaVersion']=='4.1'
+          print(p['counts'])
+          PY
+      - name: Commit derived v4.1 shadow only
+        run: |
+          git config user.name tagit-data-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/tagit-v41-shadow.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: refresh TAGit v4.1 event conviction shadow'
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            sleep $((i*5))
+          done
+          exit 1
