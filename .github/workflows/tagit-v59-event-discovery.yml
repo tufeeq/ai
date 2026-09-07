@@ -1,0 +1,68 @@
+name: TAGit v5.9 Independent Event Discovery
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["TAGit v5.7 Cumulative Opportunity"]
+    types: [completed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-v59-independent-event-discovery
+  cancel-in-progress: false
+
+jobs:
+  research:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -q numpy scikit-learn
+      - name: Syntax check
+        run: python -m py_compile tagit/event-discovery-v59.py
+      - name: Train independent event-level architecture
+        run: python tagit/event-discovery-v59.py
+      - name: Verify anti-leakage and credibility contract
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('tag/data/tagit-v59-event-discovery.json')
+          e=pathlib.Path('tag/data/tagit-v59-event-sample.json')
+          assert p.exists() and e.exists()
+          r=json.loads(p.read_text())
+          assert r['status']=='COMPLETE', r.get('status')
+          assert r['policy']=='RESEARCH_ONLY_NO_CHAMPION_OVERRIDE'
+          assert r['statisticalUnit']=='FIRST_EXECUTABLE_IGNITION_EVENT_PER_TICKER_DAY_FOR_PRECISION'
+          assert 'threshold selected on calibration only' in r['antiLeakage']
+          assert 'holdout evaluated once after threshold freeze' in r['antiLeakage']
+          g=r['credibilityGate']
+          assert g['requiredIndependentEvents'] >= 100
+          assert g['requiredActiveDays'] >= 10
+          assert g['requiredWilsonLower90Pct'] >= 80
+          assert g['requiredDayBootstrapLower90Pct'] >= 80
+          assert g['forwardConfirmationStillRequired'] is True
+          print('V5.9 calibration:', r['calibration'])
+          print('V5.9 holdout:', r['holdout'])
+          print('V5.9 claim candidate:', g['candidate90OnHistoricalHoldout'])
+          PY
+      - name: Commit independent event evidence
+        run: |
+          git config user.name "TAGit Research Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagit-v59-event-discovery.json tag/data/tagit-v59-event-sample.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "research: record v5.9 independent event validation"
+          git pull --rebase origin main
+          git push origin main
