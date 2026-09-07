@@ -12,7 +12,7 @@ Causality:
 - No current balance-sheet values, no future filing, no document text, no inferred zero.
 - Only public filing metadata/forms/items are persisted as aggregate research results.
 """
-import json, math, pathlib, runpy, time, urllib.request
+import concurrent.futures, json, math, pathlib, runpy, time, urllib.request
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 
@@ -25,14 +25,15 @@ OFFER_FORMS={'424B3','424B4','424B5'}
 REG_FORMS={'S-1','S-1/A','S-3','S-3/A','F-1','F-1/A','F-3','F-3/A','EFFECT'}
 
 
-def get_json(url,retries=4):
+def get_json(url,retries=2,timeout=8):
     err=None
     for i in range(retries):
         try:
             req=urllib.request.Request(url,headers={'User-Agent':UA,'Accept':'application/json','Accept-Encoding':'identity'})
-            with urllib.request.urlopen(req,timeout=15) as r:return json.loads(r.read().decode('utf-8'))
+            with urllib.request.urlopen(req,timeout=timeout) as r:return json.loads(r.read().decode('utf-8'))
         except Exception as e:
-            err=e; time.sleep(0.7*(i+1))
+            err=e
+            if i+1<retries:time.sleep(0.6*(i+1))
     raise err
 
 def parse_ts(s):
@@ -114,14 +115,22 @@ fit=[x for x in data if x['day']<='2026-08-26'];hold=[x for x in data if x['day'
 all_events=oof+he
 symbols=sorted({str(x.get('ticker') or '').upper() for x in all_events if x.get('ticker')})
 
-# Fetch each ticker once; filtering by each event acceptance timestamp happens locally.
+# Fetch each unique ticker once with a bounded worker pool.  Four workers keep the
+# client comfortably below SEC fair-access limits while preventing a few slow CIKs
+# from consuming the whole workflow.  Any failure remains UNKNOWN, never safe/zero.
 tmap=ticker_map();cache={};errors={}
-for j,sym in enumerate(symbols):
+def fetch_symbol(sym):
     cik=tmap.get(sym)
-    if not cik:errors[sym]='NO_CIK';continue
-    try:cache[sym]=submissions(cik)
-    except Exception as e:errors[sym]=type(e).__name__
-    time.sleep(0.12)
+    if not cik:return sym,None,'NO_CIK'
+    try:return sym,submissions(cik),None
+    except Exception as e:return sym,None,type(e).__name__
+with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
+    futs=[ex.submit(fetch_symbol,sym) for sym in symbols]
+    for fut in concurrent.futures.as_completed(futs):
+        sym,rows,err=fut.result()
+        if rows is not None:cache[sym]=rows
+        else:errors[sym]=err or 'UNAVAILABLE'
+
 
 def attach(events):
     out=[]
