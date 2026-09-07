@@ -14,9 +14,13 @@ on:
       - 'tagit/score-v4-live.py'
       - 'tag/model/tagit-v4-live-compatible.joblib'
       - 'tag/model/tagit-v4-live-compatible-meta.json'
+      - 'tagit/sec-event-intelligence.py'
+      - 'tagit/score-v41-live.py'
       - 'tagit/build-shadow-learning-ledger.py'
+      - 'tagit/attach-sec-event-context.py'
       - 'tagit/follow-v4-events.py'
       - 'tagit/summarize-v4-forward.py'
+      - 'tagit/summarize-sec-event-forward.py'
       - '.github/workflows/tagit-finviz-rich-feed.yml'
 
 permissions:
@@ -140,6 +144,19 @@ jobs:
           pathlib.Path('tag/data/tagit-v4-shadow.json').write_text(json.dumps(p,indent=2)+'\n')
           PY
           fi
+      - name: Build official SEC event clock for v4 Top-20
+        continue-on-error: true
+        run: |
+          python -m py_compile tagit/sec-event-intelligence.py
+          python tagit/sec-event-intelligence.py || python - <<'PY'
+          import json,datetime,pathlib
+          p={'schemaVersion':1,'source':'SEC derived event clock','updatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'status':'DEGRADED','reason':'SEC_EVENT_CLOCK_RUNTIME_FAILURE','policy':'SHADOW_CONTEXT_ONLY_NO_ALERT_OVERRIDE','futureSafe':True,'rawFilingsPersisted':False,'counts':{'requested':0,'mapped':0,'succeeded':0,'withRecentEvent':0,'withFreshEvent':0,'withRiskFlag':0},'items':[]}
+          pathlib.Path('tag/data/tagit-sec-event-shadow.json').write_text(json.dumps(p,indent=2)+'\n')
+          PY
+      - name: Score v4.1 context-only forward research layer
+        run: |
+          python -m py_compile tagit/score-v41-live.py
+          python tagit/score-v41-live.py
       - name: Build derived TAGit signal feed
         run: |
           node --check tagit/core.js
@@ -149,6 +166,10 @@ jobs:
         run: |
           python -m py_compile tagit/build-shadow-learning-ledger.py
           python tagit/build-shadow-learning-ledger.py
+      - name: Freeze SEC context into current shadow ledger records
+        run: |
+          python -m py_compile tagit/attach-sec-event-context.py
+          python tagit/attach-sec-event-context.py
       - name: Follow open v4 events independently
         continue-on-error: true
         run: |
@@ -158,6 +179,10 @@ jobs:
         run: |
           python -m py_compile tagit/summarize-v4-forward.py
           python tagit/summarize-v4-forward.py
+      - name: Summarize SEC event forward evidence
+        run: |
+          python -m py_compile tagit/summarize-sec-event-forward.py
+          python tagit/summarize-sec-event-forward.py
       - name: Attach catalyst shadow features to derived outputs
         run: python tagit/attach-catalyst-derived.py
       - name: Build catalyst calibration report
@@ -171,9 +196,9 @@ jobs:
           fi
           git config user.name tagit-data-bot
           git config user.email actions@users.noreply.github.com
-          git add tag/data/tagit-signal-feed.json tag/data/finviz-rich-health.json tag/data/tagit-data-contract.json tag/data/tagit-shadow-learning-ledger.json tag/data/tagit-v25-shadow.json tag/data/tagit-v3-shadow.json tag/data/tagit-v4-shadow.json tag/data/tagit-v4-forward-eval.json tag/data/tagit-catalyst-calibration.json
+          git add tag/data/tagit-signal-feed.json tag/data/finviz-rich-health.json tag/data/tagit-data-contract.json tag/data/tagit-shadow-learning-ledger.json tag/data/tagit-v25-shadow.json tag/data/tagit-v3-shadow.json tag/data/tagit-v4-shadow.json tag/data/tagit-v41-shadow.json tag/data/tagit-sec-event-shadow.json tag/data/tagit-v4-forward-eval.json tag/data/tagit-sec-event-forward.json tag/data/tagit-catalyst-calibration.json
           git diff --cached --quiet && exit 0
-          git commit -m 'data: refresh TAGit v4 and legacy shadow outputs'
+          git commit -m 'data: refresh TAGit v4 SEC and forward shadow outputs'
           for i in 1 2 3; do
             git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
             sleep $((i*6))
