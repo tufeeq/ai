@@ -1,0 +1,71 @@
+name: TAGit v4.9 Forward Evidence
+
+on:
+  workflow_run:
+    workflows: ["TAGit Finviz Elite Rich Feed"]
+    types: [completed]
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tagit/build-v49-forward-evidence.py'
+      - '.github/workflows/tagit-v49-forward-evidence.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-v49-forward-evidence-main
+  cancel-in-progress: true
+
+jobs:
+  collect:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Sync latest main
+        run: git pull --rebase origin main
+      - name: Validate collector
+        run: python -m py_compile tagit/build-v49-forward-evidence.py
+      - name: Build immutable first-event evidence and update outcomes
+        run: python tagit/build-v49-forward-evidence.py
+      - name: Verify v4.9 causal contract
+        run: |
+          python - <<'PY'
+          import json,pathlib
+          e=json.loads(pathlib.Path('tag/data/tagit-v49-forward-evidence.json').read_text())
+          s=json.loads(pathlib.Path('tag/data/tagit-v49-evidence-summary.json').read_text())
+          assert e['policy']=='SHADOW_EVIDENCE_ONLY_NO_CHAMPION_OVERRIDE'
+          assert e['evidenceImmutable'] is True
+          assert e['rawBarsPersisted'] is False
+          assert e['rawEliteRowsPersisted'] is False
+          ids=[x.get('eventId') for x in e.get('events',[])]
+          assert len(ids)==len(set(ids))
+          for x in e.get('events',[]):
+              ev=x.get('evidence') or {}; cat=ev.get('catalyst') or {}; sec=ev.get('sec') or {}
+              assert cat.get('freshnessMin') is None
+              if sec.get('knownAtEvent'):
+                  assert sec.get('causalStatus')=='ACCEPTED_BEFORE_OR_AT_EVENT'
+              assert (ev.get('dataCompleteness') or {}).get('spreadStatus')=='UNKNOWN_NOT_ZERO'
+          assert s['promotionPolicy']=='NO_AUTO_PROMOTION_FROM_FORWARD_STORE'
+          print(json.dumps({'events':len(ids),'counts':s['counts'],'overall':s['overall']},indent=2))
+          PY
+      - name: Commit derived evidence only
+        run: |
+          git config user.name tagit-evidence-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/tagit-v49-forward-evidence.json tag/data/tagit-v49-evidence-summary.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: refresh TAGit v4.9 forward evidence'
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            sleep $((i*5))
+          done
+          exit 1
