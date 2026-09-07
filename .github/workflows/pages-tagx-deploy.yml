@@ -13,6 +13,7 @@ on:
       - 'tagit/auth.css'
       - 'tagit/ledger.js'
       - 'tag/data/tagit-signal-feed.json'
+      - 'tag/data/tagit-v41-shadow.json'
       - 'tag/data/finviz.json'
       - '.github/workflows/pages-tagx-deploy.yml'
   workflow_dispatch:
@@ -35,7 +36,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Build restricted personal site artifact
+      - name: Build restricted TAGit 4.1 artifact
         run: |
           rm -rf _site
           mkdir -p _site/tagit _site/tag/data
@@ -44,6 +45,8 @@ jobs:
           import json,pathlib
           sig=json.loads(pathlib.Path('tag/data/tagit-signal-feed.json').read_text())
           base=json.loads(pathlib.Path('tag/data/finviz.json').read_text())
+          v41p=pathlib.Path('tag/data/tagit-v41-shadow.json')
+          v41=json.loads(v41p.read_text()) if v41p.exists() else {'items':[],'status':'DEGRADED','counts':{}}
           def num(v):
               if v in (None,'','-','N/A'):return None
               try:return float(str(v).replace(',','').replace('$','').replace('%','').replace('x',''))
@@ -57,18 +60,45 @@ jobs:
               try:return float(s)*m
               except:return None
           bm={str(r.get('Ticker') or r.get('Symbol') or '').upper():r for r in (base.get('rows') or base.get('data') or [])}
-          for x in sig.get('items') or []:
-              r=bm.get(str(x.get('symbol') or '').upper(),{})
+          vm={str(x.get('symbol') or '').upper():x for x in (v41.get('items') or [])}
+          items=sig.get('items') or []
+          by={str(x.get('symbol') or '').upper():x for x in items}
+          def market_fields(sym,x):
+              r=bm.get(sym,{})
               price=num(r.get('Price'));vol=num(r.get('Volume'));fl=shares(r.get('Shares Float') or r.get('Float') or r.get('Shs Float'))
               x['price']=price;x['changePct']=num(r.get('Change'));x['rvol']=num(r.get('Relative Volume') if r.get('Relative Volume') is not None else r.get('Rel Volume'));x['floatRotation']=(vol/fl if vol is not None and fl else None)
+          for x in items:
+              sym=str(x.get('symbol') or '').upper();market_fields(sym,x)
+              z=vm.get(sym)
+              if z:
+                  x['v41Shadow']={k:z.get(k) for k in ('v41State','surfaceEligible','rank','rankScorePct','eventConviction','persistenceScore','continuationScore','selectedStreak','progressionSeen','momentum5mPct','momentum10mPct','catalystQuality','catalystContext','riskContext','reason','executionVerified','scoreMeaning')}
+          # Add v4.1 discoveries that are absent from the legacy derived feed.
+          for sym,z in vm.items():
+              if sym in by or z.get('v41State') not in ('V41_ALERT','V41_DISCOVER'):continue
+              state='WATCH' if z.get('v41State')=='V41_ALERT' else 'DISCOVER'
+              phase='ACCELERATION' if z.get('progressionSeen') else 'IGNITION'
+              x={'symbol':sym,'phase':phase,'score':z.get('rankScorePct'),'actionability':z.get('eventConviction'),'state':state,
+                 'modelEvidence':z.get('reason'),'executionVerified':False,'executionNote':'TAGit v4.1 shadow research event; not a trade instruction.',
+                 'v41Shadow':{k:z.get(k) for k in ('v41State','surfaceEligible','rank','rankScorePct','eventConviction','persistenceScore','continuationScore','selectedStreak','progressionSeen','momentum5mPct','momentum10mPct','catalystQuality','catalystContext','riskContext','reason','executionVerified','scoreMeaning')}}
+              market_fields(sym,x);items.append(x)
+          def priority(x):
+              z=x.get('v41Shadow') or {};s=z.get('v41State')
+              return (2 if s=='V41_ALERT' else 1 if s=='V41_DISCOVER' else 0, float(z.get('eventConviction') or x.get('actionability') or 0))
+          items.sort(key=priority,reverse=True)
+          sig['items']=items[:100]
+          sig['uiVersion']='TAGit 4.1 Personal'
+          sig['v41Status']=v41.get('status')
+          sig['v41Counts']=v41.get('counts') or {}
+          sig['v41Policy']='SHADOW_ONLY_NO_CHAMPION_OVERRIDE'
           sig['publicationPolicy']='PERSONAL_RESTRICTED_ARTIFACT_DERIVED_VIEW_ONLY'
           pathlib.Path('_site/tag/data/tagit-view.json').write_text(json.dumps(sig,ensure_ascii=False,separators=(',',':')))
           PY
           find _site -maxdepth 3 -type f -print
           test ! -e _site/tag/data/finviz.json
-          test ! -e _site/tag/data/tagit-v25-shadow.json
+          test ! -e _site/tag/data/tagit-v41-shadow.json
+          test ! -e _site/tag/data/tagit-v4-shadow.json
           test ! -e _site/tag/data/tagit-shadow-learning-ledger.json
-          test ! -e _site/tag/model/tagit-v25-production.joblib
+          test ! -e _site/tag/model/tagit-v4-live-compatible.joblib
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload restricted site artifact
