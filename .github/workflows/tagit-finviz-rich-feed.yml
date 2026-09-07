@@ -14,6 +14,7 @@ on:
       - 'tag/model/tagit-v4-live-compatible-meta.json'
       - 'tagit/build-shadow-learning-ledger.py'
       - 'tagit/follow-v4-events.py'
+      - 'tagit/summarize-v4-forward.py'
       - '.github/workflows/tagit-finviz-rich-feed.yml'
 
 permissions:
@@ -151,6 +152,10 @@ jobs:
         run: |
           python -m py_compile tagit/follow-v4-events.py
           python tagit/follow-v4-events.py
+      - name: Summarize v4 forward event evidence
+        run: |
+          python -m py_compile tagit/summarize-v4-forward.py
+          python tagit/summarize-v4-forward.py
       - name: Attach catalyst shadow features to derived outputs
         run: python tagit/attach-catalyst-derived.py
       - name: Build catalyst calibration report
@@ -164,7 +169,7 @@ jobs:
           fi
           git config user.name tagit-data-bot
           git config user.email actions@users.noreply.github.com
-          git add tag/data/tagit-signal-feed.json tag/data/finviz-rich-health.json tag/data/tagit-data-contract.json tag/data/tagit-shadow-learning-ledger.json tag/data/tagit-v25-shadow.json tag/data/tagit-v3-shadow.json tag/data/tagit-v4-shadow.json tag/data/tagit-catalyst-calibration.json
+          git add tag/data/tagit-signal-feed.json tag/data/finviz-rich-health.json tag/data/tagit-data-contract.json tag/data/tagit-shadow-learning-ledger.json tag/data/tagit-v25-shadow.json tag/data/tagit-v3-shadow.json tag/data/tagit-v4-shadow.json tag/data/tagit-v4-forward-eval.json tag/data/tagit-catalyst-calibration.json
           git diff --cached --quiet && exit 0
           git commit -m 'data: refresh TAGit v4 and legacy shadow outputs'
           for i in 1 2 3; do
