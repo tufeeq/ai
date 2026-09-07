@@ -1,0 +1,60 @@
+name: TAGit v4 Event Outcome Follow-up
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * *'
+  push:
+    paths:
+      - 'tagit/follow-v4-events.py'
+      - '.github/workflows/tagit-v4-event-followup.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-v4-event-followup-main
+  cancel-in-progress: false
+
+jobs:
+  follow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sync main
+        run: git pull --rebase origin main
+      - name: Syntax check
+        run: python -m py_compile tagit/follow-v4-events.py
+      - name: Follow open v4 events independently
+        run: python tagit/follow-v4-events.py
+      - name: Verify outcome contract
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('tag/data/tagit-shadow-learning-ledger.json'))
+          x=p.get('v4OutcomeFollower') or {}
+          assert x.get('method')=='INDEPENDENT_TRANSIENT_YAHOO_1M_EVENT_FOLLOWUP'
+          assert x.get('targetWindowMin')==60
+          assert x.get('executionVerified') is False
+          assert x.get('rawBarsPersisted') is False
+          for r in p.get('records') or []:
+              if r.get('v4OutcomeCensored60'):
+                  assert r.get('v4OutcomeLabel') is None
+          print('TAGit v4 outcome follower contract PASS')
+          PY
+      - name: Commit derived outcome fields only
+        run: |
+          git config user.name tagit-v4-outcome-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/tagit-shadow-learning-ledger.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: follow TAGit v4 surface events to 60m'
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            sleep $((i*4))
+          done
+          exit 1
