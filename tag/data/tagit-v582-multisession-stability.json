@@ -1,0 +1,101 @@
+{
+  "schemaVersion": "5.8.2-stability-selected-multisession",
+  "status": "COMPLETE",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "selectedConfig": {
+    "minCarryScore": 0.45,
+    "minPNext1Explode20": 0.7,
+    "minPNext2Explode20": 0.3,
+    "minPredNext2MaxGainPct": 20,
+    "maxDisagreement": 0.12
+  },
+  "calibrationStability": {
+    "blockA": {
+      "count": 87,
+      "tpNext1": 26,
+      "next1Precision20Pct": 29.89,
+      "wilsonLower90Next1Pct": 22.52,
+      "dayBlockBootstrapLower90Pct": 23.45,
+      "activeDays": 38,
+      "top3DailyCount": 75,
+      "top3DailyPrecision20Pct": 28.0,
+      "winnerDays": 52,
+      "capturedWinnerDays": 22,
+      "winnerDayRecallPct": 42.31,
+      "medianNext2MaxGainPct": 12.6,
+      "p75Next2MaxGainPct": 28.75
+    },
+    "blockB": {
+      "count": 108,
+      "tpNext1": 31,
+      "next1Precision20Pct": 28.7,
+      "wilsonLower90Next1Pct": 22.13,
+      "dayBlockBootstrapLower90Pct": 22.32,
+      "activeDays": 45,
+      "top3DailyCount": 92,
+      "top3DailyPrecision20Pct": 28.26,
+      "winnerDays": 54,
+      "capturedWinnerDays": 23,
+      "winnerDayRecallPct": 42.59,
+      "medianNext2MaxGainPct": 13.96,
+      "p75Next2MaxGainPct": 27.81
+    },
+    "full": {
+      "count": 195,
+      "tpNext1": 57,
+      "next1Precision20Pct": 29.23,
+      "wilsonLower90Next1Pct": 24.19,
+      "dayBlockBootstrapLower90Pct": 24.74,
+      "activeDays": 83,
+      "top3DailyCount": 167,
+      "top3DailyPrecision20Pct": 28.14,
+      "winnerDays": 106,
+      "capturedWinnerDays": 45,
+      "winnerDayRecallPct": 42.45,
+      "medianNext2MaxGainPct": 13.28,
+      "p75Next2MaxGainPct": 28.23
+    },
+    "blockADateRange": [
+      "2025-10-22",
+      "2026-01-07"
+    ],
+    "blockBDateRange": [
+      "2026-01-08",
+      "2026-03-26"
+    ]
+  },
+  "holdout": {
+    "count": 308,
+    "tpNext1": 89,
+    "next1Precision20Pct": 28.9,
+    "wilsonLower90Next1Pct": 24.85,
+    "dayBlockBootstrapLower90Pct": 24.58,
+    "activeDays": 103,
+    "top3DailyCount": 240,
+    "top3DailyPrecision20Pct": 30.83,
+    "winnerDays": 109,
+    "capturedWinnerDays": 60,
+    "winnerDayRecallPct": 55.05,
+    "medianNext2MaxGainPct": 12.46,
+    "p75Next2MaxGainPct": 33.34
+  },
+  "universeIntegrity": {
+    "marketWidePointInTimeUniverse": false,
+    "realDiscoveryPrecisionClaimAllowed": false,
+    "reason": "historical training/evaluation universe includes mover-conditioned symbols; precision is conditional holdout precision, not market-wide discovery precision"
+  },
+  "antiLeakage": [
+    "features use current/prior completed sessions only",
+    "future sessions are labels only",
+    "train/calibration label horizons are purged at split boundaries",
+    "configuration selected only from two chronological calibration sub-blocks",
+    "untouched chronological holdout evaluated after stable configuration freeze",
+    "day-block bootstrap resamples active dates rather than pretending all observations are IID"
+  ],
+  "claimGate": {
+    "adequateIndependentSupport": true,
+    "credible90Claim": false,
+    "forwardConfirmationRequired": true
+  },
+  "mainBottleneck": "separating robust carryover ignition from false continuation across regimes while historical universe remains mover-conditioned"
+}
