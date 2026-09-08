@@ -1,0 +1,203 @@
+{
+  "schemaVersion": "5.26-ordinal-path-pit",
+  "generatedAtUTC": "2026-09-08T06:46:40.589264+00:00",
+  "status": "COMPLETE",
+  "dataMode": "NASDAQ_PLUS_YAHOO_RECENT_BOOTSTRAP",
+  "validationStatus": "RESEARCH_COMPARISON_ONLY",
+  "holdoutStatus": "CONSUMED_RESEARCH_HOLDOUT",
+  "change": [
+    "execution-aware +10/+15/+20 nested path labels",
+    "fixed geometric ordinal path score",
+    "monotonicity-violation abstention",
+    "long+recent causal models at each stage",
+    "missing-volume protections retained"
+  ],
+  "label": {
+    "entry": "first regular-session open",
+    "targetsPct": [
+      10,
+      15,
+      20
+    ],
+    "preHitMaeFloorPct": -8.0,
+    "thresholdTuned": false
+  },
+  "population": {
+    "symbolsRequested": 650,
+    "symbolsSucceeded": 642,
+    "independentTickerDays": 26217,
+    "days": 59,
+    "path10": 1587,
+    "path15": 656,
+    "path20": 308
+  },
+  "development": {
+    "days": 47,
+    "folds": [
+      {
+        "fitDays": 21,
+        "validationDays": 9,
+        "fitRows": 9343,
+        "validationRows": 3807
+      },
+      {
+        "fitDays": 30,
+        "validationDays": 9,
+        "fitRows": 13150,
+        "validationRows": 3821
+      },
+      {
+        "fitDays": 39,
+        "validationDays": 8,
+        "fitRows": 16971,
+        "validationRows": 3644
+      }
+    ],
+    "foldMetrics": [
+      {
+        "count": 27,
+        "tp20": 7,
+        "precision20Pct": 25.93,
+        "wilsonLower90Pct": 14.71,
+        "dayBlockLower90Pct": 14.79,
+        "activeDays": 9,
+        "medianLeadMin": 35.0,
+        "top3DailyPrecisionPct": 19.05,
+        "medianRemainingUpsidePct": 8.63,
+        "winnerDayRecallPct": 55.56
+      },
+      {
+        "count": 31,
+        "tp20": 7,
+        "precision20Pct": 22.58,
+        "wilsonLower90Pct": 12.73,
+        "dayBlockLower90Pct": 13.33,
+        "activeDays": 8,
+        "medianLeadMin": 60.0,
+        "top3DailyPrecisionPct": 29.17,
+        "medianRemainingUpsidePct": 7.54,
+        "winnerDayRecallPct": 66.67
+      },
+      {
+        "count": 40,
+        "tp20": 8,
+        "precision20Pct": 20.0,
+        "wilsonLower90Pct": 11.65,
+        "dayBlockLower90Pct": 15.0,
+        "activeDays": 8,
+        "medianLeadMin": 52.5,
+        "top3DailyPrecisionPct": 4.17,
+        "medianRemainingUpsidePct": 10.21,
+        "winnerDayRecallPct": 87.5
+      }
+    ],
+    "stageAudits": [
+      {
+        "path10": [
+          18,
+          8015,
+          511
+        ],
+        "path15": [
+          18,
+          8015,
+          205
+        ],
+        "path20": [
+          18,
+          8015,
+          89
+        ]
+      },
+      {
+        "path10": [
+          18,
+          7787,
+          369
+        ],
+        "path15": [
+          18,
+          7787,
+          139
+        ],
+        "path20": [
+          18,
+          7787,
+          66
+        ]
+      },
+      {
+        "path10": [
+          18,
+          7628,
+          473
+        ],
+        "path15": [
+          18,
+          7628,
+          189
+        ],
+        "path20": [
+          18,
+          7628,
+          90
+        ]
+      }
+    ]
+  },
+  "selectedConfig": {
+    "recentWindowDays": 18,
+    "recentWeight": 0.7,
+    "scoreThreshold": 0.428432,
+    "maxCombinedDisagreement": 0.16,
+    "topNPerDay": 5,
+    "pathWeights": {
+      "p20": 0.6,
+      "p15": 0.25,
+      "p10": 0.15
+    }
+  },
+  "researchHoldout": {
+    "count": 55,
+    "tp20": 9,
+    "precision20Pct": 16.36,
+    "wilsonLower90Pct": 9.78,
+    "dayBlockLower90Pct": 10.91,
+    "activeDays": 11,
+    "medianLeadMin": 65.0,
+    "top3DailyPrecisionPct": 18.18,
+    "medianRemainingUpsidePct": 9.09,
+    "winnerDayRecallPct": 72.73
+  },
+  "finalStageFits": {
+    "path10": {
+      "days": 18,
+      "rows": 7888,
+      "positives": 576
+    },
+    "path15": {
+      "days": 18,
+      "rows": 7888,
+      "positives": 245
+    },
+    "path20": {
+      "days": 18,
+      "rows": 7888,
+      "positives": 123
+    }
+  },
+  "realDiscoveryPrecisionPct": null,
+  "providerIntegrity": {
+    "historicalPointInTimeUniverse": false,
+    "survivorshipSafe": false,
+    "marketWidePrecisionClaimAllowed": false
+  },
+  "antiLeakage": [
+    "all features frozen <=09:15 ET",
+    "regular-session path used only for labels",
+    "nested path thresholds fixed ex ante",
+    "recent models use only completed sessions before each validation block",
+    "configuration selected on development folds only",
+    "research tail excluded from selection and already consumed"
+  ]
+}
