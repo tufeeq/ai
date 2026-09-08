@@ -1,0 +1,53 @@
+name: TAGit Forward PIT Freeze
+on:
+  workflow_dispatch:
+  schedule:
+    # Run both UTC candidates; script self-enforces 08:55-09:15 America/New_York,
+    # so DST selects exactly one valid run and the other exits harmlessly.
+    - cron: '5 13 * * 1-5'
+    - cron: '5 14 * * 1-5'
+permissions:
+  contents: write
+concurrency:
+  group: tagit-forward-freeze
+  cancel-in-progress: false
+jobs:
+  freeze:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax check
+        run: python -m py_compile tagit/forward_freeze_v1.py
+      - name: Freeze if inside causal window
+        id: freeze
+        shell: bash
+        run: |
+          set +e
+          out=$(python tagit/forward_freeze_v1.py 2>&1)
+          rc=$?
+          echo "$out"
+          if echo "$out" | grep -q 'freeze refused outside'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if echo "$out" | grep -q 'immutable snapshot already exists'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          exit $rc
+      - name: Commit immutable forward snapshot
+        if: steps.freeze.outputs.skip != 'true'
+        run: |
+          git config user.name 'TAGit Forward Validation Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tag/data/forward/
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: freeze TAGit point-in-time forward universe'
+          git pull --rebase origin main
+          git push origin main
