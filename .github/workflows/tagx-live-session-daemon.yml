@@ -13,9 +13,6 @@ permissions:
   actions: write
   contents: read
 
-# Keep this daemon isolated from high-frequency data-file pushes. Previously,
-# those pushes could repeatedly cancel/restart the daemon before its pulse loop
-# completed. Discovery/Finviz events are handled by the separate event bridge.
 concurrency:
   group: tagx-live-session-daemon-main
   cancel-in-progress: false
@@ -32,7 +29,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for i in $(seq 1 9); do
+          # 12 pulses x 75s keeps the producer moving almost continuously between
+          # the 15-minute daemon starts without relying on GitHub cron precision.
+          for i in $(seq 1 12); do
             DOW=$(TZ=America/New_York date +%u)
             HM=$(TZ=America/New_York date +%H%M)
             if [ "$DOW" -gt 5 ] || [ "$HM" -lt 0400 ] || [ "$HM" -gt 2000 ]; then
@@ -40,22 +39,17 @@ jobs:
               exit 0
             fi
 
-            echo "Session pulse $i/9 at $(TZ=America/New_York date -Iseconds)"
+            echo "Session pulse $i/12 at $(TZ=America/New_York date -Iseconds)"
 
-            # Train/label the previous completed quote snapshot first. workflow_dispatch
-            # is intentionally used because GitHub suppresses recursive push-triggered
-            # workflows created with GITHUB_TOKEN.
             gh api --method POST \
               -H "Accept: application/vnd.github+json" \
               "/repos/${REPO}/actions/workflows/tagit-realtime-pit-learning.yml/dispatches" \
               -f ref=main || true
 
-            # Then produce the next near-live quote snapshot; the following pulse will
-            # freeze it into the forward cohort and mature any due labels.
             gh api --method POST \
               -H "Accept: application/vnd.github+json" \
               "/repos/${REPO}/actions/workflows/tagx-live-quotes.yml/dispatches" \
               -f ref=main || true
 
-            [ "$i" -lt 9 ] && sleep 100
+            [ "$i" -lt 12 ] && sleep 75
           done
