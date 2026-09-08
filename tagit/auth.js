@@ -1,4 +1,4 @@
-const ACCESS_HASH='9e0697be2ca367b16a35274defaafecc8df7166d9e965203e2ee00ee2ae025aa';
+const ACCESS_HASH='13f82987984a1794059ccc98d5330f37c246c1ec100e97f3e04637a01678d120';
 const SESSION_KEY='tagit-personal-access-v1';
 async function sha256(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
 function unlock(){document.documentElement.classList.add('tagit-unlocked');document.getElementById('tagitLock')?.remove();import('./app-v5.js?v=530')}
