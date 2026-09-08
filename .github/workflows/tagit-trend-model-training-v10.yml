@@ -1,0 +1,58 @@
+name: TAGit Simulated Trend Training V10
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tagit/train-trend-model-v10.py'
+      - '.github/workflows/tagit-trend-model-training-v10.yml'
+  schedule:
+    - cron: '25 21 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-trend-training-v10
+  cancel-in-progress: true
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sync latest main
+        run: git pull --rebase origin main
+      - name: Validate trainer
+        run: python -m py_compile tagit/train-trend-model-v10.py
+      - name: Simulated PIT trend training
+        run: python tagit/train-trend-model-v10.py
+      - name: Validate model contract
+        run: |
+          python - <<'PY'
+          import json
+          m=json.load(open('tag/data/tagit-trend-model-v10.json'))
+          r=json.load(open('tag/data/tagit-training-report-v10.json'))
+          assert m['schemaVersion']==10
+          assert m['guardrails']['noFutureFeatures'] is True
+          assert m['examples']>=100
+          assert r['status']=='SIMULATED_NOT_PRODUCTION_PROOF'
+          print({'examples':m['examples'],'snapshots':m['snapshotsUsed'],'holdout':m['validation']['symbolHoldout'],'threshold':m['threshold']})
+          PY
+      - name: Commit trained model and report
+        run: |
+          git config user.name tagit-training-v10-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/tagit-trend-model-v10.json tag/data/tagit-training-report-v10.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'model: update TAGit trend model v10'
+          for i in 1 2 3 4; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            sleep $((i*4))
+          done
+          exit 1
