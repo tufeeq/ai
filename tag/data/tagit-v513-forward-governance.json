@@ -1,12 +1,14 @@
 {
-  "schemaVersion": "5.13-forward-governance",
-  "generatedAtUTC": "2026-09-08T00:51:50.591552+00:00",
-  "status": "READY_FOR_FORWARD_ACCUMULATION",
+  "schemaVersion": "5.13.3-forward-governance",
+  "generatedAtUTC": "2026-09-08T02:27:58.471260+00:00",
+  "status": "CAPTURE_ONLY_MODEL_FREEZE_REQUIRED",
   "realDiscoveryPrecisionPct": null,
   "universeIntegrity": false,
+  "predictionArtifactIntegrity": false,
+  "forwardScoringEligible": false,
   "promotionEligible": false,
   "historicalHoldoutStatus": "CONSUMED_FOR_RESEARCH_COMPARISON",
-  "reason": "v5.12.2 and v5.12.3 were both inspected on the same chronological holdout; cross-version adaptation makes that period ineligible as an untouched promotion holdout",
+  "reason": "v5.12.2/v5.12.3 holdout is consumed and v5.13 had frozen thresholds but not executable model parameters; source capture may continue but predictions cannot count as frozen-candidate forward evidence",
   "historicalBenchmarks": {
     "v5.12.2": {
       "schemaVersion": "5.12.2",
@@ -55,7 +57,8 @@
       "minScore": 0.8,
       "maxDisagreement": 0.1,
       "minPredUpside": 6
-    }
+    },
+    "artifactSha256": null
   },
   "forwardGate": {
     "oneDecisionPerTickerDay": true,
@@ -63,6 +66,8 @@
     "pointInTimeUniverseRequired": true,
     "pointInTimeContextRequired": true,
     "predictionFrozenBeforeOutcome": true,
+    "frozenExecutableModelArtifactRequired": true,
+    "modelArtifactSha256Required": true,
     "minimumIndependentTickerDays": 100,
     "minimumActiveDays": 20,
     "minimumUniverseArchiveDays": 20,
@@ -70,14 +75,16 @@
     "requireDayBlockBootstrapLower90Pct": true,
     "forwardConfirmationRequired": true,
     "historicalHoldoutMaySelectFutureModels": false,
-    "ninetyPctClaimRule": "only if precision >=90%, Wilson lower 90% >=80%, day-block lower 90% >=80%, support/day gates pass, universe integrity passes, and an additional forward confirmation period independently confirms performance"
+    "ninetyPctClaimRule": "only if precision >=90%, Wilson lower 90% >=80%, day-block lower 90% >=80%, support/day gates pass, point-in-time universe integrity and frozen prediction-artifact integrity pass, and an additional forward confirmation period independently confirms performance"
   },
   "antiLeakage": [
     "historical v5.12.x holdout is consumed and cannot promote later versions",
+    "forward universe may be captured before a model artifact exists, but such captures are not scored retrospectively as if predictions were frozen",
+    "exact executable model parameters and feature schema must be hash-addressed before a prediction can enter a confirmation tranche",
     "forward universe must be captured before labels exist",
     "float/short/news/filing context must be timestamped and available at decision time",
     "future regular-session bars are labels only",
-    "no threshold or architecture changes based on outcomes inside an active forward confirmation tranche",
+    "no threshold, architecture, or model-parameter changes based on outcomes inside an active forward confirmation tranche",
     "new model versions require a new forward tranche after freeze"
   ]
 }
