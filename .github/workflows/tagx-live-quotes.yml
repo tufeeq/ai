@@ -13,9 +13,11 @@ on:
 permissions:
   contents: write
 
+# Never cancel a valid quote build merely because the daemon fires the next pulse.
+# Serializing refreshes is safer than publishing partially-built or skipped snapshots.
 concurrency:
   group: tagx-live-quotes-main
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   refresh-live-quotes:
@@ -36,7 +38,7 @@ jobs:
       - name: Validate live feed contract
         run: |
           python - <<'PY'
-          import json, pathlib, sys
+          import json, pathlib
           p=pathlib.Path('tag/data/live-quotes.json')
           x=json.loads(p.read_text())
           required=['updatedAtUTC','marketClockSession','quotes','earlyCandidates','emergingCandidates','accumulationCandidates']
