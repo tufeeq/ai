@@ -1,0 +1,64 @@
+name: TAGit v5.8.4 Multi-Session Asymmetric Veto
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tagit/multisession-continuation-v584.py'
+      - '.github/workflows/tagit-v584-multisession-asymmetric-veto.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-v584-multisession-asymmetric-veto
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -q numpy scikit-learn
+      - name: Syntax check
+        run: python -m py_compile tagit/multisession-continuation-v584.py
+      - name: Train asymmetric failure-veto continuation model
+        run: python tagit/multisession-continuation-v584.py
+      - name: Verify evidence contract
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('tag/data/tagit-v584-multisession-asymmetric-veto.json')
+          assert p.exists()
+          r=json.loads(p.read_text())
+          assert r['status']=='COMPLETE'
+          assert r['realDiscoveryPrecisionPct'] is None
+          assert r['universeIntegrity']['realDiscoveryPrecisionClaimAllowed'] is False
+          assert r['credible90Claim'] is False
+          assert 'calibration B confirms before research holdout is opened' in r['antiLeakage']
+          h=r['holdout']
+          for k in ('count','next1Precision20Pct','wilsonLower90Next1Pct','dayBlockLower90Next1Pct','activeDays','top3DailyPrecision20Pct','medianNext2MaxGainPct','winnerDayRecallPct'):
+              assert k in h
+          print('V5.8.4 calibration B:',r['calibrationBConfirmation'])
+          print('V5.8.4 holdout:',h)
+          PY
+      - name: Commit evidence
+        run: |
+          git config user.name "TAGit Research Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagit-v584-multisession-asymmetric-veto.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "research: record v5.8.4 asymmetric-veto evidence"
+          git stash push --include-untracked -m "v584-transient-generated-files" || true
+          git pull --rebase origin main
+          git push origin main
