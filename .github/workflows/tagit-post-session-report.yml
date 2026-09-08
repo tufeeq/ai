@@ -1,0 +1,116 @@
+name: TAGit Post Session Report
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '25 20 * * 1-5'
+    - cron: '25 21 * * 1-5'
+
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: tagit-post-session-report-main
+  cancel-in-progress: true
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Gate to 16:15-16:45 America/New_York
+        id: gate
+        shell: bash
+        run: |
+          HM=$(TZ=America/New_York date +%H%M)
+          DOW=$(TZ=America/New_York date +%u)
+          if [ "$DOW" -gt 5 ] || [ "$HM" -lt 1615 ] || [ "$HM" -gt 1645 ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Outside finalization window: $(TZ=America/New_York date -Iseconds)"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Request fresh Finviz close snapshot
+        if: steps.gate.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run refresh-finviz.yml --ref main
+
+      - name: Wait for verified after-close Finviz snapshot
+        if: steps.gate.outputs.run == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 12); do
+            git pull --rebase --autostash origin main || true
+            if python - <<'PY'
+          import json,sys
+          from pathlib import Path
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          p=Path('tag/data/finviz.json')
+          try:
+              d=json.loads(p.read_text())
+              ts=d.get('updatedAtUTC') or d.get('updatedAt') or d.get('generatedAtUTC')
+              dt=datetime.fromisoformat(str(ts).replace('Z','+00:00')).astimezone(ZoneInfo('America/New_York'))
+              ok=(dt.hour>16 or (dt.hour==16 and dt.minute>=15))
+              print('Finviz snapshot ET:',dt.isoformat(),'valid=',ok)
+              sys.exit(0 if ok else 1)
+          except Exception as e:
+              print('Snapshot not ready:',e)
+              sys.exit(1)
+          PY
+            then
+              exit 0
+            fi
+            sleep 30
+          done
+          echo 'No verified after-close Finviz snapshot; refusing to freeze a stale report.'
+          exit 1
+
+      - name: Generate point-in-time audit
+        if: steps.gate.outputs.run == 'true'
+        run: python tagit/evaluate-top50-today.py
+
+      - name: Freeze post-session report
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from datetime import datetime, timezone
+          from zoneinfo import ZoneInfo
+          src=Path('tag/data/tagit-top50-audit.json')
+          out=Path('tag/data/tagit-post-session-report.json')
+          d=json.loads(src.read_text())
+          d['schemaVersion']=3
+          d['reportType']='POST_SESSION'
+          d['reportStatus']='FINAL'
+          now=datetime.now(timezone.utc)
+          d['finalizedAtUTC']=now.isoformat()
+          d['finalizedAtET']=now.astimezone(ZoneInfo('America/New_York')).isoformat()
+          d.setdefault('notes',[]).append('Frozen only after a verified Finviz benchmark at or after 16:15 America/New_York.')
+          out.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps({'status':d['reportStatus'],'benchmark':d['benchmark'],'metrics':d['metrics']},ensure_ascii=False,indent=2))
+          PY
+
+      - name: Commit final report
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          git config user.name tagit-post-session-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/tagit-top50-audit.json tag/data/tagit-post-session-report.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: freeze TAGit post-session report'
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            sleep $((i*4))
+          done
+          exit 1
