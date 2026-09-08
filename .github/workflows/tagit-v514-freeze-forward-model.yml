@@ -1,0 +1,62 @@
+name: TAGit v5.14 Freeze Forward Model
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tagit/preopen-freeze-forward-v514.py'
+      - '.github/workflows/tagit-v514-freeze-forward-model.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-v514-freeze-forward-model
+  cancel-in-progress: false
+
+jobs:
+  freeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install model dependencies
+        run: pip install --disable-pip-version-check numpy scikit-learn
+      - name: Freeze new forward-only model
+        run: python tagit/preopen-freeze-forward-v514.py
+      - name: Verify artifact semantics
+        run: |
+          python - <<'PY'
+          import json, hashlib, base64, pickle
+          from pathlib import Path
+          p=Path('tag/data/tagit-v514-frozen-model.json')
+          if not p.exists(): raise SystemExit('model artifact not created')
+          x=json.loads(p.read_text())
+          assert x['validationStatus']=='FORWARD_ONLY_NO_FRESH_HISTORICAL_HOLDOUT_CLAIM'
+          assert x['realDiscoveryPrecisionPct'] is None
+          assert x['universeIntegrity'] is False
+          raw=base64.b64decode(x['modelPayloadBase64'])
+          assert hashlib.sha256(raw).hexdigest()==x['modelPayloadSha256']
+          m=pickle.loads(raw)
+          assert 'classifierEnsemble' in m and 'upsideRegressorEnsemble' in m
+          assert x['trainingIndependentTickerDays']>=300
+          assert x['trainingActiveDays']>=20
+          print('v5.14 artifact verified', x['modelPayloadSha256'])
+          PY
+      - name: Commit immutable forward artifact
+        run: |
+          git config user.name 'TAGit Research Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tag/data/tagit-v514-frozen-model.json tag/data/tagit-v514-freeze-report.json tag/data/tagit-v5122-preopen-fixed-cutoff.json tag/data/tagit-v5122-preopen-cases.json
+          if git diff --cached --quiet; then
+            echo 'No artifact changes to commit'
+            exit 0
+          fi
+          git commit -m 'research: freeze v5.14 executable pre-open forward candidate'
+          git pull --rebase origin main
+          git push origin HEAD:main
