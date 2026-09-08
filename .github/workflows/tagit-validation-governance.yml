@@ -1,0 +1,49 @@
+name: TAGit Validation Governance
+
+on:
+  push:
+    paths:
+      - 'tag/data/tagit-v5*.json'
+      - 'tagit/build-validation-governance.mjs'
+      - '.github/workflows/tagit-validation-governance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-validation-governance-main
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build strict evidence governance view
+        run: |
+          node --check tagit/build-validation-governance.mjs
+          node tagit/build-validation-governance.mjs
+      - name: Guard against unsupported 90 percent claims
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const x=JSON.parse(fs.readFileSync('tag/data/tagit-validation-governance.json','utf8'));
+          console.log('claim90Allowed=',x.claim90Allowed,'blockers=',x.blockers.join(','));
+          if(x.claim90Allowed && (!x.universeIntegrity.historicalPointInTimeUniverse || !x.universeIntegrity.survivorshipSafe)) process.exit(1);
+          NODE
+      - name: Commit governance output
+        run: |
+          git config user.name tagit-validation-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/tagit-validation-governance.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'validation: refresh strict TAGit evidence governance'
+          git pull --rebase --autostash origin main
+          git push origin HEAD:main
