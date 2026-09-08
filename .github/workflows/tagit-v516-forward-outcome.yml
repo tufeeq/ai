@@ -1,0 +1,80 @@
+name: TAGit v5.16 Immutable Forward Outcome Evaluation
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tagit/preopen-forward-outcome-v516.py'
+      - '.github/workflows/tagit-v516-forward-outcome.yml'
+  schedule:
+    # Companion UTC hours cover EDT/EST; ET gate below cleanly no-ops before 16:15.
+    - cron: '30 20,21 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-v516-forward-outcome
+  cancel-in-progress: false
+
+jobs:
+  validate-and-label:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify evaluator and uncertainty calculations
+        run: |
+          python -m py_compile tagit/preopen-forward-outcome-v516.py
+          python tagit/preopen-forward-outcome-v516.py --self-test
+      - name: Attach only completed-session outcomes
+        id: evaluate
+        shell: bash
+        run: |
+          hm=$(TZ=America/New_York date +%H%M)
+          if [ "$hm" -lt 1615 ] || [ "$hm" -gt 1830 ]; then
+            echo "Outside 16:15-18:30 ET ($hm); validation-only clean no-op."
+            echo "evaluated=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ ! -f tag/data/tagit-v515-forward-predictions.json ]; then
+            echo "No frozen forward prediction ledger yet; clean no-op."
+            echo "evaluated=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python tagit/preopen-forward-outcome-v516.py
+          echo "evaluated=true" >> "$GITHUB_OUTPUT"
+      - name: Verify separation, append-only policy and commit
+        if: steps.evaluate.outputs.evaluated == 'true'
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          r=pathlib.Path('tag/data/tagit-v516-forward-evaluation.json')
+          assert r.exists()
+          x=json.loads(r.read_text())
+          assert x['schemaVersion']=='5.16-forward-evaluation'
+          assert x['realDiscoveryPrecisionPct'] is None or x['metrics']['adequateIndependentSupport'] is True
+          if x['realDiscoveryPrecisionPct'] is not None:
+            assert x['universeIntegrity'] is True
+          o=pathlib.Path('tag/data/tagit-v516-forward-outcomes.json')
+          if o.exists():
+            z=json.loads(o.read_text())
+            assert z['policy']=='APPEND_ONLY_POST_SESSION_LABELS_SEPARATE_FROM_PREDICTIONS'
+            assert len({q['outcomeSetId'] for q in z['outcomes']})==len(z['outcomes'])
+          print('v5.16 status',x['status'],'support',x['metrics']['independentTickerDays'],'real',x['realDiscoveryPrecisionPct'])
+          PY
+          git config user.name "TAGit Forward Validation Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagit-v516-forward-evaluation.json tag/data/tagit-v516-forward-outcomes.json 2>/dev/null || true
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "validation: append v5.16 post-session outcomes"
+          git pull --rebase origin main
+          git push origin main
