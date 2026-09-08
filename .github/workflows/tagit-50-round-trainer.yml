@@ -1,0 +1,161 @@
+name: TAGit 50-Round Accuracy Trainer
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tagit-50-round-trainer.yml'
+  schedule:
+    - cron: '35 1 * * 2-6'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-50-round-trainer
+  cancel-in-progress: true
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Install ML stack
+        run: pip install -q numpy pandas scikit-learn scipy joblib
+      - name: Build historical intraday dataset and run 50 rounds
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime, urllib.request, urllib.parse, concurrent.futures, random, math, statistics
+          import numpy as np, pandas as pd
+          from sklearn.ensemble import HistGradientBoostingClassifier
+          from sklearn.metrics import precision_score, recall_score
+          from sklearn.preprocessing import StandardScaler
+          from sklearn.pipeline import make_pipeline
+          from scipy.stats import norm
+          from zoneinfo import ZoneInfo
+
+          random.seed(42); np.random.seed(42)
+          ROOT=pathlib.Path('tag/data'); OUT=ROOT/'training'; OUT.mkdir(parents=True,exist_ok=True)
+          ET=ZoneInfo('America/New_York')
+          def load(p):
+              try:return json.loads(pathlib.Path(p).read_text(encoding='utf-8'))
+              except:return {}
+          def num(v):
+              try:return float(str(v).replace('%','').replace(',','').replace('$',''))
+              except:return None
+          universe=[]; seen=set()
+          for p in ['tag/data/live-quotes.json','tag/data/discovery-fast.json','tag/data/discovery.json','tag/data/finviz.json']:
+              d=load(p); rows=[]
+              if isinstance(d.get('quotes'),dict): rows += [{'ticker':k} for k in d['quotes'].keys()]
+              r=d.get('rows') or d.get('data') or []
+              rows += list(r.values()) if isinstance(r,dict) else r
+              for x in rows:
+                  t=str(x.get('ticker') or x.get('Ticker') or x.get('symbol') or x.get('Symbol') or '').upper().strip()
+                  if t and t not in seen and 1<=len(t)<=8 and t.replace('.','').replace('-','').isalnum(): seen.add(t); universe.append(t)
+          universe=universe[:420]
+          print('universe',len(universe))
+
+          def fetch(t):
+              try:
+                  u='https://query1.finance.yahoo.com/v8/finance/chart/'+urllib.parse.quote(t)+'?interval=5m&range=60d&includePrePost=false&events=div%2Csplits'
+                  req=urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0 TAGitTrainer/1.0','Accept':'application/json'})
+                  with urllib.request.urlopen(req,timeout=7) as r:j=json.loads(r.read().decode())
+                  z=((j.get('chart') or {}).get('result') or [None])[0]
+                  if not z:return t,None
+                  ts=z.get('timestamp') or []; q=((z.get('indicators') or {}).get('quote') or [{}])[0]
+                  o=q.get('open') or []; h=q.get('high') or []; l=q.get('low') or []; c=q.get('close') or []; v=q.get('volume') or []
+                  a=[]
+                  for i,x in enumerate(ts):
+                      if i>=len(c) or c[i] is None: continue
+                      dt=datetime.datetime.fromtimestamp(x,datetime.timezone.utc).astimezone(ET)
+                      if dt.weekday()<5 and datetime.time(9,30)<=dt.time()<=datetime.time(16,0):
+                          a.append((dt,float(o[i] or c[i]),float(h[i] or c[i]),float(l[i] or c[i]),float(c[i]),float(v[i] or 0)))
+                  return t,a
+              except Exception:return t,None
+          raw={}
+          with concurrent.futures.ThreadPoolExecutor(max_workers=36) as ex:
+              for t,a in ex.map(fetch,universe):
+                  if a and len(a)>150: raw[t]=a
+          print('downloaded',len(raw))
+
+          feats=[]
+          for t,a in raw.items():
+              byday={}
+              for row in a: byday.setdefault(row[0].date(),[]).append(row)
+              for day,rs in byday.items():
+                  rs=sorted(rs,key=lambda x:x[0])
+                  if len(rs)<30: continue
+                  vols=np.array([x[5] for x in rs],float); closes=np.array([x[4] for x in rs],float); highs=np.array([x[2] for x in rs],float); lows=np.array([x[3] for x in rs],float)
+                  medv=max(1,float(np.median(vols[:max(6,min(18,len(vols)))]) or 1))
+                  for i in range(6,len(rs)-4,3):
+                      px=closes[i]
+                      if not (0.08<=px<=50):continue
+                      def ret(k):
+                          j=max(0,i-k); return (px/closes[j]-1)*100 if closes[j] else 0
+                      v5=vols[max(0,i):i+1].sum(); v15=vols[max(0,i-2):i+1].sum(); pv15=vols[max(0,i-5):max(0,i-2)].sum()
+                      acc15=v15/pv15 if pv15>0 else 1.0
+                      w=slice(max(0,i-2),i+1); rng=(highs[w].max()-lows[w].min())/px*100 if px else 99
+                      session_vol=vols[:i+1].sum(); relvol=(np.mean(vols[max(0,i-5):i+1])/medv) if medv else 1
+                      daych=(px/closes[0]-1)*100 if closes[0] else 0
+                      future=highs[i+1:]
+                      max_future=(future.max()/px-1)*100 if len(future) else 0
+                      y=1 if max_future>=20 else 0
+                      feats.append({'ticker':t,'day':str(day),'minute':i*5,'ret5':ret(1),'ret15':ret(3),'ret30':ret(6),'range15':rng,'volAccel15':acc15,'relVol':relvol,'sessionVolLog':math.log1p(session_vol),'dayChange':daych,'price':px,'label':y,'maxFuturePct':max_future})
+          df=pd.DataFrame(feats).replace([np.inf,-np.inf],np.nan).dropna()
+          if len(df)<1000: raise SystemExit(f'insufficient rows {len(df)}')
+          days=sorted(df.day.unique()); n=len(days); d1=days[int(n*.60)]; d2=days[int(n*.80)]
+          tr=df[df.day<d1].copy(); dv=df[(df.day>=d1)&(df.day<d2)].copy(); ho=df[df.day>=d2].copy()
+          F=['ret5','ret15','ret30','range15','volAccel15','relVol','sessionVolLog','dayChange','price','minute']
+          def wilson(k,n,conf=.90):
+              if n<=0:return 0.0
+              z=norm.ppf(1-(1-conf)/2); p=k/n; den=1+z*z/n
+              return (p+z*z/(2*n)-z*math.sqrt(p*(1-p)/n+z*z/(4*n*n)))/den
+          rounds=[]; best=None
+          for r in range(1,51):
+              cfg={'learning_rate':random.choice([.025,.04,.06,.08,.1]),'max_leaf_nodes':random.choice([7,11,15,23,31]),'max_iter':random.choice([100,160,220]),'l2_regularization':random.choice([0,.1,.5,1,2,4]),'min_samples_leaf':random.choice([20,35,50,75,100])}
+              model=HistGradientBoostingClassifier(random_state=1000+r,**cfg)
+              model.fit(tr[F],tr.label)
+              p=model.predict_proba(dv[F])[:,1]
+              for th in np.linspace(.45,.97,27):
+                  pred=p>=th; cnt=int(pred.sum())
+                  if cnt<40: continue
+                  tp=int(((dv.label.values==1)&pred).sum()); prec=tp/cnt; rec=tp/max(1,int((dv.label==1).sum())); low=wilson(tp,cnt)
+                  score=low*100 + min(rec,.5)*8 + min(cnt,250)/250
+                  cand=(score,prec,rec,low,cnt,tp,float(th),cfg,model)
+                  if best is None or cand[0]>best[0]: best=cand
+              top=np.argsort(-p)[:max(20,min(100,len(p)//20))]
+              tp=int(dv.iloc[top].label.sum()); cnt=len(top)
+              rounds.append({'round':r,'config':cfg,'topSampleCount':cnt,'topSamplePrecisionPct':round(tp/cnt*100,2) if cnt else 0})
+              print('round',r,'bestDevWilson90',round((best[3] if best else 0)*100,2),'precision',round((best[1] if best else 0)*100,2))
+          if best is None:raise SystemExit('no eligible model')
+          _,dev_prec,dev_rec,dev_low,dev_cnt,dev_tp,th,cfg,model=best
+          hp=model.predict_proba(ho[F])[:,1]; pred=hp>=th; hcnt=int(pred.sum()); htp=int(((ho.label.values==1)&pred).sum()); hprec=htp/hcnt if hcnt else 0; hrec=htp/max(1,int((ho.label==1).sum())); hlow=wilson(htp,hcnt)
+          now=datetime.datetime.now(datetime.timezone.utc).isoformat()
+          report={'schemaVersion':'tagit-v90-trainer-1','generatedAtUTC':now,'objective':'+20% future same-session precision with stability guard','rounds':50,'dataset':{'symbols':len(raw),'rows':len(df),'days':len(days),'trainRows':len(tr),'devRows':len(dv),'researchHoldoutRows':len(ho),'positiveRatePct':round(df.label.mean()*100,3)},'selectedConfig':cfg|{'threshold':round(th,4),'features':F},'development':{'count':dev_cnt,'tp20':dev_tp,'precision20Pct':round(dev_prec*100,2),'recallPct':round(dev_rec*100,2),'wilsonLower90Pct':round(dev_low*100,2)},'researchHoldout':{'status':'CONSUMED_ONCE_FOR_RESEARCH_REPORT_ONLY','count':hcnt,'tp20':htp,'precision20Pct':round(hprec*100,2),'recallPct':round(hrec*100,2),'wilsonLower90Pct':round(hlow*100,2)},'promotionPolicy':{'automaticPromotionUses':'development only','minPredictions':40,'targetPrecisionPct':90,'targetWilsonLower90Pct':90,'note':'90% is a target, never forced by shrinking support or reusing holdout'},'roundResults':rounds}
+          (OUT/'tagit-v90-latest.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
+          champion=load(OUT/'tagit-v90-champion.json')
+          old=float((champion.get('development') or {}).get('wilsonLower90Pct') or 0)
+          new=report['development']['wilsonLower90Pct']
+          promoted=False
+          if new>old and report['development']['count']>=40:
+              (OUT/'tagit-v90-champion.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8'); promoted=True
+          summary={'generatedAtUTC':now,'promoted':promoted,'previousDevWilson90Pct':old,'newDevWilson90Pct':new,'devPrecision20Pct':report['development']['precision20Pct'],'devRecallPct':report['development']['recallPct'],'researchHoldoutPrecision20Pct':report['researchHoldout']['precision20Pct'],'researchHoldoutWilson90Pct':report['researchHoldout']['wilsonLower90Pct'],'targetReached':new>=90 and report['development']['precision20Pct']>=90}
+          (OUT/'tagit-v90-status.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(summary,indent=2))
+          PY
+      - name: Commit reports and guarded champion
+        shell: bash
+        run: |
+          git config user.name 'TAGit Training Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tag/data/training/
+          git diff --cached --quiet && exit 0
+          git commit -m 'model: run TAGit 50-round chronological training cycle'
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*4)); done
+          exit 1
