@@ -1,0 +1,70 @@
+name: TAGit Point-in-Time Training Ledger
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 8-23 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-forward-training-ledger
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Capture point-in-time feature rows
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, pathlib, datetime
+          from zoneinfo import ZoneInfo
+          ET=ZoneInfo('America/New_York')
+          now=datetime.datetime.now(datetime.timezone.utc); et=now.astimezone(ET)
+          if et.weekday()>=5 or not (datetime.time(4,0) <= et.time() <= datetime.time(20,0)):
+              print('outside active US session'); raise SystemExit(0)
+          def load(p):
+              try:return json.loads(pathlib.Path(p).read_text(encoding='utf-8'))
+              except:return {}
+          live=load('tag/data/live-quotes.json'); fin=load('tag/data/finviz.json')
+          fmap={}
+          rows=fin.get('rows') or fin.get('data') or []
+          if isinstance(rows,dict): rows=list(rows.values())
+          for r in rows:
+              t=str(r.get('Ticker') or r.get('ticker') or r.get('Symbol') or '').upper().strip()
+              if t:fmap[t]=r
+          keep=['ticker','price','changePct','quoteAgeMin','activeSpanMin','priceVelocity5mPct','priceVelocity15mPct','priceVelocity30mPct','volume5m','volume15m','sessionVolume','volumeAcceleration5m','volumeAcceleration15m','volumeAccelerationComparable5m','volumeAccelerationComparable15m','floatM','turnover5mPctFloat','turnover15mPctFloat','range15mPct','relativeVolumeProxy','accumulationScore','liquidityAccumulation','earlyRegimeShiftScore','ignitionScore','universeLane','timestampET']
+          out=[]
+          qmap=live.get('quotes') or {}
+          if isinstance(qmap,list): qmap={str(x.get('ticker','')).upper():x for x in qmap if x.get('ticker')}
+          for t,q in qmap.items():
+              if not isinstance(q,dict):continue
+              z={k:q.get(k) for k in keep}; z['ticker']=t
+              fr=fmap.get(t,{})
+              for src,dst in [('Rel Volume','finvizRelVolume'),('Relative Volume','finvizRelVolume'),('Volume','finvizVolume'),('Float','finvizFloat'),('Change','finvizChange'),('Price','finvizPrice')]:
+                  if dst not in z or z.get(dst) is None:
+                      if fr.get(src) is not None:z[dst]=fr.get(src)
+              out.append(z)
+          day=et.strftime('%Y-%m-%d'); p=pathlib.Path('tag/data/training-ledger')/f'{day}.ndjson'; p.parent.mkdir(parents=True,exist_ok=True)
+          rec={'capturedAtUTC':now.isoformat(),'capturedAtET':et.isoformat(),'feedUpdatedAtUTC':live.get('updatedAtUTC'),'session':live.get('marketClockSession'),'schemaVersion':1,'rows':out}
+          with p.open('a',encoding='utf-8') as f:f.write(json.dumps(rec,ensure_ascii=False,separators=(',',':'))+'\n')
+          print({'rows':len(out),'file':str(p)})
+          PY
+      - name: Commit ledger
+        shell: bash
+        run: |
+          git config user.name 'TAGit PIT Ledger Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tag/data/training-ledger/
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: append TAGit point-in-time training snapshot'
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*3)); done
+          exit 1
