@@ -1,0 +1,46 @@
+name: TAGit Top 50 Performance Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tagit/evaluate-top50-today.py'
+      - '.github/workflows/tagit-top50-audit.yml'
+  schedule:
+    - cron: '45 15-20 * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-top50-audit-main
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sync latest main
+        run: git pull --rebase origin main
+      - name: Validate evaluator
+        run: python -m py_compile tagit/evaluate-top50-today.py
+      - name: Measure TAGit against Finviz top 50
+        run: python tagit/evaluate-top50-today.py
+      - name: Commit audit report
+        run: |
+          git config user.name tagit-performance-audit-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/tagit-top50-audit.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: update TAGit top-50 performance audit'
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            sleep $((i*4))
+          done
+          exit 1
