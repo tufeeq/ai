@@ -8,7 +8,8 @@ on:
       - '.github/workflows/tagit-v515-forward-score.yml'
       - 'tag/data/tagit-v514-frozen-model.json'
   schedule:
-    # v5.13 capture runs at :12; score at :22 after capture commit. DST companion cleanly no-ops.
+    # Model-bound PIT freeze runs at :05; score at :22 after the immutable snapshot commit.
+    # DST companion cleanly no-ops outside the ET validation window.
     - cron: '22 13,14 * * 1-5'
 
 permissions:
@@ -50,7 +51,7 @@ jobs:
           fi
           python tagit/preopen-forward-score-v515.py
           echo "scored=true" >> "$GITHUB_OUTPUT"
-      - name: Verify immutable no-label prediction ledger and commit
+      - name: Verify immutable no-label model-bound prediction ledger and commit
         if: steps.score.outputs.scored == 'true'
         run: |
           python - <<'PY'
@@ -60,17 +61,19 @@ jobs:
           assert r['policy']=='APPEND_ONLY_PREDICTIONS_BEFORE_OUTCOMES_NO_RETROSPECTIVE_SCORING'
           x=r['predictions'][-1]
           assert x['universeIntegrityEligible'] is True
+          assert x['modelBoundUniverseVerified'] is True
+          assert x.get('forwardSnapshotHash') and x.get('forwardSnapshotPath')
           assert x['labelsPresent'] is False and x['outcomesPresent'] is False
           assert x['predictionFrozenAtUTC'] > x['captureTimestampUTC']
           assert x['scoredCount'] > 0
           assert x['coveragePct'] >= 50, ('insufficient scoring coverage',x['coveragePct'])
           assert all(row.get('featureVector') and len(row['featureVector'])==21 for row in x['rows'])
-          print('frozen forward prediction set',x['predictionSetId'],'selected',x['selectedCount'],'coverage',x['coveragePct'])
+          print('model-bound frozen forward set',x['predictionSetId'],'selected',x['selectedCount'],'coverage',x['coveragePct'],'snapshot',x['forwardSnapshotHash'])
           PY
           git config user.name "TAGit Forward Validation Bot"
           git config user.email "actions@users.noreply.github.com"
           git add tag/data/tagit-v515-forward-predictions.json
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "validation: append v5.15 frozen preopen predictions"
+          git commit -m "validation: append v5.15 model-bound frozen predictions"
           git pull --rebase origin main
           git push origin main
