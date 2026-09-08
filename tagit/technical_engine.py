@@ -2,10 +2,10 @@
 import argparse, concurrent.futures, datetime, json, math, pathlib, time, urllib.parse, urllib.request
 
 DATA_PATH = pathlib.Path('tag/data/live-quotes.json')
-USER_AGENT = 'Mozilla/5.0 TAGitTechnical/7.0'
+USER_AGENT = 'Mozilla/5.0 TAGitTechnical/7.1'
 TECH_KEYS = [
     'technicalScore','technicalBias','technicalCoverage','rsi14','macd','macdSignal','macdHist',
-    'ema9','ema20','volume5mRatio','volumeTrend','buyVolumePct','fibTrend','fibHigh','fibLow',
+    'ema9','ema20','volume5mRatio','volumeTrend','buyVolumePct','volumeBarAsOfUTC','fibTrend','fibHigh','fibLow',
     'fibSupport','fibResistance','fibLevels','technicalSource','technicalAsOfUTC'
 ]
 
@@ -68,14 +68,27 @@ def fibonacci(bars, price):
     supports=[p for p in prices if p<=price];resists=[p for p in prices if p>=price]
     return {'trend':trend,'high':high,'low':low,'support':max(supports) if supports else low,'resistance':min(resists) if resists else high,'levels':levels}
 
-def tech_from_bars(bars):
+def tech_from_bars(bars, now_epoch=None):
     bars=[b for b in bars if all(finite(b.get(k)) is not None for k in ('o','h','l','c','v'))]
     if len(bars)<35:return None
-    closes=[b['c'] for b in bars];vols=[b['v'] for b in bars];price=closes[-1]
+    closes=[b['c'] for b in bars];price=closes[-1]
     rsi=rsi14(closes);m,ms,mh=macd(closes);e9=ema_series(closes,9)[-1];e20=ema_series(closes,20)[-1]
-    base=avg(vols[-21:-1]);vr=(vols[-1]/base) if base and base>0 else None
-    prior=avg(vols[-13:-3]);vt=(avg(vols[-3:])/prior) if prior and prior>0 else None
-    pb=bars[-20:];total=sum(b['v'] for b in pb);up=sum(b['v'] for b in pb if b['c']>=b['o']);buy=(up/total*100) if total>0 else None
+
+    # Yahoo can expose the current 5-minute candle before its volume is finalized.
+    # Volume signals therefore use the latest completed, non-zero 5m candle only.
+    now_epoch=now_epoch or time.time();cutoff=now_epoch-300
+    completed=[b for b in bars if b.get('t') is not None and b['t']<=cutoff and b['v']>0]
+    if len(completed)<21:completed=[b for b in bars if b['v']>0]
+    volbar=completed[-1] if completed else None
+    cvols=[b['v'] for b in completed]
+    base=avg(cvols[-21:-1]) if len(cvols)>=2 else None
+    vr=(cvols[-1]/base) if base and base>0 else None
+    prior=avg(cvols[-13:-3]) if len(cvols)>=4 else None
+    vt=(avg(cvols[-3:])/prior) if prior and prior>0 else None
+    pb=completed[-20:] if completed else []
+    total=sum(b['v'] for b in pb);up=sum(b['v'] for b in pb if b['c']>=b['o']);buy=(up/total*100) if total>0 else None
+    volume_bar_asof=datetime.datetime.fromtimestamp(volbar['t'],datetime.timezone.utc).isoformat() if volbar else None
+
     fib=fibonacci(bars,price)
     score=50.0
     if rsi is not None:
@@ -104,11 +117,11 @@ def tech_from_bars(bars):
         'macdSignal':round(ms,6) if ms is not None else None,'macdHist':round(mh,6) if mh is not None else None,
         'ema9':round(e9,6) if e9 is not None else None,'ema20':round(e20,6) if e20 is not None else None,
         'volume5mRatio':round(vr,2) if vr is not None else None,'volumeTrend':round(vt,2) if vt is not None else None,
-        'buyVolumePct':round(buy,1) if buy is not None else None,
+        'buyVolumePct':round(buy,1) if buy is not None else None,'volumeBarAsOfUTC':volume_bar_asof,
         'fibTrend':fib['trend'] if fib else None,'fibHigh':round(fib['high'],6) if fib else None,
         'fibLow':round(fib['low'],6) if fib else None,'fibSupport':round(fib['support'],6) if fib else None,
         'fibResistance':round(fib['resistance'],6) if fib else None,'fibLevels':fib['levels'] if fib else None,
-        'technicalSource':'Yahoo Finance 5m OHLCV (5d)','technicalAsOfUTC':datetime.datetime.now(datetime.timezone.utc).isoformat()
+        'technicalSource':'Yahoo Finance 5m OHLCV (5d; completed-bar volume)','technicalAsOfUTC':datetime.datetime.now(datetime.timezone.utc).isoformat()
     }
 
 def fetch_technical(ticker):
@@ -160,7 +173,7 @@ def enrich(path=DATA_PATH, max_symbols=120):
     data['quotes']=quotes
     for name in ('emergingCandidates','accumulationCandidates'):
         data[name]=[merge_candidate(x,quotes.get(str(x.get('ticker') or '').upper())) for x in (data.get(name) or [])]
-    data['technicalEngine']='RSI14 + MACD(12,26,9) + EMA9/20 + 5m relative volume/trend + Fibonacci'
+    data['technicalEngine']='RSI14 + MACD(12,26,9) + EMA9/20 + completed 5m relative volume/trend + Fibonacci'
     data['technicalSource']='Yahoo Finance 5m OHLCV (5d); Finviz/discovery remain universe context'
     data['technicalUpdatedAtUTC']=datetime.datetime.now(datetime.timezone.utc).isoformat()
     data['technicalRequested']=len(seeds);data['technicalCount']=len(found);data['technicalErrors']=errors[:20]
@@ -170,14 +183,20 @@ def enrich(path=DATA_PATH, max_symbols=120):
     return len(found)
 
 def self_test():
+    now=1_000_000
     bars=[];base=10.0
     for i in range(80):
         c=base+i*0.025+(0.03 if i%3==0 else 0);o=c-0.015;h=c+0.06;l=c-0.05;v=100000+i*2500
-        bars.append({'t':i,'o':o,'h':h,'l':l,'c':c,'v':v})
-    t=tech_from_bars(bars)
+        bars.append({'t':now-300*(80-i),'o':o,'h':h,'l':l,'c':c,'v':v})
+    # Add a partial current candle with zero volume; it must not zero-out volume5mRatio.
+    last=dict(bars[-1]);last.update({'t':now-60,'c':bars[-1]['c']+0.02,'h':bars[-1]['h']+0.02,'v':0})
+    bars.append(last)
+    t=tech_from_bars(bars,now_epoch=now)
     assert t and t['technicalCoverage'] is True
     assert t['rsi14'] is not None and t['ema9']>t['ema20']
     assert t['fibSupport'] is not None and t['fibResistance'] is not None
+    assert t['volume5mRatio'] is not None and t['volume5mRatio']>0
+    assert t['volumeBarAsOfUTC'] is not None
     assert 0<=t['technicalScore']<=100
     print('technical self-test passed')
 
