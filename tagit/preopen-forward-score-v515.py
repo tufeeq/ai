@@ -47,12 +47,17 @@ def fetch(sym,retries=3):
     return [],err or 'EMPTY'
 
 def feature_for_day(bars, day):
+    """Build target-day features strictly from bars <=09:15 ET plus completed prior sessions.
+
+    Important: target day is evaluated BEFORE the completed-regular-session gate; at
+    pre-open time it correctly has no regular bars yet. Prior days are appended only
+    after a complete/non-empty regular-session slice exists.
+    """
     by=defaultdict(list)
     for z in bars:by[z['dt'].date().isoformat()].append(z)
     completed=[]
     for d in sorted(by):
-      a=sorted(by[d],key=lambda x:x['t']); reg=[x for x in a if OPEN<=x['dt'].hour*60+x['dt'].minute<16*60]
-      if not reg:continue
+      a=sorted(by[d],key=lambda x:x['t'])
       pre=[x for x in a if 4*60<=x['dt'].hour*60+x['dt'].minute<=CUTOFF]
       if d==day:
         if len(completed)<2:return None,'INSUFFICIENT_PRIOR_DAYS'
@@ -73,6 +78,8 @@ def feature_for_day(bars, day):
         preopen=pre[0]['o']; lastmin=x['dt'].hour*60+x['dt'].minute
         feat=[ret(c,prev_close)/20,ret(c,preopen)/15,ret(ph,pl)/20,cp,ret(c,vwap)/10,math.log1p(pvf)/20,math.log1p(c*pvf)/20,ret(c,ago(5))/10,ret(c,ago(15))/15,ret(c,ago(30))/20,comp/15,math.log1p(max(prv,0))/3,math.log1p(max(vacc,0))/3,ret(p1c,p2[-1]['c'])/30,ret(p1h,p1l)/30,p1cp,math.log1p(p1v)/20,math.log1p(max(p1v/max(p2v,1),0))/3,min(len(pre),64)/64,max(0,CUTOFF-lastmin)/315,float(pv>0)]
         return {'feat':feat,'decisionBarUTC':datetime.fromtimestamp(x['t'],timezone.utc).isoformat(),'decisionBarET':x['dt'].isoformat(),'priceAtDecision':c,'preRvol':prv,'preVolumeObserved':bool(pv>0)},None
+      reg=[x for x in a if OPEN<=x['dt'].hour*60+x['dt'].minute<16*60]
+      if not reg:continue
       completed.append({'day':d,'reg':reg,'pre':pre}); completed=completed[-22:]
     return None,'TARGET_DAY_NOT_IN_FEED'
 
@@ -91,7 +98,17 @@ def score(mc,mr,feat):
 
 def self_test():
     a,mc,mr=load_model(); assert a['historicalHoldoutConsumed'] is True and a['mayRetuneFromForwardOutcomes'] is False
-    assert len(a['featureNames'])==21; print('v5.15 model/schema/hash self-test: OK')
+    assert len(a['featureNames'])==21
+    # Synthetic timing guard: current target day may contain only premarket bars.
+    target='2026-09-08'; bars=[]
+    for day,base in [('2026-09-04',1.0),('2026-09-05',1.1)]:
+      # Two prior completed regular bars each are enough to exercise sequencing.
+      for hh,mm,c,v in [(9,30,base,200000),(15,55,base*1.02,200000)]:
+        dt=datetime.fromisoformat(f'{day}T{hh:02d}:{mm:02d}:00').replace(tzinfo=NY); bars.append({'t':int(dt.timestamp()),'dt':dt,'o':c,'h':c*1.01,'l':c*.99,'c':c,'v':v})
+    dt=datetime.fromisoformat(target+'T09:15:00').replace(tzinfo=NY); bars.append({'t':int(dt.timestamp()),'dt':dt,'o':1.2,'h':1.25,'l':1.18,'c':1.23,'v':100000})
+    f,reason=feature_for_day(bars,target); assert f is not None, reason
+    assert f['decisionBarET'].startswith(target)
+    print('v5.15 model/schema/hash/timing self-test: OK')
 
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument('--self-test',action='store_true'); ap.add_argument('--dry-run',action='store_true'); args=ap.parse_args()
