@@ -1,0 +1,131 @@
+{
+  "schemaVersion": "5.22-actionable-label-pit",
+  "generatedAtUTC": "2026-09-08T06:07:15.298943+00:00",
+  "status": "COMPLETE",
+  "dataMode": "NASDAQ_PLUS_YAHOO_RECENT_BOOTSTRAP",
+  "validationStatus": "RESEARCH_COMPARISON_ONLY",
+  "holdoutStatus": "CONSUMED_RESEARCH_HOLDOUT",
+  "change": [
+    "first-regular-open execution proxy",
+    "+20 target measured from execution proxy",
+    "fixed pre-hit MAE floor -8%",
+    "legacy 09:15 raw hit retained secondary only",
+    "feed-aware deterministic ranks retained"
+  ],
+  "label": {
+    "primary": "first regular open -> +20% with pre-hit MAE >= -8%",
+    "secondary": "raw +20% from 09:15 reference",
+    "maeThresholdPct": -8.0,
+    "thresholdTuned": false
+  },
+  "population": {
+    "symbolsRequested": 650,
+    "symbolsSucceeded": 642,
+    "independentTickerDays": 26233,
+    "days": 59,
+    "rawPlus20From0915": 388,
+    "actionablePlus20": 308,
+    "rawWinsRejectedByExecutionPath": 125
+  },
+  "development": {
+    "days": 47,
+    "rows": 20633,
+    "folds": [
+      {
+        "fitDays": 21,
+        "validationDays": 9,
+        "fitRows": 9343,
+        "validationRows": 3807,
+        "oofRows": 4874,
+        "oofPositives": 53
+      },
+      {
+        "fitDays": 30,
+        "validationDays": 9,
+        "fitRows": 13150,
+        "validationRows": 3839,
+        "oofRows": 6421,
+        "oofPositives": 48
+      },
+      {
+        "fitDays": 39,
+        "validationDays": 8,
+        "fitRows": 16989,
+        "validationRows": 3644,
+        "oofRows": 8528,
+        "oofPositives": 102
+      }
+    ],
+    "foldMetrics": [
+      {
+        "count": 12,
+        "tp20": 4,
+        "precision20Pct": 33.33,
+        "wilsonLower90Pct": 15.95,
+        "dayBlockLower90Pct": 16.67,
+        "activeDays": 8,
+        "medianLeadMin": 30.0,
+        "top3DailyPrecisionPct": 33.33,
+        "medianRemainingUpsidePct": 19.72,
+        "winnerDayRecallPct": 44.44
+      },
+      {
+        "count": 18,
+        "tp20": 6,
+        "precision20Pct": 33.33,
+        "wilsonLower90Pct": 18.33,
+        "dayBlockLower90Pct": 18.75,
+        "activeDays": 8,
+        "medianLeadMin": 25.0,
+        "top3DailyPrecisionPct": 33.33,
+        "medianRemainingUpsidePct": 9.93,
+        "winnerDayRecallPct": 55.56
+      },
+      {
+        "count": 24,
+        "tp20": 6,
+        "precision20Pct": 25.0,
+        "wilsonLower90Pct": 13.52,
+        "dayBlockLower90Pct": 12.5,
+        "activeDays": 8,
+        "medianLeadMin": 72.5,
+        "top3DailyPrecisionPct": 25.0,
+        "medianRemainingUpsidePct": 9.73,
+        "winnerDayRecallPct": 62.5
+      }
+    ]
+  },
+  "selectedConfig": {
+    "metaThreshold": 0.757672,
+    "baseThreshold": 0.090159,
+    "maxDisagreement": 0.12,
+    "topNPerDay": 3
+  },
+  "researchHoldout": {
+    "count": 35,
+    "tp20": 6,
+    "precision20Pct": 17.14,
+    "wilsonLower90Pct": 9.13,
+    "dayBlockLower90Pct": 8.57,
+    "activeDays": 12,
+    "medianLeadMin": 90.0,
+    "top3DailyPrecisionPct": 17.14,
+    "medianRemainingUpsidePct": 12.66,
+    "winnerDayRecallPct": 54.55
+  },
+  "realDiscoveryPrecisionPct": null,
+  "providerIntegrity": {
+    "historicalPointInTimeUniverse": false,
+    "survivorshipSafe": false,
+    "marketWidePrecisionClaimAllowed": false
+  },
+  "antiLeakage": [
+    "all model features frozen at <=09:15 ET",
+    "regular-session open/path used only to construct outcome label",
+    "no regular-session values enter feat vector",
+    "MAE threshold fixed ex ante and never tuned",
+    "each validation fold fit strictly on earlier days",
+    "configuration chosen from development folds only",
+    "research tail excluded from selection and already consumed"
+  ]
+}
