@@ -1,0 +1,126 @@
+{
+  "schemaVersion": "5.21-feed-aware-pit",
+  "generatedAtUTC": "2026-09-08T06:05:17.025936+00:00",
+  "status": "COMPLETE",
+  "dataMode": "NASDAQ_PLUS_YAHOO_RECENT_BOOTSTRAP",
+  "validationStatus": "RESEARCH_COMPARISON_ONLY",
+  "holdoutStatus": "CONSUMED_RESEARCH_HOLDOUT",
+  "change": [
+    "tie-aware deterministic cross-sectional ranks",
+    "neutral missing pre-volume features",
+    "explicit pre-volume-observed flag",
+    "same-day volume coverage feature",
+    "stability-first temporal validation retained"
+  ],
+  "population": {
+    "symbolsRequested": 650,
+    "symbolsSucceeded": 641,
+    "independentTickerDays": 26191,
+    "days": 59,
+    "plus20": 388,
+    "preVolumeObservedRows": 0,
+    "preVolumeObservedPct": 0.0
+  },
+  "development": {
+    "days": 47,
+    "rows": 20592,
+    "folds": [
+      {
+        "fitDays": 21,
+        "validationDays": 9,
+        "fitRows": 9334,
+        "validationRows": 3804,
+        "oofRows": 4869,
+        "oofPositives": 59
+      },
+      {
+        "fitDays": 30,
+        "validationDays": 9,
+        "fitRows": 13138,
+        "validationRows": 3817,
+        "oofRows": 6417,
+        "oofPositives": 62
+      },
+      {
+        "fitDays": 39,
+        "validationDays": 8,
+        "fitRows": 16955,
+        "validationRows": 3637,
+        "oofRows": 8503,
+        "oofPositives": 125
+      }
+    ],
+    "foldMetrics": [
+      {
+        "count": 41,
+        "tp20": 11,
+        "precision20Pct": 26.83,
+        "wilsonLower90Pct": 17.15,
+        "dayBlockLower90Pct": 15.56,
+        "activeDays": 9,
+        "medianLeadMin": 50.0,
+        "top3DailyPrecisionPct": 33.33,
+        "medianRemainingUpsidePct": 7.75,
+        "winnerDayRecallPct": 66.67
+      },
+      {
+        "count": 45,
+        "tp20": 13,
+        "precision20Pct": 28.89,
+        "wilsonLower90Pct": 19.23,
+        "dayBlockLower90Pct": 17.78,
+        "activeDays": 9,
+        "medianLeadMin": 75.0,
+        "top3DailyPrecisionPct": 37.04,
+        "medianRemainingUpsidePct": 10.58,
+        "winnerDayRecallPct": 88.89
+      },
+      {
+        "count": 40,
+        "tp20": 10,
+        "precision20Pct": 25.0,
+        "wilsonLower90Pct": 15.57,
+        "dayBlockLower90Pct": 15.0,
+        "activeDays": 8,
+        "medianLeadMin": 60.0,
+        "top3DailyPrecisionPct": 20.83,
+        "medianRemainingUpsidePct": 10.43,
+        "winnerDayRecallPct": 87.5
+      }
+    ]
+  },
+  "selectedConfig": {
+    "metaThreshold": 0.579522,
+    "baseThreshold": 0.089255,
+    "maxDisagreement": 0.12,
+    "topNPerDay": 5
+  },
+  "researchHoldout": {
+    "count": 60,
+    "tp20": 12,
+    "precision20Pct": 20.0,
+    "wilsonLower90Pct": 12.88,
+    "dayBlockLower90Pct": 13.33,
+    "activeDays": 12,
+    "medianLeadMin": 72.5,
+    "top3DailyPrecisionPct": 27.78,
+    "medianRemainingUpsidePct": 10.79,
+    "winnerDayRecallPct": 75.0
+  },
+  "realDiscoveryPrecisionPct": null,
+  "providerIntegrity": {
+    "historicalPointInTimeUniverse": false,
+    "survivorshipSafe": false,
+    "marketWidePrecisionClaimAllowed": false
+  },
+  "antiLeakage": [
+    "09:15-only market features",
+    "prior-session memory only",
+    "same-day ranks use pre-open state only",
+    "ties receive equal ranks",
+    "missing pre-volume cannot create ordinal rank",
+    "each validation fold fit strictly on earlier days",
+    "configuration chosen from development folds only",
+    "research tail excluded from selection and already consumed"
+  ]
+}
