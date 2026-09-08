@@ -3,7 +3,7 @@ name: TAGit v5.13 Forward Preopen Capture
 on:
   workflow_dispatch:
   schedule:
-    # Run at both UTC candidates; the script itself accepts only 09:05-09:25 America/New_York.
+    # Run at both UTC candidates for EST/EDT; ET gate below makes the nonmatching run a clean no-op.
     - cron: '12 13,14 * * 1-5'
 
 permissions:
@@ -27,29 +27,47 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Syntax and dry-run
+      - name: Syntax and diagnostic dry-run
         run: |
           python -m py_compile tagit/preopen-forward-capture-v513.py
           python tagit/preopen-forward-capture-v513.py --dry-run
       - name: Capture only at valid ET cutoff
+        id: capture
+        shell: bash
         run: |
+          hm=$(TZ=America/New_York date +%H%M)
+          if [ "$hm" -lt 0905 ] || [ "$hm" -gt 0925 ]; then
+            echo "Outside 09:05-09:25 ET ($hm); expected DST companion run is a clean no-op."
+            echo "captured=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           python tagit/preopen-forward-capture-v513.py
-      - name: Verify and commit append-only capture
+          echo "captured=true" >> "$GITHUB_OUTPUT"
+      - name: Verify causal manifest and commit append-only capture
+        if: steps.capture.outputs.captured == 'true'
         run: |
           python - <<'PY'
           import json, pathlib
           p=pathlib.Path('tag/data/tagit-v513-preopen-forward-ledger.json')
           r=json.loads(p.read_text())
           assert r['policy']=='APPEND_ONLY_POINT_IN_TIME_NO_LABELS_AT_CAPTURE'
+          assert str(r['schemaVersion']).startswith('5.13.1')
           c=r['captures'][-1]
           assert c['status']=='ELIGIBLE' and c['pointInTime'] is True and c['labelsPresent'] is False
-          assert c['universeCount']>0
+          assert c['universeCount']>0 and c['universeIntegrityEligible'] is True
+          m=c['sourceManifest']
+          assert m['discoveryFresh'] is True
+          # Context can be unavailable without invalidating the universe; it must be explicitly gated from training.
+          for row in c['rows']:
+              if not row['contextTrainingEligible']:
+                  assert row['newsKnownAtCapture']==[] and row['filingsKnownAtCapture']==[]
           print('captured universe', c['universeCount'])
+          print('context integrity', c['contextIntegrityEligible'], m)
           PY
           git config user.name "TAGit Forward Validation Bot"
           git config user.email "actions@users.noreply.github.com"
           git add tag/data/tagit-v513-preopen-forward-ledger.json
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "validation: append v5.13 point-in-time preopen universe"
+          git commit -m "validation: append v5.13.1 point-in-time preopen universe"
           git pull --rebase origin main
           git push origin main
