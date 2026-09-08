@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - 'tagit/index.html'
+      - 'tagit/post-session.html'
+      - 'tagit/post-session.js'
+      - 'tagit/post-session.css'
       - 'tagit/live-v6.js'
       - 'tagit/early-v9.js'
       - 'tagit/live-v6-price-overlay.js'
@@ -42,19 +45,19 @@ jobs:
           node --check tagit/live-v6-price-overlay.js
           node --check tagit/technical-v7.js
           node --check tagit/feed-recovery-v7.js
+          node --check tagit/post-session.js
           grep -q 'id="confirmedCount"' tagit/index.html
           grep -q 'id="opportunities"' tagit/index.html
-          grep -q 'early-v9.js' tagit/index.html
-          grep -q 'live-v6-price-overlay.js' tagit/index.html
-          grep -q 'technical-v7.js' tagit/index.html
-          grep -q 'feed-recovery-v7.js' tagit/index.html
+          grep -q 'post-session.html' tagit/index.html
+          grep -q 'id="reportStatus"' tagit/post-session.html
+          grep -q 'post-session.js' tagit/post-session.html
       - name: Build TAGit Live 9 artifact
         run: |
           rm -rf _site
           mkdir -p _site/tagit
-          cp tagit/index.html tagit/live-v6.js tagit/early-v9.js tagit/live-v6-price-overlay.js tagit/technical-v7.js tagit/feed-recovery-v7.js tagit/live-v6.css _site/tagit/
+          cp tagit/index.html tagit/post-session.html tagit/post-session.js tagit/post-session.css tagit/live-v6.js tagit/early-v9.js tagit/live-v6-price-overlay.js tagit/technical-v7.js tagit/feed-recovery-v7.js tagit/live-v6.css _site/tagit/
           test -e _site/tagit/index.html
-          test -e _site/tagit/early-v9.js
+          test -e _site/tagit/post-session.html
           echo 'TAGit Live 9 artifact ready'
       - name: Configure Pages
         uses: actions/configure-pages@v5
