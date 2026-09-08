@@ -1,0 +1,24 @@
+name: TAGit Live Opportunity Integrity
+
+on:
+  push:
+    paths:
+      - 'tag/data/tagit-signal-feed.json'
+      - 'tag/data/tagit-opportunity-policy.json'
+      - 'tagit/validate-live-opportunity-integrity.mjs'
+      - '.github/workflows/tagit-live-opportunity-integrity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-live-opportunity-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Enforce fail-closed WATCH promotion
+        run: node tagit/validate-live-opportunity-integrity.mjs
