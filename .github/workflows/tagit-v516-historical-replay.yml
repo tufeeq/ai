@@ -1,0 +1,98 @@
+name: TAGit v5.16 Historical Replay
+
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: Data provider
+        required: true
+        default: fixture
+        type: choice
+        options: [fixture, massive]
+      start:
+        description: Historical start date (YYYY-MM-DD; required for massive)
+        required: false
+        type: string
+      end:
+        description: Historical end date (YYYY-MM-DD; required for massive)
+        required: false
+        type: string
+      max_symbols:
+        description: Optional universe cap for smoke/backfill batches
+        required: false
+        default: "250"
+        type: string
+  push:
+    paths:
+      - tagit/historical-replay-v516.py
+      - .github/workflows/tagit-v516-historical-replay.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-v516-historical-replay-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  replay-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax check
+        run: python -m py_compile tagit/historical-replay-v516.py
+      - name: Causal fixture replay
+        run: |
+          rm -rf /tmp/tagit-v516-fixture
+          python tagit/historical-replay-v516.py --provider fixture --output /tmp/tagit-v516-fixture
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('/tmp/tagit-v516-fixture/report.json')
+          r=json.loads(p.read_text())
+          assert r['status']=='CONTRACT_VALIDATED'
+          assert r['precisionClaimAllowed'] is False
+          assert r['independentTickerDays'] > 0
+          assert 'premarket features use <=09:15 ET only' in r['antiLeakage']
+          print('v5.16 causal contract OK', r['independentTickerDays'], r['datasetHash'])
+          PY
+      - name: Optional historical provider batch
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.provider == 'massive' }}
+        env:
+          MASSIVE_API_KEY: ${{ secrets.MASSIVE_API_KEY }}
+        run: |
+          test -n "$MASSIVE_API_KEY" || { echo 'MASSIVE_API_KEY secret is required'; exit 2; }
+          test -n "${{ inputs.start }}" && test -n "${{ inputs.end }}" || { echo 'start/end required'; exit 2; }
+          rm -rf tag/data/historical-replay-v516
+          python tagit/historical-replay-v516.py \
+            --provider massive \
+            --start '${{ inputs.start }}' \
+            --end '${{ inputs.end }}' \
+            --max-symbols '${{ inputs.max_symbols }}' \
+            --output tag/data/historical-replay-v516
+      - name: Verify no synthetic precision claim
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('/tmp/tagit-v516-fixture/report.json')
+          r=json.loads(p.read_text())
+          assert not r['precisionClaimAllowed']
+          PY
+      - name: Commit real replay manifests only
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.provider == 'massive' }}
+        run: |
+          git config user.name 'TAGit Research Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tag/data/historical-replay-v516
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'research: record v5.16 point-in-time historical replay batch'
+          git pull --rebase origin main
+          git push origin main
