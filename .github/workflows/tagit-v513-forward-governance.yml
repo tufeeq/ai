@@ -1,0 +1,58 @@
+name: TAGit v5.13 Forward Governance
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tagit/preopen-forward-governance-v513.py'
+      - '.github/workflows/tagit-v513-forward-governance.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-v513-forward-governance
+  cancel-in-progress: false
+
+jobs:
+  governance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax check
+        run: python -m py_compile tagit/preopen-forward-governance-v513.py
+      - name: Freeze consumed historical holdout and forward candidate
+        run: python tagit/preopen-forward-governance-v513.py
+      - name: Verify promotion contract
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path('tag/data/tagit-v513-forward-governance.json')
+          m=pathlib.Path('tag/data/tagit-v513-frozen-candidate.json')
+          r=json.loads(p.read_text()); c=json.loads(m.read_text())
+          assert r['historicalHoldoutStatus']=='CONSUMED_FOR_RESEARCH_COMPARISON'
+          assert r['realDiscoveryPrecisionPct'] is None
+          assert r['promotionEligible'] is False
+          assert r['forwardGate']['historicalHoldoutMaySelectFutureModels'] is False
+          assert c['modelStatus']=='FROZEN_FOR_FORWARD_CONFIRMATION_ONLY'
+          assert c['mayRetuneFromForwardOutcomes'] is False
+          print('forward governance verified')
+          PY
+      - name: Commit governance evidence
+        run: |
+          git config user.name "TAGit Research Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/tagit-v513-forward-governance.json tag/data/tagit-v513-frozen-candidate.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "research: freeze v5.13 forward validation contract"
+          git pull --rebase origin main
+          git push origin main
