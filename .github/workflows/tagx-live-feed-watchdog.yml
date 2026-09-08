@@ -1,0 +1,66 @@
+name: TAGX Live Feed Watchdog
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 * * * 1-5'
+  workflow_run:
+    workflows: ['TAGit Technical Enrichment V7']
+    types: [completed]
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: tagx-live-feed-watchdog-main
+  cancel-in-progress: true
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Dispatch producer only when live feed is stale
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' > /tmp/feed_state
+          import json,datetime
+          from zoneinfo import ZoneInfo
+          d=json.load(open('tag/data/live-quotes.json'))
+          now=datetime.datetime.now(datetime.timezone.utc)
+          raw=d.get('updatedAtUTC') or ''
+          try:
+              ts=datetime.datetime.fromisoformat(raw.replace('Z','+00:00'))
+              age=(now-ts.astimezone(datetime.timezone.utc)).total_seconds()
+          except Exception:
+              age=10**9
+          et=now.astimezone(ZoneInfo('America/New_York'))
+          active=et.weekday()<5 and datetime.time(4,0)<=et.time()<=datetime.time(20,0)
+          print(f'AGE={int(max(0,age))}')
+          print(f'ACTIVE={1 if active else 0}')
+          PY
+          cat /tmp/feed_state
+          source /tmp/feed_state
+          if [ "$ACTIVE" != "1" ]; then
+            echo "Outside active US market window; no recovery dispatch required."
+            exit 0
+          fi
+          if [ "$AGE" -le 180 ]; then
+            echo "Feed healthy (${AGE}s); no dispatch required."
+            exit 0
+          fi
+          echo "Feed stale (${AGE}s). Dispatching live producer now."
+          gh api --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${REPO}/actions/workflows/tagx-live-quotes.yml/dispatches" \
+            -f ref=main
