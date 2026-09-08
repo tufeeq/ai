@@ -31,6 +31,12 @@ jobs:
         with:
           ref: main
           fetch-depth: 1
+      - name: Validate Live 6 frontend
+        run: |
+          node --check tagit/live-v6.js
+          grep -q 'id="confirmedCount"' tagit/index.html
+          grep -q 'id="opportunities"' tagit/index.html
+          grep -q 'live-v6.js' tagit/index.html
       - name: Build TAGit Live 6 artifact
         run: |
           rm -rf _site
