@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - 'tagit/preopen-forward-governance-v513.py'
+      - 'tag/data/tagit-v513-frozen-model.json'
       - '.github/workflows/tagit-v513-forward-governance.yml'
 
 permissions:
@@ -30,7 +31,7 @@ jobs:
           python-version: '3.12'
       - name: Syntax check
         run: python -m py_compile tagit/preopen-forward-governance-v513.py
-      - name: Freeze consumed historical holdout and forward candidate
+      - name: Freeze consumed historical holdout and verify executable candidate
         run: python tagit/preopen-forward-governance-v513.py
       - name: Verify promotion contract
         run: |
@@ -43,9 +44,19 @@ jobs:
           assert r['realDiscoveryPrecisionPct'] is None
           assert r['promotionEligible'] is False
           assert r['forwardGate']['historicalHoldoutMaySelectFutureModels'] is False
-          assert c['modelStatus']=='FROZEN_FOR_FORWARD_CONFIRMATION_ONLY'
+          assert r['forwardGate']['frozenExecutableModelArtifactRequired'] is True
           assert c['mayRetuneFromForwardOutcomes'] is False
-          print('forward governance verified')
+          # Capture-only is safe while the model artifact is missing. Crucially, it
+          # must NOT masquerade as a frozen prediction tranche.
+          if not c['predictionArtifactIntegrity']:
+              assert c['modelStatus']=='CONFIG_FROZEN_MODEL_ARTIFACT_MISSING'
+              assert c['forwardScoringEligible'] is False
+              assert r['status']=='CAPTURE_ONLY_MODEL_FREEZE_REQUIRED'
+          else:
+              assert c['modelStatus']=='FROZEN_EXECUTABLE_MODEL_READY'
+              assert c['modelArtifactSha256']
+              assert c['forwardScoringEligible'] is True
+          print('forward governance + prediction artifact contract verified')
           PY
       - name: Commit governance evidence
         run: |
@@ -53,6 +64,6 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add tag/data/tagit-v513-forward-governance.json tag/data/tagit-v513-frozen-candidate.json
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "research: freeze v5.13 forward validation contract"
+          git commit -m "research: refresh v5.13 forward validation contract"
           git pull --rebase origin main
           git push origin main
