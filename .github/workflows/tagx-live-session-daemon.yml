@@ -6,25 +6,24 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/tagx-live-session-daemon.yml'
-      - 'tag/data/finviz.json'
-      - 'tag/data/discovery-fast.json'
-      - 'tag/data/discovery.json'
-      - 'tag/data/premarket-hot.json'
   schedule:
-    - cron: '*/20 * * * 1-5'
+    - cron: '*/15 * * * 1-5'
 
 permissions:
   actions: write
   contents: read
 
+# Keep this daemon isolated from high-frequency data-file pushes. Previously,
+# those pushes could repeatedly cancel/restart the daemon before its pulse loop
+# completed. Discovery/Finviz events are handled by the separate event bridge.
 concurrency:
   group: tagx-live-session-daemon-main
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   pulse:
     runs-on: ubuntu-latest
-    timeout-minutes: 22
+    timeout-minutes: 16
     steps:
       - name: Keep live quote producer moving through the active US session
         env:
@@ -45,5 +44,5 @@ jobs:
               -H "Accept: application/vnd.github+json" \
               "/repos/${REPO}/actions/workflows/tagx-live-quotes.yml/dispatches" \
               -f ref=main || true
-            [ "$i" -lt 9 ] && sleep 145
+            [ "$i" -lt 9 ] && sleep 100
           done
