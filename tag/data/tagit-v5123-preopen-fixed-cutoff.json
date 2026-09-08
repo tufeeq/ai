@@ -1,0 +1,104 @@
+{
+  "schemaVersion": "5.12.3",
+  "generatedAtUTC": "2026-09-08T00:25:53.089734+00:00",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "cutoffET": "09:15",
+  "dataQualityPolicy": "zero/absent extended-hours volume is missingness; liquidity eligibility uses prior completed regular session",
+  "populationDiagnostics": {
+    "regularTickerDays": 29870,
+    "hasPremarketBars": 27274,
+    "insufficientPriorDays": 928,
+    "premarketVolumeMissing": 20253,
+    "decisionRows": 20253,
+    "priceGate": 455,
+    "priorRegularLiquidityGate": 5638,
+    "noPremarketBars": 2596
+  },
+  "data": {
+    "symbolsRequested": 520,
+    "symbolsSucceeded": 514,
+    "fetchFailures": 6,
+    "uniquePremarketTickerDays": 27274,
+    "decisionRows": 20253,
+    "decisionDays": 58
+  },
+  "universeIntegrity": false,
+  "realDiscoveryPrecisionPct": null,
+  "errorsSample": {
+    "SPCH": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "RAM": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "SSPC": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "SECZ": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "USDE": "HTTPError:HTTP Error 422: Unprocessable Entity",
+    "METG": "HTTPError:HTTP Error 422: Unprocessable Entity"
+  },
+  "status": "COMPLETE",
+  "objective": "one fixed pre-open decision per ticker/day; actionable +10% within first 120 regular-session minutes",
+  "selectedConfig": {
+    "minScore": 0.6,
+    "maxDisagreement": 0.1,
+    "minPredUpside": 10
+  },
+  "splits": {
+    "train": 13496,
+    "cal1": 1533,
+    "cal2": 1920,
+    "holdout": 3304,
+    "trainDays": 40,
+    "calibrationDays": 9,
+    "holdoutDays": 9
+  },
+  "calibrationBlock1": {
+    "count": 97,
+    "independentTickerDays": 97,
+    "tp": 38,
+    "precisionPct": 39.18,
+    "wilsonLower90Pct": 31.42,
+    "dayBlockBootstrapLower90Pct": 33.75,
+    "activeDays": 4,
+    "medianLeadMin": 30.0,
+    "top3DailyPrecisionPct": 33.33,
+    "medianRemainingUpsidePct": 8.77,
+    "winnerDayRecallPct": 100.0
+  },
+  "calibrationBlock2": {
+    "count": 116,
+    "independentTickerDays": 116,
+    "tp": 44,
+    "precisionPct": 37.93,
+    "wilsonLower90Pct": 30.88,
+    "dayBlockBootstrapLower90Pct": 34.0,
+    "activeDays": 5,
+    "medianLeadMin": 25.0,
+    "top3DailyPrecisionPct": 33.33,
+    "medianRemainingUpsidePct": 9.33,
+    "winnerDayRecallPct": 100.0
+  },
+  "holdout": {
+    "count": 129,
+    "independentTickerDays": 129,
+    "tp": 39,
+    "precisionPct": 30.23,
+    "wilsonLower90Pct": 24.04,
+    "dayBlockBootstrapLower90Pct": 24.67,
+    "activeDays": 9,
+    "medianLeadMin": 40.0,
+    "top3DailyPrecisionPct": 33.33,
+    "medianRemainingUpsidePct": 6.86,
+    "winnerDayRecallPct": 100.0
+  },
+  "antiLeakage": [
+    "one decision per ticker/day",
+    "last observed premarket bar <=09:15 ET only",
+    "future regular bars labels only",
+    "extended-hours zero volume treated as missingness",
+    "liquidity gate uses prior completed regular session only",
+    "chronological 70/15/15 split",
+    "two calibration blocks used for stability selection",
+    "holdout evaluated once after configuration freeze",
+    "current float/short/news snapshots excluded from historical model",
+    "universe-conditioned precision is not labeled real discovery unless integrity gate passes"
+  ],
+  "selectionPolicy": "maximize worst calibration day-block lower bound with support/day-coverage and drift penalties",
+  "verdict": "RESEARCH_COMPLETE_NOT_90"
+}
