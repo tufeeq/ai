@@ -1,0 +1,101 @@
+{
+  "schemaVersion": "5.8.4-asymmetric-failure-veto-fastsearch",
+  "generatedAtUTC": "2026-09-08T13:59:28.757854+00:00",
+  "status": "COMPLETE",
+  "policy": "RESEARCH_ONLY_CONSUMED_HOLDOUT_NO_CHAMPION_OVERRIDE",
+  "change": [
+    "removed reporting-only 3000-draw day-block bootstrap from every search candidate",
+    "day-block uncertainty now computed only after configuration freeze",
+    "selection objective and chronological anti-leakage rules unchanged"
+  ],
+  "trainArchetypes": {
+    "successCases": 2645,
+    "failureCases": 36351,
+    "successClusters": 10,
+    "failureClusters": 10
+  },
+  "selectedConfig": {
+    "minCarryScore": 0.45,
+    "minPNext1": 0.25,
+    "minPNext2": 0.6126,
+    "minPredUpside": 16,
+    "maxDisagreement": 0.3,
+    "failureMargin": 0.0,
+    "vetoPenalty": 0.0
+  },
+  "calibrationASelection": {
+    "count": 279,
+    "tpNext1": 54,
+    "next1Precision20Pct": 19.35,
+    "wilsonLower90Next1Pct": 15.77,
+    "dayBlockLower90Next1Pct": null,
+    "activeDays": 53,
+    "top3DailyPrecision20Pct": 19.21,
+    "medianNext2MaxGainPct": 11.51,
+    "winnerDayRecallPct": 66.67
+  },
+  "calibrationBConfirmation": {
+    "count": 383,
+    "tpNext1": 88,
+    "next1Precision20Pct": 22.98,
+    "wilsonLower90Next1Pct": 19.64,
+    "dayBlockLower90Next1Pct": null,
+    "activeDays": 54,
+    "top3DailyPrecision20Pct": 25.0,
+    "medianNext2MaxGainPct": 11.89,
+    "winnerDayRecallPct": 77.78
+  },
+  "calibrationBBaselineNoVeto": {
+    "count": 383,
+    "tpNext1": 88,
+    "next1Precision20Pct": 22.98,
+    "wilsonLower90Next1Pct": 19.64,
+    "dayBlockLower90Next1Pct": null,
+    "activeDays": 54,
+    "top3DailyPrecision20Pct": 25.0,
+    "medianNext2MaxGainPct": 11.89,
+    "winnerDayRecallPct": 77.78
+  },
+  "calibration": {
+    "count": 662,
+    "tpNext1": 142,
+    "next1Precision20Pct": 21.45,
+    "wilsonLower90Next1Pct": 18.94,
+    "dayBlockLower90Next1Pct": 19.02,
+    "activeDays": 107,
+    "top3DailyPrecision20Pct": 22.19,
+    "medianNext2MaxGainPct": 11.63,
+    "winnerDayRecallPct": 72.38
+  },
+  "holdout": {
+    "count": 1027,
+    "tpNext1": 247,
+    "next1Precision20Pct": 24.05,
+    "wilsonLower90Next1Pct": 21.93,
+    "dayBlockLower90Next1Pct": 21.97,
+    "activeDays": 108,
+    "top3DailyPrecision20Pct": 28.7,
+    "medianNext2MaxGainPct": 10.64,
+    "winnerDayRecallPct": 92.66
+  },
+  "realDiscoveryPrecisionPct": null,
+  "universeIntegrity": {
+    "marketWidePointInTimeUniverse": false,
+    "survivorshipSafe": false,
+    "realDiscoveryPrecisionClaimAllowed": false
+  },
+  "antiLeakage": [
+    "features use current/prior completed sessions only",
+    "future sessions are labels only",
+    "split-boundary label horizons purged by v5.8.1",
+    "failure/success archetypes fit on train only",
+    "calibration A selects configuration",
+    "calibration B confirms before research holdout is opened",
+    "veto can only reduce baseline score",
+    "day-block bootstrap excluded from model/configuration selection",
+    "holdout is consumed research evidence and cannot establish real precision",
+    "day-block bootstrap is reporting-only"
+  ],
+  "credible90Claim": false,
+  "mainBottleneck": "historical universe is mover-conditioned and not point-in-time; continuation failure memory can reduce recall if over-applied"
+}
