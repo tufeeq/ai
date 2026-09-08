@@ -2,20 +2,25 @@ name: TAGX Live Quote Event Bridge
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *'
   push:
     branches: [main]
     paths:
       - 'tag/data/discovery-fast.json'
+      - 'tag/data/discovery.json'
+      - 'tag/data/premarket-hot.json'
+      - 'tag/data/finviz.json'
       - '.github/workflows/tagx-live-quote-event-bridge.yml'
 
 permissions:
   contents: read
   actions: write
 
-# GitHub scheduled workflows have a coarse/delay-prone clock. Keep the existing
-# 5-minute live-quote schedule as the safety clock, but add exactly one event-driven
-# producer trigger when the fast discovery feed actually changes. This deliberately
-# avoids the old broad workflow_run fan-out that caused cancellation storms.
+# Independent heartbeat + event bridge for the live quote producer.
+# The producer itself runs at minute 1/6/11/...; this bridge runs at 3/8/13/...
+# and also fires immediately when the discovery inputs change. This keeps the
+# backend near-live without weakening stale-data fail-closed protections.
 concurrency:
   group: tagx-live-quote-event-bridge-main
   cancel-in-progress: true
