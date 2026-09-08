@@ -1,4 +1,4 @@
-name: Deploy TAGit Live 6
+name: Deploy TAGit Live 7
 
 on:
   push:
@@ -7,6 +7,8 @@ on:
       - 'tagit/index.html'
       - 'tagit/live-v6.js'
       - 'tagit/live-v6-price-overlay.js'
+      - 'tagit/technical-v7.js'
+      - 'tagit/feed-recovery-v7.js'
       - 'tagit/live-v6.css'
       - '.github/workflows/pages-tagx-deploy.yml'
   workflow_dispatch:
@@ -17,7 +19,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: tagit-live-6-pages
+  group: tagit-live-7-pages
   cancel-in-progress: true
 
 jobs:
@@ -32,24 +34,30 @@ jobs:
         with:
           ref: main
           fetch-depth: 1
-      - name: Validate Live 6 frontend
+      - name: Validate Live 7 frontend
         run: |
           node --check tagit/live-v6.js
           node --check tagit/live-v6-price-overlay.js
+          node --check tagit/technical-v7.js
+          node --check tagit/feed-recovery-v7.js
           grep -q 'id="confirmedCount"' tagit/index.html
           grep -q 'id="opportunities"' tagit/index.html
           grep -q 'live-v6.js' tagit/index.html
           grep -q 'live-v6-price-overlay.js' tagit/index.html
-      - name: Build TAGit Live 6 artifact
+          grep -q 'technical-v7.js' tagit/index.html
+          grep -q 'feed-recovery-v7.js' tagit/index.html
+      - name: Build TAGit Live 7 artifact
         run: |
           rm -rf _site
           mkdir -p _site/tagit
-          cp tagit/index.html tagit/live-v6.js tagit/live-v6-price-overlay.js tagit/live-v6.css _site/tagit/
+          cp tagit/index.html tagit/live-v6.js tagit/live-v6-price-overlay.js tagit/technical-v7.js tagit/feed-recovery-v7.js tagit/live-v6.css _site/tagit/
           test -e _site/tagit/index.html
           test -e _site/tagit/live-v6.js
           test -e _site/tagit/live-v6-price-overlay.js
+          test -e _site/tagit/technical-v7.js
+          test -e _site/tagit/feed-recovery-v7.js
           test -e _site/tagit/live-v6.css
-          echo 'TAGit Live 6 artifact ready'
+          echo 'TAGit Live 7 artifact ready'
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site artifact
