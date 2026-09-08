@@ -1,0 +1,44 @@
+name: TAGit V11 Challenger Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tagit/test-v11-challenger.py'
+      - '.github/workflows/tagit-v11-challenger-test.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-v11-challenger-gate
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sync latest main
+        run: git pull --rebase origin main
+      - name: Install test stack
+        run: pip install -q numpy pandas scikit-learn
+      - name: Validate challenger test
+        run: python -m py_compile tagit/test-v11-challenger.py
+      - name: Run chronological untouched-holdout gate
+        run: python tagit/test-v11-challenger.py
+      - name: Commit test evidence only
+        run: |
+          git config user.name 'TAGit Challenger Gate Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tag/data/tagit-v11-challenger-test.json
+          if test -f tag/data/tagit-v11-challenger-model.json; then git add tag/data/tagit-v11-challenger-model.json; fi
+          git diff --cached --quiet && exit 0
+          git commit -m 'test: record V11 chronological challenger gate'
+          for i in 1 2 3; do git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0; sleep $((i*4)); done
+          exit 1
