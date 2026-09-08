@@ -1,0 +1,35 @@
+name: TAGit Technical CI
+
+on:
+  pull_request:
+    paths:
+      - 'tagit/technical_engine.py'
+      - 'tagit/technical-v7.js'
+      - 'tagit/index.html'
+      - '.github/workflows/tagit-ai-stock-analysis.yml'
+      - '.github/workflows/tagit-technical-enrichment.yml'
+      - '.github/workflows/tagit-technical-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tagit/technical_engine.py'
+      - 'tagit/technical-v7.js'
+      - 'tagit/index.html'
+      - '.github/workflows/tagit-ai-stock-analysis.yml'
+      - '.github/workflows/tagit-technical-enrichment.yml'
+      - '.github/workflows/tagit-technical-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  technical-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax and indicator self-test
+        run: |
+          python -m py_compile tagit/technical_engine.py
+          python tagit/technical_engine.py --self-test
+      - name: Browser overlay syntax
+        run: node --check tagit/technical-v7.js
