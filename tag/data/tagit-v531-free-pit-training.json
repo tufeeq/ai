@@ -1,0 +1,151 @@
+{
+  "schemaVersion": "5.31.2-asymmetric-recurrent-veto-pit",
+  "generatedAtUTC": "2026-09-08T12:37:19.456528+00:00",
+  "status": "COMPLETE",
+  "dataMode": "NASDAQ_PLUS_YAHOO_RECENT_BOOTSTRAP",
+  "validationStatus": "RESEARCH_COMPARISON_ONLY",
+  "holdoutStatus": "CONSUMED_RESEARCH_HOLDOUT",
+  "change": [
+    "retain v5.30 separate baseline/recurrent experts",
+    "asymmetric recurrent veto",
+    "bounded two-stage development-only gate search",
+    "cache expert predictions before gate/policy search",
+    "research tail accessed only after configuration freeze"
+  ],
+  "population": {
+    "symbolsRequested": 650,
+    "symbolsSucceeded": 643,
+    "independentTickerDays": 25795,
+    "days": 58,
+    "plus20": 375
+  },
+  "development": {
+    "days": 46,
+    "folds": [
+      {
+        "fitDays": 20,
+        "validationDays": 9,
+        "fitRows": 8903,
+        "validationRows": 3807
+      },
+      {
+        "fitDays": 29,
+        "validationDays": 9,
+        "fitRows": 12710,
+        "validationRows": 3840
+      },
+      {
+        "fitDays": 38,
+        "validationDays": 8,
+        "fitRows": 16550,
+        "validationRows": 3644
+      }
+    ],
+    "foldMetrics": [
+      {
+        "count": 29,
+        "tp20": 10,
+        "precision20Pct": 34.48,
+        "wilsonLower90Pct": 21.86,
+        "dayBlockLower90Pct": 20.0,
+        "activeDays": 9,
+        "medianLeadMin": 55.0,
+        "top3DailyPrecisionPct": 34.78,
+        "medianRemainingUpsidePct": 9.82,
+        "winnerDayRecallPct": 66.67
+      },
+      {
+        "count": 42,
+        "tp20": 14,
+        "precision20Pct": 33.33,
+        "wilsonLower90Pct": 22.7,
+        "dayBlockLower90Pct": 21.43,
+        "activeDays": 9,
+        "medianLeadMin": 52.5,
+        "top3DailyPrecisionPct": 34.62,
+        "medianRemainingUpsidePct": 13.7,
+        "winnerDayRecallPct": 77.78
+      },
+      {
+        "count": 40,
+        "tp20": 13,
+        "precision20Pct": 32.5,
+        "wilsonLower90Pct": 21.77,
+        "dayBlockLower90Pct": 20.0,
+        "activeDays": 8,
+        "medianLeadMin": 60.0,
+        "top3DailyPrecisionPct": 25.0,
+        "medianRemainingUpsidePct": 10.97,
+        "winnerDayRecallPct": 87.5
+      }
+    ],
+    "recentAudits": [
+      {
+        "recentWindowRequested": 18,
+        "baseRecentDays": 18,
+        "recurrentRecentDays": 18
+      },
+      {
+        "recentWindowRequested": 18,
+        "baseRecentDays": 18,
+        "recurrentRecentDays": 18
+      },
+      {
+        "recentWindowRequested": 18,
+        "baseRecentDays": 18,
+        "recurrentRecentDays": 18
+      }
+    ],
+    "searchAudit": {
+      "gateCandidatesCoarse": 432,
+      "gateShortlist": 10,
+      "policyRefinements": 300,
+      "searchTailAccess": false,
+      "boundedForRunner": true
+    }
+  },
+  "selectedConfig": {
+    "recentWindowDays": 18,
+    "recentWeight": 0.55,
+    "minPriorSessionsForVeto": 2,
+    "downStrength": 0.65,
+    "upStrength": 0.1,
+    "upMinPriorSessions": 6,
+    "deadband": 0.01,
+    "scoreThreshold": 0.645601,
+    "maxDisagreement": 0.16,
+    "topNPerDay": 5
+  },
+  "researchHoldout": {
+    "count": 60,
+    "tp20": 15,
+    "precision20Pct": 25.0,
+    "wilsonLower90Pct": 17.02,
+    "dayBlockLower90Pct": 16.67,
+    "activeDays": 12,
+    "medianLeadMin": 70.0,
+    "top3DailyPrecisionPct": 33.33,
+    "medianRemainingUpsidePct": 13.78,
+    "winnerDayRecallPct": 75.0
+  },
+  "gateAudit": {
+    "meanGate": 0.2756,
+    "nonzeroGatePct": 72.27,
+    "negativeDeltaRows": 4548,
+    "positiveDeltaRows": 1053
+  },
+  "realDiscoveryPrecisionPct": null,
+  "providerIntegrity": {
+    "historicalPointInTimeUniverse": false,
+    "survivorshipSafe": false,
+    "marketWidePrecisionClaimAllowed": false
+  },
+  "antiLeakage": [
+    "all inference market features <=09:15 ET",
+    "baseline expert receives no recurrent features",
+    "recurrent expert memory prior completed sessions only",
+    "asymmetric gate uses only prior-session count and model scores/disagreement",
+    "coarse and refined search use development folds only",
+    "research tail excluded from selection and already consumed"
+  ]
+}
