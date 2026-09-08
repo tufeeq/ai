@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 11,
+  "generatedAtUTC": "2026-09-08T20:49:31.999460+00:00",
+  "testDesign": "chronological 60/20/20 day split; holdout untouched during threshold selection",
+  "target": "while current day change is <10%, future +8% within 60m OR +15% later same session",
+  "universeSymbols": 301,
+  "datasetRows": 276758,
+  "days": 60,
+  "trainDays": 36,
+  "devDays": 12,
+  "holdoutDays": 12,
+  "baselineFeatures": [
+    "ret5",
+    "ret15",
+    "ret30",
+    "range15",
+    "acc15",
+    "relVol",
+    "sessionVolLog",
+    "dayChange",
+    "minute"
+  ],
+  "challengerFeatures": [
+    "ret5",
+    "ret15",
+    "ret30",
+    "range15",
+    "acc15",
+    "relVol",
+    "sessionVolLog",
+    "dayChange",
+    "minute",
+    "range30",
+    "acc5",
+    "pressureCompression",
+    "quietPressure",
+    "volumeCompression",
+    "latePenalty"
+  ],
+  "results": {
+    "baseline": {
+      "threshold": 0.8,
+      "development": {
+        "rows": 57367,
+        "positives": 695,
+        "selected": 2506,
+        "precisionPct": 13.89,
+        "recallPct": 50.07,
+        "f2": 0.3292,
+        "pre5RecallPct": 46.28,
+        "alertRatePct": 4.37,
+        "medianLeadMin": 30.0
+      },
+      "holdout": {
+        "rows": 60240,
+        "positives": 713,
+        "selected": 2742,
+        "precisionPct": 11.52,
+        "recallPct": 44.32,
+        "f2": 0.2824,
+        "pre5RecallPct": 39.32,
+        "alertRatePct": 4.55,
+        "medianLeadMin": 35.0
+      }
+    },
+    "challenger": {
+      "threshold": 0.74,
+      "development": {
+        "rows": 57367,
+        "positives": 695,
+        "selected": 3548,
+        "precisionPct": 11.72,
+        "recallPct": 59.86,
+        "f2": 0.3287,
+        "pre5RecallPct": 54.79,
+        "alertRatePct": 6.18,
+        "medianLeadMin": 30.0
+      },
+      "holdout": {
+        "rows": 60240,
+        "positives": 713,
+        "selected": 3762,
+        "precisionPct": 9.78,
+        "recallPct": 51.61,
+        "f2": 0.2782,
+        "pre5RecallPct": 45.37,
+        "alertRatePct": 6.25,
+        "medianLeadMin": 35.0
+      }
+    }
+  },
+  "promotionGates": {
+    "holdoutDaysAtLeast10": true,
+    "holdoutPositivesAtLeast100": true,
+    "pre5RecallNoWorse": true,
+    "overallRecallGain5pp": true,
+    "precisionNoMaterialDrop": true,
+    "f2Improves": false,
+    "alertRateBounded": true
+  },
+  "promotionApproved": false,
+  "notes": [
+    "Future returns are labels only; no future prices are features.",
+    "Universe is built from currently available TAGit/Finviz/discovery symbols, so this test does not prove full-market discovery recall.",
+    "Production must not change unless all gates pass."
+  ]
+}
