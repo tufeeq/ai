@@ -63,6 +63,26 @@ def wilson(tp,n,z=1.645):
     p=tp/n; den=1+z*z/n
     return max(0.0,(p+z*z/(2*n)-z*math.sqrt((p*(1-p)+z*z/(4*n))/n))/den)*100
 
+def dayblock_lower90(sel,seed=58390,n_boot=4000):
+    """5th percentile precision after resampling whole active days with replacement.
+
+    This is reporting-only uncertainty. It is never used for threshold/model selection,
+    so holdout outcomes cannot feed back into the fitted discovery system.
+    """
+    by=defaultdict(list)
+    for x in sel: by[x['day']].append(x)
+    days=sorted(by)
+    if not days:return None
+    rng=np.random.default_rng(seed)
+    vals=[]
+    for _ in range(n_boot):
+        sampled=rng.choice(days,size=len(days),replace=True)
+        tp=n=0
+        for d in sampled:
+            g=by[d]; n+=len(g); tp+=sum(x['next1Explode20'] for x in g)
+        if n: vals.append(100*tp/n)
+    return round(float(np.quantile(vals,.05)),2) if vals else None
+
 def stat(sel,universe):
     n=len(sel); tp=sum(x['next1Explode20'] for x in sel)
     by=defaultdict(list)
@@ -72,7 +92,8 @@ def stat(sel,universe):
     gains=[x['next2MaxGainPct'] for x in sel]
     winners={x['day'] for x in universe if x['next1Explode20']}; caught={x['day'] for x in sel if x['next1Explode20']}
     return {'count':n,'tpNext1':int(tp),'next1Precision20Pct':round(100*tp/n,2) if n else None,
-            'wilsonLower90Next1Pct':round(wilson(tp,n),2) if n else None,'activeDays':len(by),
+            'wilsonLower90Next1Pct':round(wilson(tp,n),2) if n else None,
+            'dayBlockLower90Next1Pct':dayblock_lower90(sel),'activeDays':len(by),
             'top3DailyPrecision20Pct':round(100*sum(x['next1Explode20'] for x in top3)/len(top3),2) if top3 else None,
             'medianNext2MaxGainPct':round(float(np.median(gains)),2) if gains else None,
             'winnerDayRecallPct':round(100*len(caught)/len(winners),2) if winners else None}
@@ -105,7 +126,7 @@ report={'schemaVersion':'5.8.3-failure-archetype-multisession','status':'COMPLET
         'calibrationBlocks':{'A':sa,'B':sb},'calibration':calstat,'holdout':holdstat,
         'baselineV581HoldoutPrecisionPct':(readj(Path('tag/data/tagit-v581-multisession-continuation.json'),{}).get('holdout') or {}).get('next1Precision20Pct'),
         'universeIntegrity':{'marketWidePointInTimeUniverse':False,'realDiscoveryPrecisionClaimAllowed':False},
-        'antiLeakage':['features use current/prior completed sessions only','future sessions are labels only','split-boundary label horizons are purged by v5.8.1','success/failure archetypes fit on train only','configuration selected on chronological calibration blocks only','holdout evaluated only after freeze'],
+        'antiLeakage':['features use current/prior completed sessions only','future sessions are labels only','split-boundary label horizons are purged by v5.8.1','success/failure archetypes fit on train only','configuration selected on chronological calibration blocks only','holdout evaluated only after freeze','day-block bootstrap is reporting-only and never participates in selection'],
         'credible90Claim':False,'mainBottleneck':'false continuation discrimination and historical mover-conditioned universe'}
 OUT583.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
 print(json.dumps(report,ensure_ascii=False,indent=2))
