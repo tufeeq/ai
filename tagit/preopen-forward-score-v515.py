@@ -2,9 +2,10 @@
 """TAGit v5.15 immutable forward scorer.
 
 Scores only a same-day v5.13 point-in-time capture with the hash-addressed v5.14
-executable model. It never attaches outcomes, never scores a pre-freeze capture,
-and never rewrites an existing day/model prediction. Feature construction exactly
-matches the v5.12.2 feed-aware 09:15 ET pipeline.
+executable model AND a same-day model-bound forward-freeze-v2 snapshot. It never
+attaches outcomes, never scores a pre-freeze capture, and never rewrites an existing
+day/model prediction. Feature construction exactly matches the v5.12.2 feed-aware
+09:15 ET pipeline.
 """
 import argparse, base64, hashlib, json, math, pickle, time, urllib.parse, urllib.request
 from collections import defaultdict
@@ -13,7 +14,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 import numpy as np
 
-ROOT=Path('tag/data'); MODEL=ROOT/'tagit-v514-frozen-model.json'; CAP=ROOT/'tagit-v513-preopen-forward-ledger.json'; OUT=ROOT/'tagit-v515-forward-predictions.json'
+ROOT=Path('tag/data'); MODEL=ROOT/'tagit-v514-frozen-model.json'; CAP=ROOT/'tagit-v513-preopen-forward-ledger.json'; OUT=ROOT/'tagit-v515-forward-predictions.json'; FORWARD=ROOT/'forward'
 NY=ZoneInfo('America/New_York'); CUTOFF=9*60+15; OPEN=9*60+30
 UA={'User-Agent':'Mozilla/5.0 TAGit-v5.15-forward-validation'}
 EXPECTED=['gap','preReturn','preRange','preClosePosition','preVwapDistance','logPreVolume','logDollarVolume','r5','r15','r30','preCompression','preRvol','preVolumeAccel','priorDayReturn','priorDayRange','priorDayClosePosition','logPriorDayVolume','priorVolumeAccel','preBarCount','minutesFromLastBarToCutoff','preVolumeObserved']
@@ -23,6 +24,24 @@ def readj(p,d):
     except Exception:return d
 
 def ret(a,b): return (a/b-1)*100 if a and b else 0.0
+
+def canonical(value): return json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=False)
+def payload_hash(value): return hashlib.sha256(canonical(value).encode()).hexdigest()
+
+def load_bound_snapshot(today, art):
+    p=FORWARD/f'{today}.json'; snap=readj(p,{})
+    if snap.get('schemaVersion')!='forward-freeze-v2-model-bound': raise SystemExit('missing same-day model-bound PIT snapshot')
+    if snap.get('dayET')!=today or snap.get('evaluationOnly') is not True or snap.get('trainingEligible') is not False: raise SystemExit('invalid forward snapshot policy/date')
+    prov=snap.get('modelProvenance') or {}
+    for k in ('modelPayloadSha256','trainingDataSha256','featurePipelineSourceSha256','trainingCutoffDate'):
+        if prov.get(k)!=art.get(k): raise SystemExit(f'forward snapshot/model provenance mismatch: {k}')
+    if prov.get('selectedConfig')!=art.get('selectedConfig'): raise SystemExit('forward snapshot selectedConfig mismatch')
+    claimed=snap.get('snapshotHash'); tmp=dict(snap); tmp.pop('snapshotHash',None)
+    if claimed!=payload_hash(tmp): raise SystemExit('forward snapshot hash mismatch')
+    universe=snap.get('universe') or []
+    symbols={str(x.get('symbol') or '').upper() for x in universe if x.get('symbol')}
+    if not symbols or len(symbols)!=len(universe): raise SystemExit('forward snapshot universe is empty or contains duplicates')
+    return p,snap,symbols
 
 def fetch(sym,retries=3):
     q=urllib.parse.quote(sym,safe=''); err=None
@@ -47,12 +66,6 @@ def fetch(sym,retries=3):
     return [],err or 'EMPTY'
 
 def feature_for_day(bars, day):
-    """Build target-day features strictly from bars <=09:15 ET plus completed prior sessions.
-
-    Important: target day is evaluated BEFORE the completed-regular-session gate; at
-    pre-open time it correctly has no regular bars yet. Prior days are appended only
-    after a complete/non-empty regular-session slice exists.
-    """
     by=defaultdict(list)
     for z in bars:by[z['dt'].date().isoformat()].append(z)
     completed=[]
@@ -99,15 +112,12 @@ def score(mc,mr,feat):
 def self_test():
     a,mc,mr=load_model(); assert a['historicalHoldoutConsumed'] is True and a['mayRetuneFromForwardOutcomes'] is False
     assert len(a['featureNames'])==21
-    # Synthetic timing guard: current target day may contain only premarket bars.
     target='2026-09-08'; bars=[]
     for day,base in [('2026-09-04',1.0),('2026-09-05',1.1)]:
-      # Two prior completed regular bars each are enough to exercise sequencing.
       for hh,mm,c,v in [(9,30,base,200000),(15,55,base*1.02,200000)]:
-        dt=datetime.fromisoformat(f'{day}T{hh:02d}:{mm:02d}:00').replace(tzinfo=NY); bars.append({'t':int(dt.timestamp()),'dt':dt,'o':c,'h':c*1.01,'l':c*.99,'c':c,'v':v})
-    dt=datetime.fromisoformat(target+'T09:15:00').replace(tzinfo=NY); bars.append({'t':int(dt.timestamp()),'dt':dt,'o':1.2,'h':1.25,'l':1.18,'c':1.23,'v':100000})
-    f,reason=feature_for_day(bars,target); assert f is not None, reason
-    assert f['decisionBarET'].startswith(target)
+        z=datetime.fromisoformat(f'{day}T{hh:02d}:{mm:02d}:00').replace(tzinfo=NY); bars.append({'t':int(z.timestamp()),'dt':z,'o':c,'h':c*1.01,'l':c*.99,'c':c,'v':v})
+    z=datetime.fromisoformat(target+'T09:15:00').replace(tzinfo=NY); bars.append({'t':int(z.timestamp()),'dt':z,'o':1.2,'h':1.25,'l':1.18,'c':1.23,'v':100000})
+    f,reason=feature_for_day(bars,target); assert f is not None, reason; assert f['decisionBarET'].startswith(target)
     print('v5.15 model/schema/hash/timing self-test: OK')
 
 def main():
@@ -117,16 +127,20 @@ def main():
     if not args.dry_run and not (550<=minute<=565): raise SystemExit(f'forward scoring refused outside 09:10-09:25 ET: {et:%H:%M}')
     art,mc,mr=load_model(); frozen=datetime.fromisoformat(art['frozenAtUTC'].replace('Z','+00:00'))
     if now<=frozen or today<=art['trainingCutoffDate']: raise SystemExit('forward evidence must be strictly post-freeze and post-training-cutoff')
+    snap_path,snap,frozen_symbols=load_bound_snapshot(today,art)
     led=readj(CAP,{}); candidates=[c for c in led.get('captures') or [] if str(c.get('capturedAtET',''))[:10]==today and c.get('status')=='ELIGIBLE' and c.get('pointInTime') is True and c.get('universeIntegrityEligible') is True]
     if not candidates: raise SystemExit('no same-day eligible point-in-time universe capture')
     cap=max(candidates,key=lambda c:c.get('capturedAtUTC','')); captured=datetime.fromisoformat(cap['capturedAtUTC'].replace('Z','+00:00'))
     if captured<=frozen: raise SystemExit('pre-freeze capture cannot be forward scored')
+    cap_symbols={str(r.get('ticker') or '').upper() for r in cap.get('rows') or [] if r.get('ticker')}
+    missing=sorted(cap_symbols-frozen_symbols)
+    if missing: raise SystemExit(f'v5.13 capture contains symbols absent from model-bound PIT snapshot: {missing[:20]}')
     out=readj(OUT,{'schemaVersion':'5.15-forward-predictions','policy':'APPEND_ONLY_PREDICTIONS_BEFORE_OUTCOMES_NO_RETROSPECTIVE_SCORING','predictions':[]})
     key=today+'|'+art['modelPayloadSha256']; seen={x.get('predictionSetId') for x in out.get('predictions') or []}
     if key in seen: print(json.dumps({'status':'ALREADY_FROZEN','predictionSetId':key})); return
     rows=[]; errors={}; cfg=art['selectedConfig']
     for r in cap.get('rows') or []:
-      sym=r.get('ticker'); bars,err=fetch(sym)
+      sym=str(r.get('ticker') or '').upper(); bars,err=fetch(sym)
       if err:errors[sym]=err; continue
       f,reason=feature_for_day(bars,today)
       if not f: errors[sym]=reason; continue
@@ -134,7 +148,7 @@ def main():
       rows.append({'ticker':sym,'score':s,'disagreement':d,'predictedUpsidePct':u,'selected':selected,'rank':None,**{k:v for k,v in f.items() if k!='feat'},'featureVector':f['feat']})
     ranked=sorted(rows,key=lambda x:(x['selected'],x['score'],x['predictedUpsidePct']),reverse=True)
     for i,r in enumerate(ranked,1):r['rank']=i
-    entry={'predictionSetId':key,'predictionFrozenAtUTC':now.isoformat(),'predictionFrozenAtET':et.isoformat(),'targetCutoffET':'09:15','captureId':cap['captureId'],'captureTimestampUTC':cap['capturedAtUTC'],'modelPayloadSha256':art['modelPayloadSha256'],'featurePipelineSourceSha256':art['featurePipelineSourceSha256'],'trainingCutoffDate':art['trainingCutoffDate'],'selectedConfig':cfg,'universeCount':cap['universeCount'],'scoredCount':len(rows),'selectedCount':sum(r['selected'] for r in rows),'coveragePct':round(100*len(rows)/max(1,cap['universeCount']),2),'universeIntegrityEligible':True,'contextIntegrityEligible':cap.get('contextIntegrityEligible',False),'labelsPresent':False,'outcomesPresent':False,'errors':errors,'rows':ranked}
+    entry={'predictionSetId':key,'predictionFrozenAtUTC':now.isoformat(),'predictionFrozenAtET':et.isoformat(),'targetCutoffET':'09:15','captureId':cap['captureId'],'captureTimestampUTC':cap['capturedAtUTC'],'forwardSnapshotPath':str(snap_path),'forwardSnapshotHash':snap['snapshotHash'],'forwardSnapshotEligibleCount':snap['eligibleCount'],'modelPayloadSha256':art['modelPayloadSha256'],'featurePipelineSourceSha256':art['featurePipelineSourceSha256'],'trainingCutoffDate':art['trainingCutoffDate'],'selectedConfig':cfg,'universeCount':cap['universeCount'],'scoredCount':len(rows),'selectedCount':sum(r['selected'] for r in rows),'coveragePct':round(100*len(rows)/max(1,cap['universeCount']),2),'universeIntegrityEligible':True,'modelBoundUniverseVerified':True,'contextIntegrityEligible':cap.get('contextIntegrityEligible',False),'labelsPresent':False,'outcomesPresent':False,'errors':errors,'rows':ranked}
     print(json.dumps({**entry,'rows':f'<{len(rows)} scored rows>'},indent=2))
     if args.dry_run:return
     out.setdefault('predictions',[]).append(entry); OUT.write_text(json.dumps(out,indent=2)+'\n',encoding='utf-8')
