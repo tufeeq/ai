@@ -1,0 +1,49 @@
+name: TAGX Live Session Daemon
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tagx-live-session-daemon.yml'
+      - 'tag/data/finviz.json'
+      - 'tag/data/discovery-fast.json'
+      - 'tag/data/discovery.json'
+      - 'tag/data/premarket-hot.json'
+  schedule:
+    - cron: '*/20 * * * 1-5'
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: tagx-live-session-daemon-main
+  cancel-in-progress: true
+
+jobs:
+  pulse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - name: Keep live quote producer moving through the active US session
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 9); do
+            DOW=$(TZ=America/New_York date +%u)
+            HM=$(TZ=America/New_York date +%H%M)
+            if [ "$DOW" -gt 5 ] || [ "$HM" -lt 0400 ] || [ "$HM" -gt 2000 ]; then
+              echo "Outside 04:00-20:00 ET; stopping daemon at $(TZ=America/New_York date -Iseconds)"
+              exit 0
+            fi
+            echo "Live pulse $i/9 at $(TZ=America/New_York date -Iseconds)"
+            gh api --method POST \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${REPO}/actions/workflows/tagx-live-quotes.yml/dispatches" \
+              -f ref=main || true
+            [ "$i" -lt 9 ] && sleep 145
+          done
