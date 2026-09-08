@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "5.8.3-failure-archetype-multisession",
+  "status": "COMPLETE",
+  "policy": "RESEARCH_ONLY_NO_CHAMPION_OVERRIDE",
+  "trainArchetypes": {
+    "successCases": 3021,
+    "failureCases": 36338,
+    "successClusters": 12,
+    "failureClusters": 12
+  },
+  "selectedConfig": {
+    "minCarryScore583": 0.5543,
+    "minPNext1": 0.25,
+    "minPNext2": 0.3,
+    "minPredUpside": 20,
+    "maxDisagreement": 0.14,
+    "minContinuationPatternLift": -0.15
+  },
+  "calibrationBlocks": {
+    "A": {
+      "count": 113,
+      "tpNext1": 29,
+      "next1Precision20Pct": 25.66,
+      "wilsonLower90Next1Pct": 19.53,
+      "activeDays": 42,
+      "top3DailyPrecision20Pct": 20.43,
+      "medianNext2MaxGainPct": 12.39,
+      "winnerDayRecallPct": 42.31
+    },
+    "B": {
+      "count": 139,
+      "tpNext1": 36,
+      "next1Precision20Pct": 25.9,
+      "wilsonLower90Next1Pct": 20.29,
+      "activeDays": 50,
+      "top3DailyPrecision20Pct": 23.89,
+      "medianNext2MaxGainPct": 11.76,
+      "winnerDayRecallPct": 46.3
+    }
+  },
+  "calibration": {
+    "count": 252,
+    "tpNext1": 65,
+    "next1Precision20Pct": 25.79,
+    "wilsonLower90Next1Pct": 21.53,
+    "activeDays": 92,
+    "top3DailyPrecision20Pct": 22.33,
+    "medianNext2MaxGainPct": 12.31,
+    "winnerDayRecallPct": 44.34
+  },
+  "holdout": {
+    "count": 401,
+    "tpNext1": 112,
+    "next1Precision20Pct": 27.93,
+    "wilsonLower90Next1Pct": 24.4,
+    "activeDays": 106,
+    "top3DailyPrecision20Pct": 30.0,
+    "medianNext2MaxGainPct": 12.6,
+    "winnerDayRecallPct": 63.3
+  },
+  "baselineV581HoldoutPrecisionPct": 30.62,
+  "universeIntegrity": {
+    "marketWidePointInTimeUniverse": false,
+    "realDiscoveryPrecisionClaimAllowed": false
+  },
+  "antiLeakage": [
+    "features use current/prior completed sessions only",
+    "future sessions are labels only",
+    "split-boundary label horizons are purged by v5.8.1",
+    "success/failure archetypes fit on train only",
+    "configuration selected on chronological calibration blocks only",
+    "holdout evaluated only after freeze"
+  ],
+  "credible90Claim": false,
+  "mainBottleneck": "false continuation discrimination and historical mover-conditioned universe"
+}
