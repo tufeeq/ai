@@ -9,12 +9,17 @@ on:
       - 'tagit/state-v3.css'
       - 'tagit/core.js'
       - 'tagit/app-v4.js'
+      - 'tagit/app-v5.js'
       - 'tagit/auth.js'
       - 'tagit/auth.css'
       - 'tagit/ledger.js'
       - 'tag/data/tagit-signal-feed.json'
       - 'tag/data/tagit-v41-shadow.json'
       - 'tag/data/tagit-model-governance.json'
+      - 'tag/data/tagit-v5*-free-pit-training.json'
+      - 'tag/data/tagit-v514-freeze-report.json'
+      - 'tag/data/tagit-forward-universe-ledger.json'
+      - 'tag/data/forward/**'
       - 'tag/data/finviz.json'
       - '.github/workflows/pages-tagx-deploy.yml'
   workflow_run:
@@ -50,7 +55,7 @@ jobs:
         run: |
           rm -rf _site
           mkdir -p _site/tagit _site/tag/data
-          cp tagit/index.html tagit/styles.css tagit/state-v3.css tagit/core.js tagit/app-v4.js tagit/auth.js tagit/auth.css tagit/ledger.js _site/tagit/
+          cp tagit/index.html tagit/styles.css tagit/state-v3.css tagit/core.js tagit/app-v5.js tagit/auth.js tagit/auth.css tagit/ledger.js _site/tagit/
           python - <<'PY'
           import json,pathlib
           sig=json.loads(pathlib.Path('tag/data/tagit-signal-feed.json').read_text())
@@ -87,7 +92,6 @@ jobs:
               z=vm.get(sym)
               if z:
                   x['v41Shadow']={k:z.get(k) for k in ('v41State','surfaceEligible','rank','rankScorePct','eventConviction','persistenceScore','continuationScore','selectedStreak','progressionSeen','momentum5mPct','momentum10mPct','catalystQuality','catalystContext','riskContext','reason','executionVerified','scoreMeaning')}
-          # Add v4.1 discoveries that are absent from the legacy derived feed.
           for sym,z in vm.items():
               if sym in by or z.get('v41State') not in ('V41_ALERT','V41_DISCOVER'):continue
               state='WATCH' if z.get('v41State')=='V41_ALERT' else 'DISCOVER'
@@ -101,7 +105,7 @@ jobs:
               return (2 if s=='V41_ALERT' else 1 if s=='V41_DISCOVER' else 0, float(z.get('eventConviction') or x.get('actionability') or 0))
           items.sort(key=priority,reverse=True)
           sig['items']=items[:100]
-          sig['uiVersion']='TAGit UI 4.1 Personal'
+          sig['uiVersion']='TAGit UI 5 Personal'
           sig['v41Status']=v41.get('status')
           sig['v41Counts']=v41.get('counts') or {}
           sig['v41Policy']='SHADOW_ONLY_NO_CHAMPION_OVERRIDE'
@@ -115,12 +119,49 @@ jobs:
           sig['publicationPolicy']='PERSONAL_RESTRICTED_ARTIFACT_DERIVED_VIEW_ONLY'
           pathlib.Path('_site/tag/data/tagit-view.json').write_text(json.dumps(sig,ensure_ascii=False,separators=(',',':')))
           PY
+          python - <<'PY'
+          import datetime,json,pathlib
+          root=pathlib.Path('tag/data')
+          selected_version='—'; report=None
+          for version in ('v5.31','v5.30','v5.29','v5.28','v5.23'):
+              p=root/f'tagit-{version.replace(".","")}-free-pit-training.json'
+              if not p.exists(): continue
+              try:r=json.loads(p.read_text())
+              except:continue
+              if r.get('status')=='COMPLETE': selected_version=version;report=r;break
+          rp={}
+          if report:
+              rp={k:report.get(k) for k in ('status','validationStatus','holdoutStatus','change','researchHoldout','realDiscoveryPrecisionPct','providerIntegrity')}
+          fp=root/'tagit-v514-freeze-report.json';freeze={}
+          if fp.exists():
+              f=json.loads(fp.read_text())
+              freeze={k:f.get(k) for k in ('status','trainingIndependentTickerDays','trainingActiveDays','trainingCutoffDate','historicalPrecisionClaimed')}
+          forward={'kind':'none','latestDate':None,'symbolCount':None}
+          np=root/'forward'/'ledger.json';lp=root/'tagit-forward-universe-ledger.json'
+          source=np if np.exists() else lp if lp.exists() else None
+          if source:
+              try:
+                  d=json.loads(source.read_text());forward['kind']='immutable-v1' if source==np else 'legacy-pit-ledger'
+                  sessions=d.get('sessions') or d.get('entries') or []
+                  if sessions:
+                      z=sorted(sessions,key=lambda x:str(x.get('sessionDateET') or x.get('date') or ''))[-1]
+                      forward['latestDate']=z.get('sessionDateET') or z.get('date')
+                      sy=z.get('symbols');forward['symbolCount']=len(sy) if isinstance(sy,dict) else z.get('symbolCount') or z.get('count')
+                  elif isinstance(d.get('latest'),dict):
+                      z=d['latest'];forward['latestDate']=z.get('sessionDateET') or z.get('date');forward['symbolCount']=z.get('symbolCount') or z.get('count')
+              except Exception: pass
+          attempt='v5.31: no valid completed report' if selected_version=='v5.30' else 'Latest completed report loaded'
+          view={'schemaVersion':'tagit-ui-validation-v1','generatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'researchVersion':selected_version,'research':rp,'latestAttempt':attempt,'freeze':freeze,'forward':forward}
+          pathlib.Path('_site/tag/data/tagit-validation-view.json').write_text(json.dumps(view,ensure_ascii=False,separators=(',',':')))
+          PY
           find _site -maxdepth 3 -type f -print
+          test -e _site/tagit/app-v5.js
+          test -e _site/tag/data/tagit-view.json
+          test -e _site/tag/data/tagit-validation-view.json
           test ! -e _site/tag/data/finviz.json
           test ! -e _site/tag/data/tagit-v41-shadow.json
           test ! -e _site/tag/data/tagit-model-governance.json
-          test ! -e _site/tag/data/tagit-v4-shadow.json
-          test ! -e _site/tag/data/tagit-shadow-learning-ledger.json
+          test ! -e _site/tag/data/tagit-forward-universe-ledger.json
           test ! -e _site/tag/model/tagit-v4-live-compatible.joblib
       - name: Configure Pages
         uses: actions/configure-pages@v5
