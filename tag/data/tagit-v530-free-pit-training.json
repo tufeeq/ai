@@ -1,0 +1,139 @@
+{
+  "schemaVersion": "5.30-reliability-gated-recurrent-expert-pit",
+  "generatedAtUTC": "2026-09-08T08:38:35.917576+00:00",
+  "status": "COMPLETE",
+  "dataMode": "NASDAQ_PLUS_YAHOO_RECENT_BOOTSTRAP",
+  "validationStatus": "RESEARCH_COMPARISON_ONLY",
+  "holdoutStatus": "CONSUMED_RESEARCH_HOLDOUT",
+  "change": [
+    "preserve v5.23 baseline expert",
+    "separate v5.28 recurrent expert",
+    "reliability gates expert influence instead of shrinking features",
+    "coherence-weighted recurrent gate",
+    "fit predictions cached before threshold search"
+  ],
+  "population": {
+    "symbolsRequested": 650,
+    "symbolsSucceeded": 643,
+    "independentTickerDays": 25791,
+    "days": 58,
+    "plus20": 375
+  },
+  "development": {
+    "days": 46,
+    "folds": [
+      {
+        "fitDays": 20,
+        "validationDays": 9,
+        "fitRows": 8903,
+        "validationRows": 3807
+      },
+      {
+        "fitDays": 29,
+        "validationDays": 9,
+        "fitRows": 12710,
+        "validationRows": 3835
+      },
+      {
+        "fitDays": 38,
+        "validationDays": 8,
+        "fitRows": 16545,
+        "validationRows": 3644
+      }
+    ],
+    "foldMetrics": [
+      {
+        "count": 28,
+        "tp20": 10,
+        "precision20Pct": 35.71,
+        "wilsonLower90Pct": 22.69,
+        "dayBlockLower90Pct": 21.43,
+        "activeDays": 9,
+        "medianLeadMin": 55.0,
+        "top3DailyPrecisionPct": 36.36,
+        "medianRemainingUpsidePct": 10.39,
+        "winnerDayRecallPct": 66.67
+      },
+      {
+        "count": 42,
+        "tp20": 14,
+        "precision20Pct": 33.33,
+        "wilsonLower90Pct": 22.7,
+        "dayBlockLower90Pct": 21.43,
+        "activeDays": 9,
+        "medianLeadMin": 52.5,
+        "top3DailyPrecisionPct": 34.62,
+        "medianRemainingUpsidePct": 14.16,
+        "winnerDayRecallPct": 77.78
+      },
+      {
+        "count": 40,
+        "tp20": 13,
+        "precision20Pct": 32.5,
+        "wilsonLower90Pct": 21.77,
+        "dayBlockLower90Pct": 20.0,
+        "activeDays": 8,
+        "medianLeadMin": 60.0,
+        "top3DailyPrecisionPct": 20.83,
+        "medianRemainingUpsidePct": 10.66,
+        "winnerDayRecallPct": 87.5
+      }
+    ],
+    "recentAudits": [
+      {
+        "recentWindowRequested": 18,
+        "baseRecentDays": 18,
+        "recurrentRecentDays": 18
+      },
+      {
+        "recentWindowRequested": 18,
+        "baseRecentDays": 18,
+        "recurrentRecentDays": 18
+      },
+      {
+        "recentWindowRequested": 18,
+        "baseRecentDays": 18,
+        "recurrentRecentDays": 18
+      }
+    ]
+  },
+  "selectedConfig": {
+    "recentWindowDays": 18,
+    "recentWeight": 0.4,
+    "minPriorSessionsForRecurrence": 4,
+    "recurrentGateStrength": 0.75,
+    "scoreThreshold": 0.650476,
+    "maxDisagreement": 0.16,
+    "topNPerDay": 5
+  },
+  "researchHoldout": {
+    "count": 60,
+    "tp20": 16,
+    "precision20Pct": 26.67,
+    "wilsonLower90Pct": 18.43,
+    "dayBlockLower90Pct": 18.33,
+    "activeDays": 12,
+    "medianLeadMin": 65.0,
+    "top3DailyPrecisionPct": 33.33,
+    "medianRemainingUpsidePct": 14.22,
+    "winnerDayRecallPct": 75.0
+  },
+  "gateAudit": {
+    "meanGate": 0.4394,
+    "nonzeroGatePct": 90.79
+  },
+  "realDiscoveryPrecisionPct": null,
+  "providerIntegrity": {
+    "historicalPointInTimeUniverse": false,
+    "survivorshipSafe": false,
+    "marketWidePrecisionClaimAllowed": false
+  },
+  "antiLeakage": [
+    "all inference market features <=09:15 ET",
+    "baseline expert receives no recurrent features",
+    "recurrent expert memory prior completed sessions only",
+    "expert gate uses prior-session count and model disagreement only",
+    "configuration selected on development folds only",
+    "research tail excluded from selection and already consumed"
+  ]
+}
