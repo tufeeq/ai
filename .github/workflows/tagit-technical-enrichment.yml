@@ -1,0 +1,59 @@
+name: TAGit Technical Enrichment V7
+
+on:
+  workflow_run:
+    workflows: ['TAGX Live Quote Reconciliation V8']
+    types: [completed]
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tagit/technical_engine.py'
+      - 'tagit/technical-v7.js'
+      - '.github/workflows/tagit-technical-enrichment.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-technical-enrichment-main
+  cancel-in-progress: true
+
+jobs:
+  enrich-technicals:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Sync latest feed
+        run: git pull --rebase origin main
+      - name: Validate technical engine
+        run: |
+          python -m py_compile tagit/technical_engine.py
+          python tagit/technical_engine.py --self-test
+      - name: Enrich current candidates
+        run: python tagit/technical_engine.py --max-symbols 120
+      - name: Verify real technical coverage
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open('tag/data/live-quotes.json'))
+          assert d.get('technicalCount',0)>0, 'technicalCount must be > 0'
+          rows=(d.get('emergingCandidates') or [])+(d.get('accumulationCandidates') or [])
+          covered=[x for x in rows if x.get('technicalCoverage') is True]
+          print({'technicalCount':d.get('technicalCount'),'coveredCandidates':len(covered),'engine':d.get('technicalEngine')})
+          PY
+      - name: Commit enriched live feed
+        run: |
+          git config user.name "TAGit Technical Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/live-quotes.json
+          git diff --cached --quiet && exit 0
+          git commit -m "data: enrich TAGit live feed with RSI MACD Fibonacci volume"
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*4)); done
+          exit 1
