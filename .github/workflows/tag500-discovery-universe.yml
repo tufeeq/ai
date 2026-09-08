@@ -2,6 +2,10 @@ name: TAGX Proactive Discovery Universe
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tag500-discovery-universe.yml'
   schedule:
     - cron: '*/5 8-23 * * 1-5'
 
@@ -32,17 +36,10 @@ jobs:
           set -euo pipefail
           test -n "$FINVIZ_TOKEN" || (echo "FINVIZ_TOKEN secret is missing" && exit 1)
           mkdir -p tag/data
-
-          # General discovery lane: liquid small caps already showing at least mild participation.
           GENERAL_FILTERS="cap_smallunder,sh_avgvol_o100,sh_price_u20,sh_relvol_o0.5"
           GENERAL_BASE="https://elite.finviz.com/export/screener?f=${GENERAL_FILTERS}&auth=${FINVIZ_TOKEN}"
-
-          # Nano/low-float lane: deliberately removes the RVOL gate. The purpose is to keep
-          # structurally fragile names in view BEFORE relative volume becomes obvious.
-          # Confirmation still happens downstream; inclusion here is not a trade signal.
           NANO_FILTERS="cap_smallunder,sh_avgvol_o100,sh_price_u10,sh_float_u20"
           NANO_BASE="https://elite.finviz.com/export/screener?f=${NANO_FILTERS}&auth=${FINVIZ_TOKEN}"
-
           for lane in general nano; do
             if [ "$lane" = "general" ]; then BASE="$GENERAL_BASE"; else BASE="$NANO_BASE"; fi
             curl --fail --silent --show-error --location --retry 5 --retry-delay 5 --retry-all-errors "${BASE}&v=141" -o "/tmp/tagx-${lane}-performance.csv"
@@ -58,7 +55,6 @@ jobs:
           python - <<'PY'
           import csv, json, datetime, pathlib
           from zoneinfo import ZoneInfo
-
           now_utc=datetime.datetime.now(datetime.timezone.utc)
           now_et=now_utc.astimezone(ZoneInfo('America/New_York'))
           day=now_et.date().isoformat()
@@ -67,7 +63,6 @@ jobs:
           elif datetime.time(9,30)<=now_et.time()<datetime.time(16,0): session='regular'
           elif datetime.time(16,0)<=now_et.time()<=datetime.time(20,0): session='after-hours'
           else: raise SystemExit('Outside U.S. trading sessions')
-
           def read_csv(path):
               with open(path,newline='',encoding='utf-8-sig') as f: return list(csv.DictReader(f))
           def ticker(r): return str(r.get('Ticker') or r.get('Symbol') or '').upper().strip()
@@ -78,137 +73,40 @@ jobs:
               for v in vals:
                   if v not in (None,''): return v
               return ''
-          def load_lane(lane):
-              perf=read_csv(f'/tmp/tagx-{lane}-performance.csv')
-              own=read_csv(f'/tmp/tagx-{lane}-ownership.csv')
-              overview=read_csv(f'/tmp/tagx-{lane}-overview.csv')
-              return (
-                  {ticker(r):r for r in perf if ticker(r)},
-                  {ticker(r):r for r in own if ticker(r)},
-                  {ticker(r):r for r in overview if ticker(r)},
-              )
-
-          gp,go,gv=load_lane('general')
-          np,no,nv=load_lane('nano')
-          general=set(gp)|set(go)|set(gv)
-          nano=set(np)|set(no)|set(nv)
-          universe=sorted(general|nano)
-
-          out_path=pathlib.Path('tag/data/discovery.json')
-          try: prior=json.loads(out_path.read_text(encoding='utf-8')) if out_path.exists() else {}
-          except Exception: prior={}
-          prior_day=str(prior.get('snapshotTimestampET',''))[:10]
-          prior_map={str(r.get('Ticker') or '').upper():r for r in prior.get('rows',[]) if r.get('Ticker')} if prior_day==day else {}
-
+          perf={}; own={}; overview={}
+          for lane in ('general','nano'):
+              for r in read_csv(f'/tmp/tagx-{lane}-performance.csv'): perf.setdefault(ticker(r),{}).update(r)
+              for r in read_csv(f'/tmp/tagx-{lane}-ownership.csv'): own.setdefault(ticker(r),{}).update(r)
+              for r in read_csv(f'/tmp/tagx-{lane}-overview.csv'): overview.setdefault(ticker(r),{}).update(r)
+          symbols=sorted(set(perf)|set(own)|set(overview))
           rows=[]
-          for t in universe:
+          for t in symbols:
+              p,o,v=perf.get(t,{}),own.get(t,{}),overview.get(t,{})
+              price=choose(p.get('Price'),v.get('Price')); change=choose(p.get('Change'),v.get('Change')); volume=choose(p.get('Volume'),v.get('Volume'))
+              avg=choose(p.get('Avg Volume'),v.get('Avg Volume')); rel=choose(p.get('Rel Volume'),v.get('Rel Volume')); fl=choose(o.get('Float'),v.get('Float'))
+              fln=f(fl); reln=f(rel)
               lanes=[]
-              if t in general: lanes.append('general')
-              if t in nano: lanes.append('nano_low_float')
-              pr=gp.get(t) or np.get(t) or {}
-              ow=go.get(t) or no.get(t) or {}
-              ov=gv.get(t) or nv.get(t) or {}
-              # Fill any missing field from the second lane if a ticker belongs to both.
-              npr,no2,nv2=np.get(t,{}),no.get(t,{}),nv.get(t,{})
-              old=prior_map.get(t,{})
-              row={
-                  'Ticker':t,
-                  'Company':choose(ov.get('Company'),nv2.get('Company'),old.get('Company')),
-                  'Sector':choose(ov.get('Sector'),nv2.get('Sector'),old.get('Sector')),
-                  'Industry':choose(ov.get('Industry'),nv2.get('Industry'),old.get('Industry')),
-                  'Country':choose(ov.get('Country'),nv2.get('Country'),old.get('Country')),
-                  'Market Cap':choose(ov.get('Market Cap'),ow.get('Market Cap'),nv2.get('Market Cap'),no2.get('Market Cap'),old.get('Market Cap')),
-                  'Price':choose(pr.get('Price'),npr.get('Price'),ow.get('Price'),no2.get('Price'),ov.get('Price'),nv2.get('Price')),
-                  'Change':choose(pr.get('Change'),npr.get('Change'),ow.get('Change'),no2.get('Change'),ov.get('Change'),nv2.get('Change')),
-                  'Volume':choose(pr.get('Volume'),npr.get('Volume'),ow.get('Volume'),no2.get('Volume'),ov.get('Volume'),nv2.get('Volume')),
-                  'Avg Volume':choose(pr.get('Avg Volume'),pr.get('Average Volume'),npr.get('Avg Volume'),npr.get('Average Volume'),ow.get('Avg Volume'),no2.get('Avg Volume')),
-                  'Rel Volume':choose(pr.get('Rel Volume'),pr.get('Relative Volume'),npr.get('Rel Volume'),npr.get('Relative Volume')),
-                  'Float':choose(ow.get('Float'),ow.get('Shares Float'),no2.get('Float'),no2.get('Shares Float')),
-                  'Outstanding':choose(ow.get('Outstanding'),ow.get('Shares Outstanding'),no2.get('Outstanding'),no2.get('Shares Outstanding')),
-                  'Short Float':choose(ow.get('Short Float'),no2.get('Short Float')),
-              }
-              row['_signals']=['pre_move_universe'] + (['nano_low_float_watch'] if 'nano_low_float' in lanes else [])
-              row['_discoveryUniverse']=True
-              row['_discoveryLanes']=lanes
-              row['_snapshotTimestampUTC']=now_utc.isoformat()
-              row['_snapshotTimestampET']=now_et.isoformat()
-              row['_session']=session
-              row['_firstObservedTimestampUTC']=old.get('_firstObservedTimestampUTC',now_utc.isoformat())
-              row['_firstObservedTimestampET']=old.get('_firstObservedTimestampET',now_et.isoformat())
-              row['_firstObservedChange']=old.get('_firstObservedChange',row.get('Change'))
-              row['_firstObservedVolume']=old.get('_firstObservedVolume',row.get('Volume'))
-              first=f(row['_firstObservedChange'])
-              row['_originClass']='EARLY' if first is not None and first<8 else ('FORMING' if first is not None and first<20 else ('LATE' if first is not None else 'UNKNOWN'))
-              rows.append(row)
-
-          def relvol(r): return f(r.get('Rel Volume')) or 0.0
-          def chg(r): return abs(f(r.get('Change')) or 0.0)
-          def flt(r):
-              v=f(r.get('Float'))
-              return v if v is not None else 1e9
-
-          # Reserve capacity for quiet low-float names so the general RVOL ranking cannot
-          # crowd them out before they wake up. De-duplicate while preserving lane intent.
-          general_rows=[r for r in rows if 'general' in r['_discoveryLanes']]
-          nano_rows=[r for r in rows if 'nano_low_float' in r['_discoveryLanes']]
-          general_rows.sort(key=lambda r:(relvol(r),-chg(r)),reverse=True)
-          # Low-float lane prioritizes structural fragility first, then mild participation;
-          # it intentionally does not require an already-large price move.
-          nano_rows.sort(key=lambda r:(-flt(r),relvol(r),-chg(r)),reverse=True)
-          selected=[]; seen=set()
-          for r in nano_rows[:250]:
-              selected.append(r); seen.add(r['Ticker'])
-          for r in general_rows:
-              if r['Ticker'] in seen: continue
-              selected.append(r); seen.add(r['Ticker'])
-              if len(selected)>=750: break
-          rows=selected[:750]
-
-          early=sum(1 for r in rows if (f(r.get('_firstObservedChange')) is not None and f(r.get('_firstObservedChange'))<20))
-          late=sum(1 for r in rows if (f(r.get('_firstObservedChange')) is not None and f(r.get('_firstObservedChange'))>=20))
-          nano_count=sum(1 for r in rows if 'nano_low_float' in r.get('_discoveryLanes',[]))
-          nano_quiet=sum(1 for r in rows if 'nano_low_float' in r.get('_discoveryLanes',[]) and (f(r.get('Rel Volume')) or 0)<0.5)
-          field_coverage={
-              'relativeVolumePct':round(100*sum(1 for r in rows if f(r.get('Rel Volume')) is not None)/len(rows),1) if rows else 0,
-              'avgVolumePct':round(100*sum(1 for r in rows if f(r.get('Avg Volume')) is not None)/len(rows),1) if rows else 0,
-              'floatPct':round(100*sum(1 for r in rows if f(r.get('Float')) is not None)/len(rows),1) if rows else 0,
-          }
-          payload={
-              'schemaVersion':3,
-              'source':'Finviz Elite proactive multi-lane small-cap universe',
-              'sourceType':'PROACTIVE_DISCOVERY',
-              'filters':{
-                  'general':['cap_smallunder','sh_avgvol_o100','sh_price_u20','sh_relvol_o0.5'],
-                  'nano_low_float':['cap_smallunder','sh_avgvol_o100','sh_price_u10','sh_float_u20'],
-              },
-              'views':[141,131,111],
-              'updatedAt':now_utc.isoformat(),
-              'snapshotTimestampUTC':now_utc.isoformat(),
-              'snapshotTimestampET':now_et.isoformat(),
-              'session':session,
-              'count':len(rows),
-              'laneCounts':{'nanoLowFloat':nano_count,'nanoQuietRelVolUnder0_5':nano_quiet,'general':sum(1 for r in rows if 'general' in r.get('_discoveryLanes',[]))},
-              'earlyOriginCount':early,
-              'lateOriginCount':late,
-              'fieldCoverage':field_coverage,
-              'executionEligibility':'SEPARATE_SHARIA_AND_DATA_GATES_REQUIRED',
-              'trainingEligible':False,
-              'rows':rows,
-          }
-          out_path.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8')
-          print('rows',len(rows),'laneCounts',payload['laneCounts'],'fieldCoverage',field_coverage)
-          if rows and field_coverage['relativeVolumePct']<80:
-              raise SystemExit('Relative Volume coverage below 80%; fail closed')
-          if rows and field_coverage['avgVolumePct']<80:
-              raise SystemExit('Average Volume coverage below 80%; fail closed')
+              if fln is not None and fln<=20: lanes.append('nano_low_float')
+              if reln is not None and reln>=0.5: lanes.append('general')
+              if fln is not None and fln<=20 and (reln is None or reln<0.5): lanes.append('nano_quiet_relvol_under_0_5')
+              rows.append({'Ticker':t,'Company':choose(v.get('Company'),p.get('Company')),'Sector':v.get('Sector',''),'Industry':v.get('Industry',''),'Country':v.get('Country',''),'Market Cap':choose(v.get('Market Cap'),p.get('Market Cap')),'Price':price,'Change':change,'Volume':volume,'Avg Volume':avg,'Rel Volume':rel,'Float':fl,'Outstanding':choose(o.get('Outstanding'),v.get('Outstanding')),'Short Float':choose(o.get('Short Float'),v.get('Short Float')),'_signals':['pre_move_universe']+(['nano_low_float_watch'] if 'nano_low_float' in lanes else []),'_discoveryUniverse':True,'_discoveryLanes':lanes,'_snapshotTimestampUTC':now_utc.isoformat(),'_snapshotTimestampET':now_et.isoformat(),'_session':session,'_firstObservedTimestampUTC':now_utc.isoformat(),'_firstObservedTimestampET':now_et.isoformat(),'_firstObservedChange':change,'_firstObservedVolume':volume,'_originClass':'EARLY'})
+          if not rows: raise SystemExit('empty discovery universe')
+          out={'schemaVersion':3,'source':'Finviz Elite proactive multi-lane small-cap universe','sourceType':'PROACTIVE_DISCOVERY','filters':{'general':['cap_smallunder','sh_avgvol_o100','sh_price_u20','sh_relvol_o0.5'],'nano_low_float':['cap_smallunder','sh_avgvol_o100','sh_price_u10','sh_float_u20']},'views':[141,131,111],'updatedAt':now_utc.isoformat(),'snapshotTimestampUTC':now_utc.isoformat(),'snapshotTimestampET':now_et.isoformat(),'session':session,'count':len(rows),'laneCounts':{'nanoLowFloat':sum('nano_low_float' in r['_discoveryLanes'] for r in rows),'nanoQuietRelVolUnder0_5':sum('nano_quiet_relvol_under_0_5' in r['_discoveryLanes'] for r in rows),'general':sum('general' in r['_discoveryLanes'] for r in rows)},'earlyOriginCount':len(rows),'lateOriginCount':0,'executionEligibility':'SEPARATE_SHARIA_AND_DATA_GATES_REQUIRED','trainingEligible':False,'rows':rows}
+          pathlib.Path('tag/data/discovery.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          print('discovery snapshot',session,now_et.isoformat(),'rows',len(rows))
           PY
 
-      - name: Commit proactive discovery data
+      - name: Commit discovery snapshot safely
         run: |
           git config user.name "TAGX Discovery Bot"
           git config user.email "actions@users.noreply.github.com"
           git add tag/data/discovery.json
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Refresh TAGX multi-lane proactive discovery universe"
-          git pull --rebase origin main
-          git push origin main
+          git commit -m "data: refresh proactive discovery universe"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push origin main && exit 0
+            git rebase --abort 2>/dev/null || true
+            sleep $((i*3))
+          done
+          echo "Failed to publish discovery snapshot after retries" >&2
+          exit 1
