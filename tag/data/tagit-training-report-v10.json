@@ -1,12 +1,12 @@
 {
   "schemaVersion": 10,
-  "generatedAtUTC": "2026-09-08T20:36:12.257835+00:00",
+  "generatedAtUTC": "2026-09-08T20:40:19.433637+00:00",
   "status": "SIMULATED_NOT_PRODUCTION_PROOF",
   "model": {
     "schemaVersion": 10,
-    "modelType": "SIMULATED_PIT_LINEAR_ENSEMBLE",
-    "generatedAtUTC": "2026-09-08T20:36:12.257835+00:00",
-    "trainingScope": "same-session point-in-time simulation; final Top-50 used only as label",
+    "modelType": "SIMULATED_PIT_NONLINEAR_TREND_ENSEMBLE",
+    "generatedAtUTC": "2026-09-08T20:40:19.433637+00:00",
+    "trainingScope": "same-session PIT simulation; future Top-50 outcome is label only",
     "features": [
       "acc5",
       "acc15",
@@ -19,16 +19,20 @@
       "priceVelocity5mPct",
       "priceVelocity15mPct",
       "changePct",
-      "sessionVolumeLog"
+      "sessionVolumeLog",
+      "pressureCompression",
+      "turnoverCompression",
+      "quietPressure",
+      "trendAlignment"
     ],
     "normalization": {
       "acc5": {
-        "median": 0.645,
-        "scale": 0.7501956
+        "median": 0.644,
+        "scale": 0.7590912
       },
       "acc15": {
-        "median": 0.917,
-        "scale": 0.8235843000000002
+        "median": 0.875,
+        "scale": 0.8347037999999999
       },
       "relativeVolume": {
         "median": 0.0,
@@ -56,38 +60,58 @@
       },
       "priceVelocity5mPct": {
         "median": 0.0,
-        "scale": 0.48777539999999997
+        "scale": 0.5240990999999999
       },
       "priceVelocity15mPct": {
-        "median": -0.068,
-        "scale": 0.8376689999999999
+        "median": -0.055,
+        "scale": 0.8517537
       },
       "changePct": {
-        "median": 3.6370051828424703,
-        "scale": 5.491224482007569
+        "median": 3.2015728076715164,
+        "scale": 5.574063644605306
       },
       "sessionVolumeLog": {
         "median": 14.010673477071249,
         "scale": 2.06038446525816
+      },
+      "pressureCompression": {
+        "median": 0.02935714285714286,
+        "scale": 0.05
+      },
+      "turnoverCompression": {
+        "median": 0.0,
+        "scale": 0.05
+      },
+      "quietPressure": {
+        "median": 1.1105999999999998,
+        "scale": 1.0984799859599998
+      },
+      "trendAlignment": {
+        "median": 0.25,
+        "scale": 0.05
       }
     },
     "weights": {
-      "acc5": 0.351128,
-      "acc15": 0.410087,
-      "relativeVolume": 0.553912,
-      "turnover15mPct": 0.898686,
-      "range15mPct": -1.3776,
-      "range30mPct": -0.050857,
-      "buyVolumePct": 0.483468,
-      "technicalScore": 0.784883,
-      "priceVelocity5mPct": -0.428643,
-      "priceVelocity15mPct": -0.067204,
-      "changePct": -0.046094,
-      "sessionVolumeLog": 0.563588
+      "acc5": -0.279219,
+      "acc15": 0.514526,
+      "relativeVolume": 0.703984,
+      "turnover15mPct": 0.283268,
+      "range15mPct": -0.05345,
+      "range30mPct": -0.323174,
+      "buyVolumePct": 0.508408,
+      "technicalScore": 0.165443,
+      "priceVelocity5mPct": -0.444359,
+      "priceVelocity15mPct": -0.527593,
+      "changePct": -0.320624,
+      "sessionVolumeLog": 0.908963,
+      "pressureCompression": 0.230579,
+      "turnoverCompression": 0.73418,
+      "quietPressure": -0.015911,
+      "trendAlignment": 0.396164
     },
-    "bias": -1.271468,
-    "threshold": 0.655866,
-    "candidateCap": 40,
+    "bias": -0.915,
+    "threshold": 0.733787,
+    "candidateCap": 30,
     "guardrails": {
       "changePctMin": -5,
       "changePctMaxExclusive": 10,
@@ -96,81 +120,99 @@
     },
     "validation": {
       "train": {
-        "symbols": 386,
+        "symbols": 410,
         "positives": 9,
-        "selected": 206,
-        "tp": 6,
-        "recall": 0.6666666666666666,
-        "precision": 0.02912621359223301,
-        "f2": 0.1239669421487603
+        "selected": 281,
+        "tp": 7,
+        "recall": 0.7777777777777778,
+        "precision": 0.02491103202846975,
+        "f1": 0.04827586206896551,
+        "liftVsBase": 1.1348359035191775
       },
       "symbolHoldout": {
-        "symbols": 94,
+        "symbols": 100,
         "positives": 6,
-        "selected": 52,
+        "selected": 69,
         "tp": 6,
         "recall": 1.0,
-        "precision": 0.11538461538461539,
-        "f2": 0.39473684210526316
+        "precision": 0.08695652173913043,
+        "f1": 0.16,
+        "liftVsBase": 1.4492753623188406
       }
     },
     "snapshotsUsed": 46,
-    "examples": 4315,
-    "uniqueSymbols": 480
+    "examples": 4842,
+    "uniqueSymbols": 510
   },
   "interpretation": {
-    "primaryGoal": "maximize early Top-50 recall while controlling false positives",
+    "primaryGoal": "early discovery with higher precision using volume-pressure/compression interactions",
     "holdoutIsSameSession": true,
-    "warning": "This simulation can tune TAGit, but cannot establish future-session accuracy. Forward sessions are required."
+    "warning": "Same-session symbol holdout is simulation, not future-session proof. Promote only after forward validation."
   },
   "topWeights": [
     [
-      "range15mPct",
-      -1.3776
-    ],
-    [
-      "turnover15mPct",
-      0.898686
-    ],
-    [
-      "technicalScore",
-      0.784883
-    ],
-    [
       "sessionVolumeLog",
-      0.563588
+      0.908963
+    ],
+    [
+      "turnoverCompression",
+      0.73418
     ],
     [
       "relativeVolume",
-      0.553912
-    ],
-    [
-      "buyVolumePct",
-      0.483468
-    ],
-    [
-      "priceVelocity5mPct",
-      -0.428643
-    ],
-    [
-      "acc15",
-      0.410087
-    ],
-    [
-      "acc5",
-      0.351128
+      0.703984
     ],
     [
       "priceVelocity15mPct",
-      -0.067204
+      -0.527593
+    ],
+    [
+      "acc15",
+      0.514526
+    ],
+    [
+      "buyVolumePct",
+      0.508408
+    ],
+    [
+      "priceVelocity5mPct",
+      -0.444359
+    ],
+    [
+      "trendAlignment",
+      0.396164
     ],
     [
       "range30mPct",
-      -0.050857
+      -0.323174
     ],
     [
       "changePct",
-      -0.046094
+      -0.320624
+    ],
+    [
+      "turnover15mPct",
+      0.283268
+    ],
+    [
+      "acc5",
+      -0.279219
+    ],
+    [
+      "pressureCompression",
+      0.230579
+    ],
+    [
+      "technicalScore",
+      0.165443
+    ],
+    [
+      "range15mPct",
+      -0.05345
+    ],
+    [
+      "quietPressure",
+      -0.015911
     ]
   ]
 }
