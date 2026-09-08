@@ -1,0 +1,41 @@
+name: TAGit Forward Claim Integrity
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tagit/audit_forward_claim_integrity.py'
+      - 'tag/data/forward/**'
+      - '.github/workflows/tagit-forward-claim-integrity.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-forward-claim-integrity
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Audit immutable forward evidence
+        run: |
+          python -m py_compile tagit/audit_forward_claim_integrity.py
+          python tagit/audit_forward_claim_integrity.py
+      - name: Commit governance report
+        run: |
+          git config user.name 'TAGit Validation Governance Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tag/data/tagit-forward-claim-integrity.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'validation: refresh TAGit forward claim integrity'
+          git pull --rebase origin main
+          git push origin main
