@@ -1,0 +1,132 @@
+{
+  "schemaVersion": "5.24.1-sec-pit",
+  "generatedAtUTC": "2026-09-08T06:31:42.432346+00:00",
+  "status": "COMPLETE",
+  "dataMode": "NASDAQ_PLUS_YAHOO_RECENT_BOOTSTRAP",
+  "validationStatus": "RESEARCH_COMPARISON_ONLY",
+  "holdoutStatus": "CONSUMED_RESEARCH_HOLDOUT",
+  "change": [
+    "hardened SEC fair-access client",
+    "retry/backoff plus alternate ticker map",
+    "fail-closed SEC availability flag",
+    "exact EDGAR acceptance-time cutoff <=09:15 ET",
+    "financing/dilution and filing recency context"
+  ],
+  "population": {
+    "symbolsRequested": 650,
+    "symbolsSucceeded": 642,
+    "independentTickerDays": 26234,
+    "days": 59,
+    "plus20": 388
+  },
+  "secCoverage": {
+    "secAvailable": true,
+    "tickerMapSource": "https://www.sec.gov/files/company_tickers.json",
+    "tickerCikMappedSymbols": 648,
+    "submissionsFetchedSymbols": 648,
+    "fetchErrors": 0,
+    "rowsIdentityMapped": 26202,
+    "rowsWithExactAcceptedFiling7d": 12971,
+    "rowsWithExactAcceptedFiling7dPct": 49.44
+  },
+  "development": {
+    "days": 47,
+    "folds": [
+      {
+        "fitDays": 21,
+        "validationDays": 9,
+        "fitRows": 9343,
+        "validationRows": 3807,
+        "oofRows": 4874,
+        "oofPositives": 59
+      },
+      {
+        "fitDays": 30,
+        "validationDays": 9,
+        "fitRows": 13150,
+        "validationRows": 3840,
+        "oofRows": 6421,
+        "oofPositives": 62
+      },
+      {
+        "fitDays": 39,
+        "validationDays": 8,
+        "fitRows": 16990,
+        "validationRows": 3644,
+        "oofRows": 8529,
+        "oofPositives": 125
+      }
+    ],
+    "foldMetrics": [
+      {
+        "count": 32,
+        "tp20": 10,
+        "precision20Pct": 31.25,
+        "wilsonLower90Pct": 19.69,
+        "dayBlockLower90Pct": 17.65,
+        "activeDays": 9,
+        "medianLeadMin": 42.5,
+        "top3DailyPrecisionPct": 36.0,
+        "medianRemainingUpsidePct": 8.79,
+        "winnerDayRecallPct": 66.67
+      },
+      {
+        "count": 41,
+        "tp20": 15,
+        "precision20Pct": 36.59,
+        "wilsonLower90Pct": 25.4,
+        "dayBlockLower90Pct": 25.58,
+        "activeDays": 9,
+        "medianLeadMin": 75.0,
+        "top3DailyPrecisionPct": 40.74,
+        "medianRemainingUpsidePct": 13.62,
+        "winnerDayRecallPct": 88.89
+      },
+      {
+        "count": 40,
+        "tp20": 9,
+        "precision20Pct": 22.5,
+        "wilsonLower90Pct": 13.59,
+        "dayBlockLower90Pct": 15.0,
+        "activeDays": 8,
+        "medianLeadMin": 55.0,
+        "top3DailyPrecisionPct": 20.83,
+        "medianRemainingUpsidePct": 10.66,
+        "winnerDayRecallPct": 87.5
+      }
+    ]
+  },
+  "selectedConfig": {
+    "metaThreshold": 0.759743,
+    "baseThreshold": 0.09145,
+    "maxDisagreement": 0.12,
+    "topNPerDay": 5
+  },
+  "researchHoldout": {
+    "count": 58,
+    "tp20": 12,
+    "precision20Pct": 20.69,
+    "wilsonLower90Pct": 13.34,
+    "dayBlockLower90Pct": 14.27,
+    "activeDays": 12,
+    "medianLeadMin": 67.5,
+    "top3DailyPrecisionPct": 30.56,
+    "medianRemainingUpsidePct": 11.28,
+    "winnerDayRecallPct": 75.0
+  },
+  "realDiscoveryPrecisionPct": null,
+  "providerIntegrity": {
+    "historicalPointInTimeUniverse": false,
+    "survivorshipSafe": false,
+    "secContextPointInTime": true,
+    "marketWidePrecisionClaimAllowed": false
+  },
+  "antiLeakage": [
+    "market features <=09:15 ET",
+    "SEC feature includes only exact acceptance timestamps <=09:15 ET",
+    "filings without exact acceptance timestamp excluded",
+    "SEC unavailable encoded explicitly rather than as no-filings",
+    "configuration selected on development folds only",
+    "research tail excluded from selection and already consumed"
+  ]
+}
