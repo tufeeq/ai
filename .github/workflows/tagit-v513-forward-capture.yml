@@ -2,6 +2,10 @@ name: TAGit v5.13 Forward Preopen Capture
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'tagit/preopen-forward-capture-v513.py'
+      - '.github/workflows/tagit-v513-forward-capture.yml'
   schedule:
     # Run at both UTC candidates for EST/EDT; ET gate below makes the nonmatching run a clean no-op.
     - cron: '12 13,14 * * 1-5'
@@ -37,7 +41,7 @@ jobs:
         run: |
           hm=$(TZ=America/New_York date +%H%M)
           if [ "$hm" -lt 0905 ] || [ "$hm" -gt 0925 ]; then
-            echo "Outside 09:05-09:25 ET ($hm); expected DST companion run is a clean no-op."
+            echo "Outside 09:05-09:25 ET ($hm); scheduled DST companion or integrity-check run is a clean no-op."
             echo "captured=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
