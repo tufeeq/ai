@@ -2,6 +2,10 @@ name: TAGit v5.8.3 Multi-Session Failure Archetypes
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'tagit/multisession-continuation-v583.py'
+      - '.github/workflows/tagit-v583-multisession-failure-archetypes.yml'
   workflow_run:
     workflows: ["TAGit v5.8.2 Multi-Session Stability"]
     types: [completed]
@@ -15,7 +19,7 @@ concurrency:
 
 jobs:
   research:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -46,8 +50,11 @@ jobs:
           assert 'success/failure archetypes fit on train only' in r['antiLeakage']
           assert r['universeIntegrity']['realDiscoveryPrecisionClaimAllowed'] is False
           assert r['credible90Claim'] is False
+          h=r['holdout']
+          for k in ('count','next1Precision20Pct','wilsonLower90Next1Pct','activeDays','top3DailyPrecision20Pct','medianNext2MaxGainPct','winnerDayRecallPct'):
+              assert k in h
           print('V5.8.3 calibration:',r['calibration'])
-          print('V5.8.3 holdout:',r['holdout'])
+          print('V5.8.3 holdout:',h)
           PY
       - name: Commit evidence
         run: |
