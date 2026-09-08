@@ -4,10 +4,13 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['.github/workflows/tag5-cadence-keeper.yml']
+    paths:
+      - '.github/workflows/tag5-cadence-keeper.yml'
+      - 'tag/data/finviz.json'
+      - 'tag/data/discovery-fast.json'
+      - 'tag/data/discovery.json'
+      - 'tag/data/premarket-hot.json'
   schedule:
-    # One short recovery pulse every five minutes. Long sleeping runners proved
-    # vulnerable to delayed starts and created feed holes.
     - cron: '*/5 * * * 1-5'
 
 permissions:
@@ -27,6 +30,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
         shell: bash
         run: |
           set -euo pipefail
@@ -46,9 +50,15 @@ jobs:
               -f ref=main || echo "WARN: dispatch failed for ${wf}"
           }
 
-          # Independent one-shot dispatches. Downstream jobs own their own concurrency.
-          # TAGX2 Sentinel is explicitly dispatched here because GitHub cron can drift;
-          # its own 5m schedule remains as a second independent clock.
+          # Event-driven rescue path: any fresh upstream market-data commit immediately
+          # requests a new live-quote snapshot. Do not redispatch the upstream producers
+          # here, which avoids feedback loops.
+          if [ "$EVENT_NAME" = "push" ]; then
+            dispatch tagx-live-quotes.yml
+            exit 0
+          fi
+
+          # Scheduled/manual recovery pulse keeps all independent market feeds moving.
           dispatch refresh-finviz.yml
           dispatch tagx-live-quotes.yml
           dispatch tagx-coverage-rescue.yml
