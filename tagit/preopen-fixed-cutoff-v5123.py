@@ -22,3 +22,5 @@ if needle not in src:
     raise RuntimeError("v5.12.3 insertion anchor missing")
 src = src.replace(needle, extra + needle, 1)
 exec(compile(src, "tagit/preopen-fixed-cutoff-v5123.generated.py", "exec"), {"__name__":"__main__"})
+
+# trigger: validation workflow installed after initial model commit
