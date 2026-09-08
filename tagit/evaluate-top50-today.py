@@ -63,7 +63,6 @@ def candidate_rows(fin):
         if t and ch is not None:
             valid.append((t, ch, r))
     valid.sort(key=lambda x: x[1], reverse=True)
-    # de-duplicate symbols while keeping best-ranked appearance
     out=[]; seen=set()
     for item in valid:
         if item[0] in seen: continue
@@ -82,9 +81,7 @@ def main():
     if len(top50) < 50:
         raise SystemExit(f'Only {len(top50)} benchmark symbols available; need 50')
     top_set = {t for t,_,_ in top50}
-    top_change = {t: ch for t,ch,_ in top50}
 
-    # Reconstruct every backend TAGit detection snapshot up to the Finviz benchmark.
     day_start = benchmark_ts.replace(hour=0, minute=0, second=0, microsecond=0)
     commits = git('log', '--format=%H', f'--since={day_start.isoformat()}', f'--until={benchmark_ts.isoformat()}', '--', 'tag/data/live-quotes.json').splitlines()
 
@@ -97,7 +94,11 @@ def main():
         if snap_ts is None or snap_ts > benchmark_ts or snap_ts.date() != benchmark_ts.date():
             continue
         snapshots_used += 1
-        for channel_key, channel_name in (('accumulationCandidates','ACCUMULATION'), ('emergingCandidates','EMERGING')):
+        for channel_key, channel_name in (
+            ('earlyCandidates','EARLY'),
+            ('accumulationCandidates','ACCUMULATION'),
+            ('emergingCandidates','EMERGING'),
+        ):
             for r in (snap.get(channel_key) or []):
                 t = sym(r)
                 if not t: continue
@@ -125,23 +126,27 @@ def main():
     recall = 100.0 * len(hit_set) / 50.0
     precision = 100.0 * len(hit_set) / unique_detected if unique_detected else None
 
-    # Strict early detection: first TAGit detection while the stock was still below +10% on the day.
     early_hits = {t for t in hit_set if detected[t].get('firstDetectedChangePct') is not None and detected[t]['firstDetectedChangePct'] < 10.0}
     pre5_hits = {t for t in hit_set if detected[t].get('firstDetectedChangePct') is not None and detected[t]['firstDetectedChangePct'] < 5.0}
     early_detected_all = {t for t,r in detected.items() if r.get('firstDetectedChangePct') is not None and r['firstDetectedChangePct'] < 10.0}
     early_precision = 100.0 * len(early_hits) / len(early_detected_all) if early_detected_all else None
 
+    early_lane_all = {t for t,r in detected.items() if 'EARLY' in (r.get('channels') or [])}
+    early_lane_hits = top_set & early_lane_all
+    early_lane_under10_hits = {t for t in early_lane_hits if detected[t].get('firstDetectedChangePct') is not None and detected[t]['firstDetectedChangePct'] < 10.0}
+    early_lane_precision = 100.0 * len(early_lane_hits) / len(early_lane_all) if early_lane_all else None
+
     detected_top50=[]
-    for t,ch,_ in top50:
+    for rank,(t,ch,_) in enumerate(top50, start=1):
         if t in detected:
-            x=dict(detected[t]); x['benchmarkChangePct']=ch; x['benchmarkRank']=1+next(i for i,(s,_,_) in enumerate(top50) if s==t); detected_top50.append(x)
+            x=dict(detected[t]); x['benchmarkChangePct']=ch; x['benchmarkRank']=rank; detected_top50.append(x)
 
     missed=[{'rank':i+1,'symbol':t,'benchmarkChangePct':ch} for i,(t,ch,_) in enumerate(top50) if t not in detected]
     false_pos=[dict(r, benchmarkTop50=False) for t,r in detected.items() if t not in top_set]
     false_pos.sort(key=lambda r:(r.get('firstDetectedAtUTC') or '', r.get('symbol') or ''))
 
     report = {
-        'schemaVersion': 1,
+        'schemaVersion': 2,
         'generatedAtUTC': datetime.now(timezone.utc).isoformat(),
         'benchmark': {
             'source': fin.get('source') or 'Finviz',
@@ -150,7 +155,7 @@ def main():
             'universeRows': fin.get('rowCount') or len(fin.get('rows') or []),
             'definition': 'Top 50 symbols by Finviz Change at the benchmark snapshot',
         },
-        'detectionDefinition': 'Backend TAGit appearance in emergingCandidates or accumulationCandidates in a live-quotes snapshot at or before the benchmark timestamp',
+        'detectionDefinition': 'Backend TAGit appearance in EARLY, EMERGING, or ACCUMULATION at or before the benchmark timestamp',
         'snapshotsUsed': snapshots_used,
         'metrics': {
             'top50Count': 50,
@@ -164,17 +169,23 @@ def main():
             'earlyPrecisionVsTop50Pct': round(early_precision, 2) if early_precision is not None else None,
             'pre5DetectedTop50Count': len(pre5_hits),
             'pre5Top50RecallPct': round(100.0*len(pre5_hits)/50.0, 2),
+            'earlyLaneUniqueCount': len(early_lane_all),
+            'earlyLaneDetectedTop50Count': len(early_lane_hits),
+            'earlyLaneTop50RecallPct': round(100.0*len(early_lane_hits)/50.0, 2),
+            'earlyLanePrecisionVsTop50Pct': round(early_lane_precision, 2) if early_lane_precision is not None else None,
+            'earlyLaneUnder10Top50Count': len(early_lane_under10_hits),
+            'earlyLaneUnder10Top50RecallPct': round(100.0*len(early_lane_under10_hits)/50.0, 2),
             'missedTop50Count': len(missed),
         },
         'detectedTop50': detected_top50,
         'missedTop50': missed,
-        'top50': [{'rank':i+1,'symbol':t,'benchmarkChangePct':ch,'detected':t in detected,'firstDetectedChangePct':detected.get(t,{}).get('firstDetectedChangePct'),'firstChannel':detected.get(t,{}).get('firstChannel')} for i,(t,ch,_) in enumerate(top50)],
+        'top50': [{'rank':i+1,'symbol':t,'benchmarkChangePct':ch,'detected':t in detected,'firstDetectedChangePct':detected.get(t,{}).get('firstDetectedChangePct'),'firstChannel':detected.get(t,{}).get('firstChannel'),'channels':detected.get(t,{}).get('channels',[])} for i,(t,ch,_) in enumerate(top50)],
         'falsePositiveDetections': false_pos,
         'notes': [
             'This is a point-in-time audit against the committed Finviz snapshot, not a claim of full-market final-close precision.',
-            'Recall answers: how many of the benchmark top 50 TAGit actually surfaced.',
-            'Precision answers: among all symbols TAGit surfaced in the two backend detection lanes, how many belong to the benchmark top 50.',
-            'Early metrics require the first TAGit detection to occur while the stock was still below +10% on the day.'
+            'Recall answers how many of the benchmark top 50 TAGit surfaced in any detection lane.',
+            'Early-lane metrics separately measure the dedicated V9 pre-breakout lane.',
+            'Strict early metrics require first TAGit detection while the stock was still below +10% on the day.'
         ]
     }
     OUT.write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
