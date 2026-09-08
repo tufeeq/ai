@@ -1,0 +1,68 @@
+name: TAGit Realtime PIT Learning
+
+on:
+  schedule:
+    - cron: '*/5 8-21 * * 1-5'
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tag/data/live-quotes.json'
+      - 'tag/data/tagit-signal-feed.json'
+      - 'tag/data/tagit-view.json'
+      - 'tagit/realtime-pit-training-cohort.py'
+      - '.github/workflows/tagit-realtime-pit-learning.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-realtime-pit-learning-main
+  cancel-in-progress: true
+
+jobs:
+  capture-label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Sync latest point-in-time inputs
+        run: git pull --rebase origin main
+      - name: Validate collector syntax
+        run: python -m py_compile tagit/realtime-pit-training-cohort.py
+      - name: Capture immutable feature snapshot and mature delayed labels
+        run: python tagit/realtime-pit-training-cohort.py all
+      - name: Validate leakage guards
+        run: |
+          python - <<'PY'
+          import json, pathlib, sys
+          root=pathlib.Path('tag/data/realtime-training')
+          bad=[]; n=0
+          for p in root.glob('*.jsonl'):
+            for line in p.read_text().splitlines():
+              if not line.strip(): continue
+              r=json.loads(line); n+=1
+              if not r.get('featureSnapshotHash'): bad.append((r.get('symbol'),'missing feature hash'))
+              cap=r.get('capturedAtUTC')
+              for h,l in (r.get('labels') or {}).items():
+                if not l.get('labeledAtUTC') or l['labeledAtUTC'] <= cap: bad.append((r.get('symbol'),f'non-causal label {h}'))
+                if float(l.get('elapsedMin',0)) < float(h): bad.append((r.get('symbol'),f'early label {h}'))
+          print({'records':n,'violations':bad[:20],'violationCount':len(bad)})
+          if bad: sys.exit(1)
+          PY
+      - name: Commit forward-only training cohort
+        run: |
+          git config user.name tagit-realtime-learning-bot
+          git config user.email actions@users.noreply.github.com
+          git add tag/data/realtime-training tag/data/tagit-realtime-cohort-summary.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: append TAGit realtime PIT training evidence'
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            sleep $((i*5))
+          done
+          exit 1
