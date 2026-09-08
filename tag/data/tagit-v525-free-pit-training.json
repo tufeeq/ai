@@ -1,0 +1,147 @@
+{
+  "schemaVersion": "5.25-actionable-recent-regime-pit",
+  "generatedAtUTC": "2026-09-08T06:34:11.862991+00:00",
+  "status": "COMPLETE",
+  "dataMode": "NASDAQ_PLUS_YAHOO_RECENT_BOOTSTRAP",
+  "validationStatus": "RESEARCH_COMPARISON_ONLY",
+  "holdoutStatus": "CONSUMED_RESEARCH_HOLDOUT",
+  "change": [
+    "actionable first-open +20 label with fixed -8% pre-hit MAE floor",
+    "long-history plus recent-window causal ensemble",
+    "long-vs-recent disagreement abstention",
+    "v5.21 missing-volume protections retained",
+    "worst-block temporal selection"
+  ],
+  "label": {
+    "primary": "first regular open -> +20% with pre-hit MAE >= -8%",
+    "thresholdTuned": false
+  },
+  "population": {
+    "symbolsRequested": 650,
+    "symbolsSucceeded": 642,
+    "independentTickerDays": 26217,
+    "days": 59,
+    "rawPlus20From0915": 388,
+    "actionablePlus20": 308,
+    "rawWinsRejectedByExecutionPath": 124
+  },
+  "development": {
+    "days": 47,
+    "folds": [
+      {
+        "fitDays": 21,
+        "validationDays": 9,
+        "fitRows": 9343,
+        "validationRows": 3807
+      },
+      {
+        "fitDays": 30,
+        "validationDays": 9,
+        "fitRows": 13150,
+        "validationRows": 3821
+      },
+      {
+        "fitDays": 39,
+        "validationDays": 8,
+        "fitRows": 16971,
+        "validationRows": 3644
+      }
+    ],
+    "foldMetrics": [
+      {
+        "count": 12,
+        "tp20": 4,
+        "precision20Pct": 33.33,
+        "wilsonLower90Pct": 15.95,
+        "dayBlockLower90Pct": 20.0,
+        "activeDays": 6,
+        "medianLeadMin": 22.5,
+        "top3DailyPrecisionPct": 30.0,
+        "medianRemainingUpsidePct": 10.98,
+        "winnerDayRecallPct": 44.44
+      },
+      {
+        "count": 17,
+        "tp20": 5,
+        "precision20Pct": 29.41,
+        "wilsonLower90Pct": 15.12,
+        "dayBlockLower90Pct": 12.5,
+        "activeDays": 8,
+        "medianLeadMin": 20.0,
+        "top3DailyPrecisionPct": 26.67,
+        "medianRemainingUpsidePct": 13.81,
+        "winnerDayRecallPct": 44.44
+      },
+      {
+        "count": 40,
+        "tp20": 9,
+        "precision20Pct": 22.5,
+        "wilsonLower90Pct": 13.59,
+        "dayBlockLower90Pct": 15.0,
+        "activeDays": 8,
+        "medianLeadMin": 55.0,
+        "top3DailyPrecisionPct": 12.5,
+        "medianRemainingUpsidePct": 9.22,
+        "winnerDayRecallPct": 87.5
+      }
+    ],
+    "recentAudits": [
+      {
+        "recentWindowRequested": 10,
+        "recentDaysUsed": 10,
+        "recentRows": 4415,
+        "recentPositives": 45
+      },
+      {
+        "recentWindowRequested": 10,
+        "recentDaysUsed": 10,
+        "recentRows": 4242,
+        "recentPositives": 33
+      },
+      {
+        "recentWindowRequested": 10,
+        "recentDaysUsed": 10,
+        "recentRows": 4244,
+        "recentPositives": 67
+      }
+    ]
+  },
+  "selectedConfig": {
+    "recentWindowDays": 10,
+    "recentWeight": 0.25,
+    "scoreThreshold": 0.593747,
+    "maxLongRecentDisagreement": 0.16,
+    "topNPerDay": 5
+  },
+  "researchHoldout": {
+    "count": 54,
+    "tp20": 8,
+    "precision20Pct": 14.81,
+    "wilsonLower90Pct": 8.55,
+    "dayBlockLower90Pct": 6.87,
+    "activeDays": 12,
+    "medianLeadMin": 52.5,
+    "top3DailyPrecisionPct": 19.44,
+    "medianRemainingUpsidePct": 8.35,
+    "winnerDayRecallPct": 54.55
+  },
+  "finalRecentFit": {
+    "days": 10,
+    "rows": 4504,
+    "positives": 70
+  },
+  "realDiscoveryPrecisionPct": null,
+  "providerIntegrity": {
+    "historicalPointInTimeUniverse": false,
+    "survivorshipSafe": false,
+    "marketWidePrecisionClaimAllowed": false
+  },
+  "antiLeakage": [
+    "features frozen at <=09:15 ET",
+    "regular open/path used only for outcome label",
+    "recent model uses only completed sessions before each validation block",
+    "configuration selected on development folds only",
+    "research tail excluded from selection and already consumed",
+    "missing pre-volume neutralized"
+  ]
+}
