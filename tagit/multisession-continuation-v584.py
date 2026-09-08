@@ -82,7 +82,8 @@ def dayblock_lower90(sel,seed=58490,n_boot=3000):
         if nn: vals.append(100*tp/nn)
     return round(float(np.quantile(vals,.05)),2) if vals else None
 
-def stat(sel,universe):
+def stat(sel,universe,report_uncertainty=False):
+    """Fast deterministic metrics for search; day-block bootstrap only for final reporting."""
     n=len(sel); tp=sum(x['next1Explode20'] for x in sel)
     by=defaultdict(list)
     for x in sel:by[x['day']].append(x)
@@ -92,7 +93,7 @@ def stat(sel,universe):
     gains=[x['next2MaxGainPct'] for x in sel]
     return {'count':n,'tpNext1':int(tp),'next1Precision20Pct':round(100*tp/n,2) if n else None,
             'wilsonLower90Next1Pct':round(wilson(tp,n),2) if n else None,
-            'dayBlockLower90Next1Pct':dayblock_lower90(sel),'activeDays':len(by),
+            'dayBlockLower90Next1Pct':dayblock_lower90(sel) if report_uncertainty else None,'activeDays':len(by),
             'top3DailyPrecision20Pct':round(100*sum(x['next1Explode20'] for x in top3)/len(top3),2) if top3 else None,
             'medianNext2MaxGainPct':round(float(np.median(gains)),2) if gains else None,
             'winnerDayRecallPct':round(100*len(caught)/len(winners),2) if winners else None}
@@ -116,7 +117,7 @@ for sc in sg:
         for di in (.12,.20,.30):
           for margin in margin_grid:
             for penalty in penalty_grid:
-              cfg584=(sc,p1,p2,up,di,margin,penalty); sa=stat(apply_cfg(ca,cfg584),ca)
+              cfg584=(sc,p1,p2,up,di,margin,penalty); sa=stat(apply_cfg(ca,cfg584),ca,False)
               p=sa['next1Precision20Pct'] or 0; lo=sa['wilsonLower90Next1Pct'] or 0; top=sa['top3DailyPrecision20Pct'] or 0; rec=sa['winnerDayRecallPct'] or 0
               utility=lo*180+p*30+top*14+rec*4+min(sa['count'],160)
               if sa['count']<35:utility-=7000
@@ -128,9 +129,9 @@ candidates.sort(key=lambda z:z[0],reverse=True)
 # versus the same configuration with penalty=0. This keeps failure memory asymmetric and optional.
 confirmed=[]
 for _,cfg584,sa in candidates[:40]:
-    sb=stat(apply_cfg(cb,cfg584),cb)
+    sb=stat(apply_cfg(cb,cfg584),cb,False)
     base_cfg=(*cfg584[:5],cfg584[5],0.0)
-    bb=stat(apply_cfg(cb,base_cfg),cb)
+    bb=stat(apply_cfg(cb,base_cfg),cb,False)
     lo=sb['wilsonLower90Next1Pct'] or 0; blo=bb['wilsonLower90Next1Pct'] or 0
     n=sb['count']; bn=bb['count']
     passes=(n>=30 and sb['activeDays']>=10 and lo>=blo-0.75 and n>=max(30,int(.70*bn)))
@@ -138,18 +139,20 @@ for _,cfg584,sa in candidates[:40]:
     confirmed.append((score,cfg584,sa,sb,bb))
 confirmed.sort(key=lambda z:z[0],reverse=True)
 _,cfg584,sa,sb,bb=confirmed[0]
-calstat=stat(apply_cfg(cp584,cfg584),cp584)
+# Reporting uncertainty is deliberately computed only after configuration freeze.
+calstat=stat(apply_cfg(cp584,cfg584),cp584,True)
 # Only now evaluate the already-consumed research holdout.
-holdstat=stat(apply_cfg(hp584,cfg584),hp584)
+holdstat=stat(apply_cfg(hp584,cfg584),hp584,True)
 
-report={'schemaVersion':'5.8.4-asymmetric-failure-veto','generatedAtUTC':datetime.now(timezone.utc).isoformat(),
+report={'schemaVersion':'5.8.4-asymmetric-failure-veto-fastsearch','generatedAtUTC':datetime.now(timezone.utc).isoformat(),
         'status':'COMPLETE','policy':'RESEARCH_ONLY_CONSUMED_HOLDOUT_NO_CHAMPION_OVERRIDE',
+        'change':['removed reporting-only 3000-draw day-block bootstrap from every search candidate','day-block uncertainty now computed only after configuration freeze','selection objective and chronological anti-leakage rules unchanged'],
         'trainArchetypes':{'successCases':len(succ),'failureCases':len(fail),'successClusters':getattr(succ_km,'n_clusters',0),'failureClusters':getattr(fail_km,'n_clusters',0)},
         'selectedConfig':{'minCarryScore':cfg584[0],'minPNext1':cfg584[1],'minPNext2':cfg584[2],'minPredUpside':cfg584[3],'maxDisagreement':cfg584[4],'failureMargin':cfg584[5],'vetoPenalty':cfg584[6]},
         'calibrationASelection':sa,'calibrationBConfirmation':sb,'calibrationBBaselineNoVeto':bb,'calibration':calstat,'holdout':holdstat,
         'realDiscoveryPrecisionPct':None,
         'universeIntegrity':{'marketWidePointInTimeUniverse':False,'survivorshipSafe':False,'realDiscoveryPrecisionClaimAllowed':False},
-        'antiLeakage':['features use current/prior completed sessions only','future sessions are labels only','split-boundary label horizons purged by v5.8.1','failure/success archetypes fit on train only','calibration A selects configuration','calibration B confirms before research holdout is opened','veto can only reduce baseline score','holdout is consumed research evidence and cannot establish real precision','day-block bootstrap is reporting-only'],
+        'antiLeakage':['features use current/prior completed sessions only','future sessions are labels only','split-boundary label horizons purged by v5.8.1','failure/success archetypes fit on train only','calibration A selects configuration','calibration B confirms before research holdout is opened','veto can only reduce baseline score','day-block bootstrap excluded from model/configuration selection','holdout is consumed research evidence and cannot establish real precision','day-block bootstrap is reporting-only'],
         'credible90Claim':False,'mainBottleneck':'historical universe is mover-conditioned and not point-in-time; continuation failure memory can reduce recall if over-applied'}
 OUT584.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
 print(json.dumps(report,ensure_ascii=False,indent=2))
