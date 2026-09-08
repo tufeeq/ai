@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "5.13-forward-governance",
+  "generatedAtUTC": "2026-09-08T00:51:50.591552+00:00",
+  "status": "READY_FOR_FORWARD_ACCUMULATION",
+  "realDiscoveryPrecisionPct": null,
+  "universeIntegrity": false,
+  "promotionEligible": false,
+  "historicalHoldoutStatus": "CONSUMED_FOR_RESEARCH_COMPARISON",
+  "reason": "v5.12.2 and v5.12.3 were both inspected on the same chronological holdout; cross-version adaptation makes that period ineligible as an untouched promotion holdout",
+  "historicalBenchmarks": {
+    "v5.12.2": {
+      "schemaVersion": "5.12.2",
+      "selectedConfig": {
+        "minScore": 0.8,
+        "maxDisagreement": 0.1,
+        "minPredUpside": 6
+      },
+      "support": 65,
+      "tp": 24,
+      "precisionPct": 36.92,
+      "wilsonLower90Pct": 27.78,
+      "dayBlockBootstrapLower90Pct": 30.36,
+      "activeDays": 9,
+      "medianLeadMin": 45.0,
+      "top3DailyPrecisionPct": 38.46,
+      "medianRemainingUpsidePct": 7.16,
+      "winnerDayRecallPct": 88.89,
+      "universeIntegrity": false,
+      "realDiscoveryPrecisionPct": null
+    },
+    "v5.12.3": {
+      "schemaVersion": "5.12.3",
+      "selectedConfig": {
+        "minScore": 0.6,
+        "maxDisagreement": 0.1,
+        "minPredUpside": 10
+      },
+      "support": 129,
+      "tp": 39,
+      "precisionPct": 30.23,
+      "wilsonLower90Pct": 24.04,
+      "dayBlockBootstrapLower90Pct": 24.67,
+      "activeDays": 9,
+      "medianLeadMin": 40.0,
+      "top3DailyPrecisionPct": 33.33,
+      "medianRemainingUpsidePct": 6.86,
+      "winnerDayRecallPct": 100.0,
+      "universeIntegrity": false,
+      "realDiscoveryPrecisionPct": null
+    }
+  },
+  "frozenCandidate": {
+    "version": "5.12.2",
+    "config": {
+      "minScore": 0.8,
+      "maxDisagreement": 0.1,
+      "minPredUpside": 6
+    }
+  },
+  "forwardGate": {
+    "oneDecisionPerTickerDay": true,
+    "fixedCutoffET": "09:15",
+    "pointInTimeUniverseRequired": true,
+    "pointInTimeContextRequired": true,
+    "predictionFrozenBeforeOutcome": true,
+    "minimumIndependentTickerDays": 100,
+    "minimumActiveDays": 20,
+    "minimumUniverseArchiveDays": 20,
+    "requireWilsonLower90Pct": true,
+    "requireDayBlockBootstrapLower90Pct": true,
+    "forwardConfirmationRequired": true,
+    "historicalHoldoutMaySelectFutureModels": false,
+    "ninetyPctClaimRule": "only if precision >=90%, Wilson lower 90% >=80%, day-block lower 90% >=80%, support/day gates pass, universe integrity passes, and an additional forward confirmation period independently confirms performance"
+  },
+  "antiLeakage": [
+    "historical v5.12.x holdout is consumed and cannot promote later versions",
+    "forward universe must be captured before labels exist",
+    "float/short/news/filing context must be timestamped and available at decision time",
+    "future regular-session bars are labels only",
+    "no threshold or architecture changes based on outcomes inside an active forward confirmation tranche",
+    "new model versions require a new forward tranche after freeze"
+  ]
+}
