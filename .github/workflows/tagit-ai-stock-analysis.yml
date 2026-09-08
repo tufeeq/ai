@@ -1,4 +1,4 @@
-name: TAGit AI Stock Analysis
+name: TAGit GPT Web Stock Analysis
 
 on:
   workflow_dispatch:
@@ -12,115 +12,307 @@ on:
 
 permissions:
   contents: write
-  models: read
 
 concurrency:
-  group: tagit-ai-stock-analysis
+  group: tagit-gpt-stock-analysis
   cancel-in-progress: true
 
 jobs:
   analyze:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_MODEL: gpt-5.6
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
-      - name: Sync
+
+      - name: Sync latest main
         run: git pull --rebase origin main
-      - name: Build current news context and AI analysis
-        env:
-          GH_TOKEN: ${{ github.token }}
+
+      - name: Research current opportunities with GPT + web search
+        shell: bash
         run: |
           python - <<'PY'
-          import json, pathlib, datetime, urllib.request, urllib.parse, os
-          now=datetime.datetime.now(datetime.timezone.utc)
-          def load(p):
-            try:return json.loads(pathlib.Path(p).read_text(encoding='utf-8'))
-            except:return {}
-          live=load('tag/data/live-quotes.json')
-          old=load('tag/data/ai-stock-analysis.json')
-          old_t=old.get('updatedAtUTC')
-          if old_t:
-            try:
-              age=(now-datetime.datetime.fromisoformat(old_t.replace('Z','+00:00'))).total_seconds()
-              if age<420 and os.environ.get('GITHUB_EVENT_NAME')!='workflow_dispatch':
-                print('AI cache still fresh; exiting')
-                raise SystemExit(0)
-            except ValueError:pass
-          rows=[];seen=set()
-          for src,arr in [('EMERGING',live.get('emergingCandidates') or []),('ACCUMULATION',live.get('accumulationCandidates') or [])]:
-            for x in arr:
-              t=str(x.get('ticker') or '').upper()
-              if not t or t in seen:continue
-              seen.add(t);r=dict(x);r['signalType']=src;rows.append(r)
-              if len(rows)>=12:break
-            if len(rows)>=12:break
-          def yahoo_news(ticker):
-            url='https://query1.finance.yahoo.com/v1/finance/search?'+urllib.parse.urlencode({'q':ticker,'quotesCount':1,'newsCount':5,'enableFuzzyQuery':'false'})
-            req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 TAGitAI/2.0','Accept':'application/json'})
-            try:
-              with urllib.request.urlopen(req,timeout=4) as z:j=json.loads(z.read().decode('utf-8'))
-              out=[]
-              for n in (j.get('news') or [])[:5]:
-                out.append({'title':n.get('title'),'publisher':n.get('publisher'),'link':n.get('link'),'publishedAt':datetime.datetime.fromtimestamp(n.get('providerPublishTime',0),datetime.timezone.utc).isoformat() if n.get('providerPublishTime') else None})
-              return out
-            except Exception:return []
-          context=[]
+          import json, pathlib, datetime, urllib.request, urllib.error, os, sys
+
+          now = datetime.datetime.now(datetime.timezone.utc)
+          ROOT = pathlib.Path('tag/data')
+          OUT = ROOT / 'ai-stock-analysis.json'
+
+          def load(path):
+              try:
+                  return json.loads(pathlib.Path(path).read_text(encoding='utf-8'))
+              except Exception:
+                  return {}
+
+          def num(v):
+              try:
+                  return float(v)
+              except Exception:
+                  return None
+
+          live = load(ROOT / 'live-quotes.json')
+          old = load(OUT)
+
+          # Avoid unnecessary paid calls when a recent GPT report already exists.
+          if os.environ.get('GITHUB_EVENT_NAME') != 'workflow_dispatch':
+              old_t = old.get('updatedAtUTC')
+              if old_t and old.get('provider') == 'OPENAI_RESPONSES_WEB_SEARCH':
+                  try:
+                      age = (now - datetime.datetime.fromisoformat(old_t.replace('Z', '+00:00'))).total_seconds()
+                      if age < 480:
+                          print('GPT research cache is still fresh; exiting')
+                          raise SystemExit(0)
+                  except ValueError:
+                      pass
+
+          # Build a compact shortlist: emerging first, then strongest accumulation candidates.
+          rows, seen = [], set()
+          sources = [
+              ('EMERGING', live.get('emergingCandidates') or []),
+              ('ACCUMULATION', live.get('accumulationCandidates') or [])
+          ]
+          for signal_type, arr in sources:
+              for x in arr:
+                  ticker = str(x.get('ticker') or '').upper().strip()
+                  if not ticker or ticker in seen:
+                      continue
+                  seen.add(ticker)
+                  q = (live.get('quotes') or {}).get(ticker, {}) if isinstance(live.get('quotes'), dict) else {}
+                  merged = dict(q)
+                  merged.update(x)
+                  merged['signalType'] = signal_type
+                  rows.append(merged)
+                  if len(rows) >= 8:
+                      break
+              if len(rows) >= 8:
+                  break
+
+          # Nothing to analyze.
+          if not rows:
+              OUT.write_text(json.dumps({
+                  'schemaVersion': 4,
+                  'provider': 'OPENAI_RESPONSES_WEB_SEARCH',
+                  'model': os.environ.get('OPENAI_MODEL', 'gpt-5.6'),
+                  'updatedAtUTC': now.isoformat(),
+                  'liveFeedUpdatedAtUTC': live.get('updatedAtUTC'),
+                  'analysisCount': 0,
+                  'analyses': {},
+                  'note': 'No active shortlist to research.'
+              }, ensure_ascii=False, indent=2), encoding='utf-8')
+              raise SystemExit(0)
+
+          context = []
           for r in rows:
-            context.append({
-              'ticker':r.get('ticker'),'signalType':r.get('signalType'),'price':r.get('price'),'changePct':r.get('changePct'),'sessionVolume':r.get('sessionVolume'),'relativeVolume':r.get('relativeVolume'),
-              'accumulationScore':r.get('accumulationScore'),'liquidityAccumulation':r.get('liquidityAccumulation'),'range15mPct':r.get('range15mPct'),'volumeAcceleration5m':r.get('volumeAcceleration5m'),
-              'turnover15mPctFloat':r.get('turnover15mPctFloat'),'velocity5mPct':r.get('priceVelocity5mPct'),'velocity15mPct':r.get('priceVelocity15mPct'),'earlyRegimeShiftScore':r.get('earlyRegimeShiftScore'),'ignitionScore':r.get('ignitionScore'),
-              'technicalCoverage':r.get('technicalCoverage'),'technicalScore':r.get('technicalScore'),'technicalBias':r.get('technicalBias'),'rsi14':r.get('rsi14'),'macd':r.get('macd'),'macdSignal':r.get('macdSignal'),'macdHist':r.get('macdHist'),
-              'ema9':r.get('ema9'),'ema20':r.get('ema20'),'volume5mRatio':r.get('volume5mRatio'),'volumeTrend':r.get('volumeTrend'),'buyVolumePct':r.get('buyVolumePct'),'fibTrend':r.get('fibTrend'),'fibSupport':r.get('fibSupport'),'fibResistance':r.get('fibResistance'),'technicalSource':r.get('technicalSource'),
-              'news':yahoo_news(r.get('ticker'))})
-          result={}
-          for c in context:
-            positives=[];risks=[]
-            if c.get('liquidityAccumulation'):positives.append('دخول سيولة مع تماسك سعري ضيق')
-            if (c.get('volumeAcceleration5m') or 0)>=1.8:positives.append('تسارع ملحوظ في حجم التداول قصير الأجل')
-            if (c.get('relativeVolume') or 0)>=2:positives.append('حجم نسبي مرتفع مقارنة بالمعتاد')
-            if (c.get('technicalScore') or 0)>=65:positives.append('توافق فني مركب مرتفع')
-            if c.get('macdHist') is not None and c.get('macdHist')>=0:positives.append('MACD histogram موجب')
-            if c.get('ema9') is not None and c.get('ema20') is not None and c.get('ema9')>=c.get('ema20'):positives.append('EMA9 أعلى من EMA20')
-            if (c.get('volume5mRatio') or 0)>=1.3:positives.append('فوليوم 5 دقائق أعلى من خط الأساس')
-            if c.get('technicalCoverage') is not True:risks.append('التأكيد الفني RSI/MACD/EMA/Fibonacci غير مكتمل')
-            if c.get('rsi14') is not None and c.get('rsi14')>=80:risks.append('RSI مرتفع والحركة معرضة للتشبع/الارتداد')
-            if c.get('macdHist') is not None and c.get('macdHist')<0:risks.append('MACD histogram سلبي')
-            if c.get('ema9') is not None and c.get('ema20') is not None and c.get('ema9')<c.get('ema20'):risks.append('EMA9 دون EMA20')
-            if (c.get('changePct') or 0)>=18:risks.append('السهم ممتد سعريًا وقد ترتفع مخاطر الانعكاس')
-            if (c.get('range15mPct') or 99)>4:risks.append('النطاق السعري واسع ولا يطابق نمط التجميع الضيق')
-            if not c.get('news'):risks.append('لا توجد أخبار حديثة متاحة من مصدر الأخبار الحالي')
-            fib=''
-            if c.get('fibSupport') is not None and c.get('fibResistance') is not None:fib=f" دعم Fibonacci {c.get('fibSupport'):.4f} ومقاومة {c.get('fibResistance'):.4f}."
-            technical=f" القراءة الفنية {c.get('technicalScore')}/100، RSI {c.get('rsi14')}، MACD hist {c.get('macdHist')}، EMA9/20 {c.get('ema9')}/{c.get('ema20')}، Vol5m {c.get('volume5mRatio')}x.{fib}" if c.get('technicalCoverage') is True else ' التأكيد الفني لم يكتمل بعد.'
-            result[c['ticker']]={'ticker':c['ticker'],'mode':'RULES_FALLBACK','summary':(' · '.join(positives) if positives else 'لا توجد أفضلية واضحة كافية من الإشارات الحالية.')+technical,'opportunity':'متابعة فقط حتى تتوافق الحركة السعرية والحجم مع RSI/MACD/EMA/Fibonacci؛ لا تُعامل كفرصة مؤكدة عند غياب التغطية الفنية.','growthView':'غير محسوم من البيانات اللحظية وحدها؛ يتطلب مراجعة نشاط الشركة ونتائجها وتمويلها ومخاطر التخفيف.','risks':risks,'news':c.get('news') or [],'generatedAtUTC':now.isoformat()}
-          if context:
-            payload={'model':'openai/gpt-4.1-mini','temperature':0.15,'max_tokens':5000,'messages':[{'role':'system','content':'أنت محلل أسهم أمريكية صغيرة. حلل فقط البيانات والأخبار المقدمة ولا تخترع حقائق. يجب أن تقرأ RSI(14) وMACD histogram وEMA9/EMA20 وvolume5mRatio وFibonacci support/resistance عندما تتوفر، وتوضح هل تؤكد الزخم أم تناقضه. لا تعتبر الإشارة مؤكدة إذا technicalCoverage ليست true. افصل الزخم قصير الأجل عن فرص نمو الشركة الأساسية. لا تقدم ضمان ربح أو توصية قطعية. أعد JSON فقط بالشكل {"TICKER":{"summary":"...","opportunity":"...","growthView":"...","risks":["..."],"newsTake":"..."}} وبالعربية.'},{'role':'user','content':json.dumps(context,ensure_ascii=False)}]}
-            req=urllib.request.Request('https://models.github.ai/inference/chat/completions',data=json.dumps(payload).encode(),headers={'Authorization':'Bearer '+os.environ.get('GH_TOKEN',''),'Content-Type':'application/json','Accept':'application/json'},method='POST')
-            try:
-              with urllib.request.urlopen(req,timeout=25) as z:resp=json.loads(z.read().decode())
-              text=resp['choices'][0]['message']['content'].strip()
-              if text.startswith('```'):text=text.strip('`');text=text[text.find('{'):text.rfind('}')+1]
-              ai=json.loads(text)
-              for t,a in ai.items():
-                if t in result and isinstance(a,dict):
-                  result[t].update({k:a.get(k) for k in ['summary','opportunity','growthView','risks','newsTake'] if a.get(k) is not None});result[t]['mode']='GITHUB_MODELS_AI'
-            except Exception as e:
-              print('GitHub Models unavailable, preserving rules fallback:',repr(e))
-          out={'schemaVersion':2,'updatedAtUTC':now.isoformat(),'liveFeedUpdatedAtUTC':live.get('updatedAtUTC'),'technicalUpdatedAtUTC':live.get('technicalUpdatedAtUTC'),'analysisCount':len(result),'analyses':result,'note':'AI reads technical confirmation plus live/news context; research aid only, not a guarantee or personalized investment advice.'}
-          pathlib.Path('tag/data/ai-stock-analysis.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
-          print(json.dumps({'analysisCount':len(result),'modes':{t:v['mode'] for t,v in result.items()}},ensure_ascii=False))
+              context.append({
+                  'ticker': r.get('ticker'),
+                  'signalType': r.get('signalType'),
+                  'price': r.get('price'),
+                  'changePct': r.get('changePct'),
+                  'sessionVolume': r.get('sessionVolume'),
+                  'relativeVolume': r.get('relativeVolume'),
+                  'floatM': r.get('floatM'),
+                  'accumulationScore': r.get('accumulationScore'),
+                  'liquidityAccumulation': r.get('liquidityAccumulation'),
+                  'range15mPct': r.get('range15mPct'),
+                  'volumeAcceleration5m': r.get('volumeAcceleration5m'),
+                  'volumeAcceleration15m': r.get('volumeAcceleration15m'),
+                  'turnover5mPctFloat': r.get('turnover5mPctFloat'),
+                  'turnover15mPctFloat': r.get('turnover15mPctFloat'),
+                  'priceVelocity5mPct': r.get('priceVelocity5mPct'),
+                  'priceVelocity15mPct': r.get('priceVelocity15mPct'),
+                  'earlyRegimeShiftScore': r.get('earlyRegimeShiftScore'),
+                  'ignitionScore': r.get('ignitionScore'),
+                  'technicalCoverage': r.get('technicalCoverage'),
+                  'technicalScore': r.get('technicalScore'),
+                  'technicalBias': r.get('technicalBias'),
+                  'rsi14': r.get('rsi14'),
+                  'macd': r.get('macd'),
+                  'macdSignal': r.get('macdSignal'),
+                  'macdHist': r.get('macdHist'),
+                  'ema9': r.get('ema9'),
+                  'ema20': r.get('ema20'),
+                  'volume5mRatio': r.get('volume5mRatio'),
+                  'volumeTrend': r.get('volumeTrend'),
+                  'buyVolumePct': r.get('buyVolumePct'),
+                  'fibTrend': r.get('fibTrend'),
+                  'fibSupport': r.get('fibSupport'),
+                  'fibResistance': r.get('fibResistance'),
+                  'quoteTime': r.get('timestampET')
+              })
+
+          api_key = os.environ.get('OPENAI_API_KEY', '').strip()
+          model = os.environ.get('OPENAI_MODEL', 'gpt-5.6').strip() or 'gpt-5.6'
+
+          if not api_key:
+              OUT.write_text(json.dumps({
+                  'schemaVersion': 4,
+                  'provider': 'OPENAI_RESPONSES_WEB_SEARCH',
+                  'model': model,
+                  'status': 'OPENAI_API_KEY_MISSING',
+                  'updatedAtUTC': now.isoformat(),
+                  'liveFeedUpdatedAtUTC': live.get('updatedAtUTC'),
+                  'analysisCount': 0,
+                  'analyses': {},
+                  'note': 'Add repository secret OPENAI_API_KEY to enable GPT web research. No rules-based text is substituted for GPT.'
+              }, ensure_ascii=False, indent=2), encoding='utf-8')
+              print('OPENAI_API_KEY is not configured; wrote explicit non-AI status.')
+              raise SystemExit(0)
+
+          schema = {
+              'type': 'object',
+              'properties': {
+                  'analyses': {
+                      'type': 'array',
+                      'items': {
+                          'type': 'object',
+                          'properties': {
+                              'ticker': {'type': 'string'},
+                              'company': {'type': 'string'},
+                              'asOf': {'type': 'string'},
+                              'executiveSummary': {'type': 'string'},
+                              'shortTermSetup': {'type': 'string'},
+                              'liquidityRead': {'type': 'string'},
+                              'technicalRead': {'type': 'string'},
+                              'fundamentalGrowth': {'type': 'string'},
+                              'catalysts': {'type': 'array', 'items': {'type': 'string'}},
+                              'risks': {'type': 'array', 'items': {'type': 'string'}},
+                              'dilutionAndFinancing': {'type': 'string'},
+                              'latestNewsTake': {'type': 'string'},
+                              'confidence': {'type': 'integer', 'minimum': 0, 'maximum': 100},
+                              'verdict': {'type': 'string', 'enum': ['WATCH', 'CONFIRMED_WITH_RISK', 'EXTENDED', 'AVOID', 'INSUFFICIENT_EVIDENCE']},
+                              'sources': {
+                                  'type': 'array',
+                                  'items': {
+                                      'type': 'object',
+                                      'properties': {
+                                          'title': {'type': 'string'},
+                                          'url': {'type': 'string'},
+                                          'publisher': {'type': 'string'},
+                                          'date': {'type': 'string'}
+                                      },
+                                      'required': ['title', 'url', 'publisher', 'date'],
+                                      'additionalProperties': False
+                                  }
+                              }
+                          },
+                          'required': ['ticker','company','asOf','executiveSummary','shortTermSetup','liquidityRead','technicalRead','fundamentalGrowth','catalysts','risks','dilutionAndFinancing','latestNewsTake','confidence','verdict','sources'],
+                          'additionalProperties': False
+                      }
+                  }
+              },
+              'required': ['analyses'],
+              'additionalProperties': False
+          }
+
+          system = '''أنت محلل أبحاث أسهم أمريكية صغيرة عالي الدقة داخل TAGit. لا تكتفِ بالبيانات المرسلة لك: استخدم أداة web_search فعليًا لكل سهم قبل إصدار الحكم. ابحث بالرمز واسم الشركة، وراجع قدر الإمكان المصادر الأولية والحديثة: SEC/EDGAR، علاقات المستثمرين للشركة، الإفصاحات والنتائج، العروض المسجلة وATM/S-1/S-3/424B، التمويل والديون، warrants، reverse split أو مخاطر الإدراج، ثم الأخبار الموثوقة. افحص فرص النمو الأساسية منفصلة عن الزخم اللحظي. ابحث أيضًا عن أي catalyst حديث، ومخاطر dilution، وحجم/float أو short-interest عندما يتوفر من مصدر موثوق. استخدم بيانات TAGit اللحظية كطبقة فنية: حجم الجلسة، relative volume، تسارع الحجم، price compression، turnover، RSI، MACD، EMA9/20 وFibonacci. لا تختلق أرقامًا أو أخبارًا. إذا تعارضت المصادر فاذكر ذلك بوضوح. لا تعتبر ارتفاع الحجم وحده ضمانًا للصعود. أعط حكمًا بحثيًا لا توصية قطعية ولا ضمان ربح. يجب أن تكون المصادر مرتبطة مباشرة بما بحثته وأن تكون حديثة قدر الإمكان. أجب بالعربية ضمن الـJSON المطلوب.'''
+
+          user = 'حلل الأسهم التالية وفق البيانات اللحظية الملتقطة الآن، ثم ابحث في الويب عن الشركة والأخبار والإفصاحات والتمويل والمخاطر والمحفزات قبل كتابة النتيجة:\n' + json.dumps(context, ensure_ascii=False)
+
+          payload = {
+              'model': model,
+              'reasoning': {'effort': 'medium'},
+              'tools': [
+                  {
+                      'type': 'web_search',
+                      'search_context_size': 'medium'
+                  }
+              ],
+              'tool_choice': 'auto',
+              'include': ['web_search_call.action.sources'],
+              'input': [
+                  {'role': 'system', 'content': system},
+                  {'role': 'user', 'content': user}
+              ],
+              'text': {
+                  'verbosity': 'medium',
+                  'format': {
+                      'type': 'json_schema',
+                      'name': 'tagit_stock_research',
+                      'strict': True,
+                      'schema': schema
+                  }
+              },
+              'store': False,
+              'max_output_tokens': 12000
+          }
+
+          req = urllib.request.Request(
+              'https://api.openai.com/v1/responses',
+              data=json.dumps(payload).encode('utf-8'),
+              headers={
+                  'Authorization': 'Bearer ' + api_key,
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json'
+              },
+              method='POST'
+          )
+
+          try:
+              with urllib.request.urlopen(req, timeout=150) as resp:
+                  raw = json.loads(resp.read().decode('utf-8'))
+          except urllib.error.HTTPError as e:
+              body = e.read().decode('utf-8', errors='replace')[:4000]
+              print('OpenAI HTTP error', e.code, body)
+              raise
+
+          # Raw REST responses do not expose the SDK convenience response.output_text,
+          # so collect output_text parts from assistant message items.
+          parts = []
+          for item in raw.get('output') or []:
+              if item.get('type') != 'message':
+                  continue
+              for c in item.get('content') or []:
+                  if c.get('type') == 'output_text' and c.get('text'):
+                      parts.append(c['text'])
+          text = ''.join(parts).strip()
+          if not text:
+              raise RuntimeError('OpenAI response contained no output_text')
+
+          parsed = json.loads(text)
+          analyses = {}
+          requested = {str(c['ticker']).upper() for c in context}
+          for a in parsed.get('analyses') or []:
+              ticker = str(a.get('ticker') or '').upper().strip()
+              if ticker and ticker in requested:
+                  a['ticker'] = ticker
+                  a['mode'] = 'GPT_WEB_RESEARCH'
+                  a['model'] = model
+                  a['generatedAtUTC'] = now.isoformat()
+                  analyses[ticker] = a
+
+          out = {
+              'schemaVersion': 4,
+              'provider': 'OPENAI_RESPONSES_WEB_SEARCH',
+              'status': 'OK',
+              'model': model,
+              'updatedAtUTC': now.isoformat(),
+              'liveFeedUpdatedAtUTC': live.get('updatedAtUTC'),
+              'technicalUpdatedAtUTC': live.get('technicalUpdatedAtUTC'),
+              'analysisCount': len(analyses),
+              'analyses': analyses,
+              'usage': raw.get('usage'),
+              'responseId': raw.get('id'),
+              'note': 'Each result is generated by GPT after OpenAI built-in web search plus current TAGit technical/liquidity context. Research aid only.'
+          }
+          OUT.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding='utf-8')
+          print(json.dumps({'model': model, 'analysisCount': len(analyses), 'tickers': list(analyses)}, ensure_ascii=False))
           PY
-      - name: Commit AI analysis cache
+
+      - name: Commit GPT research cache
         run: |
           test -f tag/data/ai-stock-analysis.json || exit 0
-          git config user.name "TAGit AI Bot"
+          git config user.name "TAGit GPT Research Bot"
           git config user.email "actions@users.noreply.github.com"
           git add tag/data/ai-stock-analysis.json
           git diff --cached --quiet && exit 0
-          git commit -m "data: refresh TAGit AI stock analysis"
-          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*3)); done
+          git commit -m "data: refresh TAGit GPT web research"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((i*3))
+          done
           exit 1
