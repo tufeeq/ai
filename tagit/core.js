@@ -28,9 +28,15 @@ export function tradabilityQualification(s,f=features(s)){
   let score=100;const reasons=[];let hardReject=false;
   if(f.price!==null&&f.price<.10){score-=65;reasons.push('سعر أقل من 0.10$');hardReject=true;}
   else if(f.price!==null&&f.price<.25){score-=18;reasons.push('سعر شديد الانخفاض');}
-  if(f.dollarVolume!==null&&f.dollarVolume<250000){score-=35;reasons.push('Dollar volume ضعيف');}
-  else if(f.dollarVolume!==null&&f.dollarVolume<750000){score-=15;reasons.push('Dollar volume محدود');}
-  if(f.trades!==null&&f.trades<500){score-=18;reasons.push('عدد الصفقات محدود');}
+  if(f.volume<25000){score-=75;reasons.push('حجم تداول مطلق أقل من 25 ألف سهم');hardReject=true;}
+  else if(f.volume<100000){score-=35;reasons.push('حجم تداول مطلق ضعيف');}
+  if(f.dollarVolume!==null&&f.dollarVolume<100000){score-=55;reasons.push('Dollar volume أقل من 100 ألف$');hardReject=true;}
+  else if(f.dollarVolume!==null&&f.dollarVolume<500000){score-=30;reasons.push('Dollar volume ضعيف');}
+  else if(f.dollarVolume!==null&&f.dollarVolume<1000000){score-=12;reasons.push('Dollar volume محدود');}
+  if(f.avgDollarVolume!==null&&f.avgDollarVolume<750000){score-=35;reasons.push('متوسط السيولة النقدية ضعيف');hardReject=true;}
+  else if(f.avgDollarVolume!==null&&f.avgDollarVolume<2000000){score-=12;reasons.push('متوسط السيولة محدود');}
+  if(f.trades!==null&&f.trades<150){score-=45;reasons.push('عدد الصفقات شديد الانخفاض');hardReject=true;}
+  else if(f.trades!==null&&f.trades<500){score-=18;reasons.push('عدد الصفقات محدود');}
   if(f.spread!==null&&f.spread>5){score-=35;reasons.push('سبريد مرتفع');}
   else if(f.spread!==null&&f.spread>3){score-=15;reasons.push('سبريد يحتاج حذر');}
   if(f.atrPct!==null&&f.atrPct>25){score-=12;reasons.push('تذبذب يومي شديد');}
@@ -105,10 +111,9 @@ export function riskGate(x){
   if(r>=72)return{status:'CAUTION',reason:'مخاطر التنفيذ/التخفيف مرتفعة'};
   if(x.phase==='EXHAUSTION'||x.phase==='EXPANSION')return{status:'CAUTION',reason:'الحركة متقدمة ومخاطر المطاردة مرتفعة'};
   if(c.contradictionWeight>=20)return{status:'OBSERVE',reason:'إشارات تناقض تمنع الدخول المبكر'};
-  if(x.actionability>=67&&c.score>=70&&t.score>=65&&['IGNITION','ACCELERATION','BREAKOUT'].includes(x.phase))return{status:'WATCH',reason:'اكتشاف مبكر + استمرار + قابلية تنفيذ'};
-  return{status:'OBSERVE',reason:c.score<58?'اكتشاف دون استمرار كافٍ':'تحتاج تأكيدًا إضافيًا'};
+  if(x.actionability>=67&&c.score>=70&&t.score>=65&&['IGNITION','ACCELERATION','BREAKOUT'].includes(x.phase))return{status:'WATCH',reason:'إشارة مؤهلة بعد بوابة الاستمرار والتنفيذ'};
+  if(x.actionability>=52)return{status:'OBSERVE',reason:'إشارة تتشكل وتحتاج تأكيدًا إضافيًا'};
+  return{status:'REJECT',reason:'لم تتجاوز حدود التأهيل'};
 }
 
-export function summarize(s,x){const f=x.features,w=[];if(x.continuation.score>=70)w.push(`استمرار ${x.continuation.score}/100`);if((f.momentumConsistency??0)>=.6)w.push('زخم متسق متعدد النوافذ');if(f.floatRotation!==null&&f.floatRotation>=.3)w.push(`Float ${f.floatRotation.toFixed(2)}x`);if((f.dollarVolume??0)>=1000000)w.push('سيولة نقدية جيدة');if((x.components.catalyst??0)>=55)w.push('محفز موثق');if(x.components.risk>=60)w.push('مخاطر مرتفعة');return w.slice(0,3).join(' • ')||'شذوذ يحتاج تأكيد استمرار';}
-
-export function enrich(symbols=[],market={}){return symbols.map(s=>{const x=scoreSymbol(s,market);let gate=riskGate(x);if(s.gateOverride?.status)gate=s.gateOverride;return{...s,...x,analogs:analogEstimate(s,x),gate,summary:summarize(s,x)}}).sort((a,b)=>b.actionability-a.actionability);}
+export function enrich(symbols,market={}){return(symbols||[]).map(s=>{const x=scoreSymbol(s,market),gate=riskGate(x);return{...s,...x,gate,analogs:analogEstimate(s,x),summary:[x.continuation.score>=68?`استمرار ${x.continuation.score}/100`:null,x.features.momentumConsistency!==null&&x.features.momentumConsistency>=.65?'زخم متسق متعدد النوافذ':null,x.features.floatRotation!==null&&x.features.floatRotation>=.45?`Float ${x.features.floatRotation.toFixed(2)}x`:null,x.features.dollarVolume!==null&&x.features.dollarVolume>=1e6?'سيولة نقدية جيدة':null].filter(Boolean).join(' • ')||gate.reason};});}
