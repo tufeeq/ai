@@ -6,6 +6,7 @@ on:
     paths:
       - 'tagit/index.html'
       - 'tagit/live-v6.js'
+      - 'tagit/live-v6-price-overlay.js'
       - 'tagit/live-v6.css'
       - '.github/workflows/pages-tagx-deploy.yml'
   workflow_dispatch:
@@ -34,16 +35,19 @@ jobs:
       - name: Validate Live 6 frontend
         run: |
           node --check tagit/live-v6.js
+          node --check tagit/live-v6-price-overlay.js
           grep -q 'id="confirmedCount"' tagit/index.html
           grep -q 'id="opportunities"' tagit/index.html
           grep -q 'live-v6.js' tagit/index.html
+          grep -q 'live-v6-price-overlay.js' tagit/index.html
       - name: Build TAGit Live 6 artifact
         run: |
           rm -rf _site
           mkdir -p _site/tagit
-          cp tagit/index.html tagit/live-v6.js tagit/live-v6.css _site/tagit/
+          cp tagit/index.html tagit/live-v6.js tagit/live-v6-price-overlay.js tagit/live-v6.css _site/tagit/
           test -e _site/tagit/index.html
           test -e _site/tagit/live-v6.js
+          test -e _site/tagit/live-v6-price-overlay.js
           test -e _site/tagit/live-v6.css
           echo 'TAGit Live 6 artifact ready'
       - name: Configure Pages
