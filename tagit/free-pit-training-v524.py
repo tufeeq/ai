@@ -5,9 +5,13 @@ Adds only SEC filings whose exact EDGAR acceptance timestamp is <= the 09:15 ET 
 Current ticker->CIK mapping is used only as an identity bridge and does NOT upgrade universe
 integrity. Same-day filings lacking an exact timestamp are excluded. The consumed research tail
 remains comparison-only.
+
+v5.24.1 hardens SEC access for CI runners: descriptive contact User-Agent, explicit From/Accept
+headers, retry/backoff, alternate ticker-map endpoint, and fail-closed SEC availability handling.
+If SEC cannot be reached, SEC features are marked unavailable rather than silently encoded as zeros.
 """
 from __future__ import annotations
-import datetime as dt, importlib.util, json, math, pathlib, time, urllib.request
+import datetime as dt, importlib.util, json, math, pathlib, time, urllib.request, urllib.error
 from collections import defaultdict
 from zoneinfo import ZoneInfo
 import numpy as np
@@ -17,13 +21,31 @@ spec=importlib.util.spec_from_file_location('v521',BASE); a=importlib.util.modul
 p=a.p; q=a.q; v=a.v
 ROOT=pathlib.Path('tag/data'); OUT=ROOT/'tagit-v524-free-pit-training.json'; CASES=ROOT/'tagit-v524-free-pit-cases.json'
 NY=ZoneInfo('America/New_York'); UTC=dt.timezone.utc
-SEC_UA='TAGit-research/5.24 tufeeq-ai@users.noreply.github.com'
+SEC_CONTACT='tufeeq11@gmail.com'
+SEC_UA=f'TAGit Research tufeeq/ai {SEC_CONTACT}'
 
 
-def sec_json(url,timeout=30):
-    req=urllib.request.Request(url,headers={'User-Agent':SEC_UA,'Accept':'application/json'})
-    with urllib.request.urlopen(req,timeout=timeout) as r:
-        return json.loads(r.read().decode())
+def sec_json(url,timeout=30,retries=4):
+    headers={
+        'User-Agent':SEC_UA,
+        'From':SEC_CONTACT,
+        'Accept':'application/json,text/plain,*/*',
+        'Accept-Encoding':'identity',
+        'Connection':'close',
+    }
+    last=None
+    for i in range(retries):
+        try:
+            req=urllib.request.Request(url,headers=headers)
+            with urllib.request.urlopen(req,timeout=timeout) as r:
+                return json.loads(r.read().decode())
+        except urllib.error.HTTPError as e:
+            last=e
+            if e.code not in (403,429,500,502,503,504): raise
+        except Exception as e:
+            last=e
+        time.sleep(min(8.0,0.8*(2**i)))
+    raise RuntimeError(f'SEC unavailable after {retries} attempts: {type(last).__name__}:{last}')
 
 
 def parse_acceptance(x):
@@ -40,15 +62,28 @@ def parse_acceptance(x):
 
 
 def load_ticker_cik():
-    d=sec_json('https://www.sec.gov/files/company_tickers.json')
-    out={}
-    vals=d.values() if isinstance(d,dict) else d
-    for z in vals:
+    errs=[]
+    for url in ('https://www.sec.gov/files/company_tickers.json','https://www.sec.gov/files/company_tickers_exchange.json'):
         try:
-            t=str(z.get('ticker') or '').upper().strip(); cik=int(z.get('cik_str'))
-            if t:out[t]=f'{cik:010d}'
-        except Exception:continue
-    return out
+            d=sec_json(url); out={}
+            if isinstance(d,dict) and 'data' in d and 'fields' in d:
+                fields=d['fields']
+                for row in d.get('data') or []:
+                    z=dict(zip(fields,row))
+                    try:
+                        t=str(z.get('ticker') or '').upper().strip(); cik=int(z.get('cik'))
+                        if t:out[t]=f'{cik:010d}'
+                    except Exception:continue
+            else:
+                vals=d.values() if isinstance(d,dict) else d
+                for z in vals:
+                    try:
+                        t=str(z.get('ticker') or '').upper().strip(); cik=int(z.get('cik_str'))
+                        if t:out[t]=f'{cik:010d}'
+                    except Exception:continue
+            if out:return out,url
+        except Exception as e: errs.append(f'{url}:{type(e).__name__}:{e}')
+    raise RuntimeError('ticker-CIK map unavailable | '+' | '.join(errs))
 
 
 def fetch_company_filings(cik):
@@ -59,23 +94,26 @@ def fetch_company_filings(cik):
     for i in range(n):
         form=str(forms[i] if i<len(forms) else '').upper().strip()
         at=parse_acceptance(acc[i] if i<len(acc) else None)
-        # Fail closed: without exact acceptance timestamp the record is never used as a feature.
         if at is None:continue
         out.append({'acceptedUTC':at,'form':form,'filingDate':str(filed[i] if i<len(filed) else ''),'accession':str(accession[i] if i<len(accession) else '')})
     return out
 
 
 def collect_sec(symbols):
-    mapping=load_ticker_cik(); out={}; errors={}; mapped=0
-    for i,s in enumerate(symbols):
+    try:
+        mapping,map_source=load_ticker_cik()
+    except Exception as e:
+        return {},{'__mapping__':f'{type(e).__name__}:{e}'},0,False,None
+    out={}; errors={}; mapped=0
+    for s in symbols:
         cik=mapping.get(s)
         if not cik:continue
         mapped+=1
         try: out[s]=fetch_company_filings(cik)
         except Exception as e: errors[s]=f'{type(e).__name__}:{e}'
-        # SEC fair-access friendly sequential pacing; no burst concurrency.
-        time.sleep(.12)
-    return out,errors,mapped
+        time.sleep(.14)
+    available=bool(out)
+    return out,errors,mapped,available,map_source
 
 
 def is_financing_form(form):
@@ -91,20 +129,10 @@ def sec_features(filings,day):
     d7=[x for x in usable if x['acceptedUTC']>=cut-dt.timedelta(days=7)]
     same=[x for x in usable if x['acceptedUTC'].astimezone(NY).date()==dt.date.fromisoformat(day)]
     fin72=[x for x in h72 if is_financing_form(x['form'])]
-    return [
-        min(len(h24),5)/5.0,
-        min(len(h72),10)/10.0,
-        math.log1p(len(d7))/3.0,
-        float(bool(fin72)),
-        min(len(fin72),4)/4.0,
-        float(any(x['form'].startswith('8-K') for x in h24)),
-        float(any(x['form'].startswith('6-K') for x in h24)),
-        float(any(x['form'].startswith(('10-Q','10-K','20-F','40-F')) for x in d7)),
-        min(len(same),3)/3.0,
-    ],{'filings24h':len(h24),'filings72h':len(h72),'filings7d':len(d7),'financing72h':len(fin72),'sameDayPre0915':len(same)}
+    return [min(len(h24),5)/5.0,min(len(h72),10)/10.0,math.log1p(len(d7))/3.0,float(bool(fin72)),min(len(fin72),4)/4.0,float(any(x['form'].startswith('8-K') for x in h24)),float(any(x['form'].startswith('6-K') for x in h24)),float(any(x['form'].startswith(('10-Q','10-K','20-F','40-F')) for x in d7)),min(len(same),3)/3.0],{'filings24h':len(h24),'filings72h':len(h72),'filings7d':len(d7),'financing72h':len(fin72),'sameDayPre0915':len(same)}
 
 
-def attach_sec(rows,sec_by_symbol):
+def attach_sec(rows,sec_by_symbol,sec_available):
     out=[]; withctx=0; with_recent=0
     for r in rows:
         fs=sec_by_symbol.get(r['symbol'])
@@ -112,16 +140,18 @@ def attach_sec(rows,sec_by_symbol):
         feat,audit=sec_features(fs or [],r['day'])
         if mapped:withctx+=1
         if audit['filings7d']>0:with_recent+=1
-        z=dict(r); z['feat']=list(r['feat'])+feat+[float(mapped)]
-        z['secAudit']=dict(audit,identityMapped=mapped,exactAcceptanceOnly=True)
+        z=dict(r)
+        # unavailable != zero filings. Availability flag lets the model distinguish them.
+        z['feat']=list(r['feat'])+feat+[float(mapped),float(sec_available)]
+        z['secAudit']=dict(audit,identityMapped=mapped,exactAcceptanceOnly=True,secAvailable=bool(sec_available))
         out.append(z)
     return out,withctx,with_recent
 
 
 def main():
     mode,syms,raw,errs,rows=a.fetch_rows()
-    sec_by_symbol,sec_errors,mapped=collect_sec(syms)
-    rows,ctx_rows,recent_rows=attach_sec(rows,sec_by_symbol)
+    sec_by_symbol,sec_errors,mapped,sec_available,map_source=collect_sec(syms)
+    rows,ctx_rows,recent_rows=attach_sec(rows,sec_by_symbol,sec_available)
     dates=sorted({r['day'] for r in rows})
     if len(dates)<40 or len(rows)<5000:raise RuntimeError(f'insufficient rows={len(rows)} days={len(dates)}')
     cut=max(1,int(.80*len(dates))); dev_dates=dates[:cut]; research_dates=dates[cut:]
@@ -137,18 +167,7 @@ def main():
     dev=[r for r in rows if r['day'] in set(dev_dates)]; research=[r for r in rows if r['day'] in set(research_dates)]
     oof=q.expanding_oof(dev); meta=q.fit_meta(oof); base=v.fit(dev)
     rs=q.apply_meta(meta,v.score(base,research)); rsel=q.select_meta(rs,mt,bt,dm,topn); rm=v.v.metrics(rsel,rs)
-    rep={
-      'schemaVersion':'5.24-sec-pit','generatedAtUTC':dt.datetime.now(UTC).isoformat(),'status':'COMPLETE','dataMode':mode,
-      'validationStatus':'RESEARCH_COMPARISON_ONLY','holdoutStatus':'CONSUMED_RESEARCH_HOLDOUT',
-      'change':['free SEC submissions context','exact EDGAR acceptance-time cutoff <=09:15 ET','financing/dilution-form risk context','8-K/6-K/periodic-filing recency context','v5.21 feed-aware ranks retained'],
-      'population':{'symbolsRequested':len(syms),'symbolsSucceeded':sum(bool(x) for x in raw.values()),'independentTickerDays':len(rows),'days':len(dates),'plus20':sum(r['hit20'] for r in rows)},
-      'secCoverage':{'tickerCikMappedSymbols':mapped,'submissionsFetchedSymbols':len(sec_by_symbol),'fetchErrors':len(sec_errors),'rowsIdentityMapped':ctx_rows,'rowsWithExactAcceptedFiling7d':recent_rows,'rowsWithExactAcceptedFiling7dPct':round(100*recent_rows/len(rows),2)},
-      'development':{'days':len(dev_dates),'folds':fold_meta,'foldMetrics':fold_metrics},
-      'selectedConfig':{'metaThreshold':round(mt,6),'baseThreshold':round(bt,6),'maxDisagreement':dm,'topNPerDay':topn},
-      'researchHoldout':rm,'realDiscoveryPrecisionPct':None,
-      'providerIntegrity':{'historicalPointInTimeUniverse':False,'survivorshipSafe':False,'secContextPointInTime':True,'marketWidePrecisionClaimAllowed':False},
-      'antiLeakage':['market features <=09:15 ET','SEC feature includes only exact acceptance timestamps <=09:15 ET','filings without exact acceptance timestamp excluded','SEC context never uses future filings','configuration selected on development folds only','research tail excluded from selection and already consumed']}
-    ROOT.mkdir(parents=True,exist_ok=True); OUT.write_text(json.dumps(rep,indent=2)); CASES.write_text(json.dumps({'selectedResearch':rsel,'foldMetrics':fold_metrics,'selectedConfig':rep['selectedConfig']},indent=2))
-    print(json.dumps(rep,indent=2))
+    rep={'schemaVersion':'5.24.1-sec-pit','generatedAtUTC':dt.datetime.now(UTC).isoformat(),'status':'COMPLETE','dataMode':mode,'validationStatus':'RESEARCH_COMPARISON_ONLY','holdoutStatus':'CONSUMED_RESEARCH_HOLDOUT','change':['hardened SEC fair-access client','retry/backoff plus alternate ticker map','fail-closed SEC availability flag','exact EDGAR acceptance-time cutoff <=09:15 ET','financing/dilution and filing recency context'],'population':{'symbolsRequested':len(syms),'symbolsSucceeded':sum(bool(x) for x in raw.values()),'independentTickerDays':len(rows),'days':len(dates),'plus20':sum(r['hit20'] for r in rows)},'secCoverage':{'secAvailable':sec_available,'tickerMapSource':map_source,'tickerCikMappedSymbols':mapped,'submissionsFetchedSymbols':len(sec_by_symbol),'fetchErrors':len(sec_errors),'rowsIdentityMapped':ctx_rows,'rowsWithExactAcceptedFiling7d':recent_rows,'rowsWithExactAcceptedFiling7dPct':round(100*recent_rows/len(rows),2)},'development':{'days':len(dev_dates),'folds':fold_meta,'foldMetrics':fold_metrics},'selectedConfig':{'metaThreshold':round(mt,6),'baseThreshold':round(bt,6),'maxDisagreement':dm,'topNPerDay':topn},'researchHoldout':rm,'realDiscoveryPrecisionPct':None,'providerIntegrity':{'historicalPointInTimeUniverse':False,'survivorshipSafe':False,'secContextPointInTime':bool(sec_available),'marketWidePrecisionClaimAllowed':False},'antiLeakage':['market features <=09:15 ET','SEC feature includes only exact acceptance timestamps <=09:15 ET','filings without exact acceptance timestamp excluded','SEC unavailable encoded explicitly rather than as no-filings','configuration selected on development folds only','research tail excluded from selection and already consumed']}
+    ROOT.mkdir(parents=True,exist_ok=True); OUT.write_text(json.dumps(rep,indent=2)); CASES.write_text(json.dumps({'selectedResearch':rsel,'foldMetrics':fold_metrics,'selectedConfig':rep['selectedConfig'],'secCoverage':rep['secCoverage']},indent=2)); print(json.dumps(rep,indent=2))
 
 if __name__=='__main__':main()
