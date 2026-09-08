@@ -7,6 +7,9 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - 'tagit/build-signal-feed.mjs'
+      - 'tagit/validate-live-opportunity-integrity.mjs'
+      - 'tag/data/tagit-opportunity-policy.json'
       - 'tagit/market-calendar-guard.py'
       - 'tagit/finviz_provider.py'
       - 'tagit/audit_provider.py'
@@ -27,192 +30,71 @@ on:
 
 permissions:
   contents: write
-
 concurrency:
   group: tagit-finviz-rich-feed-main
   cancel-in-progress: true
-
 jobs:
   enrich:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 2
+        with: {ref: main, fetch-depth: 2}
       - uses: actions/setup-node@v4
-        with:
-          node-version: 22
+        with: {node-version: '22'}
       - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+        with: {python-version: '3.12'}
       - name: Sync main
         run: git pull --rebase origin main
       - name: Install optional shadow scorer dependencies
         continue-on-error: true
         run: python -m pip install --disable-pip-version-check numpy scikit-learn joblib
       - name: Fetch Finviz Elite rich data within documented cadence
-        env:
-          FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
+        env: {FINVIZ_TOKEN: '${{ secrets.FINVIZ_TOKEN }}'}
         run: |
           test -n "$FINVIZ_TOKEN" || (echo 'FINVIZ_TOKEN missing' && exit 1)
           mkdir -p /tmp/tagit-rich tag/data
           COLS='1,2,3,4,5,6,7,22,23,24,25,26,27,28,30,31,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,88,89,90,91,92,93,94,95,96,97,98,129,135,136,137,141,151'
-          for SIGNAL in ta_topgainers ta_unusualvolume ta_mostactive; do
-            curl --fail --silent --show-error --location --retry 5 --retry-delay 6 --retry-all-errors \
-              "https://elite.finviz.com/export.ashx?v=152&s=${SIGNAL}&c=${COLS}&auth=${FINVIZ_TOKEN}&ft=4" \
-              -o "/tmp/tagit-rich/${SIGNAL}.csv"
-            test -s "/tmp/tagit-rich/${SIGNAL}.csv"
-            sleep 6
-          done
-          curl --fail --silent --show-error --location --retry 5 --retry-delay 6 --retry-all-errors \
-            "https://elite.finviz.com/export.ashx?v=152&t=SPY,QQQ,IWM&c=${COLS}&auth=${FINVIZ_TOKEN}&ft=4" \
-            -o /tmp/tagit-rich/benchmarks.csv
-      - name: Enforce market calendar guard inside rich pipeline
+          for SIGNAL in ta_topgainers ta_unusualvolume ta_mostactive; do curl --fail --silent --show-error --location --retry 5 --retry-delay 6 --retry-all-errors "https://elite.finviz.com/export.ashx?v=152&s=${SIGNAL}&c=${COLS}&auth=${FINVIZ_TOKEN}&ft=4" -o "/tmp/tagit-rich/${SIGNAL}.csv"; test -s "/tmp/tagit-rich/${SIGNAL}.csv"; sleep 6; done
+          curl --fail --silent --show-error --location --retry 5 --retry-delay 6 --retry-all-errors "https://elite.finviz.com/export.ashx?v=152&t=SPY,QQQ,IWM&c=${COLS}&auth=${FINVIZ_TOKEN}&ft=4" -o /tmp/tagit-rich/benchmarks.csv
+      - name: Calendar and provider
         run: |
-          python -m py_compile tagit/market-calendar-guard.py
           python tagit/market-calendar-guard.py --self-test
           python tagit/market-calendar-guard.py
-      - name: Normalize provider data
-        run: python tagit/finviz_provider.py
-      - name: Validate and derive shadow catalyst intelligence
-        run: |
-          python -m py_compile tagit/catalyst_intelligence.py tagit/attach-catalyst-derived.py tagit/update-shadow-outcomes.py tagit/build-catalyst-calibration.py
+          python tagit/finviz_provider.py
           python tagit/catalyst_intelligence.py --self-test
           python tagit/catalyst_intelligence.py
-      - name: Audit provider data contract
-        run: python tagit/audit_provider.py
-      - name: Update prior shadow outcomes point-in-time
-        run: python tagit/update-shadow-outcomes.py
-      - name: Score v2.5 shadow model without blocking champion feed
+          python tagit/audit_provider.py
+          python tagit/update-shadow-outcomes.py
+      - name: Score context layers
         run: |
-          if python - <<'PY'
-          import importlib.util
-          assert importlib.util.find_spec('numpy')
-          assert importlib.util.find_spec('sklearn')
-          assert importlib.util.find_spec('joblib')
-          PY
-          then
-            python -m py_compile tagit/score-v25-live.py
-            python tagit/score-v25-live.py || python - <<'PY'
-          import json,datetime,pathlib
-          p={'schemaVersion':1,'source':'TAGit v2.5 shadow scorer','updatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'status':'DEGRADED','reason':'SHADOW_SCORER_RUNTIME_FAILURE','policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','championUnaffected':True,'counts':{'total':0,'radar':0,'discover':0,'alert':0},'items':[],'stateCache':{}}
-          pathlib.Path('tag/data/tagit-v25-shadow.json').write_text(json.dumps(p,indent=2)+'\n')
-          PY
-          else
-            python - <<'PY'
-          import json,datetime,pathlib
-          p={'schemaVersion':1,'source':'TAGit v2.5 shadow scorer','updatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'status':'DEGRADED','reason':'SHADOW_DEPENDENCY_UNAVAILABLE','policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','championUnaffected':True,'counts':{'total':0,'radar':0,'discover':0,'alert':0},'items':[],'stateCache':{}}
-          pathlib.Path('tag/data/tagit-v25-shadow.json').write_text(json.dumps(p,indent=2)+'\n')
-          PY
-          fi
-      - name: Score v3 graded-relevance ranker without blocking champion feed
-        run: |
-          if test -s tag/model/tagit-v3-ranker.joblib && python - <<'PY'
-          import importlib.util
-          assert importlib.util.find_spec('numpy')
-          assert importlib.util.find_spec('sklearn')
-          assert importlib.util.find_spec('joblib')
-          PY
-          then
-            python -m py_compile tagit/score-v3-live.py
-            python tagit/score-v3-live.py || python - <<'PY'
-          import json,datetime,pathlib
-          p={'schemaVersion':3,'source':'TAGit v3 graded relevance shadow ranker','updatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'status':'DEGRADED','reason':'V3_SHADOW_RUNTIME_FAILURE','policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','championUnaffected':True,'counts':{'total':0,'lead':0,'shortlist':0,'radar':0},'items':[],'stateCache':{}}
-          pathlib.Path('tag/data/tagit-v3-shadow.json').write_text(json.dumps(p,indent=2)+'\n')
-          PY
-          else
-            python - <<'PY'
-          import json,datetime,pathlib
-          p={'schemaVersion':3,'source':'TAGit v3 graded relevance shadow ranker','updatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'status':'DEGRADED','reason':'V3_MODEL_OR_DEPENDENCY_UNAVAILABLE','policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','championUnaffected':True,'counts':{'total':0,'lead':0,'shortlist':0,'radar':0},'items':[],'stateCache':{}}
-          pathlib.Path('tag/data/tagit-v3-shadow.json').write_text(json.dumps(p,indent=2)+'\n')
-          PY
-          fi
-      - name: Score v4 frozen-live21 ranker without blocking champion feed
-        run: |
-          if test -s tag/model/tagit-v4-live-compatible.joblib && python - <<'PY'
-          import importlib.util
-          assert importlib.util.find_spec('numpy')
-          assert importlib.util.find_spec('sklearn')
-          assert importlib.util.find_spec('joblib')
-          PY
-          then
-            python -m py_compile tagit/score-v4-live.py
-            python tagit/score-v4-live.py || python - <<'PY'
-          import json,datetime,pathlib
-          p={'schemaVersion':4,'source':'TAGit v4 live21 shadow ranker','updatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'status':'DEGRADED','reason':'V4_SHADOW_RUNTIME_FAILURE','policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','championUnaffected':True,'executionVerified':False,'counts':{'total':0,'selectedGate':0,'lead':0,'shortlist':0,'radar':0},'items':[],'stateCache':{}}
-          pathlib.Path('tag/data/tagit-v4-shadow.json').write_text(json.dumps(p,indent=2)+'\n')
-          PY
-          else
-            python - <<'PY'
-          import json,datetime,pathlib
-          p={'schemaVersion':4,'source':'TAGit v4 live21 shadow ranker','updatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'status':'DEGRADED','reason':'V4_MODEL_OR_DEPENDENCY_UNAVAILABLE','policy':'SHADOW_ONLY_NO_CHAMPION_OVERRIDE','championUnaffected':True,'executionVerified':False,'counts':{'total':0,'selectedGate':0,'lead':0,'shortlist':0,'radar':0},'items':[],'stateCache':{}}
-          pathlib.Path('tag/data/tagit-v4-shadow.json').write_text(json.dumps(p,indent=2)+'\n')
-          PY
-          fi
-      - name: Build official SEC event clock for v4 Top-20
-        continue-on-error: true
-        run: |
-          python -m py_compile tagit/sec-event-intelligence.py
-          python tagit/sec-event-intelligence.py || python - <<'PY'
-          import json,datetime,pathlib
-          p={'schemaVersion':1,'source':'SEC derived event clock','updatedAtUTC':datetime.datetime.now(datetime.timezone.utc).isoformat(),'status':'DEGRADED','reason':'SEC_EVENT_CLOCK_RUNTIME_FAILURE','policy':'SHADOW_CONTEXT_ONLY_NO_ALERT_OVERRIDE','futureSafe':True,'rawFilingsPersisted':False,'counts':{'requested':0,'mapped':0,'succeeded':0,'withRecentEvent':0,'withFreshEvent':0,'withRiskFlag':0},'items':[]}
-          pathlib.Path('tag/data/tagit-sec-event-shadow.json').write_text(json.dumps(p,indent=2)+'\n')
-          PY
-      - name: Score v4.1 context-only forward research layer
-        run: |
-          python -m py_compile tagit/score-v41-live.py
           python tagit/score-v41-live.py
-      - name: Build derived TAGit signal feed
+          python tagit/sec-event-intelligence.py || true
+      - name: Build fail-closed TAGit signal feed
         run: |
           node --check tagit/core.js
           node --check tagit/build-signal-feed.mjs
           node tagit/build-signal-feed.mjs tag/data/finviz-rich.json tag/data/tagit-signal-feed.json
-      - name: Append derived shadow-learning features
+      - name: Enforce live recommendation integrity before publish
+        run: node tagit/validate-live-opportunity-integrity.mjs tag/data/tagit-signal-feed.json tag/data/tagit-opportunity-policy.json
+      - name: Build forward context
         run: |
-          python -m py_compile tagit/build-shadow-learning-ledger.py
           python tagit/build-shadow-learning-ledger.py
-      - name: Purge records from verified market-closed dates
-        run: |
-          python -m py_compile tagit/purge-invalid-calendar-events.py
           python tagit/purge-invalid-calendar-events.py
-      - name: Freeze SEC context into current shadow ledger records
-        run: |
-          python -m py_compile tagit/attach-sec-event-context.py
           python tagit/attach-sec-event-context.py
-      - name: Follow open v4 events independently
-        continue-on-error: true
-        run: |
-          python -m py_compile tagit/follow-v4-events.py
-          python tagit/follow-v4-events.py
-      - name: Summarize v4 forward event evidence
-        run: |
-          python -m py_compile tagit/summarize-v4-forward.py
+          python tagit/follow-v4-events.py || true
           python tagit/summarize-v4-forward.py
-      - name: Summarize SEC event forward evidence
-        run: |
-          python -m py_compile tagit/summarize-sec-event-forward.py
           python tagit/summarize-sec-event-forward.py
-      - name: Attach catalyst shadow features to derived outputs
-        run: python tagit/attach-catalyst-derived.py
-      - name: Build catalyst calibration report
-        run: python tagit/build-catalyst-calibration.py
+          python tagit/attach-catalyst-derived.py
+          python tagit/build-catalyst-calibration.py
       - name: Commit derived outputs only
         run: |
-          if git ls-files --error-unmatch tag/data/finviz-rich.json >/dev/null 2>&1; then
-            git checkout -- tag/data/finviz-rich.json
-          else
-            rm -f tag/data/finviz-rich.json
-          fi
+          if git ls-files --error-unmatch tag/data/finviz-rich.json >/dev/null 2>&1; then git checkout -- tag/data/finviz-rich.json; else rm -f tag/data/finviz-rich.json; fi
           git checkout -- tag/data/finviz.json tag/data/snapshots.json 2>/dev/null || true
           git config user.name tagit-data-bot
           git config user.email actions@users.noreply.github.com
-          git add tag/data/tagit-signal-feed.json tag/data/finviz-rich-health.json tag/data/tagit-data-contract.json tag/data/tagit-shadow-learning-ledger.json tag/data/tagit-v25-shadow.json tag/data/tagit-v3-shadow.json tag/data/tagit-v4-shadow.json tag/data/tagit-v41-shadow.json tag/data/tagit-sec-event-shadow.json tag/data/tagit-v4-forward-eval.json tag/data/tagit-sec-event-forward.json tag/data/tagit-catalyst-calibration.json
+          git add tag/data/tagit-signal-feed.json tag/data/finviz-rich-health.json tag/data/tagit-data-contract.json tag/data/tagit-shadow-learning-ledger.json tag/data/tagit-v41-shadow.json tag/data/tagit-sec-event-shadow.json tag/data/tagit-v4-forward-eval.json tag/data/tagit-sec-event-forward.json tag/data/tagit-catalyst-calibration.json
           git diff --cached --quiet && exit 0
-          git commit -m 'data: refresh TAGit v4 SEC and forward shadow outputs'
-          for i in 1 2 3; do
-            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
-            sleep $((i*6))
-          done
+          git commit -m 'data: refresh fail-closed TAGit live and forward outputs'
+          for i in 1 2 3; do git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0; sleep $((i*6)); done
           exit 1
