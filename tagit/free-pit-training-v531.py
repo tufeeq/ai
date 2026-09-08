@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""TAGit v5.31.1 asymmetric recurrent-veto PIT validation.
+"""TAGit v5.31.2 asymmetric recurrent-veto PIT validation.
 
-Computational repair of v5.31. The original exhaustive gate x threshold x disagreement grid hit the
-GitHub Actions timeout. This version keeps identical causal features and outcome definitions but uses
-a two-stage DEVELOPMENT-ONLY search: (1) coarse gate ranking at a fixed development quantile and
-selection policy, then (2) full threshold/disagreement/top-N refinement only for the strongest gate
-candidates. The consumed research tail is never used for either stage.
+Computational repair of v5.31.1 after the hosted runner was externally shut down at ~30 minutes.
+The causal features, labels and chronological splits are unchanged. Search is now a bounded,
+DEVELOPMENT-ONLY coarse-to-fine design: a compact asymmetric-gate grid is screened first, then
+only the strongest gates receive policy refinement. The consumed research tail is never used in
+coarse screening, refinement, threshold selection, or model selection.
 """
 from __future__ import annotations
 import datetime as dt, importlib.util, json, pathlib
@@ -61,14 +61,16 @@ def evaluate(blocks):
         if scored:
             score_cache[(window,rw)]=scored; audits_cache[(window,rw)]=audits
 
-    # Stage 1: coarse DEVELOPMENT-only gate screening. Fixed policy prevents combinatorial explosion.
+    # Stage 1: bounded DEVELOPMENT-only gate screening. The prior v5.31.1 grid repeated
+    # thousands of full fold metrics and exceeded the hosted runner lifetime. These ranges retain
+    # weak/medium/strong veto behavior while removing near-duplicate parameter combinations.
     coarse=[]; gate_count=0
     for (window,rw),scored in score_cache.items():
       for mins in (2,4,6):
-        for downs in (.55,.75,1.0):
-          for ups in (.10,.20,.35):
-            for upmins in (6,8,10):
-              for db in (.005,.015,.03):
+        for downs in (.65,.90):
+          for ups in (.10,.25):
+            for upmins in (6,9):
+              for db in (.01,.025):
                 gate_count+=1
                 gated=[asym_gate(x,y,mins,downs,ups,upmins,db) for x,y in scored]
                 vals=[r['score'] for q in gated for r in q]
@@ -77,23 +79,22 @@ def evaluate(blocks):
                 coarse.append((utility(ms),window,rw,mins,downs,ups,upmins,db,gated,ms))
 
     if not coarse: raise RuntimeError('no supported v5.31 coarse candidates')
-    # Keep diverse top candidates; 18 gives broad gate coverage while cutting full evaluations ~13x.
-    coarse.sort(key=lambda x:x[0],reverse=True); shortlist=coarse[:18]
+    coarse.sort(key=lambda x:x[0],reverse=True); shortlist=coarse[:10]
 
-    # Stage 2: full DEVELOPMENT-only selection-policy refinement on shortlisted gates.
+    # Stage 2: full DEVELOPMENT-only selection-policy refinement on the ten strongest gates.
     refined=[]; refined_evals=0
     for _,window,rw,mins,downs,ups,upmins,db,gated,_ in shortlist:
         vals=[r['score'] for q in gated for r in q]
-        qs=np.quantile(vals,[.84,.88,.91,.94,.96,.98])
+        qs=np.quantile(vals,[.86,.90,.94,.96,.98])
         for thr in qs:
-          for dm in (.08,.12,.16,.22):
+          for dm in (.10,.16,.22):
             for topn in (3,5):
                 refined_evals+=1
                 ms=[v.v.metrics(a.select(sc,float(thr),dm,topn),sc) for sc in gated]
                 refined.append((utility(ms),window,rw,mins,downs,ups,upmins,db,float(thr),dm,topn,ms,audits_cache[(window,rw)]))
     if not refined: raise RuntimeError('no supported v5.31 refined candidates')
     best=max(refined,key=lambda x:x[0])
-    return best,{'gateCandidatesCoarse':gate_count,'gateShortlist':len(shortlist),'policyRefinements':refined_evals,'searchTailAccess':False}
+    return best,{'gateCandidatesCoarse':gate_count,'gateShortlist':len(shortlist),'policyRefinements':refined_evals,'searchTailAccess':False,'boundedForRunner':True}
 
 
 def main():
@@ -115,8 +116,8 @@ def main():
     bm=a.fit_expert(devb,window); rm=a.fit_expert(devr,window); bs=a.score_expert(bm,rb,rw); rs=a.score_expert(rm,rr,rw)
     scores=asym_gate(bs,rs,mins,downs,ups,upmins,db); sel=a.select(scores,thr,dm,topn); hm=v.v.metrics(sel,scores)
     gv=[x['recurrentGate'] for x in scores]; neg=[x for x in scores if x['recurrentDelta']<0]; pos=[x for x in scores if x['recurrentDelta']>0]
-    rep={'schemaVersion':'5.31.1-asymmetric-recurrent-veto-pit','generatedAtUTC':dt.datetime.now(v.v.UTC).isoformat(),'status':'COMPLETE','dataMode':mode,'validationStatus':'RESEARCH_COMPARISON_ONLY','holdoutStatus':'CONSUMED_RESEARCH_HOLDOUT',
-      'change':['retain v5.30 separate baseline/recurrent experts','asymmetric recurrent veto','two-stage development-only gate search','cache expert predictions before gate/policy search','research tail accessed only after configuration freeze'],
+    rep={'schemaVersion':'5.31.2-asymmetric-recurrent-veto-pit','generatedAtUTC':dt.datetime.now(v.v.UTC).isoformat(),'status':'COMPLETE','dataMode':mode,'validationStatus':'RESEARCH_COMPARISON_ONLY','holdoutStatus':'CONSUMED_RESEARCH_HOLDOUT',
+      'change':['retain v5.30 separate baseline/recurrent experts','asymmetric recurrent veto','bounded two-stage development-only gate search','cache expert predictions before gate/policy search','research tail accessed only after configuration freeze'],
       'population':{'symbolsRequested':len(syms),'symbolsSucceeded':sum(bool(x) for x in raw.values()),'independentTickerDays':len(base),'days':len(dates),'plus20':sum(int(x['hit20']) for x in base)},
       'development':{'days':len(devd),'folds':finfo,'foldMetrics':fmetrics,'recentAudits':audits,'searchAudit':search_audit},
       'selectedConfig':{'recentWindowDays':window,'recentWeight':rw,'minPriorSessionsForVeto':mins,'downStrength':downs,'upStrength':ups,'upMinPriorSessions':upmins,'deadband':db,'scoreThreshold':round(thr,6),'maxDisagreement':dm,'topNPerDay':topn},
