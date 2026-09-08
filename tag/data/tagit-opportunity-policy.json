@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1-live-integrity",
   "policy": "SIMULTANEOUS_OPPORTUNITIES_ALLOWED",
   "globalTimestampAlertCap": null,
   "allowMultipleTickersSameTimestamp": true,
@@ -11,11 +11,33 @@
     "allowDistinctSetupAtSameTimestamp": true,
     "cooldownAppliesOnlyToRepeatedSameSetup": true
   },
-  "rankingPolicy": "rank opportunities but never suppress qualified simultaneous opportunities solely because they share a timestamp",
+  "livePromotionIntegrity": {
+    "failClosed": true,
+    "watchRequiresExecutionVerified": true,
+    "watchRequiresHealthySource": true,
+    "watchRequiresActiveSession": true,
+    "fallbackDiscoveryMayNotPromoteToWatch": true,
+    "unverifiedFallbackMaximumState": "OBSERVE",
+    "unknownExecutionFieldsBlockWatch": [
+      "bidAskSpread"
+    ],
+    "researchScoresAreNotCalibratedProbabilities": true,
+    "marketWidePrecisionClaimRequires": [
+      "untouched_chronological_holdout",
+      "adequate_independent_ticker_day_support",
+      "day_block_uncertainty",
+      "point_in_time_universe_integrity",
+      "survivorship_safe_universe",
+      "independent_forward_confirmation"
+    ]
+  },
+  "rankingPolicy": "rank qualified simultaneous opportunities but never suppress them solely because they share a timestamp; unverified or fallback-only records must not be promoted as actionable WATCH recommendations",
   "notes": [
     "A timestamp is not a capacity limit.",
     "Simultaneous qualified opportunities across different tickers must all survive selection.",
     "If one ticker expresses multiple materially distinct setup families at the same timestamp, retain the setup labels rather than suppressing the opportunity.",
-    "Any future UI may sort or group simultaneous opportunities, but must not hide them because of a market-wide cap."
+    "Any future UI may sort or group simultaneous opportunities, but must not hide them because of a market-wide cap.",
+    "Live recommendation state is fail-closed: source health alone is insufficient when execution verification is missing.",
+    "Fallback discovery is research/radar context only and cannot be represented as an actionable recommendation."
   ]
 }
