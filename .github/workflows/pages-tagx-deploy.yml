@@ -1,4 +1,4 @@
-name: Deploy TAGit Live 7
+name: Deploy TAGit Live 9
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
     paths:
       - 'tagit/index.html'
       - 'tagit/live-v6.js'
+      - 'tagit/early-v9.js'
       - 'tagit/live-v6-price-overlay.js'
       - 'tagit/technical-v7.js'
       - 'tagit/feed-recovery-v7.js'
@@ -19,7 +20,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: tagit-live-7-pages
+  group: tagit-live-9-pages
   cancel-in-progress: true
 
 jobs:
@@ -34,30 +35,27 @@ jobs:
         with:
           ref: main
           fetch-depth: 1
-      - name: Validate Live 7 frontend
+      - name: Validate Live 9 frontend
         run: |
           node --check tagit/live-v6.js
+          node --check tagit/early-v9.js
           node --check tagit/live-v6-price-overlay.js
           node --check tagit/technical-v7.js
           node --check tagit/feed-recovery-v7.js
           grep -q 'id="confirmedCount"' tagit/index.html
           grep -q 'id="opportunities"' tagit/index.html
-          grep -q 'live-v6.js' tagit/index.html
+          grep -q 'early-v9.js' tagit/index.html
           grep -q 'live-v6-price-overlay.js' tagit/index.html
           grep -q 'technical-v7.js' tagit/index.html
           grep -q 'feed-recovery-v7.js' tagit/index.html
-      - name: Build TAGit Live 7 artifact
+      - name: Build TAGit Live 9 artifact
         run: |
           rm -rf _site
           mkdir -p _site/tagit
-          cp tagit/index.html tagit/live-v6.js tagit/live-v6-price-overlay.js tagit/technical-v7.js tagit/feed-recovery-v7.js tagit/live-v6.css _site/tagit/
+          cp tagit/index.html tagit/live-v6.js tagit/early-v9.js tagit/live-v6-price-overlay.js tagit/technical-v7.js tagit/feed-recovery-v7.js tagit/live-v6.css _site/tagit/
           test -e _site/tagit/index.html
-          test -e _site/tagit/live-v6.js
-          test -e _site/tagit/live-v6-price-overlay.js
-          test -e _site/tagit/technical-v7.js
-          test -e _site/tagit/feed-recovery-v7.js
-          test -e _site/tagit/live-v6.css
-          echo 'TAGit Live 7 artifact ready'
+          test -e _site/tagit/early-v9.js
+          echo 'TAGit Live 9 artifact ready'
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site artifact
