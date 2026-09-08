@@ -1,4 +1,4 @@
-name: TAGX Live Quote Reconciliation V9
+name: TAGX Live Quote Reconciliation V10
 
 on:
   workflow_dispatch:
@@ -9,14 +9,14 @@ on:
       - 'tagit/live-engine-v9.py'
       - 'tagit/normalize-live-inputs-v9.py'
       - 'tagit/sanitize-live-output-v9.py'
+      - 'tagit/apply-trend-model-v10.py'
+      - 'tag/data/tagit-trend-model-v10.json'
   schedule:
     - cron: '1,6,11,16,21,26,31,36,41,46,51,56 * * * *'
 
 permissions:
   contents: write
 
-# Never cancel a valid quote build merely because the daemon fires the next pulse.
-# Serializing refreshes is safer than publishing partially-built or skipped snapshots.
 concurrency:
   group: tagx-live-quotes-main
   cancel-in-progress: false
@@ -33,15 +33,18 @@ jobs:
           fetch-depth: 0
       - name: Sync latest main
         run: git pull --rebase origin main
-      - name: Validate V9 engine and hardening helpers
+      - name: Validate engine, model scorer, and hardening helpers
         run: |
           python -m py_compile tagit/live-engine-v9.py
           python -m py_compile tagit/normalize-live-inputs-v9.py
           python -m py_compile tagit/sanitize-live-output-v9.py
+          python -m py_compile tagit/apply-trend-model-v10.py
       - name: Normalize formatted discovery inputs
         run: python tagit/normalize-live-inputs-v9.py
       - name: Build resilient live feed
         run: python tagit/live-engine-v9.py
+      - name: Apply trained early-trend model V10
+        run: python tagit/apply-trend-model-v10.py
       - name: Sanitize and verify quote timestamps
         run: python tagit/sanitize-live-output-v9.py
       - name: Validate live feed contract
@@ -53,20 +56,20 @@ jobs:
           required=['updatedAtUTC','marketClockSession','quotes','earlyCandidates','emergingCandidates','accumulationCandidates']
           missing=[k for k in required if k not in x]
           if missing: raise SystemExit(f'missing keys: {missing}')
-          if x.get('schemaVersion') != 9: raise SystemExit('schemaVersion must be 9')
+          if x.get('schemaVersion') != 9: raise SystemExit('base feed schemaVersion must remain 9')
           if x.get('marketClockSession') != 'closed' and x.get('freshCount',0) < 50: raise SystemExit('fresh quote floor violated')
           if len(x.get('quotes') or {}) < 50: raise SystemExit('quote coverage floor violated')
           ages=[q.get('quoteAgeMin') for q in (x.get('quotes') or {}).values() if q.get('quoteAgeMin') is not None]
           if any(float(a) < 0 for a in ages): raise SystemExit('negative quote age found')
-          print({k:x.get(k) for k in ['updatedAtET','marketClockSession','freshCount','requested','earlyCount','emergingCount','accumulationCount','scanDurationSec','ageClampCount']})
+          print({k:x.get(k) for k in ['updatedAtET','marketClockSession','freshCount','requested','earlyCount','emergingCount','accumulationCount','scanDurationSec','ageClampCount','trendModel']})
           PY
       - name: Commit live feed
         run: |
-          git config user.name tagit-live-v9-bot
+          git config user.name tagit-live-v10-bot
           git config user.email actions@users.noreply.github.com
           git add tag/data/live-quotes.json
           git diff --cached --quiet && exit 0
-          git commit -m 'data: refresh TAGit live V9 feed'
+          git commit -m 'data: refresh TAGit live feed with trend model v10'
           for i in 1 2 3 4; do
             git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
             sleep $((i*4))
