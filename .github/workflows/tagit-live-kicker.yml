@@ -1,0 +1,31 @@
+name: TAGit Live 6 Event Kicker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tag/data/finviz.json'
+      - 'tag/data/discovery.json'
+      - 'tag/data/discovery-fast.json'
+      - 'tag/data/premarket-hot.json'
+      - 'tag/data/tagit-signal-feed.json'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: tagit-live-kicker
+  cancel-in-progress: true
+
+jobs:
+  dispatch-live-refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger latest live quote scan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run tagx-live-quotes.yml --repo "$GITHUB_REPOSITORY" --ref main
+          echo "Dispatched TAGX Live Quote Reconciliation from upstream market-data change"
