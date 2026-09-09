@@ -1,0 +1,44 @@
+name: TAGit 10 Post Session Root Cause
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '20,45 20,21 * * 1-5'
+  push:
+    branches: [main]
+    paths:
+      - 'tagit10/post_session.py'
+      - '.github/workflows/tagit10-post-session.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit10-post-session
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Restore forward PIT state
+        run: |
+          git fetch origin tagit10-live:refs/remotes/origin/tagit10-live || true
+          git show origin/tagit10-live:tagit10-state.json > tagit10-state.json
+      - name: Generate root-cause report
+        env:
+          FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
+        run: python tagit10/post_session.py
+      - name: Commit report
+        run: |
+          git config user.name tagit10-learning-bot
+          git config user.email actions@users.noreply.github.com
+          git pull --rebase origin main
+          git add tag/data/tagit10-post-session.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: TAGit 10 post-session root-cause learning'
+          git push origin HEAD:main
