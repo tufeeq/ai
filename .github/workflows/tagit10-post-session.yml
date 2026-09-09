@@ -1,44 +1,45 @@
-name: TAGit 10 Post Session Root Cause
-
+name: TAGit10 Causal Post Session
 on:
   workflow_dispatch:
   schedule:
-    - cron: '20,45 20,21 * * 1-5'
-  push:
-    branches: [main]
-    paths:
-      - 'tagit10/post_session.py'
-      - '.github/workflows/tagit10-post-session.yml'
-
+    - cron: '25 20 * * 1-5'
+    - cron: '25 21 * * 1-5'
 permissions:
   contents: write
-
 concurrency:
-  group: tagit10-post-session
+  group: tagit10-post-session-main
   cancel-in-progress: true
-
 jobs:
   audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
-          fetch-depth: 0
-      - name: Restore forward PIT state
+          fetch-depth: 1
+      - name: Gate 16:15-16:55 ET
+        id: gate
         run: |
-          git fetch origin tagit10-live:refs/remotes/origin/tagit10-live || true
-          git show origin/tagit10-live:tagit10-state.json > tagit10-state.json
-      - name: Generate root-cause report
+          ET=$(TZ=America/New_York date +%H%M)
+          DOW=$(TZ=America/New_York date +%u)
+          if [ "$DOW" -le 5 ] && [ "$ET" -ge 1615 ] && [ "$ET" -le 1655 ]; then echo 'run=yes' >> "$GITHUB_OUTPUT"; else echo 'run=no' >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.run == 'yes'
+        with:
+          python-version: '3.12'
+      - name: Causal root-cause audit
+        if: steps.gate.outputs.run == 'yes'
         env:
           FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
         run: python tagit10/post_session.py
-      - name: Commit report
+      - name: Persist audit
+        if: steps.gate.outputs.run == 'yes'
         run: |
-          git config user.name tagit10-learning-bot
-          git config user.email actions@users.noreply.github.com
-          git pull --rebase origin main
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add tag/data/tagit10-post-session.json
           git diff --cached --quiet && exit 0
-          git commit -m 'data: TAGit 10 post-session root-cause learning'
+          git commit -m 'data: TAGit10 causal post-session audit'
+          git pull --rebase origin main
           git push origin HEAD:main
