@@ -1,0 +1,43 @@
+name: TAGit10 PIT Root Cause Audit
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '35 20 * * 1-5'
+    - cron: '35 21 * * 1-5'
+permissions:
+  contents: write
+concurrency:
+  group: tagit10-root-cause-main
+  cancel-in-progress: true
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Gate after 16:20 ET
+        id: gate
+        run: |
+          ET=$(TZ=America/New_York date +%H%M)
+          DOW=$(TZ=America/New_York date +%u)
+          if [ "$DOW" -le 5 ] && [ "$ET" -ge 1620 ] && [ "$ET" -le 1700 ]; then echo 'run=yes' >> "$GITHUB_OUTPUT"; else echo 'run=no' >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.run == 'yes'
+        with:
+          python-version: '3.12'
+      - name: Generate causal audit
+        if: steps.gate.outputs.run == 'yes'
+        run: python tagit10/root_cause.py
+      - name: Persist causal audit
+        if: steps.gate.outputs.run == 'yes'
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tagit10-root-cause.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: TAGit10 PIT root-cause audit'
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*3)); done
+          exit 1
