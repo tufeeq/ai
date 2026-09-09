@@ -1,0 +1,38 @@
+name: TAGit10 Post Session Learning
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '20,45 20 * * 1-5'
+permissions:
+  contents: write
+concurrency:
+  group: tagit10-learning-main
+  cancel-in-progress: true
+jobs:
+  learn:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: git pull --rebase origin main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate causal scripts
+        run: python -m py_compile tagit10/root_cause.py tagit10/post_session.py
+      - name: Root cause learning
+        run: python tagit10/root_cause.py
+      - name: Post-session report
+        run: python tagit10/post_session.py || true
+      - name: Persist evidence
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tagit10-root-cause.json tagit10-post-session.json 2>/dev/null || git add tagit10-root-cause.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: TAGit10 causal post-session learning'
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*3)); done
+          exit 1
