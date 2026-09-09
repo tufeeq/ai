@@ -3,6 +3,11 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '*/5 8-21 * * 1-5'
+  push:
+    branches: [main]
+    paths:
+      - 'tagit10/engine.py'
+      - '.github/workflows/tagit10-engine.yml'
 permissions:
   contents: write
 concurrency:
@@ -23,7 +28,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Validate
-        run: python -m py_compile tagit10/engine.py tagit10/post_session.py
+        run: python -m py_compile tagit10/engine.py tagit10/post_session.py tagit10/root_cause.py
       - name: Run coverage-first scan
         env:
           FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
