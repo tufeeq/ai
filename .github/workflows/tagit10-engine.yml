@@ -1,0 +1,42 @@
+name: TAGit10 Forward Engine
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 8-21 * * 1-5'
+permissions:
+  contents: write
+concurrency:
+  group: tagit10-forward-main
+  cancel-in-progress: true
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Sync
+        run: git pull --rebase origin main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate
+        run: python -m py_compile tagit10/engine.py tagit10/post_session.py
+      - name: Run coverage-first scan
+        env:
+          FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
+        run: python tagit10/engine.py
+      - name: Persist PIT state and feed
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tagit10-live.json tagit10-state.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: TAGit10 forward PIT snapshot'
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((i*3))
+          done
+          exit 1
