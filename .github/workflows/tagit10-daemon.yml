@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: tagit10-continuous-radar
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   radar:
@@ -35,13 +35,10 @@ jobs:
           set -euo pipefail
           git config user.name tagit10-radar-bot
           git config user.email actions@users.noreply.github.com
-
-          # Restore the latest bounded state from the isolated live branch when available.
           git fetch origin tagit10-live:refs/remotes/origin/tagit10-live || true
           if git show origin/tagit10-live:tagit10-state.json >/tmp/tagit10-state.json 2>/dev/null; then
             cp /tmp/tagit10-state.json tagit10-state.json
           fi
-
           publish_live() {
             tmp=$(mktemp -d)
             cp tagit10-live.json "$tmp/tagit10-live.json"
@@ -58,14 +55,10 @@ jobs:
             cd - >/dev/null
             rm -rf "$tmp"
           }
-
-          # Once started this runner provides deterministic ~90s cadence; cron is only used to hand off runners.
           end=$(( $(date +%s) + 20700 ))
           while [ "$(date +%s)" -lt "$end" ]; do
             start=$(date +%s)
-            if python tagit10/engine.py; then
-              publish_live || true
-            fi
+            if python tagit10/engine.py; then publish_live || true; fi
             elapsed=$(( $(date +%s) - start ))
             sleep_for=$(( 90 - elapsed ))
             [ "$sleep_for" -gt 5 ] || sleep_for=5
