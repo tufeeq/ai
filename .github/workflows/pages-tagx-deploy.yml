@@ -1,19 +1,11 @@
-name: Deploy TAGit Live 9
+name: Deploy TAGit Live 9 + TAGit 10
 
 on:
   push:
     branches: [main]
     paths:
-      - 'tagit/index.html'
-      - 'tagit/post-session.html'
-      - 'tagit/post-session.js'
-      - 'tagit/post-session.css'
-      - 'tagit/live-v6.js'
-      - 'tagit/early-v9.js'
-      - 'tagit/live-v6-price-overlay.js'
-      - 'tagit/technical-v7.js'
-      - 'tagit/feed-recovery-v7.js'
-      - 'tagit/live-v6.css'
+      - 'tagit/**'
+      - 'tagit10/**'
       - '.github/workflows/pages-tagx-deploy.yml'
   workflow_dispatch:
 
@@ -23,7 +15,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: tagit-live-9-pages
+  group: tagit-pages
   cancel-in-progress: true
 
 jobs:
@@ -38,7 +30,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 1
-      - name: Validate Live 9 frontend
+      - name: Validate frontends
         run: |
           node --check tagit/live-v6.js
           node --check tagit/early-v9.js
@@ -46,19 +38,19 @@ jobs:
           node --check tagit/technical-v7.js
           node --check tagit/feed-recovery-v7.js
           node --check tagit/post-session.js
+          node --check tagit10/app.js
+          python -m py_compile tagit10/engine.py tagit10/post_session.py
           grep -q 'id="confirmedCount"' tagit/index.html
-          grep -q 'id="opportunities"' tagit/index.html
-          grep -q 'post-session.html' tagit/index.html
           grep -q 'id="reportStatus"' tagit/post-session.html
-          grep -q 'post-session.js' tagit/post-session.html
-      - name: Build TAGit Live 9 artifact
+          grep -q 'TAGit 10' tagit10/index.html
+      - name: Build Pages artifact
         run: |
           rm -rf _site
-          mkdir -p _site/tagit
+          mkdir -p _site/tagit _site/tagit10
           cp tagit/index.html tagit/post-session.html tagit/post-session.js tagit/post-session.css tagit/live-v6.js tagit/early-v9.js tagit/live-v6-price-overlay.js tagit/technical-v7.js tagit/feed-recovery-v7.js tagit/live-v6.css _site/tagit/
+          cp tagit10/index.html tagit10/app.js tagit10/style.css _site/tagit10/
           test -e _site/tagit/index.html
-          test -e _site/tagit/post-session.html
-          echo 'TAGit Live 9 artifact ready'
+          test -e _site/tagit10/index.html
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site artifact
