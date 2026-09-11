@@ -28,6 +28,7 @@ jobs:
           fetch-depth: 1
       - name: Run continuous active-session engine
         env:
+          TAGIT_CONTINUOUS: '1'
           FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -64,3 +65,4 @@ jobs:
             [ "$sleep_for" -gt 5 ] || sleep_for=5
             sleep "$sleep_for"
           done
+
