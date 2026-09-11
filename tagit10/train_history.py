@@ -45,12 +45,26 @@ def main():
                     if symbol.isalpha() and len(symbol)<=5:symbols.add(symbol)
     # Fixed hash sample: no ranking by realized return or known winners.
     symbols=sorted(symbols,key=lambda s:hashlib.sha256(s.encode()).hexdigest())[:160]
-    bars_by={};failed={}
+    universe_path=DATA/'learning-universe.json'
+    if universe_path.exists():symbols=json.loads(universe_path.read_text())
+    else:universe_path.write_text(json.dumps(symbols)+'\n')
+    bars_by={};failed={};previous={}
+    if (DATA/'intraday-bars.jsonl.gz').exists():
+        with gzip.open(DATA/'intraday-bars.jsonl.gz','rt') as f:
+            for line in f:
+                item=json.loads(line);previous[item['symbol']]=item['bars']
     with ThreadPoolExecutor(max_workers=8) as ex:
         for f in as_completed([ex.submit(download,s) for s in symbols]):
             symbol,bars,error=f.result()
             if bars:bars_by[symbol]=bars
             else:failed[symbol]=error or 'NO_BARS'
+    if len(bars_by)<max(1,int(len(symbols)*.8)):
+        raise RuntimeError('Insufficient source coverage; retaining previous bars and models')
+    oldest=time.time()-180*86400
+    for symbol in sorted(set(previous)|set(bars_by)):
+        merged={b['t']:b for b in previous.get(symbol,[])}
+        merged.update({b['t']:b for b in bars_by.get(symbol,[])})
+        bars_by[symbol]=[b for _,b in sorted(merged.items()) if b['t']>=oldest]
     with gzip.open(DATA/'intraday-bars.jsonl.gz','wt') as f:
         for s,b in sorted(bars_by.items()):f.write(json.dumps({'symbol':s,'bars':b},separators=(',',':'))+'\n')
     examples=[]

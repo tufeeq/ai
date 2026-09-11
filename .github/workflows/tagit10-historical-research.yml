@@ -1,11 +1,14 @@
 name: TAGit historical collection and temporal training
 on:
+  schedule:
+    - cron: '17 2 * * 2-6'
   workflow_dispatch:
   push:
     branches: [main]
     paths:
       - 'tagit10/train_history.py'
       - 'tagit10/research.py'
+      - 'tagit10/continuous_learning.py'
       - '.github/workflows/tagit10-historical-research.yml'
 permissions:
   contents: write
@@ -22,8 +25,12 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install numpy==2.3.5 scikit-learn==1.8.0
+      - name: Verify learning contracts
+        run: PYTHONPATH=tagit10 python -m unittest discover -s tagit10/tests
       - name: Collect historical bars and fit challenger
-        run: python tagit10/train_history.py
+        run: |
+          python tagit10/train_history.py
+          python tagit10/continuous_learning.py
       - uses: actions/upload-artifact@v4
         with:
           name: tagit10-historical-research
@@ -31,12 +38,14 @@ jobs:
             tagit10/history/*.gz
             tagit10/reports/historical-training.json
             tagit10/reports/research-model.json
+            tagit10/reports/continuous-learning.json
+            tagit10/learning/
           if-no-files-found: error
       - name: Save collected data and research evidence
         run: |
           git config user.name tagit-research-bot
           git config user.email actions@users.noreply.github.com
-          git add tagit10/history/ tagit10/reports/
+          git add tagit10/history/ tagit10/reports/ tagit10/learning/
           git diff --cached --quiet && exit 0
           git commit -m 'data: historical bars, temporal training and untouched test evidence'
           for i in 1 2 3; do
