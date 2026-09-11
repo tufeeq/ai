@@ -28,4 +28,4 @@ class EngineTests(unittest.TestCase):
  def test_stale_cannot_confirm(self):
   a={'stage':'ACTIONABLE','quoteFresh':False,'quoteTimestampUTC':datetime.now(timezone.utc).isoformat()};r={'confirmationCount':5}
   e.confirm_row(a,r);self.assertEqual(a['confirmationCount'],0);self.assertNotEqual(a['stage'],'CONFIRMED')
-unittest.main()
+if __name__=='__main__':unittest.main()

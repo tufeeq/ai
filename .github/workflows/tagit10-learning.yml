@@ -23,16 +23,28 @@ jobs:
           python-version: '3.12'
       - name: Validate causal scripts
         run: python -m py_compile tagit10/root_cause.py tagit10/post_session.py
+      - name: Read canonical radar evidence
+        run: |
+          git fetch origin tagit10-live
+          git show FETCH_HEAD:tagit10-state.json > /tmp/tagit10-audit-state.json
+      - name: Post-session report
+        env:
+          FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
+          TAGIT_STATE_PATH: /tmp/tagit10-audit-state.json
+        run: |
+          HOUR=$(TZ=America/New_York date +%H)
+          if [ "$HOUR" = 16 ]; then python tagit10/post_session.py; fi
       - name: Root cause learning
         run: python tagit10/root_cause.py
-      - name: Post-session report
-        run: python tagit10/post_session.py || true
       - name: Persist evidence
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add tagit10-root-cause.json tagit10-post-session.json 2>/dev/null || git add tagit10-root-cause.json
+          git add tagit10-root-cause.json
+          if [ -f tag/data/tagit10-post-session.json ]; then git add tag/data/tagit10-post-session.json; fi
+          if [ -d tagit10/reports ]; then git add tagit10/reports/; fi
           git diff --cached --quiet && exit 0
           git commit -m 'data: TAGit10 causal post-session learning'
           for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i*3)); done
           exit 1
+

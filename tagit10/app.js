@@ -38,6 +38,8 @@
     $('session').textContent=({regular:'الجلسة الرئيسية','pre-market':'ما قبل الجلسة','after-hours':'ما بعد الجلسة',closed:'الجلسة مغلقة'})[data?.session]||'حالة الجلسة غير متاحة';
     $('health').className=`health ${isFresh?'live':''}`;
     $('health').textContent=!data?'تعذر الوصول للمحرك. ستتم إعادة المحاولة تلقائيًا.':!isFresh?'لا توجد إشارات حديثة معتمدة الآن. الأسعار السابقة متاحة في «المراقبة» مع عمر كل سعر.':`آخر مسح منذ ${ageText(fAge)}. ${groups.confirmed.length} تأكيد متعدد اللقطات؛ التحديث المرئي لا يعني وصول صفقة جديدة.`;
+    const q=data?.quality, eq=q?.byStage?.EARLY;
+    $('quality').textContent=q ? `دقة الرصد المبكر: ${eq?.precisionPct==null?'لم تكتمل العينة':fmt(eq.precisionPct)+'%'} · نتائج مكتملة ${eq?.resolved||0} · قيد المتابعة ${eq?.pending||0} · تعذر قياسها ${eq?.unscorable||0}. المعيار: +3% قبل −2% خلال 30 دقيقة وفق إغلاقات الدقيقة، دون تكاليف التنفيذ. اكتشاف أعلى 50 سهمًا يُقاس بعد الإغلاق؛ 95% غير مثبتة.` : 'قياس النسخة الجديدة قيد التهيئة؛ لا توجد دقة 95% مثبتة.';
     $('universe').textContent=fmt(data?.universeScanned,0);
     $('coverage').textContent=`${fmt(data?.quotesFresh,0)} / ${fmt(data?.quotesValid,0)}`;
     for(const [id,key] of [['watchN','watch'],['earlyN','early'],['actionN','actionable'],['confirmedN','confirmed']])$(id).textContent=data?groups[key].length:'—';

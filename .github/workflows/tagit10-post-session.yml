@@ -28,9 +28,15 @@ jobs:
         if: steps.gate.outputs.run == 'yes'
         with:
           python-version: '3.12'
+      - name: Read canonical radar evidence
+        if: steps.gate.outputs.run == 'yes'
+        run: |
+          git fetch origin tagit10-live
+          git show FETCH_HEAD:tagit10-state.json > /tmp/tagit10-audit-state.json
       - name: Causal root-cause audit
         if: steps.gate.outputs.run == 'yes'
         env:
+          TAGIT_STATE_PATH: /tmp/tagit10-audit-state.json
           FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
         run: python tagit10/post_session.py
       - name: Persist audit
@@ -38,8 +44,9 @@ jobs:
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add tag/data/tagit10-post-session.json
+          git add tag/data/tagit10-post-session.json tagit10/reports/
           git diff --cached --quiet && exit 0
           git commit -m 'data: TAGit10 causal post-session audit'
           git pull --rebase origin main
           git push origin HEAD:main
+
