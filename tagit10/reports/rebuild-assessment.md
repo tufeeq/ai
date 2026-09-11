@@ -4,12 +4,14 @@
 The research model does not demonstrate a profitable edge and is not promoted into live ranking. Neither 95% precision nor a profitable trading system has been established. The rebuilt workspace supports opportunity review, explicit trade assumptions, cash-aware sizing, manual paper tracking and transparent evaluation.
 
 ## Capital objective
-Growing $200 to $1,000,000 requires 5,000× capital, a 499,900% gain, approximately 14.47% compounded each of 63 trading sessions (or 9.93% daily for 90 calendar days), before costs and taxes. This is not a credible operating assumption. Software functionality cannot establish achievable investment returns.
+Growing $200 to $1,000,000 requires 5,000× capital, a 499,900% gain, approximately 14.48% compounded each of 63 trading sessions (or 9.93% daily for 90 calendar days), before costs and taxes. This is not a credible operating assumption. Software functionality cannot establish achievable investment returns.
 
 ## Audit findings
 Earlier detection reports mixed retrospective selection and simulated same-session labels. An older symbol holdout selected 69 signals with six positives: 8.70% precision despite 100% recall. Tuning repeatedly against that holdout invalidates its use as untouched evidence. Archived snapshots hours apart cannot resolve a 30-minute target-before-stop outcome.
 
 The preceding engine repairs introduced timestamp-based windows, missing-volume handling, quote freshness, independent confirmations, forward signal records, complete future-minute labeling and uncertainty reporting. Rank scores remain heuristic scores, not success probabilities. Live evidence must continue accumulating; code tests do not validate trading accuracy.
+
+A later live dashboard observation showed 0.85% early-signal target-hit precision over 353 resolved outcomes, with 587 unscorable observations and no pending outcomes. Missing future data prevents interpreting that as precision across all signals. This prospective minute-close metric is separate from the research model test below.
 
 ## Historical collection and new research
 Completed workflow: https://github.com/tufeeq/ai/actions/runs/34645981835
