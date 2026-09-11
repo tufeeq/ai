@@ -2,7 +2,7 @@ import unittest,sys
 from pathlib import Path
 from datetime import datetime,timezone,timedelta
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from quality import freeze_signals,evaluate_signals,quality_summary,VERSION
+from quality import freeze_signals,evaluate_signals,quality_summary,VERSION,merge_evidence
 from post_session import build_report
 class QualityTests(unittest.TestCase):
  def setUp(self):
@@ -10,6 +10,13 @@ class QualityTests(unittest.TestCase):
   self.state={'sessionDateET':'2026-09-11','signalLedger':{}}
   self.row={'symbol':'TEST','stage':'EARLY','quoteFresh':True,'price':100,'changePct':2,'score':55,'quoteTimestampUTC':self.at.isoformat()}
  def freeze(self):freeze_signals(self.state,[self.row],self.at.isoformat());return next(iter(self.state['signalLedger'].values()))
+ def test_two_writers_preserve_earliest_signals(self):
+  self.freeze();import copy
+  other=copy.deepcopy(self.state);key=next(iter(other['signalLedger']))
+  other['signalLedger'][key]['signalAtUTC']=(self.at+timedelta(minutes=1)).isoformat()
+  other['signalLedger'][key]['entryReference']=110
+  merged=merge_evidence(self.state,other)
+  self.assertEqual(merged['signalLedger'][key]['entryReference'],100)
  def test_signal_is_immutable(self):
   sig=self.freeze();self.row['price']=120;freeze_signals(self.state,[self.row],(self.at+timedelta(minutes=5)).isoformat());self.assertEqual(sig['entryReference'],100)
  def test_missing_price_change_not_recalled(self):

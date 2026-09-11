@@ -32,7 +32,11 @@ jobs:
       - name: Run coverage-first scan
         env:
           FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
-        run: python tagit10/engine.py
+        run: |
+          if git fetch origin tagit10-live && git show FETCH_HEAD:tagit10-state.json > /tmp/tagit10-state.json; then
+            python tagit10/quality.py /tmp/tagit10-state.json tagit10-state.json
+          fi
+          python tagit10/engine.py
       - name: Persist PIT state and feed
         run: |
           git config user.name github-actions[bot]
@@ -45,3 +49,4 @@ jobs:
             sleep $((i*3))
           done
           exit 1
+

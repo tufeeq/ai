@@ -38,7 +38,7 @@ jobs:
           git config user.email actions@users.noreply.github.com
           git fetch origin tagit10-live:refs/remotes/origin/tagit10-live || true
           if git show origin/tagit10-live:tagit10-state.json >/tmp/tagit10-state.json 2>/dev/null; then
-            cp /tmp/tagit10-state.json tagit10-state.json
+            python tagit10/quality.py /tmp/tagit10-state.json tagit10-state.json
           fi
           publish_live() {
             tmp=$(mktemp -d)

@@ -33,6 +33,7 @@ jobs:
         run: |
           git fetch origin tagit10-live
           git show FETCH_HEAD:tagit10-state.json > /tmp/tagit10-audit-state.json
+          python tagit10/quality.py tagit10-state.json /tmp/tagit10-audit-state.json
       - name: Causal root-cause audit
         if: steps.gate.outputs.run == 'yes'
         env:

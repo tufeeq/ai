@@ -62,3 +62,24 @@ def quality_summary(state):
         'status':'FORWARD_VALIDATION_PENDING','earlyRecallPct':None,'byStage':groups,
         'definition':'Target +3% before -2% within 30 minutes after signal, subsequent closed 1m closes only. No fees/slippage; not executable win rate.',
         'recallDefinition':'Top 50 positive session gainers detected before +10%, same-day frozen signals only. Finalized after close.'}
+
+def merge_evidence(a,b):
+    """Reconcile scheduled/continuous writers without dropping frozen signals."""
+    if a.get('sessionDateET')!=b.get('sessionDateET'):
+        return max((a,b),key=lambda s:s.get('sessionDateET') or '')
+    out=dict(a);out['symbols']=dict(a.get('symbols',{}))
+    for symbol,rec in b.get('symbols',{}).items():
+        old=out['symbols'].get(symbol)
+        if old is None or rec.get('lastSeenUTC','')>old.get('lastSeenUTC',''):out['symbols'][symbol]=rec
+    out['signalLedger']=dict(a.get('signalLedger',{}))
+    for key,sig in b.get('signalLedger',{}).items():
+        old=out['signalLedger'].get(key)
+        if old is None or sig['signalAtUTC']<old['signalAtUTC'] or (sig['signalAtUTC']==old['signalAtUTC'] and old['label']=='PENDING'):
+            out['signalLedger'][key]=sig
+    return out
+
+if __name__=='__main__':
+    import json,sys
+    from pathlib import Path
+    source,target=map(Path,sys.argv[1:3])
+    target.write_text(json.dumps(merge_evidence(json.loads(source.read_text()),json.loads(target.read_text())),separators=(',',':')))
