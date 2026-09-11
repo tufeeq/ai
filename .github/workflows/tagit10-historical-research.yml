@@ -1,0 +1,46 @@
+name: TAGit historical collection and temporal training
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tagit10/train_history.py'
+      - 'tagit10/research.py'
+      - '.github/workflows/tagit10-historical-research.yml'
+permissions:
+  contents: write
+concurrency:
+  group: tagit10-history-research
+  cancel-in-progress: false
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5 scikit-learn==1.8.0
+      - name: Collect historical bars and fit challenger
+        run: python tagit10/train_history.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tagit10-historical-research
+          path: |
+            tagit10/history/*.gz
+            tagit10/reports/historical-training.json
+            tagit10/reports/research-model.json
+          if-no-files-found: error
+      - name: Save collected data and research evidence
+        run: |
+          git config user.name tagit-research-bot
+          git config user.email actions@users.noreply.github.com
+          git add tagit10/history/ tagit10/reports/
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: historical bars, temporal training and untouched test evidence'
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep 3
+          done
+          exit 1
