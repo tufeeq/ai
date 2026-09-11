@@ -1,0 +1,40 @@
+name: TAGit latest-session model comparison
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['tagit10/compare_session.py', '.github/workflows/tagit10-session-comparison.yml']
+permissions:
+  contents: write
+concurrency:
+  group: tagit10-history-research
+  cancel-in-progress: false
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5 scikit-learn==1.8.0
+      - run: python tagit10/compare_session.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: latest-session-comparison
+          path: tagit10/reports/session-comparison.json
+      - name: Save comparison
+        run: |
+          git config user.name tagit-research-bot
+          git config user.email actions@users.noreply.github.com
+          git add tagit10/reports/session-comparison.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: last-session replay before and after learning'
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep 3
+          done
+          exit 1
