@@ -1,86 +1,52 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="A private AI assistant that runs locally in your browser with no API fees." />
-  <title>MyAI — Private, Free AI</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f5f5f7"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="description" content="Nook turns links into a calm, social stream for your closest people."><title>Nook — Your social reading room</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet"><link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="app-shell">
+  <div class="shell">
     <aside class="sidebar">
-      <div class="brand"><span class="logo">✦</span><span>MyAI</span></div>
-      <button id="newChatBtn" class="new-chat">＋ New chat</button>
-      <div class="side-note">
-        <strong>Private by design</strong>
-        <span>Your chats and AI processing stay in this browser.</span>
-      </div>
-      <div class="sidebar-footer">No API key • No server bill</div>
+      <button class="brand" data-view="home"><b>n</b><span>nook</span></button>
+      <nav class="desktop-nav" aria-label="Main navigation">
+        <button class="nav-button active" data-view="home"><i>⌂</i><span>Home</span></button>
+        <button class="nav-button" data-view="stream"><i>▶</i><span>Stream</span></button>
+        <button class="nav-button" data-view="community"><i>♧</i><span>Community</span></button>
+        <button class="nav-button" data-view="saved"><i>♡</i><span>Saved</span></button>
+      </nav>
+      <div class="feed-title"><span>YOUR SPACES</span><button id="newFeedButton" aria-label="Create space">＋</button></div><nav id="feedList" class="feed-list"></nav>
+      <div class="profile"><span class="avatar coral">AM</span><span><strong>Alex Morgan</strong><small>@alex · Nook family</small></span><i>●</i></div>
     </aside>
 
-    <main class="main">
+    <main>
       <header class="topbar">
-        <div>
-          <h1>Your personal AI</h1>
-          <p id="statusText">Choose a model and load it to begin.</p>
-        </div>
-        <button id="settingsBtn" class="icon-button" aria-label="Open settings">⚙</button>
+        <button class="mobile-logo" data-view="home"><b>n</b><span>nook</span></button>
+        <label class="search"><span>⌕</span><input id="searchInput" type="search" placeholder="Search Nook" autocomplete="off"><kbd>⌘K</kbd></label>
+        <button class="primary" id="addButton"><span>＋</span><em>Add link</em></button>
       </header>
 
-      <section id="welcome" class="welcome">
-        <div class="hero-icon">✦</div>
-        <h2>How can I help?</h2>
-        <p>This AI runs locally on your device. The first launch downloads a model, then your browser caches it.</p>
-        <div class="suggestions">
-          <button class="suggestion">Draft a professional email</button>
-          <button class="suggestion">Explain a difficult idea simply</button>
-          <button class="suggestion">Create a weekly action plan</button>
-        </div>
-        <button id="loadModelBtn" class="primary-button">Load free AI model</button>
-        <div id="progressWrap" class="progress-wrap hidden">
-          <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
-          <span id="progressLabel">Preparing…</span>
-        </div>
+      <section id="standardView" class="page">
+        <div class="page-heading"><div><p id="dateLabel" class="eyebrow"></p><h1 id="pageTitle">Your daily nook</h1><p id="pageDescription">Good ideas from people you trust, without the noise.</p></div><button class="view-stream" data-view="stream">Open continuous stream <span>↑</span></button></div>
+        <div id="digest" class="digest"><div><span class="spark">✦</span><small>SMART DIGEST</small><h2>Catch up without catching everything.</h2><p id="digestText"></p></div><div class="digest-stats"><span><b id="postStat">0</b> posts</span><span><b id="savedStat">0</b> saved</span><span><b id="peopleStat">0</b> people</span></div></div>
+        <div class="section-heading"><div><h2 id="listTitle">For you</h2><p id="listDescription">A balanced mix of videos and things to read</p></div><select id="sortSelect" aria-label="Sort posts"><option value="latest">Latest</option><option value="popular">Most loved</option><option value="short">Quickest</option></select></div>
+        <div id="postGrid" class="post-grid"></div>
+        <div id="emptyState" class="empty" hidden><span>⌁</span><h2>No posts found</h2><p>Try a different search or add something worth keeping.</p><button class="primary" id="emptyAdd">Add a link</button></div>
       </section>
 
-      <section id="messages" class="messages hidden" aria-live="polite"></section>
-
-      <footer class="composer-wrap">
-        <form id="chatForm" class="composer">
-          <textarea id="promptInput" rows="1" placeholder="Message MyAI…" disabled></textarea>
-          <button id="sendBtn" type="submit" aria-label="Send message" disabled>➤</button>
-        </form>
-        <p class="disclaimer">Local AI can make mistakes. Verify important information.</p>
-      </footer>
+      <section id="streamView" class="stream-view" hidden aria-label="Continuous content stream">
+        <header class="stream-header"><button data-view="home">‹</button><strong>For you</strong><span id="streamProgress">1 / 1</span></header><div id="streamFeed" class="stream-feed"></div>
+      </section>
     </main>
   </div>
 
-  <dialog id="settingsDialog">
-    <form method="dialog" class="settings-panel">
-      <div class="settings-header"><h2>Settings</h2><button class="close-button" value="cancel">×</button></div>
-      <label>
-        AI model
-        <select id="modelSelect"></select>
-      </label>
-      <label>
-        Assistant instructions
-        <textarea id="systemPrompt" rows="5">You are MyAI, a helpful, accurate, concise personal assistant. Ask clarifying questions only when essential.</textarea>
-      </label>
-      <label class="range-label">
-        Creativity <span id="temperatureValue">0.7</span>
-        <input id="temperature" type="range" min="0" max="1.5" value="0.7" step="0.1" />
-      </label>
-      <div class="settings-actions">
-        <button id="clearDataBtn" type="button" class="danger-button">Clear local chat</button>
-        <button id="saveSettingsBtn" value="default" class="primary-button">Save</button>
-      </div>
-    </form>
-  </dialog>
+  <nav class="tabbar" aria-label="Mobile navigation">
+    <button class="active" data-view="home"><i>⌂</i><span>Home</span></button><button data-view="stream"><i>▶</i><span>Stream</span></button><button class="tab-add" id="mobileAdd"><i>＋</i><span>Add</span></button><button data-view="community"><i>♧</i><span>Community</span></button><button data-view="saved"><i>♡</i><span>Saved</span></button>
+  </nav>
 
-  <script type="module" src="app.js"></script>
-</body>
-</html>
+  <dialog id="addDialog"><form id="addForm" class="sheet"><button type="button" class="close" data-close>×</button><div class="sheet-mark">↗</div><h2>Add something good</h2><p>Nook organizes it and creates a short preview.</p><label>URL<input id="urlInput" type="url" placeholder="https://…" required></label><label>Title<input id="titleInput" maxlength="100" placeholder="What is it about?" required></label><div class="form-row"><label>Format<select id="kindInput"><option value="video">Video</option><option value="article">Article</option><option value="podcast">Podcast</option></select></label><label>Space<select id="feedInput"></select></label></div><label>Your note<textarea id="summaryInput" maxlength="240" placeholder="Why should people open this?"></textarea></label><label class="toggle"><span><strong>Share to community</strong><small>Visible to everyone in your Nook</small></span><input id="communityInput" type="checkbox" checked></label><button class="primary wide" type="submit">Add to Nook</button></form></dialog>
+  <dialog id="feedDialog"><form id="feedForm" class="sheet small"><button type="button" class="close" data-close>×</button><div class="sheet-mark">＋</div><h2>New space</h2><p>Group related links into a calm collection.</p><label>Name<input id="feedName" maxlength="30" placeholder="Weekend recipes" required></label><button class="primary wide">Create space</button></form></dialog>
+  <dialog id="shareDialog"><div class="sheet small"><button type="button" class="close" data-close>×</button><div class="sheet-mark">♧</div><h2>Share this post</h2><p>Send it to your Nook community or copy the original link.</p><button id="communityShare" class="share-option"><i>♧</i><span><strong>Share to community</strong><small>Your people can react and save it</small></span><b>›</b></button><button id="copyLink" class="share-option"><i>↗</i><span><strong>Copy link</strong><small>Share anywhere</small></span><b>›</b></button></div></dialog>
+  <div id="toast" class="toast" role="status"></div><script src="app.js"></script>
+</body></html>
