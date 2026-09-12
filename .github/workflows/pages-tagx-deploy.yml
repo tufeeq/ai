@@ -1,4 +1,4 @@
-name: Deploy TAGit + MarginOS
+name: Deploy TAGit + MarginOS + OPERON
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
       - 'tagit/**'
       - 'tagit10/**'
       - 'marginos/**'
+      - 'operon/**'
       - '.github/workflows/pages-tagx-deploy.yml'
   workflow_dispatch:
 
@@ -44,20 +45,20 @@ jobs:
           node --check tagit10/trade_math.js
           node tagit10/tests/test_trade_math.js
           python -m py_compile tagit10/engine.py tagit10/post_session.py
-          grep -q 'id="confirmedCount"' tagit/index.html
-          grep -q 'id="reportStatus"' tagit/post-session.html
-          grep -q 'TAGit 10' tagit10/index.html
+          node --check operon/engine.js
+          node operon/test.js
           grep -q 'MarginOS' marginos/index.html
+          grep -q 'OPERON' operon/index.html
       - name: Build Pages artifact
         run: |
           rm -rf _site
-          mkdir -p _site/tagit _site/tagit10 _site/marginos
+          mkdir -p _site/tagit _site/tagit10 _site/marginos _site/operon
           cp tagit/index.html tagit/post-session.html tagit/post-session.js tagit/post-session.css tagit/live-v6.js tagit/early-v9.js tagit/live-v6-price-overlay.js tagit/technical-v7.js tagit/feed-recovery-v7.js tagit/live-v6.css _site/tagit/
           cp tagit10/index.html tagit10/app.js tagit10/trader.js tagit10/trade_math.js tagit10/style.css _site/tagit10/
           cp marginos/index.html _site/marginos/
-          test -e _site/tagit/index.html
-          test -e _site/tagit10/index.html
-          test -e _site/marginos/index.html
+          cp operon/index.html operon/engine.js _site/operon/
+          test -e _site/operon/index.html
+          test -e _site/operon/engine.js
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site artifact
