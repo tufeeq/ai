@@ -1,6 +1,7 @@
 -- MarginOS production schema (PostgreSQL)
--- UUID support
+-- Required extensions
 create extension if not exists pgcrypto;
+create extension if not exists citext;
 
 create table organizations (
   id uuid primary key default gen_random_uuid(),
