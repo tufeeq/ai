@@ -1,4 +1,4 @@
-name: Deploy TAGit Live 9 + TAGit 10
+name: Deploy TAGit + MarginOS
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
     paths:
       - 'tagit/**'
       - 'tagit10/**'
+      - 'marginos/**'
       - '.github/workflows/pages-tagx-deploy.yml'
   workflow_dispatch:
 
@@ -46,14 +47,17 @@ jobs:
           grep -q 'id="confirmedCount"' tagit/index.html
           grep -q 'id="reportStatus"' tagit/post-session.html
           grep -q 'TAGit 10' tagit10/index.html
+          grep -q 'MarginOS' marginos/index.html
       - name: Build Pages artifact
         run: |
           rm -rf _site
-          mkdir -p _site/tagit _site/tagit10
+          mkdir -p _site/tagit _site/tagit10 _site/marginos
           cp tagit/index.html tagit/post-session.html tagit/post-session.js tagit/post-session.css tagit/live-v6.js tagit/early-v9.js tagit/live-v6-price-overlay.js tagit/technical-v7.js tagit/feed-recovery-v7.js tagit/live-v6.css _site/tagit/
           cp tagit10/index.html tagit10/app.js tagit10/trader.js tagit10/trade_math.js tagit10/style.css _site/tagit10/
+          cp marginos/index.html _site/marginos/
           test -e _site/tagit/index.html
           test -e _site/tagit10/index.html
+          test -e _site/marginos/index.html
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site artifact
@@ -63,4 +67,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
