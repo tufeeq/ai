@@ -1,4 +1,31 @@
-export const VERSION='2.0.0';
+export const VERSION='2.1.0';
+export const capabilities={
+ 'records.write':'Create and edit records','records.delete':'Archive and restore records','data.import':'Import business data',
+ 'cycles.run':'Run operating cycles','decisions.approve':'Approve, modify, reject decisions','decisions.execute':'Assign approved decisions',
+ 'tasks.write':'Manage execution tasks','outcomes.verify':'Verify observed outcomes','finance.record':'Record received payments',
+ 'sales.convert':'Win deals and create delivery handoffs','policy.manage':'Configure authorization and company policy','members.manage':'Manage members and invitations'
+};
+const standard={owner:Object.keys(capabilities),manager:Object.keys(capabilities).filter(k=>!['policy.manage','members.manage'].includes(k)),operator:['records.write','data.import','cycles.run','decisions.execute','tasks.write'],viewer:[]};
+export function can(s,role,cap){if(role==='owner')return !!capabilities[cap];if(role==='viewer'||!standard[role])return false;if(['policy.manage','members.manage'].includes(cap))return false;return (s.permissions?.[role]||standard[role]).includes(cap);}
+export const commandCapability={
+ 'record.save':'records.write','record.archive':'records.delete','record.restore':'records.delete','import':'data.import','cycle':'cycles.run',
+ 'decision.approve':'decisions.approve','decision.reject':'decisions.approve','decision.modify':'decisions.approve','decision.reopen':'decisions.approve',
+ 'decision.execute':'decisions.execute','decision.approve_assign':'decisions.approve','task.save':'tasks.write','decision.verify':'outcomes.verify',
+ 'invoice.payment':'finance.record','deal.convert':'sales.convert','settings':'policy.manage','policy.save':'policy.manage'
+};
+export function productivity(s,now=new Date()){
+ const stamp=now.toISOString().slice(0,10),open=s.tasks.filter(t=>t.status!=='completed');
+ const waits=s.decisions.filter(d=>d.status==='pending'),verified=s.decisions.filter(d=>d.status==='verified'&&d.verifiedAt);
+ const elapsed=verified.map(d=>(Date.parse(d.verifiedAt)-Date.parse(d.createdAt))/3600000).filter(n=>Number.isFinite(n)&&n>=0).sort((a,b)=>a-b);
+ const completed=s.audit.filter(a=>a.action==='Task updated'&&a.detail.startsWith('completed:')&&Date.parse(a.at)>=now.getTime()-7*86400000);
+ const aging=[0,0,0,0];for(const i of s.records.invoices){const age=Math.floor((Date.parse(stamp)-Date.parse(i.due))/86400000);if(age>0&&i.amount>i.paid)aging[age<=7?0:age<=30?1:age<=60?2:3]+=i.amount-i.paid;}
+ const median=elapsed.length?(elapsed[Math.floor((elapsed.length-1)/2)]+elapsed[Math.floor(elapsed.length/2)])/2:null;
+ return {open:open.length,overdue:open.filter(t=>t.due<stamp).length,unassigned:open.filter(t=>!t.owner||t.owner==='Unassigned').length,blocked:open.filter(t=>t.status==='blocked').length,
+ waiting:waits.length,oldestWaitHours:waits.length?Math.max(0,...waits.map(d=>(now-Date.parse(d.createdAt))/3600000).filter(Number.isFinite)):0,
+ medianCycleHours:median,cycleSample:elapsed.length,completed7:new Set(completed.map(a=>a.entity)).size,aging,
+ stages:['pending','approved','executing','awaiting_verification','verified'].map(status=>({status,count:s.decisions.filter(d=>d.status===status).length})),
+ owners:[...new Set(open.map(t=>t.owner||'Unassigned'))].map(owner=>({owner,open:open.filter(t=>(t.owner||'Unassigned')===owner).length,overdue:open.filter(t=>(t.owner||'Unassigned')===owner&&t.due<stamp).length}))};
+}
 export const kinds={
  customers:{label:'Customers',domain:'Customer',fields:{name:'text',owner:'text',email:'email',value:'money',health:'percent',renewal:'date',status:['active','at_risk','closed'],notes:'textarea'}},
  invoices:{label:'Receivables',domain:'Finance',fields:{name:'text',customer:'customer',owner:'text',amount:'money',paid:'money',due:'date',status:['open','disputed','paid'],notes:'textarea'}},
@@ -63,9 +90,11 @@ export function validateRecord(kind,data,s){
 }
 export function apply(input,command,actor={role:'viewer',name:'Unknown'},date=today()){
  required(['owner','manager','operator'].includes(actor.role),'Read-only role cannot change workspace data');
+ required(can(input,actor.role,commandCapability[command.type]),'Permission denied: '+(commandCapability[command.type]||'unknown command'));
+ if(command.type==='decision.approve_assign'){required(can(input,actor.role,'decisions.execute'),'Execution permission required');const approved=apply(input,{type:'decision.approve',id:command.id},actor,date);return apply(approved.state,{type:'decision.execute',id:command.id},actor,date);}
  const s=clone(input),c=command;let result={};const timestamp=new Date().toISOString();
  const audit=(action,entity,detail)=>s.audit.unshift({id:uuid(),at:timestamp,actor:actor.name,action,entity,detail:text(detail,4000)});
- const manage=()=>required(['owner','manager'].includes(actor.role),'Manager approval required');
+ const manage=()=>required(can(s,actor.role,commandCapability[c.type]),'Permission denied');
  const findDecision=()=>{let d=s.decisions.find(x=>x.id===c.id);required(d,'Decision not found');return d;};
  if(c.type==='record.save'){
   const value=validateRecord(c.kind,c.record,s);let existing=s.records[c.kind].find(x=>x.id===c.record.id);
@@ -85,15 +114,19 @@ export function apply(input,command,actor={role:'viewer',name:'Unknown'},date=to
   manage();required(kinds[c.kind],'Unknown record type');const r=s.records[c.kind].find(x=>x.id===c.id);required(r,'Record not found');
   if(c.kind==='customers')required(!Object.values(s.records).flat().some(x=>x.customer===c.id),'Customer has linked records');
   required(!s.decisions.some(x=>x.sourceId===c.id&&!['verified','rejected','superseded'].includes(x.status)),'Resolve linked decisions before removing the record');
-  s.records[c.kind]=s.records[c.kind].filter(x=>x.id!==c.id);audit('Record removed',r.id,r.name);
+  required(!(c.kind==='invoices'&&(s.payments||[]).some(p=>p.invoiceId===r.id)),'Invoices with recorded payments must be retained');s.trash??=[];s.trash.push({id:uuid(),kind:c.kind,record:r,at:timestamp,actor:actor.name});s.records[c.kind]=s.records[c.kind].filter(x=>x.id!==c.id);audit('Record archived',r.id,r.name);
+ }else if(c.type==='record.restore'){
+  const item=(s.trash||[]).find(x=>x.id===c.id);required(item,'Archived record not found');required(!s.records[item.kind].some(x=>x.id===item.record.id||x.name===item.record.name),'A matching record already exists');validateRecord(item.kind,item.record,s);s.records[item.kind].push(item.record);s.trash=s.trash.filter(x=>x.id!==c.id);audit('Record restored',item.record.id,item.record.name);
+ }else if(c.type==='policy.save'){
+  required(actor.role==='owner','Only the owner may edit permissions');const policy={};for(const role of ['manager','operator']){required(Array.isArray(c.permissions?.[role]),'Invalid role policy');required(c.permissions[role].every(k=>capabilities[k]&&!['policy.manage','members.manage'].includes(k)),'Administration remains owner-only');policy[role]=[...new Set(c.permissions[role])];}s.permissions=policy;audit('Authorization matrix updated','policy',JSON.stringify(policy));
  }else if(c.type==='import'){
   required(kinds[c.kind]&&Array.isArray(c.rows)&&c.rows.length>0&&c.rows.length<=1000,'Import requires 1–1000 rows');
   const valid=c.rows.map(r=>validateRecord(c.kind,r,s));let count=0;
   for(const r of valid){const existing=s.records[c.kind].find(x=>x.name===r.name);if(existing){Object.assign(existing,r,{updatedAt:timestamp});}else{s.records[c.kind].push({...r,id:uuid(),updatedAt:timestamp});}count++;}
   s.imports.unshift({id:uuid(),kind:c.kind,count,at:timestamp,actor:actor.name});audit('Records imported',c.kind,count+' validated rows; matched by name');result={count};
  }else if(c.type==='cycle'){
-  const detected=detect(s,date),ids=new Set(detected.map(x=>x.id));let added=0;
-  for(const item of detected){const existing=s.decisions.find(x=>x.id===item.id);if(!existing){s.decisions.push({...item,status:'pending',createdAt:timestamp,revision:1});added++;}else if(existing.status==='pending'){Object.assign(existing,item);}else if(existing.status==='approved'&&existing.sourceUpdatedAt!==item.sourceUpdatedAt){Object.assign(existing,item,{status:'pending',revision:existing.revision+1});audit('Approval invalidated',existing.id,'Source record changed; fresh approval required');} }
+  const detected=detect(s,date),ids=new Set(detected.map(x=>x.id)),byId=new Map(s.decisions.map(x=>[x.id,x]));let added=0;
+  for(const item of detected){const existing=byId.get(item.id);if(!existing){s.decisions.push({...item,status:'pending',createdAt:timestamp,revision:1});added++;}else if(existing.status==='pending'){Object.assign(existing,item);}else if(existing.status==='approved'&&existing.sourceUpdatedAt!==item.sourceUpdatedAt){Object.assign(existing,item,{status:'pending',revision:existing.revision+1});audit('Approval invalidated',existing.id,'Source record changed; fresh approval required');} }
   for(const d of s.decisions)if(['pending','approved'].includes(d.status)&&!ids.has(d.id)){d.status='superseded';audit('Signal resolved',d.id,'Underlying record no longer breaches the rule');}
   s.lastCycle=timestamp;s.cycles.unshift({id:uuid(),at:timestamp,date,signals:detected.length,created:added});audit('Operating cycle',date,added+' new decisions; '+detected.length+' current signals');result={added,signals:detected.length};
  }else if(['decision.approve','decision.reject','decision.modify'].includes(c.type)){

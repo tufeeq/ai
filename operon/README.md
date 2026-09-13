@@ -1,4 +1,4 @@
-# OPERON 2 — Business operations
+# OPERON 2.1 — Business operations
 
 OPERON converts business exceptions into approved decisions, owned work, and evidence-backed outcomes. Its initial customer is a service business running engagements, retainers, project teams, suppliers, and receivables.
 
@@ -81,3 +81,10 @@ An invoice created here is an internal operational record, not a certified Saudi
 ## Source and compatibility
 
 The original `engine.js`, `test.js`, and `stress-test.js` remain for historical regression compatibility. The new application uses `core.mjs`, `app.mjs`, and `server.mjs`; it does not call the legacy simulated-execution engine. All frontend assets are relative paths so the sandbox works under `/ai/operon/`.
+
+
+## 2.1 experience and administration release
+
+New: performance dashboard, owner admin control panel, configurable action authorization matrix, selective session revocation, invitation revocation, recoverable record archive, combined approval/assignment, direct task completion, list pagination, and a dedicated `welcome.html` marketing page with a local pilot-brief generator.
+
+See [UX_SECURITY_ANALYSIS.md](UX_SECURITY_ANALYSIS.md) for the workflow findings, benchmark evidence, metric definitions, and security/marketing limits. The public workspace URL remains a sandbox. Role matrix edits are effective in the persistent server and demonstrative in the browser sandbox.

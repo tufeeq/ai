@@ -1,7 +1,7 @@
 FROM node:24-bookworm-slim
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000 OPERON_DATA_DIR=/data
 WORKDIR /app
-COPY --chown=node:node package.json server.mjs core.mjs app.mjs index.html styles.css favicon.svg ./
+COPY --chown=node:node package.json server.mjs core.mjs app.mjs index.html styles.css favicon.svg welcome.html marketing.css marketing.mjs ./
 RUN mkdir /data && chown node:node /data
 USER node
 VOLUME /data

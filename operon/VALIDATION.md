@@ -54,3 +54,8 @@ Separate repeated-company run: 100 synthetic companies, 7,300 business records, 
 The frontend is published. The Node/SQLite server is implemented, tested, and packaged with a persistent-volume Docker configuration, but has not been deployed to a public persistent host. GitHub Pages cannot run it.
 
 Billing, external accounting/CRM/messaging connections, banking reconciliation, email verification/recovery, production monitoring and scheduled offsite backups remain launch work. Recommendations are deterministic rules; no language model or learning model is connected. This release must not be represented as a finished commercial SaaS or a revenue-generating business.
+
+
+## 2.1 uplift validation
+
+The extended suite contains 23 passing tests, including central capability enforcement, prevention of admin delegation, atomic approval/assignment, recoverable archiving, productivity sample definitions, selective session revocation, invitation revocation and administrative audit entries. The API lifecycle test also checks isolation, stale requests, restart persistence and denied access. Benchmark methodology and measured timings are in `UX_SECURITY_ANALYSIS.md`.

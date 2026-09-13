@@ -1,0 +1,4 @@
+import {performance} from 'node:perf_hooks';import {seedState,emptyState,apply} from '../core.mjs';
+const date='2026-09-13',sample=seedState(date),results=[];
+for(const scale of [1,10,50]){const s=emptyState('Benchmark');for(const [kind,rows] of Object.entries(sample.records))for(let i=0;i<scale;i++)for(const r of rows)s.records[kind].push({...r,id:r.id+'_'+i,...(r.customer?{customer:r.customer+'_'+i}:{})});let state=s;const times=[];for(let i=0;i<5;i++){const start=performance.now();state=apply(state,{type:'cycle'},{role:'owner',name:'Benchmark'},date).state;times.push(performance.now()-start);}results.push({records:Object.values(s.records).reduce((a,r)=>a+r.length,0),decisions:state.decisions.length,medianCycleMs:Math.round(times.sort((a,b)=>a-b)[2]*100)/100});}
+console.log(JSON.stringify({runtime:process.version,scope:'In-process synthetic cycle benchmark; excludes HTTP, disk and browser costs',results},null,2));
