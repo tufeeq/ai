@@ -1,0 +1,14 @@
+services:
+  operon:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      OPERON_ORIGIN: ${OPERON_ORIGIN:-http://localhost:3000}
+      OPERON_SECURE_COOKIES: ${OPERON_SECURE_COOKIES:-0}
+      OPERON_ALLOW_SIGNUP: ${OPERON_ALLOW_SIGNUP:-1}
+    volumes:
+      - operon_data:/data
+volumes:
+  operon_data:
