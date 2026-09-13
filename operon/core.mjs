@@ -43,7 +43,7 @@ export function detect(s,date=today()){
  for(const r of s.records.customers)if(r.status!=='closed'&&r.health<60)add('customers',r,'retention','Protect '+r.name,r.value,`Account health ${r.health}/100; renewal ${r.renewal}.`,'Create an account recovery plan and document the customer response.','high','Account value at risk; overlaps may exist with pipeline');
  for(const r of s.records.people)if(r.status==='active'&&r.allocated>r.capacity)add('people',r,'capacity','Rebalance '+r.name,0,`${r.allocated} hours allocated against ${r.capacity} available.`,'Review commitments and move work to available capacity.','high','Capacity issue; no unsupported monetary estimate');
  for(const r of s.records.tickets)if(r.status!=='resolved'&&r.due<date)add('tickets',r,'sla','Resolve '+r.name,0,`Service deadline ${r.due} missed; priority ${r.priority}.`,'Assign resolution, update the customer, and record acceptance.',r.priority==='critical'?'critical':'high','Service issue; no unsupported monetary estimate');
- return out.sort((a,b)=>(a.severity==='critical'?-1:1)-(b.severity==='critical'?-1:1)||b.exposure-a.exposure);
+ return out.sort((a,b)=>({critical:0,high:1,medium:2,low:3}[a.severity]-{critical:0,high:1,medium:2,low:3}[b.severity])||b.exposure-a.exposure);
 }
 function required(v,msg){if(!v)throw Error(msg);}
 function text(v,max=2000){return String(v??'').trim().slice(0,max);}
@@ -137,3 +137,16 @@ export function parseCSV(input){
  return rows.map((values,i)=>{required(values.length===headers.length,'Column count mismatch on row '+(i+2));return Object.fromEntries(headers.map((k,j)=>[k,values[j]]));});
 }
 export function csv(rows,columns){const quote=v=>'"'+String(v??'').replace(/^[=+@\-\t\r]/,"'$&").replaceAll('"','""')+'"';return [columns.map(quote).join(','),...rows.map(r=>columns.map(k=>quote(r[k])).join(','))].join('\r\n');}
+
+export function restoreBackup(backup){
+ required(backup?.format==='operon-backup-v1','Unsupported backup format');const s=clone(backup.state);required(s?.company&&s.records&&Number.isInteger(s.version)&&s.version>=0,'Invalid backup structure');
+ required(typeof s.company.name==='string'&&/^[A-Z]{3}$/.test(s.company.currency),'Invalid company settings');for(const k of ['cash','monthlyBurn','approvalLimit'])s.company[k]=num(s.company[k]);s.company.cycleMinutes=num(s.company.cycleMinutes,5,1440);s.company.automation=false;
+ const safeId=id=>required(typeof id==='string'&&/^[A-Za-z0-9:_-]{1,128}$/.test(id),'Invalid identifier in backup');
+ for(const k of Object.keys(kinds)){required(Array.isArray(s.records[k])&&s.records[k].length<=10000,'Invalid records');for(const r of s.records[k])safeId(r.id);}
+ for(const k of Object.keys(kinds))s.records[k]=s.records[k].map(r=>({...validateRecord(k,r,s),id:r.id,updatedAt:String(r.updatedAt||today()),...(r.dealId?{dealId:(safeId(r.dealId),r.dealId)}:{})}));
+ for(const k of ['decisions','tasks','audit','outcomes','cycles','imports']){required(Array.isArray(s[k])&&s[k].length<=20000,'Invalid history');for(const r of s[k]){safeId(r.id);if(r.decisionId)safeId(r.decisionId);if(r.sourceId)safeId(r.sourceId);if(r.revision!==undefined)required(Number.isInteger(r.revision)&&r.revision>=1,'Invalid revision');}}
+ for(const d of s.decisions){required(kinds[d.kind]&&['pending','approved','executing','awaiting_verification','verified','rejected','superseded'].includes(d.status),'Invalid decision');d.exposure=num(d.exposure);}
+ for(const t of s.tasks)required(['todo','in_progress','blocked','completed'].includes(t.status),'Invalid task');
+ for(const o of s.outcomes)o.amount=num(o.amount);s.payments??=[];required(Array.isArray(s.payments),'Invalid payment ledger');for(const p of s.payments){safeId(p.id);safeId(p.invoiceId);p.amount=num(p.amount);}
+ return s;
+}

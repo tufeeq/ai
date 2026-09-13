@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {emptyState,seedState,apply,detect,metrics,forecast,parseCSV,csv,kinds,validateRecord} from '../core.mjs';
+import {emptyState,seedState,apply,detect,metrics,forecast,parseCSV,csv,kinds,validateRecord,restoreBackup} from '../core.mjs';
 const owner={role:'owner',name:'Owner'},date='2026-09-13';const run=(s,c,a=owner)=>apply(s,c,a,date).state;
 test('seed contains all seven domains and coherent invoice balances',()=>{const s=seedState(date);for(const [k,rs]of Object.entries(s.records)){assert(rs.length>0);rs.forEach(r=>validateRecord(k,r,s));}assert.equal(Object.keys(s.records).length,7);});
 test('cycle is deduplicated and does not manufacture money',()=>{let s=seedState(date),n=s.decisions.length,m=metrics(s,date);for(let i=0;i<20;i++)s=run(s,{type:'cycle'});assert.equal(s.decisions.length,n);assert.deepEqual(metrics(s,date),m);});
@@ -19,3 +19,5 @@ test('empty company has no invented runway or signals',()=>{const s=emptyState()
 
 test('payment ledger updates invoice and cash exactly once',()=>{let s=seedState(date),r=s.records.invoices.find(x=>x.paid<x.amount),cash=s.company.cash,paid=r.paid;s=run(s,{type:'invoice.payment',id:r.id,amount:100,reference:'BANK-UNIQUE'});assert.equal(s.company.cash,cash+100);assert.equal(s.records.invoices.find(x=>x.id===r.id).paid,paid+100);assert.throws(()=>run(s,{type:'invoice.payment',id:r.id,amount:100,reference:'BANK-UNIQUE'}),/already/);});
 test('deal conversion creates linked project and invoice without creating cash',()=>{let s=seedState(date),d=s.records.deals[0],p=s.records.projects.length,i=s.records.invoices.length,cash=s.company.cash;s=run(s,{type:'deal.convert',id:d.id,deposit:25,due:'2026-11-01'});assert.equal(s.records.projects.length,p+1);assert.equal(s.records.invoices.length,i+1);assert.equal(s.records.invoices.at(-1).amount,d.amount*.25);assert.equal(s.company.cash,cash);assert.equal(s.records.projects.at(-1).dealId,d.id);assert.throws(()=>run(s,{type:'deal.convert',id:d.id,deposit:25,due:'2026-11-01'}),/closed/);});
+
+test('restore rejects executable identifiers and disables automatic cycles',()=>{const s=seedState(date);s.company.automation=true;const restored=restoreBackup({format:'operon-backup-v1',state:s});assert.equal(restored.company.automation,false);s.tasks.push({id:'bad" onclick="alert(1)',status:'todo'});assert.throws(()=>restoreBackup({format:'operon-backup-v1',state:s}),/identifier/);});
