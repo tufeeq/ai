@@ -10,7 +10,7 @@
   const seconds = v => (Date.now()-stamp(v))/1000;
   const ageText = v => !Number.isFinite(v) ? 'توقيت غير متاح' : v < -30 ? 'توقيت غير صالح' : v < 60 ? `${Math.max(0,Math.floor(v))} ث` : `${fmt(v/60,1)} د`;
   const labels = {WATCH:'مراقبة',EARLY:'رصد مبكر',ACTIONABLE:'مرشح بحثي',CONFIRMED:'تكرر الرصد',STALE:'بيانات غير متاحة',INVALIDATED:'اتجاه ضعيف',EXTENDED:'حركة ممتدة'};
-  const titles = {setups:'أنماط الجلسة — بحثية غير معتمدة',early:'الفرص المبكرة',actionable:'اجتازت الفلترة',confirmed:'رصد متكرر — غير معتمد للتداول',watch:'حركة نامية — قائمة المتابعة',invalidated:'اتجاه ضعيف أو حركة ممتدة',unavailable:'بيانات غير مكتملة أو متأخرة'};
+  const titles = {plans:'خطط دخول مشروطة — للمحاكاة',setups:'أنماط الجلسة — بحثية غير معتمدة',early:'الفرص المبكرة',actionable:'اجتازت الفلترة',confirmed:'رصد متكرر — غير معتمد للتداول',watch:'حركة نامية — قائمة المتابعة',invalidated:'اتجاه ضعيف أو حركة ممتدة',unavailable:'بيانات غير مكتملة أو متأخرة'};
   let data=null, tab='watch', selected=null, busy=false, error=false;
   function valid(d) {return d && Number.isFinite(stamp(d.updatedAtUTC)) && stamp(d.updatedAtUTC)<=Date.now()+30000 && Array.isArray(d.watch);}
   function feedFresh(){const s=seconds(data?.updatedAtUTC);return !error && s>=-30 && s<=180 && ['regular','pre-market','after-hours'].includes(data?.session);}
@@ -23,7 +23,7 @@
   }
   function rows(){
     const map=new Map();
-    for(const key of ['watch','early','actionable','confirmed','invalidated','unavailable','sessionSetups']) for(const x of data?.[key]||[]){
+    for(const key of ['watch','early','actionable','confirmed','invalidated','unavailable','sessionSetups','conditionalPlans']) for(const x of data?.[key]||[]){
       if(!x || !/^[A-Z0-9.^-]{1,12}$/.test(x.symbol||''))continue;
       map.set(x.symbol,x);
     }
@@ -40,6 +40,7 @@
     }).sort((a,b)=>({OBSERVED:5,DEVELOPING:4,WATCH:3,EXTENDED:2,INVALIDATED:1,UNAVAILABLE:0}[b.discoveryState]-{OBSERVED:5,DEVELOPING:4,WATCH:3,EXTENDED:2,INVALIDATED:1,UNAVAILABLE:0}[a.discoveryState])||({CONFIRMED:3,ACTIONABLE:2,EARLY:1}[b.stage]||0)-({CONFIRMED:3,ACTIONABLE:2,EARLY:1}[a.stage]||0)||(num(b.ret5mPct)??-1e9)-(num(a.ret5mPct)??-1e9)||(num(b.ret15mPct)??-1e9)-(num(a.ret15mPct)??-1e9));
   }
   function waiting(x){
+    if(tab==='plans'&&x.conditionalPlan)return window.TagitExecution.label(x);
     if(x.stage==='STALE')return 'البيانات متأخرة أو غير متاحة؛ لا يمكن تقييم فرصة الآن.';
     if(tab==='setups'&&window.TagitSession?.current(x))return window.TagitSession.label(x.sessionSetup)+' · رصد بحثي؛ لم تثبت ربحيته.';
     if(x.discoveryState==='INVALIDATED')return 'اتجاه السعر لا يؤيد الصعود الآن؛ نشاط التداول وحده لا يكفي.';
@@ -55,12 +56,13 @@
   function choose(t){tab=t;render();}
   function render(){
     const all=rows(), isFresh=feedFresh(), fAge=seconds(data?.updatedAtUTC);
-    const groups={setups:all.filter(x=>window.TagitSession?.current(x)),watch:all.filter(x=>['OBSERVED','DEVELOPING','WATCH'].includes(x.discoveryState)),invalidated:all.filter(x=>['INVALIDATED','EXTENDED'].includes(x.discoveryState)),unavailable:all.filter(x=>x.discoveryState==='UNAVAILABLE'),early:all.filter(x=>['EARLY','ACTIONABLE','CONFIRMED'].includes(x.stage)&&num(x.changePct)!=null&&x.changePct<10),actionable:all.filter(x=>['ACTIONABLE','CONFIRMED'].includes(x.stage)),confirmed:all.filter(x=>x.stage==='CONFIRMED')};
+    const groups={plans:all.filter(x=>x.conditionalPlan),setups:all.filter(x=>window.TagitSession?.current(x)),watch:all.filter(x=>['OBSERVED','DEVELOPING','WATCH'].includes(x.discoveryState)),invalidated:all.filter(x=>['INVALIDATED','EXTENDED'].includes(x.discoveryState)),unavailable:all.filter(x=>x.discoveryState==='UNAVAILABLE'),early:all.filter(x=>['EARLY','ACTIONABLE','CONFIRMED'].includes(x.stage)&&num(x.changePct)!=null&&x.changePct<10),actionable:all.filter(x=>['ACTIONABLE','CONFIRMED'].includes(x.stage)),confirmed:all.filter(x=>x.stage==='CONFIRMED')};
     const freshCount=!isFresh?0:data?.freshnessBuckets?Object.entries(data.freshnessBuckets).reduce((n,[t,count])=>n+(seconds(t)>=-30&&seconds(t)<=120?count:0),0):all.filter(x=>x.fresh).length;
     const available=data?.freshnessBuckets?data.quotesValid:all.length;
     const partial=freshCount<available, assessable=isFresh&&freshCount>0;
     const dh=data?.dataHealth;
     window.TagitSession?.forward(data);
+    window.TagitExecution?.health(data);
     $('status').textContent=error?'تعذر التحديث':!data?'جارٍ الاتصال':!isFresh?'التغذية متأخرة / مغلقة':freshCount===0?'بانتظار تحديث الأسعار':partial?'تغطية جزئية':'أسعار حديثة';
     $('status').dataset.state=isFresh&&freshCount>0&&!partial?'live':'stale';
     $('session').textContent=({regular:'الجلسة الرئيسية','pre-market':'ما قبل الجلسة','after-hours':'ما بعد الجلسة',closed:'الجلسة مغلقة'})[data?.session]||'حالة الجلسة غير متاحة';
@@ -93,7 +95,7 @@
     if(x.stage==='WATCH' && x.screeningPassed!==true && !why.length)why.push('لم تكتمل متطلبات الفلترة؛ تبقى للمراقبة.');
     const verdict=x.stage==='CONFIRMED'?'تكرر اجتياز الفلترة في شمعتين مغلقتين مع ثبات السعر. هذا تكرار من المصدر نفسه، وليس دليلاً مثبتًا على ربحية التداول.':x.stage==='STALE'?'البيانات غير حديثة؛ لا تعتمد هذه اللقطة للدخول.':x.stage==='ACTIONABLE'?'اجتازت فلترة البيانات والسيولة والاتجاه. مرشح بحثي يحتاج إلى قياس نتائج مستقبلية.':'للمتابعة فقط: لم تكتمل شروط التأكيد.';
     window.dispatchEvent(new CustomEvent('tagit-selection',{detail:x}));
-    $('detail').innerHTML=`<div class="detail-top"><h2 dir="ltr">${esc(x.symbol)}</h2><span class="pill ${x.stage.toLowerCase()}">${esc(labels[x.stage]||x.stage)}</span></div><div class="price">$${fmt(x.price,4)} <small class="${num(x.changePct)>=0?'good':'warn'}">${pct(x.changePct)}</small></div><div class="verdict">${verdict}</div><div class="data-grid">${cell('حركة 5 دقائق',pct(x.ret5mPct))}${cell('حركة 15 دقيقة',pct(x.ret15mPct))}${cell('حجم 5 دقائق',fmt(x.volume5m,0))}${cell('تسارع حجم 15 دقيقة',num(x.volumeAcceleration15m)!=null?fmt(x.volumeAcceleration15m)+'×':'—')}${cell('قيمة تداول 5 دقائق',num(x.dollarVolume5m)!=null?'$'+fmt(x.dollarVolume5m,0):'—')}${cell('قيمة تداول 15 دقيقة',num(x.dollarVolume15m)!=null?'$'+fmt(x.dollarVolume15m,0):'—')}${cell('التراجع من قمة الجلسة',pct(x.drawdownFromHighPct))}${cell('الحجم النسبي',num(x.relativeVolume)!=null?fmt(x.relativeVolume)+'×':'—')}${cell('شموع رصد متتالية',fmt(x.confirmationCount,0))}</div><button type="button" id="useInPlan" class="refresh">Build a paper trade plan / بناء خطة</button><h4>مستويات المتابعة</h4><div class="data-grid">${cell('قمة نطاق 15 دقيقة',num(x.breakout15m)!=null?'$'+fmt(x.breakout15m,4):'—')}${cell('قاع نطاق 15 دقيقة',num(x.support15m)!=null?'$'+fmt(x.support15m,4):'—')}</div><p class="note">قمة وقاع شموع الدقيقة المغلقة. مستويات بحثية؛ السبريد والأخبار وحالة الإيقاف غير متحقق منها.</p>${window.TagitSession?.detail(x)||''}${window.TagitExplosion?.detail(x.explosive)||''}<h4>لماذا ظهر السهم؟</h4><ul class="reasons">${why.length?why.map(t=>`<li>${esc(t)}</li>`).join(''):'<li>النسخة الحالية من التغذية لا توفر تفسيرًا تفصيليًا لهذه الإشارة.</li>'}</ul><p class="note">إغلاق شمعة السعر منذ: ${ageText(x.qAge)} · المصدر: ${esc(x.source||'Yahoo 1m + Finviz')}<br>مقياس نشاط التداول ${fmt(x.score)} / 100 غير معتمد لتوقع الصعود؛ لا يرتب قائمة المتابعة.</p>`;
+    $('detail').innerHTML=`<div class="detail-top"><h2 dir="ltr">${esc(x.symbol)}</h2><span class="pill ${x.stage.toLowerCase()}">${esc(labels[x.stage]||x.stage)}</span></div><div class="price">$${fmt(x.price,4)} <small class="${num(x.changePct)>=0?'good':'warn'}">${pct(x.changePct)}</small></div><div class="verdict">${verdict}</div><div class="data-grid">${cell('حركة 5 دقائق',pct(x.ret5mPct))}${cell('حركة 15 دقيقة',pct(x.ret15mPct))}${cell('حجم 5 دقائق',fmt(x.volume5m,0))}${cell('تسارع حجم 15 دقيقة',num(x.volumeAcceleration15m)!=null?fmt(x.volumeAcceleration15m)+'×':'—')}${cell('قيمة تداول 5 دقائق',num(x.dollarVolume5m)!=null?'$'+fmt(x.dollarVolume5m,0):'—')}${cell('قيمة تداول 15 دقيقة',num(x.dollarVolume15m)!=null?'$'+fmt(x.dollarVolume15m,0):'—')}${cell('التراجع من قمة الجلسة',pct(x.drawdownFromHighPct))}${cell('الحجم النسبي',num(x.relativeVolume)!=null?fmt(x.relativeVolume)+'×':'—')}${cell('شموع رصد متتالية',fmt(x.confirmationCount,0))}</div><button type="button" id="useInPlan" class="refresh">Build a paper trade plan / بناء خطة</button><h4>مستويات المتابعة</h4><div class="data-grid">${cell('قمة نطاق 15 دقيقة',num(x.breakout15m)!=null?'$'+fmt(x.breakout15m,4):'—')}${cell('قاع نطاق 15 دقيقة',num(x.support15m)!=null?'$'+fmt(x.support15m,4):'—')}</div><p class="note">قمة وقاع شموع الدقيقة المغلقة. مستويات بحثية؛ السبريد والأخبار وحالة الإيقاف غير متحقق منها.</p>${window.TagitExecution?.detail(x)||''}${window.TagitSession?.detail(x)||''}${window.TagitExplosion?.detail(x.explosive)||''}<h4>لماذا ظهر السهم؟</h4><ul class="reasons">${why.length?why.map(t=>`<li>${esc(t)}</li>`).join(''):'<li>النسخة الحالية من التغذية لا توفر تفسيرًا تفصيليًا لهذه الإشارة.</li>'}</ul><p class="note">إغلاق شمعة السعر منذ: ${ageText(x.qAge)} · المصدر: ${esc(x.source||'Yahoo 1m + Finviz')}<br>مقياس نشاط التداول ${fmt(x.score)} / 100 غير معتمد لتوقع الصعود؛ لا يرتب قائمة المتابعة.</p>`;
   }
   async function get(url){
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),6500);
