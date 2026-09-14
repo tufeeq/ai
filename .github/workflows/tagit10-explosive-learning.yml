@@ -1,0 +1,65 @@
+name: TAGit10 single-session mover learning
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '40 2 * * 2-6'
+  push:
+    branches: [main, train/tagit10-explosive-learning-20260914]
+    paths:
+      - 'tagit10/collect_explosive_history.py'
+      - 'tagit10/train_explosive.py'
+      - 'tagit10/explosive.py'
+      - 'tagit10/tests/test_explosive.py'
+      - '.github/workflows/tagit10-explosive-learning.yml'
+permissions:
+  contents: write
+concurrency:
+  group: tagit10-explosive-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  learn:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5 scikit-learn==1.8.0
+      - name: Verify causal feature and outcome contracts
+        run: PYTHONPATH=tagit10 python -m unittest discover -s tagit10/tests
+      - name: Collect and retain real market history
+        run: python -u tagit10/collect_explosive_history.py
+      - name: Train and evaluate session mover model
+        if: ${{ hashFiles('tagit10/train_explosive.py') != '' }}
+        env:
+          TAGIT_EXPLOSIVE_LIVE_STATE: /tmp/tagit10-explosive-live.json
+        run: |
+          git fetch origin tagit10-live:refs/remotes/origin/tagit10-live || true
+          git show origin/tagit10-live:tagit10-state.json > /tmp/tagit10-explosive-live.json || true
+          python -u tagit10/train_explosive.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tagit10-explosive-evidence
+          path: |
+            tagit10/history/explosive/
+            tagit10/reports/explosive-*
+          if-no-files-found: error
+      - name: Persist historical data and learned evidence
+        env:
+          TARGET_BRANCH: ${{ github.ref_name }}
+        run: |
+          git config user.name tagit10-learning-bot
+          git config user.email actions@users.noreply.github.com
+          git add tagit10/history/explosive/
+          git add tagit10/reports/
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: session mover history and chronological learning evidence'
+          for attempt in 1 2 3; do
+            git pull --rebase origin "$TARGET_BRANCH" && git push origin "HEAD:$TARGET_BRANCH" && exit 0
+            sleep 3
+          done
+          exit 1

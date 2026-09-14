@@ -7,13 +7,15 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
  const row=()=>({symbol:'TEST',price:10,changePct:3,score:65,stage:'CONFIRMED',
   quoteTimestampUTC:new Date(Date.now()-60000).toISOString(),screeningVersion:'10.3',
   screeningPassed:true,barClosed:true,riskBlocks:[],confirmationCount:2,ret5mPct:1,
-  dollarVolume5m:200000,dollarVolume15m:600000,reasons:['Test fixture only']});
+  dollarVolume5m:200000,dollarVolume15m:600000,reasons:['Test fixture only'],
+  explosive:{status:'SHADOW',validationStatus:'NOT_SUPPORTED_FOR_TRADING',score:3.2,aboveResearchThreshold:true,patterns:['VOLUME_IGNITION'],modelId:'TEST_FIXTURE',decisionAtUTC:new Date().toISOString(),tradeEligible:false}});
  const fresh=()=>({engineVersion:'10.3',updatedAtUTC:new Date().toISOString(),session:'regular',
   universeScanned:1,quotesFresh:1,quotesValid:1,watch:[row()],early:[],actionable:[],confirmed:[]});
  let feed=fresh();
  await page.route('https://raw.githubusercontent.com/**',async route=>{
   const url=route.request().url();
-  const data=url.includes('tagit10-live.json')?feed:url.includes('historical-training')?
+  const data=url.includes('explosive-learning')?{status:'TEST_FIXTURE',validationStatus:'NOT_SUPPORTED_FOR_TRADING',holdout:{alerts:5,target20Hits:1,unscorableAlerts:0},collection:{bars:1000,successfulSymbols:10},trainingPatterns:[],splits:{holdout:[]},limitations:[]}:
+   url.includes('explosive-cases')?{cases:[]}:url.includes('tagit10-live.json')?feed:url.includes('historical-training')?
    {status:'TRAINED_RESEARCH_ONLY',promoted:false,test:{selected:107,precisionPct:26.17,meanNetReturnPct:-.4518},splits:{test:[]},limitations:[]}:
    {status:'PENDING',patterns:[],lessons:[]};
   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
@@ -23,6 +25,8 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
  assert((await page.locator('#health').textContent()).includes('السعر حديث'));
  await page.locator('.desk-nav [data-view="research"]').click();
  await page.waitForFunction(()=>document.getElementById('evidenceNotice').textContent.includes('26.17'));
+ await page.waitForFunction(()=>document.getElementById('explosiveReport').textContent.includes('لم يجتز النموذج'));
+ assert((await page.locator('#explosiveReport').textContent()).includes('20%'));
  await page.locator('.desk-nav [data-view="radar"]').click();
  await page.locator('#useInPlan').click();
  await page.locator('#planSymbol').waitFor({state:'visible'});
@@ -47,6 +51,9 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
  assert.equal(await page.locator('#evidenceNotice').isVisible(),false);
  await page.locator('[data-symbol="TEST"]').click();
  assert(await page.locator('.details').isVisible());
+ assert((await page.locator('#detail').textContent()).includes('درجة النموذج'));
+ assert((await page.locator('#detail').textContent()).includes('ليست احتمال ربح'));
+ assert((await page.locator('#detail').textContent()).includes('فشل النموذج'));
  await page.locator('#detailClose').click();
  assert.equal(await page.locator('.details').isVisible(),false);
  const empty=fresh();empty.early=[];empty.actionable=[];empty.confirmed=[];empty.watch[0].stage='WATCH';empty.watch[0].screeningPassed=false;empty.watch[0].riskBlocks=['LOW_LIQUIDITY'];empty.quotesValid=720;empty.quotesFresh=193;empty.freshnessBuckets={[empty.watch[0].quoteTimestampUTC]:193};
@@ -67,4 +74,3 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
  console.log('PASS: candidate, visible evidence, paper import, legacy engine, blocked signal, invalid boolean, stale quote, mobile layout, no page errors');
  await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
-
