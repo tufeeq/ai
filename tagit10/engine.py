@@ -13,6 +13,8 @@ _calendar_spec=importlib.util.spec_from_file_location('tagit_calendar',Path(__fi
 _calendar=importlib.util.module_from_spec(_calendar_spec)
 _calendar_spec.loader.exec_module(_calendar)
 PROVIDER_HEALTH={}
+# Reuse the explicit column contract of the repository's working Elite rich export.
+FINVIZ_COLUMNS='1,2,3,4,5,6,7,22,23,24,25,26,27,28,30,31,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,88,89,90,91,92,93,94,95,96,97,98,129,135,136,137,141,151'
 
 ET=ZoneInfo('America/New_York'); ROOT=Path(__file__).resolve().parents[1]
 STATE_PATH=ROOT/'tagit10-state.json'; OUT_PATH=ROOT/'tagit10-live.json'; TOKEN=os.getenv('FINVIZ_TOKEN','').strip(); UA='Mozilla/5.0 TAGit10/10.2'
@@ -44,7 +46,7 @@ def finviz_rows():
     merged={}
     for sig in ('ta_topgainers','ta_unusualvolume','ta_mostactive'):
         try:
-            raw=get(f'https://elite.finviz.com/export/screener?s={sig}&v=152&auth={TOKEN}',20).decode('utf-8-sig','ignore')
+            raw=get(f'https://elite.finviz.com/export.ashx?s={sig}&v=152&c={FINVIZ_COLUMNS}&ft=4&auth={TOKEN}',20).decode('utf-8-sig','ignore')
             reader=csv.DictReader(io.StringIO(raw))
             if not reader.fieldnames or 'Ticker' not in reader.fieldnames:raise ValueError('INVALID_SCHEMA')
             PROVIDER_HEALTH['finviz']['successfulScans']+=1
@@ -53,10 +55,12 @@ def finviz_rows():
                 if s:z=merged.setdefault(s,{});z.update(r);z.setdefault('_lanes',[]).append(sig)
         except Exception:
             PROVIDER_HEALTH['finviz']['failedScans']+=1
-        time.sleep(.5)
+        time.sleep(6)
     health=PROVIDER_HEALTH['finviz']
     health['rvolRows']=sum(pick(r,'Relative Volume','Rel Volume','Rel Volume (Intraday)') is not None for r in merged.values())
-    health['status']='OK' if health['successfulScans']==3 else 'DEGRADED' if merged else 'UNAVAILABLE'
+    health['rvolCoveragePct']=round(100*health['rvolRows']/len(merged),2) if merged else 0
+    health['status']='OK' if health['successfulScans']==3 and health['rvolCoveragePct']>=70 else 'DEGRADED' if merged else 'UNAVAILABLE'
+    health['reason']=None if health['status']=='OK' else 'INCOMPLETE_SCANS_OR_RVOL_FIELDS'
     health['collectedAtUTC']=now().isoformat()
     return list(merged.values())
 def symbol_directory():

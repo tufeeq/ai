@@ -42,3 +42,6 @@ jobs:
           server_pid=$!
           trap 'kill "$server_pid"' EXIT
           node tagit10/tests/browser-integrity.cjs
+      - name: Verify published page and actual provider fields
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: python tagit10/tests/check-publication.py
