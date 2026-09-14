@@ -1,7 +1,9 @@
 """Forward research outcomes from subsequent complete OHLC bars; never broker fills."""
 from datetime import datetime, timezone
 from math import sqrt
+from copy import deepcopy
 from screening import finite
+from discovery import RELEASE
 VERSION='10.3'
 TARGET_RECALL=95
 STAGES=('EARLY','ACTIONABLE','CONFIRMED')
@@ -24,7 +26,14 @@ def freeze_signals(state, rows, observed_at):
             'score':x['score'],'sessionDateET':state['sessionDateET'],
             'session':x.get('session','regular'),'label':'PENDING','horizonMinutes':30,
             'targetPct':3,'stopPct':-2,'assumedRoundTripCostPct':ASSUMED_COST_PCT,
-            'entryMethod':'NEXT_FULL_MINUTE_OPEN','priceBasis':'OHLC_RESEARCH_ONLY'}
+            'entryMethod':'NEXT_FULL_MINUTE_OPEN','priceBasis':'OHLC_RESEARCH_ONLY',
+            'releaseVersion':RELEASE,
+            'indicatorEvidence':{k:deepcopy(x.get(k)) for k in (
+                'ret5mPct','ret15mPct','volumeAcceleration15m','relativeVolume',
+                'dollarVolume5m','dollarVolume15m','range15mPct','sessionVwapProxy',
+                'drawdownFromHighPct','activeBars5m','activeBars15m','windowsComplete',
+                'riskBlocks','barCloseTimestampUTC','source','bidAskVerified','discoveryState')},
+            'missingExecutionEvidence':['executableBidAsk','spread','haltStatus','timestampedCatalyst']}
 
 def evaluate_signals(state, rows, observed_at):
     end=ts(observed_at);by_symbol={x['symbol']:x for x in rows}
@@ -56,6 +65,8 @@ def evaluate_signals(state, rows, observed_at):
                 label='STOP_FIRST';exit_price=stop;hit=t;ambiguous=h>=target;break
             if h>=target:label='TARGET_FIRST';exit_price=target;hit=t;break
         signal.update(label=label,evaluatedAtUTC=observed_at,
+            maxFavorableExcursion30mPct=round(100*(max(p[4] for p in bars)/entry-1),4),
+            maxAdverseExcursion30mPct=round(100*(min(p[5] for p in bars)/entry-1),4),
             entryObservedPrice=entry,entryAtUTC=datetime.fromtimestamp(first,timezone.utc).isoformat(),
             outcomeAtUTC=datetime.fromtimestamp(hit,timezone.utc).isoformat() if hit else None,
             assumedExitPrice=exit_price,ambiguousBarStopFirst=ambiguous,
@@ -122,3 +133,4 @@ if __name__=='__main__':
     source,target=map(Path,sys.argv[1:3])
     prior=json.loads(target.read_text()) if target.exists() else {}
     target.write_text(json.dumps(merge_evidence(json.loads(source.read_text()),prior),separators=(',',':')))
+

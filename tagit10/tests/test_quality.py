@@ -49,7 +49,7 @@ class IntegrationTests(unittest.TestCase):
   import engine as e,json,tempfile
   from unittest.mock import patch
   at=datetime(2026,9,11,14,10,tzinfo=timezone.utc)
-  row={'symbol':'TEST','stage':'EARLY','quoteFresh':True,'screeningPassed':True,'barClosed':True,'price':10,'changePct':2,'score':40,'quoteTimestampUTC':at.isoformat(),'relativeVolume':None,'volumeAcceleration15m':2,'_points':[]}
+  row={'symbol':'TEST','stage':'EARLY','quoteFresh':True,'screeningPassed':True,'barClosed':True,'price':10,'changePct':2,'score':40,'quoteTimestampUTC':(at-timedelta(seconds=60)).isoformat(),'barCloseTimestampUTC':at.isoformat(),'relativeVolume':None,'volumeAcceleration15m':2,'_points':[]}
   state={'sessionDateET':'2026-09-11','symbols':{str(i):{'maxScore':0} for i in range(2501)},'events':[]}
   with tempfile.TemporaryDirectory() as d, patch.object(e,'now',return_value=at),patch.object(e,'load_state',return_value=state),patch.object(e,'finviz_rows',return_value=[]),patch.object(e,'symbol_directory',return_value=['TEST']),patch.object(e,'features',return_value=row),patch.object(e,'OUT_PATH',Path(d)/'live.json'),patch.object(e,'STATE_PATH',Path(d)/'state.json'):
    e.main();out=json.loads(e.OUT_PATH.read_text());saved=json.loads(e.STATE_PATH.read_text())
