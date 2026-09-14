@@ -15,6 +15,10 @@ an execution-measurement limitation, not a profitable model. See
 [QUOTE_FINDINGS.md](QUOTE_FINDINGS.md). News availability checks are implemented;
 a complete historical news feed has not been connected.
 
+**Exit diagnostic added:** 56,743 SIP quotes across the ten eligible entry cases.
+Five exits resolved and five remain unknown; the subset mean must not be presented
+as a strategy return. See [EXIT_FINDINGS.md](EXIT_FINDINGS.md).
+
 ## What changes
 
 - Equities with known market capitalization below USD 1 billion; price USD 0.15–30.
