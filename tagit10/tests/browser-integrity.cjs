@@ -8,7 +8,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
   quoteTimestampUTC:new Date(Date.now()-60000).toISOString(),screeningVersion:'10.3',
   screeningPassed:true,barClosed:true,riskBlocks:[],confirmationCount:2,ret5mPct:1,
   dollarVolume5m:200000,dollarVolume15m:600000,reasons:['Test fixture only'],
-  explosive:{status:'SHADOW',score:3.2,aboveResearchThreshold:true,patterns:['VOLUME_IGNITION'],modelId:'TEST_FIXTURE',decisionAtUTC:new Date().toISOString(),tradeEligible:false}});
+  explosive:{status:'SHADOW',validationStatus:'NOT_SUPPORTED_FOR_TRADING',score:3.2,aboveResearchThreshold:true,patterns:['VOLUME_IGNITION'],modelId:'TEST_FIXTURE',decisionAtUTC:new Date().toISOString(),tradeEligible:false}});
  const fresh=()=>({engineVersion:'10.3',updatedAtUTC:new Date().toISOString(),session:'regular',
   universeScanned:1,quotesFresh:1,quotesValid:1,watch:[row()],early:[],actionable:[],confirmed:[]});
  let feed=fresh();
@@ -53,6 +53,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
  assert(await page.locator('.details').isVisible());
  assert((await page.locator('#detail').textContent()).includes('درجة النموذج'));
  assert((await page.locator('#detail').textContent()).includes('ليست احتمال ربح'));
+ assert((await page.locator('#detail').textContent()).includes('فشل النموذج'));
  await page.locator('#detailClose').click();
  assert.equal(await page.locator('.details').isVisible(),false);
  const empty=fresh();empty.early=[];empty.actionable=[];empty.confirmed=[];empty.watch[0].stage='WATCH';empty.watch[0].screeningPassed=false;empty.watch[0].riskBlocks=['LOW_LIQUIDITY'];empty.quotesValid=720;empty.quotesFresh=193;empty.freshnessBuckets={[empty.watch[0].quoteTimestampUTC]:193};

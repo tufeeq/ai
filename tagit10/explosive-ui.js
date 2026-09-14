@@ -1,7 +1,7 @@
 (()=>{'use strict';
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const num=(n,d=2)=>Number.isFinite(n)?n.toLocaleString('en-US',{maximumFractionDigits:d}):'—';
- const names={VOLUME_IGNITION:'تسارع الحجم مع اتجاه صاعد',COMPRESSION_WITH_FLOW:'ضيق النطاق مع تدفق الحجم',HIGH_RETENTION_ABOVE_VWAP:'ثبات قرب القمة وفوق متوسط السعر المرجح بالحجم',UNUSUAL_SAME_TIME_VOLUME:'حجم غير معتاد مقارنة بالوقت نفسه',REJECTED_BREAKOUT:'اختراق مرفوض وذيل علوي',NO_NAMED_PATTERN:'لا يوجد نمط وصفي مطابق'};
+ const names={VOLUME_IGNITION:'تسارع الحجم مع اتجاه صاعد',COMPRESSION_WITH_FLOW:'ضيق النطاق مع تدفق الحجم',HIGH_RETENTION_ABOVE_VWAP:'ثبات قرب القمة وفوق تقريب السعر المرجح بالحجم',UNUSUAL_SAME_TIME_VOLUME:'حجم غير معتاد مقارنة بالوقت نفسه',REJECTED_BREAKOUT:'اختراق مرفوض وذيل علوي',NO_NAMED_PATTERN:'لا يوجد نمط وصفي مطابق'};
  let loaded=false,busy=false;
  async function read(file){const r=await fetch('https://raw.githubusercontent.com/tufeeq/ai/main/tagit10/reports/'+file+'?t='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error('report unavailable');return r.json();}
  async function load(force=false){
@@ -19,6 +19,6 @@
  document.getElementById('researchRefresh')?.addEventListener('click',()=>load(true));
  window.TagitExplosion={detail(x){
   if(!x||x.status!=='SHADOW')return '';
-  return `<section class="research-panel"><h4>نمط الحركة الكبيرة — تعلم تاريخي</h4><p>درجة النموذج ${num(x.score)} / 100 · ${x.aboveResearchThreshold?'تجاوزت عتبة البحث':'دون عتبة البحث'}</p><p>${(x.patterns||[]).map(p=>esc(names[p]||p)).join(' · ')}</p><p class="note">هذه درجة غير معايرة، وليست احتمال ربح أو توصية دخول. نقطة الرصد: ${esc(x.decisionAtUTC)}. النموذج ${esc(x.modelId)}.</p></section>`;
+  return `<section class="research-panel"><h4>نمط الحركة الكبيرة — تعلم تاريخي</h4>${x.validationStatus==='NOT_SUPPORTED_FOR_TRADING'?'<p class="warn">فشل النموذج في اختبار الاعتماد؛ هذه مطابقة بحثية فقط.</p>':''}<p>درجة النموذج ${num(x.score)} / 100 · ${x.aboveResearchThreshold?'تجاوزت عتبة البحث':'دون عتبة البحث'}</p><p>${(x.patterns||[]).map(p=>esc(names[p]||p)).join(' · ')}</p><p class="note">هذه درجة غير معايرة، وليست احتمال ربح أو توصية دخول. نقطة الرصد: ${esc(x.decisionAtUTC)}. النموذج ${esc(x.modelId)}.</p></section>`;
  }};
 })();
