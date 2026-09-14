@@ -1,7 +1,7 @@
 name: TAGit10 Quality Regression
 on:
   push:
-    branches: [main, fix/tagit10-quality-20260914]
+    branches: [main, fix/tagit10-quality-20260914, train/tagit10-explosive-learning-20260914]
     paths:
       - 'tagit10/**'
       - '.github/workflows/tagit10-quality-ci.yml'
@@ -28,6 +28,8 @@ jobs:
           python -m unittest discover -s tagit10/tests -p 'test_quality.py' -v
           python -m unittest discover -s tagit10/tests -p 'test_integrity.py' -v
           node --check tagit10/app.js
+          python -m unittest discover -s tagit10/tests -p 'test_explosive.py' -v
+          node --check tagit10/explosive-ui.js
           node --check tagit10/trader.js
           node tagit10/tests/test_trade_math.js
       - name: Install browser for actual page verification
@@ -45,3 +47,4 @@ jobs:
       - name: Verify published page and actual provider fields
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: python tagit10/tests/check-publication.py
+

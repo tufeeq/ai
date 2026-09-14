@@ -4,7 +4,7 @@ Date blocks, fixed model family, one first alert per ticker/day, five daily aler
 Known historical dates have been examined by prior TAGit experiments: retrospective
 holdout evidence is not advertised as a fresh prospective accuracy measurement.
 """
-import gzip, hashlib, importlib.util, json, math
+import gzip, hashlib, importlib.util, json, math, os
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,6 +26,30 @@ spec.loader.exec_module(calendar)
 def save(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, allow_nan=False) + '\n')
+
+
+def forward_evidence(rows, model_id):
+    path = DATA / 'recorded-live-observations.json'
+    ledger = json.loads(path.read_text()) if path.exists() else {}
+    try:
+        state = json.loads(Path(os.environ.get('TAGIT_EXPLOSIVE_LIVE_STATE', '/tmp/tagit10-explosive-live.json')).read_text())
+        for key, item in state.get('explosiveObservations', {}).items():
+            ledger.setdefault(key, item)
+    except (OSError, ValueError):
+        pass
+    save(path, ledger)
+    lookup = {(r['symbol'], r['date'], r['decisionAt']): r for r in rows}
+    observed = [v for v in ledger.values() if v['modelId'] == model_id]
+    scorable = []
+    for item in observed:
+        matched = lookup.get((item['symbol'], item['date'], item['decisionAt']))
+        observed_at = datetime.fromisoformat(item['observedAtUTC']).timestamp()
+        if matched and item['decisionAt'] <= observed_at < item['decisionAt'] + 300:
+            scorable.append(matched)
+    dates = sorted({r['date'] for r in scorable})
+    return {'recordedBeforeOutcome': len(observed), 'pendingOrUnscorable': len(observed)-len(scorable),
+            **summarize(scorable, dates),
+            'note': 'Actually recorded research alerts; outcomes replayed from later OHLCV, not broker fills'}
 
 
 def examples():
@@ -54,9 +78,12 @@ def examples():
                         exclusions['splitDays'] += 1
                         prior = []
                         continue
-                    if not bars or slot(bars[0]['t']) != 570 or bars[-1]['t'] + 300 != close_at:
+                    if not bars or slot(bars[0]['t']) != 570:
                         exclusions['incompleteSessionEdges'] += 1
                         continue
+                    complete_close = bars[-1]['t'] + 300 == close_at
+                    if not complete_close:
+                        exclusions['missingClosingBarRetainedForReplay'] += 1
                     peak = max(bars, key=lambda b: b['h'])
                     move = pct(peak['h'], bars[0]['o'])
                     event = {'symbol': sym, 'date': day, 'open': bars[0]['o'], 'high': peak['h'],
@@ -82,17 +109,18 @@ def examples():
                             y50 = label(future, decision, close_at, .50)
                             if y is None:
                                 exclusions['unscorableCheckpointGaps'] += 1
-                                continue
+                                y = {'y': None, 'grossReturnPct': None, 'reason': 'UNSCORABLE_GAP', 'leadMinutes': None, 'maePct': None}
                             rows.append({'symbol': sym, 'date': day, 'decisionAt': decision,
                                          'x': x, **y, 'y50': y50['y'] if y50 else None,
                                          'dayMovePct': move})
                     else:
                         exclusions['priorBaselineWarmupDays'] += 1
-                    prior.append(bars)
+                    if complete_close:
+                        prior.append(bars)
                     prior = prior[-10:]
                     ref = reference(prior)
                     if ref:
-                        references[sym] = {**ref, 'asOfDate': day}
+                        references[sym] = {**ref, 'asOfDate': datetime.fromtimestamp(prior[-1][-1]['t'], ET).date().isoformat()}
     return rows, events, references, dict(exclusions)
 
 
@@ -113,10 +141,13 @@ def alerts(rows, scores, threshold, cap=5):
 
 def summarize(chosen, all_dates, events=None):
     n = len(chosen)
-    tp = sum(r['y'] for r in chosen)
+    known = [r for r in chosen if r['y'] is not None]
+    tp = sum(r['y'] == 1 for r in chosen)
     days = defaultdict(list)
     for r in chosen:
-        days[r['date']].append(r['grossReturnPct'] - .4)
+        # Missing outcomes consume alert capacity. Worst-case penalty is used in
+        # threshold selection; do not silently remove the unknowable alerts.
+        days[r['date']].append(r['grossReturnPct'] - .4 if r['grossReturnPct'] is not None else -100.)
     precision = tp / n if n else 0
     z = 1.96
     lower = ((precision + z*z/(2*n) - z*math.sqrt(precision*(1-precision)/n+z*z/(4*n*n))) / (1+z*z/n)) if n else None
@@ -128,17 +159,17 @@ def summarize(chosen, all_dates, events=None):
         lower_return = None
     leads = [r['leadMinutes'] for r in chosen if r['y']]
     known50 = [r for r in chosen if r['y50'] is not None]
-    s = {'alerts': n, 'target20Hits': tp, 'falseAlerts': n - tp,
+    s = {'alerts': n, 'target20Hits': tp, 'falseAlerts': sum(r['y'] == 0 for r in chosen), 'unscorableAlerts': n - len(known),
          'precision20Pct': round(100 * precision, 3) if n else None,
          'precision95LowerPct': round(100 * lower, 3) if lower is not None else None,
          'target50Hits': sum(r['y50'] for r in known50), 'scorable50Alerts': len(known50),
-         'meanNetReturnPct': round(float(np.mean([r['grossReturnPct'] - .4 for r in chosen])), 4) if n else None,
-         'meanNetReturnStressPct': round(float(np.mean([r['grossReturnPct'] - 1 for r in chosen])), 4) if n else None,
-         'medianNetReturnPct': round(float(np.median([r['grossReturnPct'] - .4 for r in chosen])), 4) if n else None,
-         'worstMaePct': round(min(r['maePct'] for r in chosen), 4) if n else None,
+         'meanNetReturnPct': round(float(np.mean([r['grossReturnPct'] - .4 for r in known])), 4) if known else None,
+         'meanNetReturnStressPct': round(float(np.mean([r['grossReturnPct'] - 1 for r in known])), 4) if known else None,
+         'medianNetReturnPct': round(float(np.median([r['grossReturnPct'] - .4 for r in known])), 4) if known else None,
+         'worstMaePct': round(min(r['maePct'] for r in known), 4) if known else None,
          'medianLeadMinutes': float(np.median(leads)) if leads else None,
          'activeSessions': len(days), 'evaluationSessions': len(all_dates),
-         'positiveSessions': sum(np.mean(v) > 0 for v in days.values()),
+         'positiveSessions': int(sum(np.mean(v) > 0 for v in days.values())),
          'dailyMean95LowerPct': round(lower_return, 4) if lower_return is not None else None,
          'outcomes': dict(Counter(r['reason'] for r in chosen))}
     if events is not None:
@@ -163,6 +194,7 @@ def portable(fit, scaler=None):
 
 
 def fit_candidate(train, cal, dates):
+    train = [r for r in train if r['y'] is not None]
     x = np.asarray([r['x'] for r in train], dtype=np.float32)
     y = np.asarray([r['y'] for r in train])
     cx = np.asarray([r['x'] for r in cal], dtype=np.float32)
@@ -185,7 +217,8 @@ def fit_candidate(train, cal, dates):
         error = max(abs(p[i] - predict(model, cx[i].tolist())) for i in idx)
         if error > 1e-6:
             raise RuntimeError('Portable inference mismatch')
-        ap = float(average_precision_score([r['y'] for r in cal], p))
+        mask = np.array([r['y'] is not None for r in cal])
+        ap = float(average_precision_score([r['y'] for r in cal if r['y'] is not None], p[mask]))
         for threshold in [.005, .01, .02, .03, .05, .075, .1, .15, .25, .4, .6]:
             selected = alerts(cal, p, threshold)
             m = summarize(selected, dates)
@@ -203,8 +236,8 @@ def main():
     OUT.mkdir(exist_ok=True)
     rows, events, references, exclusions = examples()
     dates = sorted({r['date'] for r in rows})
-    print(json.dumps({'examples': len(rows), 'dates': len(dates), 'positive20': sum(r['y'] for r in rows), 'exclusions': exclusions}), flush=True)
-    if len(dates) < 25 or sum(r['y'] for r in rows) < 50:
+    print(json.dumps({'examples': len(rows), 'dates': len(dates), 'positive20': sum(r['y'] == 1 for r in rows), 'exclusions': exclusions}), flush=True)
+    if len(dates) < 25 or sum(r['y'] == 1 for r in rows) < 50:
         raise RuntimeError('Insufficient complete history for chronological fitting')
     modelpath = OUT / 'explosive-model.json'
     existing = json.loads(modelpath.read_text()) if modelpath.exists() else None
@@ -219,6 +252,7 @@ def main():
             report['prospectiveMarketReplay'] = summarize(selected, future_dates, events)
             report['prospectiveMarketReplay']['note'] = 'Frozen-model replay of later market data, not recorded live alerts or broker fills'
             report['latestCompleteDataDate'] = dates[-1]
+            report['recordedForwardEvaluation'] = forward_evidence(rows, existing['id'])
             save(OUT / 'explosive-learning.json', report)
             save(OUT / 'explosive-reference.json', {'symbols': references})
             print(json.dumps({'status': 'FROZEN_MODEL_RETAINED', 'laterSessions': len(future_dates)}), flush=True)
@@ -228,7 +262,7 @@ def main():
     train_dates, cal_dates, test_dates = dates[:i], dates[i+1:j], dates[j+1:]
     parts = [[r for r in rows if r['date'] in ds] for ds in [train_dates, cal_dates, test_dates]]
     train, cal, test = parts
-    if any(len({r['y'] for r in part}) < 2 for part in parts):
+    if any(len({r['y'] for r in part if r['y'] is not None}) < 2 for part in parts):
         raise RuntimeError('Both positive and failed setups required in every split')
     model, threshold, calibration, name, trials = fit_candidate(train, cal, cal_dates)
     p = [predict(model, r['x']) for r in test]
@@ -239,7 +273,7 @@ def main():
         ('volume_plus_momentum', [r['x'][3] if r['x'][1] > 0 and r['x'][8] > 0 else 0 for r in test], 2),
         ('momentum_only', [r['x'][1] for r in test], 1)]:
         baselines[name0] = summarize(alerts(test, scores, th), test_dates, events)
-    supported = (holdout['alerts'] >= 30 and holdout['activeSessions'] >= 5 and
+    supported = (holdout['alerts'] >= 30 and holdout['unscorableAlerts'] == 0 and holdout['activeSessions'] >= 5 and
                  (holdout['dailyMean95LowerPct'] or -999) > 0 and
                  (holdout['meanNetReturnStressPct'] or -999) > 0 and
                  all((holdout['meanNetReturnPct'] or -999) > (v['meanNetReturnPct'] or -999) for v in baselines.values()))
@@ -275,7 +309,7 @@ def main():
     report = {'schema': SCHEMA, 'generatedAtUTC': now, 'status': 'TRAINED_AND_CONNECTED_IN_SHADOW',
               'modelId': bundle['id'], 'validationStatus': bundle['validationStatus'], 'promoted': False,
               'collection': json.loads((DATA / 'manifest.json').read_text()),
-              'examples': len(rows), 'positive20Examples': sum(r['y'] for r in rows),
+              'examples': len(rows), 'positive20Examples': sum(r['y'] == 1 for r in rows),
               'sessions': len(dates), 'dateFrom': dates[0], 'dateTo': dates[-1],
               'symbolSessions': len(events), 'observed20MoverDays': sum(e['openToHighPct'] >= 20 for e in events),
               'observed50MoverDays': sum(e['openToHighPct'] >= 50 for e in events),
@@ -288,10 +322,11 @@ def main():
               'calibration': calibration, 'holdout': holdout, 'baselines': baselines,
               'holdoutByDay': {d: summarize([r for r in selected if r['date'] == d], [d], events) for d in test_dates},
               'trainingPatterns': pattern_stats, 'futureEvaluationRequired': True,
+              'recordedForwardEvaluation': forward_evidence(rows, bundle['id']),
               'limitations': ['Retrospective chronological test; prior TAGit experiments have inspected overlapping historical dates',
                               'Current sampled common-equity survivors; historical delisted membership unavailable',
                               'Model covers regular sessions only; premarket and after-hours bars are archived but not fitted',
-                              'Missing intervals are unscorable, not wins; split dates and incomplete edges excluded',
+                              'Missing outcomes consume alert capacity and count as no success; split dates and missing session opens excluded',
                               'First 30 minutes excluded; 15m decisions and 5m execution delay miss fast openings',
                               '5m highs do not establish executable fills; no bid/ask, order book, halt verification, historical news or float',
                               'Returns are simulated per alert with concurrent positions, not portfolio performance',

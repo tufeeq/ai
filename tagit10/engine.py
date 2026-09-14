@@ -6,6 +6,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 from quality import freeze_signals, evaluate_signals, quality_summary, VERSION
 from screening import closed_points, structure, screen, POLICY, REASONS
+from explosive import load_assets, shadow, record_observations
 import importlib.util
 from collections import Counter
 
@@ -13,6 +14,7 @@ _calendar_spec=importlib.util.spec_from_file_location('tagit_calendar',Path(__fi
 _calendar=importlib.util.module_from_spec(_calendar_spec)
 _calendar_spec.loader.exec_module(_calendar)
 PROVIDER_HEALTH={}
+EXPLOSIVE_MODEL, EXPLOSIVE_REFERENCES = load_assets()
 # Reuse the explicit column contract of the repository's working Elite rich export.
 FINVIZ_COLUMNS='1,2,3,4,5,6,7,22,23,24,25,26,27,28,30,31,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,88,89,90,91,92,93,94,95,96,97,98,129,135,136,137,141,151'
 
@@ -174,7 +176,8 @@ def features(sym,fr=None,sess='regular'):
     if range15 is not None and range15<=5.5:reasons.append(f'تماسك سعري داخل نطاق {range15:.2f}%')
     if change is not None and change>=10:reasons.append('تحرك أكثر من 10%؛ تجنب مطاردة الحركة')
     if r5 is not None and r5<0:reasons.append('زخم آخر 5 دقائق سلبي')
-    return {**metrics,'symbol':sym,'price':round(p,6),'changePct':round_or_none(change),
+    learned = shadow(sym, pts, sess, EXPLOSIVE_MODEL, EXPLOSIVE_REFERENCES, now().timestamp())
+    return {**metrics,'explosive':learned,'symbol':sym,'price':round(p,6),'changePct':round_or_none(change),
         'session':sess,'sessionDateET':today.isoformat(),'screeningVersion':VERSION,'screeningPassed':not blocks,
         'riskBlocks':blocks,'decisionStatus':'RESEARCH_ONLY','tradeEligible':False,
         'instrumentType':instrument,'bidAskVerified':False,
@@ -227,7 +230,7 @@ def scan_lanes(state, hot, directory, continuous=False):
 
 def main():
     t=now();et=t.astimezone(ET);sess=session(et);state=load_state();date=et.date().isoformat()
-    if state.get('sessionDateET')!=date:state={'schemaVersion':10,'sessionDateET':date,'symbols':{},'events':[],'sweepCursor':0,'signalLedger':state.get('signalLedger',{})}
+    if state.get('sessionDateET')!=date:state={'schemaVersion':10,'sessionDateET':date,'symbols':{},'events':[],'sweepCursor':0,'signalLedger':state.get('signalLedger',{}),'explosiveObservations':state.get('explosiveObservations',{})}
     frs=finviz_rows();fmap={(r.get('Ticker') or '').strip().upper():r for r in frs}
     directory=symbol_directory()
     hot,sweep=scan_lanes(state,list(fmap),directory,os.getenv('TAGIT_CONTINUOUS')=='1')
@@ -247,12 +250,12 @@ def main():
     evidence_at=now().isoformat()
     evaluate_signals(state,rows,evidence_at)
     freeze_signals(state,rows,evidence_at)
+    record_observations(state, rows, now().timestamp())
     for x in rows:x.pop('_points',None)
     ordered=sorted(rows,key=lambda x:(x.get('quoteFresh') is True,rank[x['stage']],x.get('screeningPassed') is True,-len(x.get('riskBlocks',[])),x['score']),reverse=True)
     watch=ordered[:140];early=[x for x in ordered if x['stage'] in ('EARLY','ACTIONABLE','CONFIRMED') and x['changePct'] is not None and x['changePct']<10][:70];action=[x for x in ordered if x['stage'] in ('ACTIONABLE','CONFIRMED')][:35];confirmed=[x for x in action if x['stage']=='CONFIRMED'][:20]
-    finished=now();out={'freshnessBuckets':dict(Counter(x['quoteTimestampUTC'] for x in rows if x.get('quoteFresh') is True)),'engineVersion':VERSION,'decisionStatus':'RESEARCH_ONLY','screeningPolicy':POLICY,
+    finished=now();out={'explosiveLearning':{'modelId':(EXPLOSIVE_MODEL or {}).get('id'),'status':(EXPLOSIVE_MODEL or {}).get('validationStatus','MODEL_UNAVAILABLE'),'scoredThisScan':sum(x.get('explosive',{}).get('status')=='SHADOW' for x in rows),'recordedForwardObservations':len(state.get('explosiveObservations',{}))},'freshnessBuckets':dict(Counter(x['quoteTimestampUTC'] for x in rows if x.get('quoteFresh') is True)),'engineVersion':VERSION,'decisionStatus':'RESEARCH_ONLY','screeningPolicy':POLICY,
         'validation':{'promoted':False,'predictiveAccuracyEstablished':False,'reason':'New screening policy requires prospective outcome evidence; no broker quote or execution integration.'},
         'providerHealth':PROVIDER_HEALTH,'blockedCounts':dict(Counter(b for x in rows for b in x.get('riskBlocks',[]))),'quality':quality_summary(state),'coverage':{'directorySize':len(directory),'observedToday':len(state['symbols']),'validQuotePct':round(100*len(rows)/len(universe),2) if universe else None,'freshQuotePct':round(100*sum(x.get('quoteFresh') is True for x in rows)/len(universe),2) if universe else None,'rvolAvailable':sum(x.get('relativeVolume') is not None for x in rows),'barsComparable':sum(x.get('volumeAcceleration15m') is not None for x in rows)},'scanStartedAtUTC':t.isoformat(),'scanDurationSeconds':round((finished-t).total_seconds(),1),'quotesFresh':sum(x.get('quoteFresh') is True for x in rows),'schemaVersion':10,'mode':'FORWARD_PIT_COVERAGE_FIRST','goal':{'earlyTop50RecallPct':95,'status':'TARGET_NOT_GUARANTEED'},'updatedAtUTC':finished.isoformat(),'updatedAtET':finished.astimezone(ET).isoformat(),'session':session(finished.astimezone(ET)),'scanSession':sess,'universeScanned':len(universe),'quotesValid':len(rows),'hotLane':len(hot),'sweepLane':len(sweep),'watch':watch,'early':early,'actionable':action,'confirmed':confirmed,'truth':{'uiPollSeconds':10,'backendCadenceSeconds':30 if os.getenv('TAGIT_CONTINUOUS')=='1' else 300,'backendCadence':'Best effort: scan duration and GitHub scheduling can delay publication','dataSource':'Yahoo 1m + Finviz Elite + Nasdaq Trader equities','note':'95% is a forward-validation target, not a claimed achieved accuracy.'}}
     OUT_PATH.write_text(json.dumps(out,separators=(',',':')));save_state(state);print(json.dumps({'session':sess,'scanned':len(universe),'valid':len(rows),'watch':len(watch),'early':len(early),'actionable':len(action),'confirmed':len(confirmed)}))
 if __name__=='__main__':main()
-

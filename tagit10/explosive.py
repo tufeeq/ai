@@ -3,7 +3,7 @@
 Scores describe a research model, never trade permission or guaranteed probability.
 """
 import json, math, statistics
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -13,7 +13,7 @@ FEATURES = ['return5', 'return15', 'return30', 'volumeAcceleration15',
             'vwapDistance', 'drawdownFromHigh', 'closePosition', 'moveFromOpen',
             'moveFromPreviousClose', 'gapPct', 'minutesFromOpen', 'upBarFraction',
             'upperWickFraction', 'logSameTimeRelativeVolume', 'priorDayReturn', 'priorDayRange']
-SCHEMA = 'session-mover-v1'
+SCHEMA = 'session-mover-v1.1'
 
 
 def pct(a, b):
@@ -181,7 +181,7 @@ def shadow(symbol, points, session, bundle, references, at):
     score = predict(bundle['model'], x)
     return {'status': 'SHADOW', 'schema': SCHEMA, 'modelId': bundle['id'],
             'score': round(score * 100, 3), 'aboveResearchThreshold': score >= bundle['threshold'],
-            'decisionAtUTC': datetime.fromtimestamp(decision, ET).isoformat(),
+            'decisionAtUTC': datetime.fromtimestamp(decision, timezone.utc).isoformat(),
             'patterns': patterns(x), 'tradeEligible': False,
             'validationStatus': bundle.get('validationStatus', 'UNPROVEN'),
             'meaning': 'Research model output; not a calibrated probability or an entry recommendation'}
@@ -193,3 +193,27 @@ def load_assets():
         return json.loads((root / 'explosive-model.json').read_text()), json.loads((root / 'explosive-reference.json').read_text())
     except (OSError, ValueError):
         return None, {}
+
+
+def record_observations(state, rows, at):
+    ledger = state.setdefault('explosiveObservations', {})
+    today = datetime.fromtimestamp(at, ET).date().isoformat()
+    count = sum(r['date'] == today for r in ledger.values())
+    for row in sorted(rows, key=lambda r: -(r.get('explosive') or {}).get('score', 0)):
+        x = row.get('explosive') or {}
+        if x.get('status') != 'SHADOW' or x.get('aboveResearchThreshold') is not True or row.get('quoteFresh') is not True:
+            continue
+        decision = datetime.fromisoformat(x['decisionAtUTC']).timestamp()
+        # Capture only BEFORE the delayed entry reference could have occurred.
+        if not 0 <= at - decision < 300 or count >= 5:
+            continue
+        key = today + ':' + row['symbol']
+        if key in ledger:
+            continue
+        ledger[key] = {'symbol': row['symbol'], 'date': today, 'decisionAt': int(decision),
+                       'observedAtUTC': datetime.fromtimestamp(at, timezone.utc).isoformat(),
+                       'modelId': x['modelId'], 'score': x['score'], 'patterns': x['patterns'],
+                       'tradeEligible': False}
+        count += 1
+    if len(ledger) > 2000:
+        state['explosiveObservations'] = dict(sorted(ledger.items())[-2000:])

@@ -11,6 +11,35 @@ def bars(day='2026-09-11', count=78):
 
 
 class CausalTests(unittest.TestCase):
+    def test_unknown_outcome_consumes_capacity_and_is_json_serializable(self):
+        try:
+            from train_explosive import alerts, summarize
+        except ImportError:
+            self.skipTest('Training dependencies not installed on scanner')
+        import json
+        unknown = {'symbol': 'A', 'date': '2026-09-11', 'decisionAt': 1, 'y': None,
+                   'y50': None, 'grossReturnPct': None, 'maePct': None, 'leadMinutes': None, 'reason': 'UNSCORABLE_GAP'}
+        known = {**unknown, 'symbol': 'B', 'decisionAt': 2, 'y': 1, 'grossReturnPct': 20, 'maePct': -2, 'leadMinutes': 30, 'reason': 'TARGET_FIRST'}
+        chosen = alerts([unknown, known], [.9, .9], .5, cap=1)
+        result = summarize(chosen, ['2026-09-11'])
+        self.assertEqual(result['alerts'], 1)
+        self.assertEqual(result['unscorableAlerts'], 1)
+        self.assertEqual(result['precision20Pct'], 0)
+        json.dumps(result)
+
+    def test_real_observations_freeze_before_entry_and_do_not_repeat(self):
+        from explosive import record_observations
+        from datetime import timezone
+        at = int(datetime.fromisoformat('2026-09-14T10:00:00').replace(tzinfo=ET).timestamp())
+        row = {'symbol': 'TEST', 'quoteFresh': True, 'explosive': {'status': 'SHADOW', 'aboveResearchThreshold': True,
+               'score': 20, 'modelId': 'fixture', 'patterns': [], 'decisionAtUTC': datetime.fromtimestamp(at, timezone.utc).isoformat()}}
+        state = {}
+        record_observations(state, [row], at+10)
+        record_observations(state, [row], at+40)
+        record_observations(state, [{**row, 'symbol': 'LATE'}], at+300)
+        self.assertEqual(len(state['explosiveObservations']), 1)
+        self.assertEqual(next(iter(state['explosiveObservations'].values()))['score'], 20)
+
     def test_prefix_is_independent_of_future(self):
         b = bars(); ref = reference([bars() for _ in range(5)])
         before = vector(b[:6], ref)

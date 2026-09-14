@@ -35,7 +35,12 @@ jobs:
         run: python -u tagit10/collect_explosive_history.py
       - name: Train and evaluate session mover model
         if: ${{ hashFiles('tagit10/train_explosive.py') != '' }}
-        run: python -u tagit10/train_explosive.py
+        env:
+          TAGIT_EXPLOSIVE_LIVE_STATE: /tmp/tagit10-explosive-live.json
+        run: |
+          git fetch origin tagit10-live:refs/remotes/origin/tagit10-live || true
+          git show origin/tagit10-live:tagit10-state.json > /tmp/tagit10-explosive-live.json || true
+          python -u tagit10/train_explosive.py
       - uses: actions/upload-artifact@v4
         with:
           name: tagit10-explosive-evidence
