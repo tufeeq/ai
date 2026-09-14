@@ -5,10 +5,11 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from execution import *
 from quality import merge_evidence
 
-NOW=1789414200
+NOW=1789414210
 def row():return {'symbol':'TEST','sessionDateET':'2026-09-14','session':'regular','instrumentType':'EQUITY',
     'price':10,'breakout15m':10.01,'support15m':9.9,'barCloseTimestampUTC':iso(NOW-10),
-    'barClosed':True,'quoteFresh':True,'screeningPassed':True,'riskBlocks':[]}
+    'barClosed':True,'quoteFresh':True,'screeningPassed':True,'riskBlocks':[],
+    '_points':[(NOW-10-900+i*60,10,10000,10,10.01,9.9) for i in range(15)]}
 def quote(bid=10,ask=10.01):return {'source':'Alpaca','feed':'iex','timestampUTC':iso(NOW),
     'bid':bid,'ask':ask,'bidSize':10,'askSize':10}
 
@@ -41,8 +42,15 @@ class ExecutionTests(unittest.TestCase):
 
     def test_plan_requires_actual_fresh_regular_session_structure(self):
         for change in [{'riskBlocks':['FALLING_PRICE']},{'session':'after-hours'},{'barClosed':False},
-                       {'barCloseTimestampUTC':iso(NOW-61)},{'support15m':8},{'screeningPassed':'true'}]:
+                       {'barCloseTimestampUTC':iso(NOW-61)},{'_points':[]},{'screeningPassed':'true'}]:
             self.assertIsNone(make_plan({**row(),**change},NOW))
+
+    def test_two_writers_share_levels_from_same_closed_anchor(self):
+        first=row();later=row();later['barCloseTimestampUTC']=iso(NOW+110)
+        later['_points']+= [(NOW-10+i*60,10.1,10000,10.1,10.2,10.05) for i in range(2)]
+        a=make_plan(first,NOW);b=make_plan(later,NOW+120)
+        self.assertEqual(a['id'],b['id'])
+        self.assertEqual(a['entryTrigger'],b['entryTrigger']);self.assertEqual(a['stopReference'],b['stopReference'])
 
     def test_two_R_is_after_cost_at_maximum_entry_not_just_trigger(self):
         p=make_plan(row(),NOW);entry=p['entryLimit']*1.002;stop=p['stopReference']*.998;target=p['targetScenario']*.998

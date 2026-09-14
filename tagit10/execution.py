@@ -66,21 +66,28 @@ def structure_ready(row,at):
 
 def make_plan(row,at):
     """Price levels come only from the closed range available at creation."""
-    price,high,low=row.get('price'),row.get('breakout15m'),row.get('support15m')
-    if not structure_ready(row,at) or not all(finite(x) and x>0 for x in (price,high,low)):return None
+    if not structure_ready(row,at):return None
+    anchor=int(stamp(row['barCloseTimestampUTC']))//300*300
+    by_time={p[0]:p for p in row.get('_points',[]) if len(p)>=6 and anchor-900<=p[0]<anchor}
+    if any(t not in by_time for t in range(anchor-900,anchor,60)):return None
+    bars=[by_time[t] for t in range(anchor-900,anchor,60)]
+    if any(not all(finite(v) and v>0 for v in (p[1],p[3],p[4],p[5])) or not p[5]<=min(p[1],p[3])<=max(p[1],p[3])<=p[4] for p in bars):return None
+    # Shared five-minute anchors keep the periodic and continuous writers aligned.
+    price=bars[-1][1];high=max(p[4] for p in bars);low=min(p[5] for p in bars)
     buffer=.01 if price>=1 else .0001
     entry=round(max(price,high)+buffer,6);stop=round(low-buffer,6)
     if stop<=0 or stop>=entry or (entry-stop)/entry>.05:return None
     entry_limit=round(entry*1.0025,6)
     entry_fill=entry_limit*(1+SLIPPAGE_PER_SIDE);stop_fill=stop*(1-SLIPPAGE_PER_SIDE)
     target=math.ceil((3*entry_fill-2*stop_fill)/(1-SLIPPAGE_PER_SIDE)*1e6)/1e6
-    created=row['barCloseTimestampUTC'];expiry=stamp(created)+PLAN_LIFETIME
+    created=iso(anchor);expiry=anchor+PLAN_LIFETIME
+    if at>=expiry:return None
     identity=f'{SCHEMA}:{row.get("sessionDateET")}:{row["symbol"]}:{created}'
     return {'schema':SCHEMA,'id':hashlib.sha256(identity.encode()).hexdigest()[:16],'symbol':row['symbol'],
         'createdAtUTC':iso(at),'anchorBarCloseUTC':created,'expiresAtUTC':iso(expiry),
         'entryTrigger':entry,'entryLimit':entry_limit,'stopReference':stop,'targetScenario':target,'costBasis':'MAX_ENTRY_PRICE',
         'assumedSlippagePerSidePct':.2,'assumedFeePerSide':0,'plannedNetRewardRisk':2,
-        'referenceEvidence':{k:copy.deepcopy(row.get(k)) for k in ('price','breakout15m','support15m','dollarVolume5m','dollarVolume15m','ret5mPct','ret15mPct','source')},
+        'referenceEvidence':{'anchorRangeHigh':high,'anchorRangeLow':low,'anchorClose':price,**{k:copy.deepcopy(row.get(k)) for k in ('dollarVolume5m','dollarVolume15m','ret5mPct','ret15mPct','source')}},
         'tradeEligible':False,'modelApproval':'NOT_ESTABLISHED','meaning':'Conditional paper scenario; target is arithmetic, not a forecast'}
 
 def assess(plan,row,quote,at):

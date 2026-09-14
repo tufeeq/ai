@@ -9,7 +9,7 @@ The **Conditional plans / خطط مشروطة** tab shows price levels for regul
 - An ask-price trigger above the observed closed 15-minute range, and a maximum entry 0.25% above that trigger.
 - A stop reference below the observed range low. A range requiring more than 5% price risk is excluded, rather than manufacturing a closer stop.
 - An arithmetic target providing at least 2R at the maximum entry under 0.2% slippage per side and zero commission. It is not a prediction that price will reach the target.
-- A five-minute lifetime tied to the original closed bar. Refreshing the page or changing subsequent bars does not move the levels.
+- A five-minute lifetime tied to a shared five-minute boundary. Both scanner processes derive the same levels from the 15 complete minutes preceding that boundary. Refreshing the page or changing subsequent bars does not move the levels.
 - Bid/ask source, spread, quote age, and specific failed checks. Quotes older than 15 seconds, future timestamps, crossed/invalid quotes, zero displayed sizes and spreads above 0.3% cannot produce a paper-trigger observation.
 
 A known stop breach or a price beyond the maximum entry invalidates the plan until expiry. Recovery does not silently reactivate it. Price-bar evidence can invalidate a plan even if quotes are unavailable. Targets, stops and expiry can be copied to the existing paper planner; the planner uses the maximum entry price and preserves the user's capital/risk settings and journal.
