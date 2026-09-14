@@ -7,14 +7,16 @@ def get(url):
   return r.read()
 for attempt in range(8):
  try:
-  html=get('https://tufeeq.github.io/ai/tagit10/?quality=10.5.0').decode()
-  js=get('https://tufeeq.github.io/ai/tagit10/app.js?v=10500').decode()
-  learned=get('https://tufeeq.github.io/ai/tagit10/explosive-ui.js?v=10500').decode()
-  if 'QUALITY 10.5.0' in html and "tab='watch'" in js and 'TagitExplosion' in learned:break
+  html=get('https://tufeeq.github.io/ai/tagit10/?quality=10.6.0').decode()
+  js=get('https://tufeeq.github.io/ai/tagit10/app.js?v=10600').decode()
+  learned=get('https://tufeeq.github.io/ai/tagit10/explosive-ui.js?v=10600').decode()
+  if 'QUALITY 10.6.0' in html and "tab='watch'" in js and 'TagitExplosion' in learned:break
  except Exception:pass
  time.sleep(10)
 else:raise AssertionError('Updated mobile radar not published')
-assert 'evidenceNotice' in html
+assert 'evidenceNotice' in html and 'sessionReport' in html
+study=json.loads(get('https://tufeeq.github.io/ai/tagit10/reports/session-study.json'))
+assert study['modelId']=='914c5caece0ca35e' and study['promoted'] is False
 audit=json.loads(get('https://tufeeq.github.io/ai/tagit10/reports/live-alert-audit-2026-09-14.json'))
 assert audit['kind']=='RECORDED_SYSTEM_ALERT_AUDIT'
 assert "screeningPassed!==true" in js
@@ -28,13 +30,15 @@ for attempt in range(8):
   except Exception:pass
  if candidates:
   latest=max(candidates,key=lambda d:d['updatedAtUTC'])
-  if latest.get('providerHealth',{}).get('finviz',{}).get('rvolRows',0)>0 and latest.get('truth',{}).get('backendCadenceSeconds')==30 and latest.get('releaseVersion')=='10.5.0' and 'noRecordedAttemptToday' in latest.get('dataHealth',{}):break
+  if latest.get('providerHealth',{}).get('finviz',{}).get('rvolRows',0)>0 and latest.get('truth',{}).get('backendCadenceSeconds')==30 and latest.get('releaseVersion')=='10.6.0' and 'noRecordedAttemptToday' in latest.get('dataHealth',{}):break
  time.sleep(10)
 assert latest,'No 10.3 feed found'
-assert latest.get('releaseVersion')=='10.5.0'
+assert latest.get('releaseVersion')=='10.6.0'
 assert latest.get('dataHealth',{}).get('streaming') is False
 assert 'noRecordedAttemptToday' in latest['dataHealth']
-assert 'invalidated' in latest and 'unavailable' in latest
+assert 'invalidated' in latest and 'unavailable' in latest and 'sessionSetups' in latest
+assert latest['sessionSetupLearning']['modelId']=='914c5caece0ca35e'
+assert latest['sessionSetupLearning']['tradeEligible'] is False
 assert latest['truth']['backendCadenceSeconds']==30
 assert 'freshnessBuckets' in latest
 assert latest.get('explosiveLearning',{}).get('modelId'), 'Trained model not connected to scanner'
@@ -45,8 +49,8 @@ for key in ('early','actionable','confirmed'):
  for row in latest.get(key,[]):
   assert row.get('screeningPassed') is True and row.get('barClosed') is True and row.get('tradeEligible') is False
   assert not row.get('riskBlocks')
-print(json.dumps({'publicPage':'HTTP_200_QUALITY_10.5.0','engineVersion':latest['engineVersion'],
+print(json.dumps({'publicPage':'HTTP_200_QUALITY_10.6.0','engineVersion':latest['engineVersion'],
  'updatedAtUTC':latest['updatedAtUTC'],'feedAgeSeconds':round(age,1),'quotesFresh':latest['quotesFresh'],
  'finviz':latest['providerHealth']['finviz'],'early':len(latest['early']),'confirmed':len(latest['confirmed']),
- 'explosiveLearning':latest['explosiveLearning']}))
+ 'explosiveLearning':latest['explosiveLearning'],'sessionSetupLearning':latest['sessionSetupLearning']}))
 

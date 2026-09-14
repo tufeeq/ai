@@ -1,0 +1,40 @@
+name: TAGit10 fixed session setup study
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: tagit10-session-study-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy==2.3.5 scikit-learn==1.8.0
+      - name: Verify causal setup and execution contracts
+        run: python -m unittest discover -s tagit10/tests -p 'test_session*.py' -v
+      - name: Reuse frozen history, fit once, evaluate chronological outcomes
+        run: python -u tagit10/study_session_signals.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tagit10-session-study
+          path: tagit10/reports/session-*.json
+      - name: Persist reviewable evidence on the study branch
+        env:
+          TARGET_BRANCH: ${{ github.ref_name }}
+        run: |
+          git config user.name tagit10-research-bot
+          git config user.email actions@users.noreply.github.com
+          git add tagit10/reports/session-model.json tagit10/reports/session-study.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'research: fixed opening and continuation study on stored history'
+          git pull --rebase origin "$TARGET_BRANCH"
+          git push origin "HEAD:$TARGET_BRANCH"

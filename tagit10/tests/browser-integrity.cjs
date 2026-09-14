@@ -27,6 +27,8 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
  await page.waitForFunction(()=>document.getElementById('evidenceNotice').textContent.includes('26.17'));
  await page.waitForFunction(()=>document.getElementById('explosiveReport').textContent.includes('لم يجتز النموذج'));
  assert((await page.locator('#explosiveReport').textContent()).includes('20%'));
+ await page.waitForFunction(()=>document.getElementById('sessionReport').textContent.includes('لم تثبت ربحية'));
+ assert((await page.locator('#sessionReport').textContent()).includes('−2%'));
  await page.locator('.desk-nav [data-view="radar"]').click();
  await page.locator('#useInPlan').click();
  await page.locator('#planSymbol').waitFor({state:'visible'});
@@ -78,6 +80,22 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
  assert(!(await page.locator('#rows').textContent()).includes('FALL'));
  await page.locator('[data-tab="invalidated"]').click();
  assert((await page.locator('#rows').textContent()).includes('FALL'));
+ // Opening structures can be visible before the legacy 30m window completes.
+ const opening=fresh();opening.watch=[];opening.sessionSetups=[{...row(),symbol:'OPEN',stage:'WATCH',screeningPassed:false,
+  riskBlocks:['INCOMPLETE_WINDOWS'],session:'regular',instrumentType:'EQUITY',
+  sessionSetup:{status:'RESEARCH_SETUP',tradeEligible:false,referencePrice:10,decisionAtUTC:new Date().toISOString(),
+   families:['OPENING_IMPULSE'],minutesFromOpen:5,indicatorEvidence:{return5:1,logRelativeVolume:Math.log1p(2)},
+   validationStatus:'NOT_SUPPORTED_FOR_TRADING',estimatedNet30mPct:-.5}}];
+ await refresh(opening,0);await page.locator('[data-tab="setups"]').click();
+ assert((await page.locator('#rows').textContent()).includes('OPEN'));
+ assert((await page.locator('#rows').textContent()).includes('لم تثبت ربحيته'));
+ await page.locator('[data-symbol="OPEN"]').click();
+ assert((await page.locator('#detail').textContent()).includes('اندفاع الافتتاح'));
+ await page.locator('#detailClose').click();
+ opening.sessionSetups[0].sessionSetup.decisionAtUTC=new Date(Date.now()-120000).toISOString();
+ await refresh(opening,0);assert(!(await page.locator('#rows').textContent()).includes('OPEN'));
+ opening.sessionSetups[0].sessionSetup.decisionAtUTC=new Date().toISOString();opening.sessionSetups[0].price=9.9;
+ await refresh(opening,0);assert(!(await page.locator('#rows').textContent()).includes('OPEN'));
  // A fast response must render before the other endpoint finishes.
  await page.route('https://raw.githubusercontent.com/tufeeq/ai/main/tagit10-live.json*',async route=>{
    await new Promise(resolve=>setTimeout(resolve,4000));
@@ -93,4 +111,3 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
  console.log('PASS: candidate, visible evidence, paper import, legacy engine, blocked signal, invalid boolean, stale quote, mobile layout, no page errors');
  await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
-
