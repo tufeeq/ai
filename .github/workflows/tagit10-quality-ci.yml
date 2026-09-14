@@ -1,0 +1,44 @@
+name: TAGit10 Quality Regression
+on:
+  push:
+    branches: [main, fix/tagit10-quality-20260914]
+    paths:
+      - 'tagit10/**'
+      - '.github/workflows/tagit10-quality-ci.yml'
+  pull_request:
+    paths: ['tagit10/**', '.github/workflows/tagit10-quality-ci.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Closed bars, candidate gates, and forward outcomes
+        run: |
+          python -m unittest discover -s tagit10/tests -p 'test_engine.py' -v
+          python -m unittest discover -s tagit10/tests -p 'test_quality.py' -v
+          python -m unittest discover -s tagit10/tests -p 'test_integrity.py' -v
+          node --check tagit10/app.js
+          node --check tagit10/trader.js
+          node tagit10/tests/test_trade_math.js
+      - name: Install browser for actual page verification
+        run: |
+          npm install --prefix /tmp/tagit10-browser --no-save playwright@1.55.0
+          /tmp/tagit10-browser/node_modules/.bin/playwright install --with-deps chromium
+      - name: Verify feed states and paper-plan flow in Chromium
+        env:
+          PLAYWRIGHT_MODULE: /tmp/tagit10-browser/node_modules/playwright
+        run: |
+          python -m http.server 8765 --bind 127.0.0.1 > /tmp/tagit10-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          node tagit10/tests/browser-integrity.cjs

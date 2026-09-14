@@ -6,6 +6,9 @@ on:
     branches: [main]
     paths:
       - 'tagit10/engine.py'
+      - 'tagit10/quality.py'
+      - 'tagit10/screening.py'
+      - 'tagit/market-calendar-guard.py'
       - '.github/workflows/tagit10-daemon.yml'
   schedule:
     - cron: '0 8,14,20 * * 1-5'
@@ -26,6 +29,8 @@ jobs:
         with:
           ref: main
           fetch-depth: 1
+      - name: Validate scanner before publishing
+        run: python -m unittest discover -s tagit10/tests -p 'test_integrity.py'
       - name: Run continuous active-session engine
         env:
           TAGIT_CONTINUOUS: '1'

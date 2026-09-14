@@ -9,8 +9,8 @@
   const stamp = v => Date.parse(v || '');
   const seconds = v => (Date.now()-stamp(v))/1000;
   const ageText = v => !Number.isFinite(v) ? 'توقيت غير متاح' : v < -30 ? 'توقيت غير صالح' : v < 60 ? `${Math.max(0,Math.floor(v))} ث` : `${fmt(v/60,1)} د`;
-  const labels = {WATCH:'مراقبة',EARLY:'رصد مبكر',ACTIONABLE:'اجتازت الفلترة',CONFIRMED:'مؤكدة',STALE:'سعر متأخر'};
-  const titles = {early:'الفرص المبكرة',actionable:'اجتازت الفلترة',confirmed:'تأكيد متعدد اللقطات',watch:'قائمة المراقبة'};
+  const labels = {WATCH:'مراقبة',EARLY:'رصد مبكر',ACTIONABLE:'مرشح بحثي',CONFIRMED:'تكرر الرصد',STALE:'سعر متأخر'};
+  const titles = {early:'الفرص المبكرة',actionable:'اجتازت الفلترة',confirmed:'رصد متكرر — غير معتمد للتداول',watch:'قائمة المراقبة'};
   let data=null, tab='early', selected=null, busy=false, error=false;
   function valid(d) {return d && Number.isFinite(stamp(d.updatedAtUTC)) && stamp(d.updatedAtUTC)<=Date.now()+30000 && Array.isArray(d.watch);}
   function feedFresh(){const s=seconds(data?.updatedAtUTC);return !error && s>=-30 && s<=180 && ['regular','pre-market','after-hours'].includes(data?.session);}
@@ -25,6 +25,8 @@
       let stage=x.stage;
       if(!feedFresh()||!fresh)stage='STALE';
       // Old engines cannot supply the required two-observation confirmation.
+      else if(data.engineVersion!=='10.3' || x.screeningVersion!=='10.3' ||
+        x.screeningPassed!==true || x.barClosed!==true || (x.riskBlocks||[]).length)stage='WATCH';
       else if(stage==='CONFIRMED' && (num(x.confirmationCount)||0)<2)stage='ACTIONABLE';
       return {...x,stage,qAge,fresh};
     }).sort((a,b)=>Number(b.fresh)-Number(a.fresh)||(num(b.score)||0)-(num(a.score)||0));
@@ -37,9 +39,9 @@
     $('status').dataset.state=isFresh?'live':'stale';
     $('session').textContent=({regular:'الجلسة الرئيسية','pre-market':'ما قبل الجلسة','after-hours':'ما بعد الجلسة',closed:'الجلسة مغلقة'})[data?.session]||'حالة الجلسة غير متاحة';
     $('health').className=`health ${isFresh?'live':''}`;
-    $('health').textContent=!data?'تعذر الوصول للمحرك. ستتم إعادة المحاولة تلقائيًا.':!isFresh?'لا توجد إشارات حديثة معتمدة الآن. الأسعار السابقة متاحة في «المراقبة» مع عمر كل سعر.':`آخر مسح منذ ${ageText(fAge)}. ${groups.confirmed.length} تأكيد متعدد اللقطات؛ التحديث المرئي لا يعني وصول صفقة جديدة.`;
+    $('health').textContent=!data?'تعذر الوصول للمحرك. ستتم إعادة المحاولة تلقائيًا.':!isFresh?'لا توجد إشارات حديثة معتمدة الآن. الأسعار السابقة متاحة في «المراقبة» مع عمر كل سعر.':`وضع البحث: لا توجد إشارات معتمدة للتداول. آخر مسح منذ ${ageText(fAge)}؛ ${groups.confirmed.length} حالات رصد متكرر. الأسعار إغلاقات دقيقة وليست عروض شراء وبيع.`;
     const q=data?.quality, eq=q?.byStage?.EARLY;
-    $('quality').textContent=q ? `دقة الرصد المبكر: ${eq?.precisionPct==null?'لم تكتمل العينة':fmt(eq.precisionPct)+'%'} · نتائج مكتملة ${eq?.resolved||0} · قيد المتابعة ${eq?.pending||0} · تعذر قياسها ${eq?.unscorable||0}. المعيار: +3% قبل −2% خلال 30 دقيقة وفق إغلاقات الدقيقة، دون تكاليف التنفيذ. اكتشاف أعلى 50 سهمًا يُقاس بعد الإغلاق؛ 95% غير مثبتة.` : 'قياس النسخة الجديدة قيد التهيئة؛ لا توجد دقة 95% مثبتة.';
+    $('quality').textContent=q ? `دقة الرصد المبكر: ${eq?.precisionPct==null?'لم تكتمل العينة':fmt(eq.precisionPct)+'%'} · نتائج مكتملة ${eq?.resolved||0} · قيد المتابعة ${eq?.pending||0} · تعذر قياسها ${eq?.unscorable||0} · جلسات ${eq?.sessions||0} · متوسط العائد بعد التكلفة ${eq?.meanNetReturnPct==null?'غير متاح':fmt(eq.meanNetReturnPct)+'%'}. المعيار: افتتاح أول دقيقة كاملة بعد الرصد، +3% قبل −2% خلال 30 دقيقة. يسبق الوقف الهدف عند غموض ترتيب الحركة، مع تكلفة مفترضة 0.4%. ليست نتائج تنفيذ فعلي.` : 'قياس النسخة الجديدة قيد التهيئة؛ لا توجد دقة 95% مثبتة.';
     $('universe').textContent=fmt(data?.universeScanned,0);
     $('coverage').textContent=`${fmt(data?.quotesFresh,0)} / ${fmt(data?.quotesValid,0)}`;
     for(const [id,key] of [['watchN','watch'],['earlyN','early'],['actionN','actionable'],['confirmedN','confirmed']])$(id).textContent=data?groups[key].length:'—';
@@ -58,10 +60,12 @@
   }
   function detail(x){
     const cell=(title,value)=>`<div><span>${title}</span><b>${value}</b></div>`;
-    const why=Array.isArray(x.reasons)?x.reasons:[];
-    const verdict=x.stage==='CONFIRMED'?'اجتازت الإشارة لقطتين مستقلتين حديثتين. راقب استمرار السيولة وثبات السعر.':x.stage==='STALE'?'البيانات غير حديثة؛ لا تعتمد هذه اللقطة للدخول.':x.stage==='ACTIONABLE'?'توافقت شروط الرصد؛ انتظر استمرارها في لقطة مستقلة.':'للمتابعة فقط: لم تكتمل شروط التأكيد.';
+    const why=Array.isArray(x.reasons)?[...x.reasons]:[];
+    if(data?.engineVersion!=='10.3'||x.screeningVersion!=='10.3')why.unshift('هذه اللقطة من محرك سابق؛ لا تُعرض كمرشح بحثي جديد.');
+    if(x.stage==='WATCH' && x.screeningPassed!==true && !why.length)why.push('لم تكتمل متطلبات الفلترة؛ تبقى للمراقبة.');
+    const verdict=x.stage==='CONFIRMED'?'تكرر اجتياز الفلترة في شمعتين مغلقتين مع ثبات السعر. هذا تكرار من المصدر نفسه، وليس دليلاً مثبتًا على ربحية التداول.':x.stage==='STALE'?'البيانات غير حديثة؛ لا تعتمد هذه اللقطة للدخول.':x.stage==='ACTIONABLE'?'اجتازت فلترة البيانات والسيولة والاتجاه. مرشح بحثي يحتاج إلى قياس نتائج مستقبلية.':'للمتابعة فقط: لم تكتمل شروط التأكيد.';
     window.dispatchEvent(new CustomEvent('tagit-selection',{detail:x}));
-    $('detail').innerHTML=`<div class="detail-top"><h2 dir="ltr">${esc(x.symbol)}</h2><span class="pill ${x.stage.toLowerCase()}">${esc(labels[x.stage]||x.stage)}</span></div><div class="price">$${fmt(x.price,4)} <small class="${num(x.changePct)>=0?'good':'warn'}">${pct(x.changePct)}</small></div><div class="verdict">${verdict}</div><div class="data-grid">${cell('حركة 5 دقائق',pct(x.ret5mPct))}${cell('حركة 15 دقيقة',pct(x.ret15mPct))}${cell('حجم 5 دقائق',fmt(x.volume5m,0))}${cell('تسارع حجم 15 دقيقة',num(x.volumeAcceleration15m)!=null?fmt(x.volumeAcceleration15m)+'×':'—')}${cell('الحجم النسبي',num(x.relativeVolume)!=null?fmt(x.relativeVolume)+'×':'—')}${cell('لقطات تأكيد مستقلة',fmt(x.confirmationCount,0))}</div><button type="button" id="useInPlan" class="refresh">Build a paper trade plan / بناء خطة</button><h4>مستويات المتابعة</h4><div class="data-grid">${cell('قمة نطاق 15 دقيقة',num(x.breakout15m)!=null?'$'+fmt(x.breakout15m,4):'—')}${cell('قاع نطاق 15 دقيقة',num(x.support15m)!=null?'$'+fmt(x.support15m,4):'—')}</div><p class="note">مستويات مرجعية مستخرجة من إغلاقات الدقيقة، وليست أوامر دخول أو أهدافًا مضمونة.</p><h4>لماذا ظهر السهم؟</h4><ul class="reasons">${why.length?why.map(t=>`<li>${esc(t)}</li>`).join(''):'<li>النسخة الحالية من التغذية لا توفر تفسيرًا تفصيليًا لهذه الإشارة.</li>'}</ul><p class="note">عمر السعر: ${ageText(x.qAge)} · المصدر: ${esc(x.source||'Yahoo 1m + Finviz')}<br>درجة الرصد ${fmt(x.score)} / 100 ليست نسبة نجاح.</p>`;
+    $('detail').innerHTML=`<div class="detail-top"><h2 dir="ltr">${esc(x.symbol)}</h2><span class="pill ${x.stage.toLowerCase()}">${esc(labels[x.stage]||x.stage)}</span></div><div class="price">$${fmt(x.price,4)} <small class="${num(x.changePct)>=0?'good':'warn'}">${pct(x.changePct)}</small></div><div class="verdict">${verdict}</div><div class="data-grid">${cell('حركة 5 دقائق',pct(x.ret5mPct))}${cell('حركة 15 دقيقة',pct(x.ret15mPct))}${cell('حجم 5 دقائق',fmt(x.volume5m,0))}${cell('تسارع حجم 15 دقيقة',num(x.volumeAcceleration15m)!=null?fmt(x.volumeAcceleration15m)+'×':'—')}${cell('قيمة تداول 5 دقائق',num(x.dollarVolume5m)!=null?'$'+fmt(x.dollarVolume5m,0):'—')}${cell('قيمة تداول 15 دقيقة',num(x.dollarVolume15m)!=null?'$'+fmt(x.dollarVolume15m,0):'—')}${cell('التراجع من قمة الجلسة',pct(x.drawdownFromHighPct))}${cell('الحجم النسبي',num(x.relativeVolume)!=null?fmt(x.relativeVolume)+'×':'—')}${cell('شموع رصد متتالية',fmt(x.confirmationCount,0))}</div><button type="button" id="useInPlan" class="refresh">Build a paper trade plan / بناء خطة</button><h4>مستويات المتابعة</h4><div class="data-grid">${cell('قمة نطاق 15 دقيقة',num(x.breakout15m)!=null?'$'+fmt(x.breakout15m,4):'—')}${cell('قاع نطاق 15 دقيقة',num(x.support15m)!=null?'$'+fmt(x.support15m,4):'—')}</div><p class="note">قمة وقاع شموع الدقيقة المغلقة. مستويات بحثية؛ السبريد والأخبار وحالة الإيقاف غير متحقق منها.</p><h4>لماذا ظهر السهم؟</h4><ul class="reasons">${why.length?why.map(t=>`<li>${esc(t)}</li>`).join(''):'<li>النسخة الحالية من التغذية لا توفر تفسيرًا تفصيليًا لهذه الإشارة.</li>'}</ul><p class="note">بداية شمعة السعر منذ: ${ageText(x.qAge)} · المصدر: ${esc(x.source||'Yahoo 1m + Finviz')}<br>درجة الرصد ${fmt(x.score)} / 100 ليست نسبة نجاح.</p>`;
   }
   async function get(url){
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),6500);
