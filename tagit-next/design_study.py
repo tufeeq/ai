@@ -1,11 +1,13 @@
 """Freeze outcome-independent sampling and hypotheses before fetching test bars."""
 import hashlib
 import json
+import gzip
 from pathlib import Path
 
 SEED='TAGit-NEXT-independent-20260914-v1'
 root=Path(__file__).resolve().parent
-reference=json.loads((root/'data/broad-reference.json').read_text())
+reference_path=root/'data/broad-reference.json'
+reference=json.loads(reference_path.read_text() if reference_path.exists() else gzip.decompress(reference_path.with_suffix('.json.gz').read_bytes()))
 strata=[(0,50e6),(50e6,250e6),(250e6,1e9)]
 selected=[]
 for low,high in strata:

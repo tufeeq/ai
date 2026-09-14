@@ -109,7 +109,7 @@ def choose(results):
 
 
 def freeze(protocol, path):
-    if path.exists():
+    if path.exists() or path.with_suffix(path.suffix+'.gz').exists():
         raise ValueError('Selection already frozen; do not overwrite after test access')
     results={h['name']:{phase:evaluate(protocol,protocol[phase],h['overrides'])
                         for phase in ('training','validation')} for h in protocol['hypotheses']}
@@ -144,6 +144,7 @@ if __name__=='__main__':
         result=freeze(protocol,frozen_path)
         print(json.dumps(dict(selected=result['selected'],results={name:{phase:x['summary'] for phase,x in r.items()} for name,r in result['results'].items()}),indent=2))
     else:
-        result=heldout(protocol,json.loads(frozen_path.read_text()))
+        raw=gzip.decompress(frozen_path.with_suffix('.json.gz').read_bytes()) if not frozen_path.exists() else frozen_path.read_text()
+        result=heldout(protocol,json.loads(raw))
         (ROOT/'data/study-test.json').write_text(json.dumps(result,indent=2)+'\n')
         print(json.dumps({name:r['summary'] for name,r in result['test'].items()},indent=2))

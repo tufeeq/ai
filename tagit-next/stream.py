@@ -24,6 +24,14 @@ def now():
     return datetime.now(UTC).isoformat()
 
 
+def research_status():
+    path = Path(__file__).resolve().parent/'data/study-freeze.json'
+    if not path.exists():
+        return 'UNVALIDATED_RECORD_ONLY'
+    assessment = json.loads(path.read_text())
+    return 'REJECTED_BY_STUDY_RECORD_ONLY' if assessment.get('selected') is None else 'UNVALIDATED_RECORD_ONLY'
+
+
 def write_state(path, state):
     tmp = path.with_suffix('.tmp')
     tmp.write_text(json.dumps(state, ensure_ascii=False, indent=2))
@@ -42,6 +50,7 @@ async def run(universe, output, journal):
                 and 0 <= (timestamp(now())-timestamp(m['metadata_at'])).total_seconds() <= 86400]
     state = dict(version='NEXT-0.1', mode='PAPER_ONLY', feed='sip', updated_at=now(),
                  status='CONNECTING', universe=len(metadata), setups=[], approved_for_live=False)
+    state.update(strategy_status=research_status(), purpose='DATA_COLLECTION_ONLY')
     output, journal = Path(output), Path(journal)
     output.parent.mkdir(parents=True, exist_ok=True)
     journal.parent.mkdir(parents=True, exist_ok=True)
@@ -129,7 +138,8 @@ async def run(universe, output, journal):
                                     await ws.send(json.dumps(dict(action='unsubscribe', quotes=[symbol])))
                                 elif symbol in quotes:
                                     status = quote_check(setup, quotes[symbol], received)
-                                    setup['quote_status'] = status
+                                    # A technically available quote is not a model endorsement.
+                                    setup['quote_status'] = 'EXECUTION_DATA_ONLY' if status == 'PAPER_EXECUTABLE' else status
                                     if status == 'PAPER_EXECUTABLE' and not setup.get('first_paper_quote'):
                                         setup['first_paper_quote'] = dict(received_at=received, **quotes[symbol])
                                         log.write(json.dumps(dict(received_at=received,type='PAPER_QUOTE',setup=setup))+'\n')

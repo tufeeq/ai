@@ -4,6 +4,11 @@
 continuous live operation NOT connected.** This code imports none of the earlier
 TAGit engines, models, scores, UI, or approval rules. It does not place orders.
 
+**Expanded study completed:** 164,248 additional bars, 96 outcome-independently
+sampled stocks, 10 sessions, and a frozen chronological test. All three hypotheses
+were rejected. See [STUDY_RESULTS.md](STUDY_RESULTS.md) for the full results and
+limitations. The runtime is explicitly marked rejected-model data collection only.
+
 ## What changes
 
 - Equities with known market capitalization below USD 1 billion; price USD 0.15–30.
