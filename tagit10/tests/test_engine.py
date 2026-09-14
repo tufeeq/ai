@@ -20,7 +20,7 @@ class EngineTests(unittest.TestCase):
   self.assertIsNone(e.window_metrics(pts)['va'])
  def test_distinct_confirmation(self):
   rec={};t=datetime.now(timezone.utc)
-  def row(t):return {'stage':'ACTIONABLE','quoteFresh':True,'quoteTimestampUTC':t.isoformat()}
+  def row(t):return {'stage':'ACTIONABLE','quoteFresh':True,'quoteTimestampUTC':t.isoformat(),'screeningPassed':True,'barClosed':True,'price':100,'ret5mPct':1,'session':'regular','sessionDateET':'2026-09-14'}
   a=row(t);e.confirm_row(a,rec);self.assertEqual(a['confirmationCount'],1)
   a=row(t);e.confirm_row(a,rec);self.assertEqual(a['confirmationCount'],1)
   a=row(t+timedelta(seconds=60));e.confirm_row(a,rec);self.assertEqual(a['stage'],'CONFIRMED')
