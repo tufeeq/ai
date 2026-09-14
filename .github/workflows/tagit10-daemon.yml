@@ -66,8 +66,9 @@ jobs:
             start=$(date +%s)
             if python tagit10/engine.py; then publish_live || true; fi
             elapsed=$(( $(date +%s) - start ))
-            sleep_for=$(( 90 - elapsed ))
+            sleep_for=$(( 30 - elapsed ))
             [ "$sleep_for" -gt 5 ] || sleep_for=5
             sleep "$sleep_for"
           done
+
 
