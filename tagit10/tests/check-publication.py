@@ -28,11 +28,12 @@ for attempt in range(8):
   except Exception:pass
  if candidates:
   latest=max(candidates,key=lambda d:d['updatedAtUTC'])
-  if latest.get('providerHealth',{}).get('finviz',{}).get('rvolRows',0)>0 and latest.get('truth',{}).get('backendCadenceSeconds')==30 and latest.get('releaseVersion')=='10.5.0':break
+  if latest.get('providerHealth',{}).get('finviz',{}).get('rvolRows',0)>0 and latest.get('truth',{}).get('backendCadenceSeconds')==30 and latest.get('releaseVersion')=='10.5.0' and 'noRecordedAttemptToday' in latest.get('dataHealth',{}):break
  time.sleep(10)
 assert latest,'No 10.3 feed found'
 assert latest.get('releaseVersion')=='10.5.0'
 assert latest.get('dataHealth',{}).get('streaming') is False
+assert 'noRecordedAttemptToday' in latest['dataHealth']
 assert 'invalidated' in latest and 'unavailable' in latest
 assert latest['truth']['backendCadenceSeconds']==30
 assert 'freshnessBuckets' in latest

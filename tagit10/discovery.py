@@ -47,8 +47,10 @@ def coverage_health(state, rows, universe, directory, at):
         return round(ages[min(len(ages)-1, int((len(ages)-1)*p))], 1) if ages else None
     names = set(directory)
     records = [v for s,v in state.get('symbols', {}).items() if s in names]
-    attempted = [timestamp(x.get('lastAttemptUTC')) for x in records]
-    successful = [timestamp(x.get('lastSuccessfulScanUTC')) for x in records]
+    # Prior releases recorded successful attempts as lastSeenUTC. Preserve that
+    # evidence across rollout; absent metadata means unknown, never "not scanned".
+    attempted = [timestamp(x.get('lastAttemptUTC') or x.get('lastSeenUTC')) for x in records]
+    successful = [timestamp(x.get('lastSuccessfulScanUTC') or x.get('lastSeenUTC')) for x in records]
     observed = [timestamp(x.get('lastQuoteTimestampUTC')) for x in records]
     return {'scope':'CURRENT_DIRECTORY', 'directorySize':len(names),
         'attemptedThisScan':len(universe), 'validThisScan':len(rows),
@@ -56,7 +58,7 @@ def coverage_health(state, rows, universe, directory, at):
         'attemptedLast5m':sum(t is not None and 0<=at-t<=300 for t in attempted),
         'successfulLast5m':sum(t is not None and 0<=at-t<=300 for t in successful),
         'freshAcrossDirectory':sum(t is not None and 0<=at-t<=120 for t in observed),
-        'neverAttemptedToday':len(names)-sum(t is not None for t in attempted),
+        'noRecordedAttemptToday':len(names)-sum(t is not None for t in attempted),
         'barCloseAgeMedianSeconds':percentile(.5), 'barCloseAgeP95Seconds':percentile(.95),
         'freshnessRule':'Closed 1m bar; at most 60 seconds after close, unchanged from 120 seconds after start',
         'streaming':False, 'bidAskAvailable':False}

@@ -48,8 +48,16 @@ class DiscoveryTests(unittest.TestCase):
         health=coverage_health(state,[],['A'],['A','B'],at.timestamp())
         self.assertEqual(health['unavailableThisScan'],1)
         self.assertEqual(health['successfulLast5m'],0)
-        self.assertEqual(health['neverAttemptedToday'],1)
+        self.assertEqual(health['noRecordedAttemptToday'],1)
         self.assertIsNone(health['barCloseAgeMedianSeconds'])
+
+    def test_rollout_preserves_prior_release_scan_evidence(self):
+        at=datetime(2026,9,14,15,tzinfo=timezone.utc)
+        state={'symbols':{'A':{'lastSeenUTC':at.isoformat()}}}
+        health=coverage_health(state,[],[],['A','B'],at.timestamp())
+        self.assertEqual(health['attemptedLast5m'],1)
+        self.assertEqual(health['successfulLast5m'],1)
+        self.assertEqual(health['noRecordedAttemptToday'],1)
 
     def test_indicator_snapshot_does_not_change_with_later_scan(self):
         state={'sessionDateET':'2026-09-14'}
