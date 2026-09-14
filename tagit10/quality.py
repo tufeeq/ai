@@ -32,7 +32,7 @@ def freeze_signals(state, rows, observed_at):
                 'ret5mPct','ret15mPct','volumeAcceleration15m','relativeVolume',
                 'dollarVolume5m','dollarVolume15m','range15mPct','sessionVwapProxy',
                 'drawdownFromHighPct','activeBars5m','activeBars15m','windowsComplete',
-                'riskBlocks','barCloseTimestampUTC','source','bidAskVerified','discoveryState')},
+                'riskBlocks','barCloseTimestampUTC','source','bidAskVerified','discoveryState','executionQuote','conditionalPlan')},
             'missingExecutionEvidence':['executableBidAsk','spread','haltStatus','timestampedCatalyst']}
 
 def evaluate_signals(state, rows, observed_at):
@@ -136,6 +136,16 @@ def merge_evidence(a,b):
                     if merged.get(target,{}).get('label') not in ('TARGET_FIRST','STOP_FIRST','TIMEOUT'):merged[target]=result
                 setups[key]={**old,'outcomes':merged}
     out['sessionSetupObservations']=dict(sorted(setups.items())[-5000:])
+    plans={};events={}
+    for source in (a,b):
+        for key,item in source.get('conditionalPlans',{}).items():
+            old=plans.get(key)
+            if old is None or item.get('evaluatedAtUTC','')>old.get('evaluatedAtUTC',''):plans[key]=item
+        for key,item in source.get('conditionalPlanObservations',{}).items():
+            old=events.get(key)
+            if old is None or item['observedAtUTC']<old['observedAtUTC']:events[key]=item
+    out['conditionalPlans']=plans
+    out['conditionalPlanObservations']=dict(sorted(events.items(),key=lambda kv:kv[1]['observedAtUTC'])[-2000:])
     return out
 
 if __name__=='__main__':

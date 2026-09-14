@@ -11,6 +11,7 @@ from session_signals import load_model as load_session_model, observe as observe
 import importlib.util
 from collections import Counter
 from discovery import RELEASE, close_age, state_of, order_key, coverage_health
+from execution import fetch_quotes, structure_ready, attach_plans, quote_checks
 
 _calendar_spec=importlib.util.spec_from_file_location('tagit_calendar',Path(__file__).resolve().parents[1]/'tagit/market-calendar-guard.py')
 _calendar=importlib.util.module_from_spec(_calendar_spec)
@@ -250,7 +251,7 @@ def scan_lanes(state, hot, directory, continuous=False):
 
 def main():
     t=now();et=t.astimezone(ET);sess=session(et);state=load_state();date=et.date().isoformat()
-    if state.get('sessionDateET')!=date:state={'schemaVersion':10,'sessionDateET':date,'symbols':{},'events':[],'sweepCursor':0,'signalLedger':state.get('signalLedger',{}),'explosiveObservations':state.get('explosiveObservations',{}),'sessionSetupObservations':state.get('sessionSetupObservations',{})}
+    if state.get('sessionDateET')!=date:state={'schemaVersion':10,'sessionDateET':date,'symbols':{},'events':[],'sweepCursor':0,'signalLedger':state.get('signalLedger',{}),'explosiveObservations':state.get('explosiveObservations',{}),'sessionSetupObservations':state.get('sessionSetupObservations',{}),'conditionalPlanObservations':state.get('conditionalPlanObservations',{})}
     frs=finviz_rows();fmap={(r.get('Ticker') or '').strip().upper():r for r in frs}
     directory=symbol_directory()
     hot,sweep=scan_lanes(state,list(fmap),directory,os.getenv('TAGIT_CONTINUOUS')=='1')
@@ -260,6 +261,10 @@ def main():
         for f in as_completed(fut):
             x=f.result()
             if x:rows.append(x)
+    eligible=sorted((x for x in rows if structure_ready(x,now().timestamp())),key=order_key,reverse=True)
+    quotes,quote_health=fetch_quotes([x['symbol'] for x in eligible])
+    PROVIDER_HEALTH['alpaca']=quote_health
+    # Recheck minute-bar freshness after the quote request can consume time.
     rank={'WATCH':0,'EARLY':1,'ACTIONABLE':2,'CONFIRMED':3}
     for x in rows:
         qage=close_age(x,now().timestamp())
@@ -270,6 +275,7 @@ def main():
         if rank[x['stage']]>rank.get(old,0):rec['bestStage']=x['stage'];rec.setdefault('stageFirstUTC',now().isoformat());rec.setdefault('stageFirstChangePct',x['changePct']);state['events'].append({'ts':now().isoformat(),'version':VERSION,'price':x['price'],'quoteTimestampUTC':x['quoteTimestampUTC'],'symbol':s,'event':'STAGE_UP','from':old,'to':x['stage'],'changePct':x['changePct'],'score':x['score']})
     for symbol in universe:
         state['symbols'].setdefault(symbol,{})['lastAttemptUTC']=t.isoformat()
+    attach_plans(state,rows,quotes,now().timestamp())
     evidence_at=now().isoformat()
     evaluate_signals(state,rows,evidence_at)
     freeze_signals(state,rows,evidence_at)
@@ -279,6 +285,10 @@ def main():
     ordered=sorted(rows,key=order_key,reverse=True)
     watch=ordered[:140];early=[x for x in ordered if x['stage'] in ('EARLY','ACTIONABLE','CONFIRMED') and x['changePct'] is not None and x['changePct']<10][:70];action=[x for x in ordered if x['stage'] in ('ACTIONABLE','CONFIRMED')][:35];confirmed=[x for x in action if x['stage']=='CONFIRMED'][:20]
     finished=now();out={'releaseVersion':RELEASE,'dataHealth':coverage_health(state,rows,universe,directory,finished.timestamp()),
+        'conditionalPlans':[x for x in ordered if x.get('conditionalPlan')][:50],
+        'quoteValidation':{'provider':quote_health,'freshQuotes':sum(not quote_checks(q,finished.timestamp()) for q in quotes.values()),
+            'observedPaperTriggers':len(state.get('conditionalPlanObservations',{})),'quoteMaxAgeSeconds':15,'maxSpreadPct':.3,
+            'liveTradingApproved':False,'reason':'Strategy validation remains unproven; quote observations are not broker fills.'},
         'sessionSetups':[x for x in ordered if current_setup(x,finished.timestamp())][:45],
         'sessionSetupLearning':{'modelId':(SESSION_MODEL or {}).get('id'),'validationStatus':(SESSION_MODEL or {}).get('validationStatus','MODEL_UNAVAILABLE'),
             'tradeEligible':False,'reasonsThisScan':dict(Counter(x.get('sessionSetup',{}).get('reason','PATTERN_OBSERVED') for x in rows)),
@@ -286,7 +296,7 @@ def main():
         'invalidated':[x for x in ordered if x['discoveryState'] in ('INVALIDATED','EXTENDED')][:70],
         'unavailable':[x for x in ordered if x['discoveryState']=='UNAVAILABLE'][:40],
         'explosiveLearning':{'modelId':(EXPLOSIVE_MODEL or {}).get('id'),'status':(EXPLOSIVE_MODEL or {}).get('validationStatus','MODEL_UNAVAILABLE'),'scoredThisScan':sum(x.get('explosive',{}).get('status')=='SHADOW' for x in rows),'recordedForwardObservations':len(state.get('explosiveObservations',{}))},'freshnessBuckets':dict(Counter(x['quoteTimestampUTC'] for x in rows if x.get('quoteFresh') is True)),'engineVersion':VERSION,'decisionStatus':'RESEARCH_ONLY','screeningPolicy':POLICY,
-        'validation':{'promoted':False,'predictiveAccuracyEstablished':False,'reason':'New screening policy requires prospective outcome evidence; no broker quote or execution integration.'},
+        'validation':{'promoted':False,'predictiveAccuracyEstablished':False,'reason':'Prospective outcome evidence required. Alpaca quote capability is reported separately; no order execution.'},
         'providerHealth':PROVIDER_HEALTH,'blockedCounts':dict(Counter(b for x in rows for b in x.get('riskBlocks',[]))),'quality':quality_summary(state),'coverage':{'directorySize':len(directory),'observedToday':sum(bool(v.get('lastSuccessfulScanUTC') or v.get('lastSeenUTC')) for v in state['symbols'].values()),'validQuotePct':round(100*len(rows)/len(universe),2) if universe else None,'freshQuotePct':round(100*sum(x.get('quoteFresh') is True for x in rows)/len(universe),2) if universe else None,'rvolAvailable':sum(x.get('relativeVolume') is not None for x in rows),'barsComparable':sum(x.get('volumeAcceleration15m') is not None for x in rows)},'scanStartedAtUTC':t.isoformat(),'scanDurationSeconds':round((finished-t).total_seconds(),1),'quotesFresh':sum(x.get('quoteFresh') is True for x in rows),'schemaVersion':10,'mode':'FORWARD_PIT_COVERAGE_FIRST','goal':{'earlyTop50RecallPct':95,'status':'TARGET_NOT_GUARANTEED'},'updatedAtUTC':finished.isoformat(),'updatedAtET':finished.astimezone(ET).isoformat(),'session':session(finished.astimezone(ET)),'scanSession':sess,'universeScanned':len(universe),'quotesValid':len(rows),'hotLane':len(hot),'sweepLane':len(sweep),'watch':watch,'early':early,'actionable':action,'confirmed':confirmed,'truth':{'uiPollSeconds':10,'backendCadenceSeconds':30 if os.getenv('TAGIT_CONTINUOUS')=='1' else 300,'backendCadence':'Best effort: scan duration and GitHub scheduling can delay publication','dataSource':'Yahoo 1m + Finviz Elite + Nasdaq Trader equities','note':'95% is a forward-validation target, not a claimed achieved accuracy.'}}
     OUT_PATH.write_text(json.dumps(out,separators=(',',':')));save_state(state);print(json.dumps({'session':sess,'scanned':len(universe),'valid':len(rows),'watch':len(watch),'early':len(early),'actionable':len(action),'confirmed':len(confirmed)}))
 if __name__=='__main__':main()

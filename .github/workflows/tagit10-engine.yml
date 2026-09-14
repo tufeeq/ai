@@ -7,6 +7,7 @@ on:
     branches: [main]
     paths:
       - 'tagit10/engine.py'
+      - 'tagit10/execution.py'
       - 'tagit10/quality.py'
       - 'tagit10/discovery.py'
       - 'tagit10/screening.py'
@@ -43,6 +44,9 @@ jobs:
       - name: Run coverage-first scan
         env:
           FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
+          ALPACA_API_KEY_ID: ${{ secrets.ALPACA_API_KEY_ID || secrets.APCA_API_KEY_ID }}
+          ALPACA_API_SECRET_KEY: ${{ secrets.ALPACA_API_SECRET_KEY || secrets.APCA_API_SECRET_KEY }}
+          TAGIT_ALPACA_FEED: ${{ vars.TAGIT_ALPACA_FEED || 'iex' }}
         run: |
           if git fetch origin tagit10-live && git show FETCH_HEAD:tagit10-state.json > /tmp/tagit10-state.json; then
             python tagit10/quality.py /tmp/tagit10-state.json tagit10-state.json

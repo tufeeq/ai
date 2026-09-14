@@ -96,6 +96,25 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
  await refresh(opening,0);assert(!(await page.locator('#rows').textContent()).includes('OPEN'));
  opening.sessionSetups[0].sessionSetup.decisionAtUTC=new Date().toISOString();opening.sessionSetups[0].price=9.9;
  await refresh(opening,0);assert(!(await page.locator('#rows').textContent()).includes('OPEN'));
+ const planned=fresh();planned.watch[0].conditionalPlan={schema:'conditional-plan-v1',id:'TEST_PLAN',entryTrigger:10.02,
+  entryLimit:10.04505,stopReference:9.89,targetScenario:10.5,expiresAtUTC:new Date(Date.now()+300000).toISOString(),
+  status:'PAPER_TRIGGER_OBSERVED',paperTriggerObserved:true,tradeEligible:false,blocks:[],assumedSlippagePerSidePct:.2,assumedFeePerSide:0,
+  quote:{feed:'iex',timestampUTC:new Date().toISOString(),bid:10.02,ask:10.025,bidSize:10,askSize:10}};
+ planned.quoteValidation={provider:{status:'OK',feed:'iex',requested:1,received:1},freshQuotes:1};
+ await refresh(planned,1);await page.locator('[data-tab="plans"]').click();
+ await page.locator('[data-symbol="TEST"]').click();
+ assert((await page.locator('#detail').textContent()).includes('لُوحظ شرط الدخول'));
+ assert((await page.locator('#detail').textContent()).includes('بورصة واحدة'));
+ await page.locator('#copyConditionalPlan').click();
+ assert.equal(Number(await page.locator('#planEntry').inputValue()),10.04505);
+ assert.equal(Number(await page.locator('#planStop').inputValue()),9.89);
+ assert.equal(Number(await page.locator('#planTarget').inputValue()),10.5);
+ await page.locator('.desk-nav [data-view="radar"]').click();
+ await page.locator('#detailClose').click();
+ planned.watch[0].conditionalPlan.quote.timestampUTC=new Date(Date.now()-20000).toISOString();
+ await refresh(planned,1);
+ assert((await page.locator('#rows').textContent()).includes('بانتظار عرض سعر حديث'));
+ assert(!(await page.locator('#rows').textContent()).includes('لُوحظ شرط الدخول'));
  // A fast response must render before the other endpoint finishes.
  await page.route('https://raw.githubusercontent.com/tufeeq/ai/main/tagit10-live.json*',async route=>{
    await new Promise(resolve=>setTimeout(resolve,4000));

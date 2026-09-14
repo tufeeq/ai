@@ -2,7 +2,7 @@
 from datetime import datetime
 from math import isfinite
 
-RELEASE = '10.6.0'
+RELEASE = '10.7.0'
 
 def timestamp(value):
     try:
