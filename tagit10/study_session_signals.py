@@ -74,7 +74,7 @@ def summarize(rows,dates):
     known=[r for r in rows if r['outcome'] is not None];nets=[r['outcome']['grossReturnPct']-.4 for r in known]
     daily=defaultdict(list)
     for r in rows:daily[r['date']].append(r['outcome']['grossReturnPct']-.4 if r['outcome'] is not None else -100)
-    means=np.array([np.mean(daily[d]) if daily[d] else 0 for d in dates])
+    means=np.array([np.mean(daily[d]) if daily.get(d) else 0 for d in dates])
     rng=np.random.default_rng(10600)
     lower=float(np.quantile(np.mean(rng.choice(means,(1000,len(means))),axis=1),.05)) if len(means)>=3 else None
     return {'alerts':len(rows),'scorable':len(known),'unscorable':len(rows)-len(known),

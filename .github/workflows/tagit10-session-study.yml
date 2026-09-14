@@ -1,13 +1,6 @@
 name: TAGit10 fixed session setup study
 on:
   workflow_dispatch:
-  push:
-    branches: [fix/tagit10-session-signals-20260914]
-    paths:
-      - 'tagit10/session_signals.py'
-      - 'tagit10/study_session_signals.py'
-      - 'tagit10/tests/test_session_signals.py'
-      - '.github/workflows/tagit10-session-study.yml'
 permissions:
   contents: write
 concurrency:
@@ -27,7 +20,7 @@ jobs:
           python-version: '3.12'
       - run: pip install numpy==2.3.5 scikit-learn==1.8.0
       - name: Verify causal setup and execution contracts
-        run: python -m unittest discover -s tagit10/tests -p 'test_session_signals.py' -v
+        run: python -m unittest discover -s tagit10/tests -p 'test_session*.py' -v
       - name: Reuse frozen history, fit once, evaluate chronological outcomes
         run: python -u tagit10/study_session_signals.py
       - uses: actions/upload-artifact@v4

@@ -2,7 +2,8 @@ import copy, sys, unittest
 from pathlib import Path
 from datetime import datetime, timezone
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from session_signals import vector,domain,families,outcome,predict_net,observe,SCHEMA
+from session_signals import vector,domain,families,outcome,predict_net,observe,SCHEMA,current_setup,record_forward
+from quality import merge_evidence
 
 START=int(datetime(2026,9,14,13,30,tzinfo=timezone.utc).timestamp())
 REF={'previousClose':10,'priorDayReturn':1,'priorDayRange':3,'asOfDate':'2026-09-11',
@@ -62,5 +63,50 @@ class SessionSetupTests(unittest.TestCase):
 
     def test_return_model_is_not_a_sigmoid_probability(self):
         self.assertEqual(predict_net({'intercept':-.2,'trees':[[{'leaf':True,'value':-.5}]]},[]),-.7)
+
+    def test_current_setup_expires_and_rejects_price_failure_and_non_equities(self):
+        row=self.setup_row()
+        self.assertTrue(current_setup(row,START+310))
+        for patch,at in [({},START+361),({'price':9.9},START+310),({'instrumentType':'ETF'},START+310),({'quoteFresh':False},START+310)]:
+            self.assertFalse(current_setup({**row,**patch},at))
+
+    def setup_row(self,symbol='TEST',family='OPENING_IMPULSE'):
+        return {'symbol':symbol,'quoteFresh':True,'price':10.1,'session':'regular','instrumentType':'EQUITY',
+            'sessionSetup':{'status':'RESEARCH_SETUP','tradeEligible':False,'referencePrice':10.1,
+                'decisionAtUTC':datetime.fromtimestamp(START+300,timezone.utc).isoformat(),
+                'families':[family],'indicatorEvidence':{'return5':1}},'_points':[]}
+
+    def test_family_budgets_and_immutable_forward_observation(self):
+        state={};rows=[self.setup_row('S'+str(i)) for i in range(7)]
+        rows.append(self.setup_row('BREAK','RANGE_BREAKOUT'))
+        record_forward(state,rows,START+310,lambda day:START+23400)
+        ledger=state['sessionSetupObservations'];self.assertEqual(len(ledger),6)
+        saved=copy.deepcopy(ledger);rows[0]['sessionSetup']['indicatorEvidence']['return5']=999
+        record_forward(state,rows,START+320,lambda day:START+23400)
+        self.assertEqual(ledger,saved)
+        self.assertTrue(all(x['outcomes']['3']['label']=='PENDING' for x in ledger.values()))
+        merged=merge_evidence(state,{'sessionDateET':'2026-09-15'})
+        self.assertEqual(merged['sessionSetupObservations'],ledger)
+
+    def test_forward_outcome_requires_delayed_entry_and_preserves_known_result(self):
+        state={};row=self.setup_row();record_forward(state,[row],START+310,lambda day:START+23400)
+        # First eligible 5m entry starts 09:40, not the 09:35 signal close.
+        row['_points']=[(START+600+i*60,20,5000,20,21,19) for i in range(5)]
+        record_forward(state,[row],START+910,lambda day:START+23400)
+        item=next(iter(state['sessionSetupObservations'].values()))
+        self.assertEqual(item['outcomes']['3']['entryPrice'],20)
+        self.assertEqual(item['outcomes']['3']['label'],'STOP_FIRST')
+        self.assertEqual(item['outcomes']['3']['netReturnPct'],-2.4)
+        record_forward(state,[],START+24000,lambda day:START+23400)
+        self.assertEqual(item['outcomes']['3']['label'],'STOP_FIRST')
+
+    def test_missing_future_is_unknown_and_can_resolve_when_bars_arrive(self):
+        state={};row=self.setup_row();record_forward(state,[row],START+310,lambda day:START+23400)
+        record_forward(state,[],START+2500,lambda day:START+23400)
+        item=next(iter(state['sessionSetupObservations'].values()))
+        self.assertEqual(item['outcomes']['3']['label'],'UNSCORABLE')
+        row['_points']=[(START+600+i*60,20,5000,20,21,19) for i in range(5)]
+        record_forward(state,[row],START+2600,lambda day:START+23400)
+        self.assertEqual(item['outcomes']['3']['label'],'STOP_FIRST')
 
 if __name__=='__main__':unittest.main()

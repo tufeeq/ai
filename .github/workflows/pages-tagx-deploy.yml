@@ -46,6 +46,7 @@ jobs:
           node --check tagit/post-session.js
           node --check tagit10/app.js
           node --check tagit10/trader.js
+          node --check tagit10/session-ui.js
           node --check tagit10/explosive-ui.js
           node --check tagit10/trade_math.js
           node tagit10/tests/test_trade_math.js
@@ -53,6 +54,7 @@ jobs:
           python -m unittest discover -s tagit10/tests -p 'test_engine.py'
           python -m unittest discover -s tagit10/tests -p 'test_quality.py'
           python -m unittest discover -s tagit10/tests -p 'test_integrity.py'
+          python -m unittest discover -s tagit10/tests -p 'test_session_signals.py'
           python -m unittest discover -s tagit10/tests -p 'test_discovery.py'
           node --check operon/engine.js
           node operon/test.js
@@ -70,9 +72,9 @@ jobs:
           rm -rf _site
           mkdir -p _site/tagit _site/tagit10 _site/marginos _site/operon
           cp tagit/index.html tagit/post-session.html tagit/post-session.js tagit/post-session.css tagit/live-v6.js tagit/early-v9.js tagit/live-v6-price-overlay.js tagit/technical-v7.js tagit/feed-recovery-v7.js tagit/live-v6.css _site/tagit/
-          cp tagit10/index.html tagit10/app.js tagit10/trader.js tagit10/trade_math.js tagit10/explosive-ui.js tagit10/style.css _site/tagit10/
+          cp tagit10/index.html tagit10/app.js tagit10/trader.js tagit10/trade_math.js tagit10/explosive-ui.js tagit10/session-ui.js tagit10/style.css _site/tagit10/
           mkdir -p _site/tagit10/reports
-          cp tagit10/reports/live-alert-audit-2026-09-14.json _site/tagit10/reports/
+          cp tagit10/reports/live-alert-audit-2026-09-14.json tagit10/reports/session-study.json _site/tagit10/reports/
           cp marginos/index.html _site/marginos/
           cp operon/index.html operon/engine.js operon/app.mjs operon/core.mjs operon/styles.css operon/favicon.svg operon/welcome.html operon/marketing.css operon/marketing.mjs _site/operon/
           test -e _site/operon/index.html

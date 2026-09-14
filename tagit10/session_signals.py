@@ -2,7 +2,8 @@
 
 All model estimates and setups are research observations, never trade permission.
 """
-import json, math
+import copy, json, math
+from collections import Counter
 from pathlib import Path
 from explosive import pct, slot, aggregate_minutes, ET
 from datetime import datetime, timezone
@@ -112,9 +113,72 @@ def observe(symbol,points,session,refs,bundle,at):
     names=families(x)
     if not names:return {**base,'status':'NO_SETUP','reason':'PRICE_VOLUME_STRUCTURE_NOT_MET'}
     result={**base,'status':'RESEARCH_SETUP','families':names,'decisionAtUTC':datetime.fromtimestamp(bars[-1]['t']+300,timezone.utc).isoformat(),
-        'minutesFromOpen':x[13],'indicatorEvidence':dict(zip(FEATURES,x)),
+        'minutesFromOpen':x[13],'referencePrice':bars[-1]['c'],'indicatorEvidence':dict(zip(FEATURES,x)),
         'meaning':'Observed price/volume structure; no demonstrated trading approval'}
     if bundle and bundle.get('schema')==SCHEMA and bundle.get('trainingCutoff',today)<today and bundle.get('evaluatedThrough',today)<today:
         result.update(modelId=bundle['id'],estimatedNet30mPct=round(predict_net(bundle['model'],x),4),
             validationStatus=bundle['validationStatus'],researchThreshold=bundle['threshold'])
     return result
+
+def current_setup(row, at):
+    x=row.get('sessionSetup',{})
+    try:age=at-datetime.fromisoformat(x['decisionAtUTC']).timestamp()
+    except (KeyError,TypeError,ValueError):return False
+    return (x.get('status')=='RESEARCH_SETUP' and x.get('tradeEligible') is False
+        and row.get('quoteFresh') is True and row.get('session')=='regular'
+        and row.get('instrumentType')=='EQUITY' and 0<=age<=60
+        and row.get('price',0)>=x.get('referencePrice',float('inf')))
+
+OBSERVATION_POLICY='First stock per family per session; five observations per family; chronological detection, then symbol. Research sampling, not the historical five-total-alert strategy.'
+
+def record_forward(state, rows, at, close_for_date):
+    """Freeze observed inputs before outcomes; keep unknown bars separate from losses.
+
+    Family budgets prevent opening observations consuming continuation capacity.
+    The prospective sampling policy is deliberately reported separately from replay.
+    """
+    ledger=state.setdefault('sessionSetupObservations',{})
+    today=datetime.fromtimestamp(at,ET).date().isoformat()
+    counts=Counter((r['date'],r['family']) for r in ledger.values())
+    for row in sorted(rows,key=lambda r:(r.get('sessionSetup',{}).get('decisionAtUTC',''),r['symbol'])):
+        if not current_setup(row,at):continue
+        x=row['sessionSetup'];decision=datetime.fromisoformat(x['decisionAtUTC']).timestamp()
+        close_at=close_for_date(today)
+        if not close_at or decision+2100>close_at:continue
+        for family in x['families']:
+            key=f'{SCHEMA}:{today}:{row["symbol"]}:{family}'
+            if key in ledger or counts[(today,family)]>=5:continue
+            ledger[key]={'schema':SCHEMA,'symbol':row['symbol'],'date':today,'family':family,
+                'observedAtUTC':datetime.fromtimestamp(at,timezone.utc).isoformat(),
+                'decisionAtUTC':x['decisionAtUTC'],'entryAt':decision+300,'closeAt':close_at,
+                'releaseVersion':row.get('releaseVersion'),'evidence':copy.deepcopy(x),
+                'policy':OBSERVATION_POLICY,'tradeEligible':False,'outcomes':{}}
+            counts[(today,family)]+=1
+    bars={r['symbol']:aggregate_minutes(r.get('_points',[])) for r in rows}
+    for item in ledger.values():
+        decision=datetime.fromisoformat(item['decisionAtUTC']).timestamp()
+        future=[b for b in bars.get(item['symbol'],[]) if item['entryAt']<=b['t']<item['closeAt']]
+        for target,minutes in ((3,30),(10,None),(20,None)):
+            key=str(target)
+            if item['outcomes'].get(key,{}).get('label') in ('TARGET_FIRST','STOP_FIRST','TIMEOUT'):continue
+            result=outcome(future,decision,item['closeAt'],target,minutes)
+            if result:
+                item['outcomes'][key]={**result,'netReturnPct':round(result['grossReturnPct']-.4,4),
+                    'assumedCostPct':.4,'evaluatedAtUTC':datetime.fromtimestamp(at,timezone.utc).isoformat()}
+            else:
+                deadline=item['entryAt']+1800 if minutes else item['closeAt']
+                item['outcomes'][key]={'label':'UNSCORABLE' if at>=deadline else 'PENDING'}
+    state['sessionSetupObservations']=dict(sorted(ledger.items())[-5000:])
+
+def forward_summary(state):
+    rows=list(state.get('sessionSetupObservations',{}).values());groups={}
+    for family in HYPOTHESES:
+        items=[r for r in rows if r['family']==family]
+        results=[r.get('outcomes',{}).get('3',{}) for r in items]
+        known=[r for r in results if r.get('label') in ('TARGET_FIRST','STOP_FIRST','TIMEOUT')]
+        groups[family]={'recorded':len(items),'scorable':len(known),
+            'unscorable':sum(r.get('label')=='UNSCORABLE' for r in results),
+            'pending':sum(r.get('label') in (None,'PENDING') for r in results),
+            'target3Hits':sum(r['label']=='TARGET_FIRST' for r in known),
+            'meanNetPct':round(sum(r['netReturnPct'] for r in known)/len(known),4) if known else None}
+    return groups

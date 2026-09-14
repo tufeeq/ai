@@ -125,6 +125,17 @@ def merge_evidence(a,b):
             if old is None or item['observedAtUTC']<old['observedAtUTC']:
                 observations[key]=item
     out['explosiveObservations']=dict(sorted(observations.items())[-2000:])
+    setups={}
+    for source in (a,b):
+        for key,item in source.get('sessionSetupObservations',{}).items():
+            old=setups.get(key)
+            if old is None or item['observedAtUTC']<old['observedAtUTC']:setups[key]=item
+            elif item['observedAtUTC']==old['observedAtUTC']:
+                merged=dict(old.get('outcomes',{}))
+                for target,result in item.get('outcomes',{}).items():
+                    if merged.get(target,{}).get('label') not in ('TARGET_FIRST','STOP_FIRST','TIMEOUT'):merged[target]=result
+                setups[key]={**old,'outcomes':merged}
+    out['sessionSetupObservations']=dict(sorted(setups.items())[-5000:])
     return out
 
 if __name__=='__main__':
@@ -133,4 +144,3 @@ if __name__=='__main__':
     source,target=map(Path,sys.argv[1:3])
     prior=json.loads(target.read_text()) if target.exists() else {}
     target.write_text(json.dumps(merge_evidence(json.loads(source.read_text()),prior),separators=(',',':')))
-
