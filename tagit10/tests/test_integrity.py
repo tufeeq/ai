@@ -61,7 +61,7 @@ class FinvizContractTests(unittest.TestCase):
  def test_custom_export_supplies_actual_relative_volume(self):
   calls=[]
   def get(url,timeout):
-   calls.append(url);return b'Ticker,Price,Relative Volume\\nTEST,10,3.5\\n'
+   calls.append(url);return b'Ticker,Price,Relative Volume\nTEST,10,3.5\n'
   with patch.object(e,'TOKEN','unit-test-placeholder'),patch.object(e,'get',side_effect=get),patch.object(e.time,'sleep'):
    rows=e.finviz_rows()
   self.assertTrue(all('/export.ashx?' in u and '&c=' in u for u in calls))
@@ -69,7 +69,7 @@ class FinvizContractTests(unittest.TestCase):
   self.assertEqual(e.PROVIDER_HEALTH['finviz']['rvolCoveragePct'],100)
   self.assertEqual(e.PROVIDER_HEALTH['finviz']['status'],'OK')
  def test_http_success_without_required_fields_is_degraded(self):
-  with patch.object(e,'TOKEN','unit-test-placeholder'),patch.object(e,'get',return_value=b'Ticker,Price\\nTEST,10\\n'),patch.object(e.time,'sleep'):
+  with patch.object(e,'TOKEN','unit-test-placeholder'),patch.object(e,'get',return_value=b'Ticker,Price\nTEST,10\n'),patch.object(e.time,'sleep'):
    e.finviz_rows()
   self.assertEqual(e.PROVIDER_HEALTH['finviz']['successfulScans'],3)
   self.assertEqual(e.PROVIDER_HEALTH['finviz']['status'],'DEGRADED')
