@@ -44,7 +44,7 @@ def forward_evidence(rows, model_id):
     for item in observed:
         matched = lookup.get((item['symbol'], item['date'], item['decisionAt']))
         observed_at = datetime.fromisoformat(item['observedAtUTC']).timestamp()
-        if matched and item['decisionAt'] <= observed_at < item['decisionAt'] + 300:
+        if matched and matched['y'] is not None and item['decisionAt'] <= observed_at < item['decisionAt'] + 300:
             scorable.append(matched)
     dates = sorted({r['date'] for r in scorable})
     return {'recordedBeforeOutcome': len(observed), 'pendingOrUnscorable': len(observed)-len(scorable),
@@ -94,7 +94,7 @@ def examples():
                     events.append(event)
                     ref = reference(prior)
                     if ref:
-                        for i in range(5, len(bars) - 2):
+                        for i in range(5, len(bars)):
                             b = bars[i]
                             decision = b['t'] + 300
                             if decision % 900 or close_at - decision < 3600:

@@ -107,6 +107,13 @@ def merge_evidence(a,b):
             if old is None or sig['signalAtUTC']<old['signalAtUTC'] or (sig['signalAtUTC']==old['signalAtUTC'] and old['label']=='PENDING'):
                 ledger[key]=sig
     out['signalLedger']=ledger
+    observations={}
+    for source in (a,b):
+        for key,item in source.get('explosiveObservations',{}).items():
+            old=observations.get(key)
+            if old is None or item['observedAtUTC']<old['observedAtUTC']:
+                observations[key]=item
+    out['explosiveObservations']=dict(sorted(observations.items())[-2000:])
     return out
 
 if __name__=='__main__':

@@ -13,7 +13,7 @@ FEATURES = ['return5', 'return15', 'return30', 'volumeAcceleration15',
             'vwapDistance', 'drawdownFromHigh', 'closePosition', 'moveFromOpen',
             'moveFromPreviousClose', 'gapPct', 'minutesFromOpen', 'upBarFraction',
             'upperWickFraction', 'logSameTimeRelativeVolume', 'priorDayReturn', 'priorDayRange']
-SCHEMA = 'session-mover-v1.1'
+SCHEMA = 'session-mover-v1.2'
 
 
 def pct(a, b):

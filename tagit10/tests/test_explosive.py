@@ -11,6 +11,26 @@ def bars(day='2026-09-11', count=78):
 
 
 class CausalTests(unittest.TestCase):
+    def test_missing_future_does_not_remove_a_known_candidate(self):
+        try:
+            import train_explosive as train
+        except ImportError:
+            self.skipTest('Training dependencies not installed on scanner')
+        import tempfile, gzip, json
+        from unittest.mock import patch
+        history = []
+        for day in ['2026-09-01','2026-09-02','2026-09-03','2026-09-04','2026-09-08']:
+            history.extend(bars(day))
+        history.extend(bars('2026-09-09', count=6))
+        with tempfile.TemporaryDirectory() as d, patch.object(train, 'DATA', Path(d)):
+            with gzip.open(Path(d)/'bars-0.jsonl.gz', 'wt') as f:
+                f.write(json.dumps({'symbol':'TEST','bars':history,'splitEvents':{}})+'\n')
+            rows, _, refs, _ = train.examples()
+        last = [r for r in rows if r['date']=='2026-09-09']
+        self.assertEqual(len(last), 1)
+        self.assertIsNone(last[0]['y'])
+        self.assertEqual(refs['TEST']['asOfDate'], '2026-09-08')
+
     def test_unknown_outcome_consumes_capacity_and_is_json_serializable(self):
         try:
             from train_explosive import alerts, summarize

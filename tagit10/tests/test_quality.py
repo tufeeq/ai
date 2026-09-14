@@ -17,6 +17,14 @@ class QualityTests(unittest.TestCase):
   other['signalLedger'][key]['entryReference']=110
   merged=merge_evidence(self.state,other)
   self.assertEqual(merged['signalLedger'][key]['entryReference'],100)
+ def test_research_observations_survive_day_changes_and_writer_merges(self):
+  first={'symbol':'TEST','observedAtUTC':'2026-09-11T14:00:10+00:00','score':2}
+  later={**first,'observedAtUTC':'2026-09-11T14:00:20+00:00','score':9}
+  a={'sessionDateET':'2026-09-11','explosiveObservations':{'2026-09-11:TEST':first}}
+  b={'sessionDateET':'2026-09-14','explosiveObservations':{'2026-09-11:TEST':later}}
+  merged=merge_evidence(a,b)
+  self.assertEqual(merged['sessionDateET'],'2026-09-14')
+  self.assertEqual(merged['explosiveObservations']['2026-09-11:TEST']['score'],2)
  def test_signal_is_immutable(self):
   sig=self.freeze();self.row['price']=120;freeze_signals(self.state,[self.row],(self.at+timedelta(minutes=5)).isoformat());self.assertEqual(sig['entryReference'],100)
  def test_missing_price_change_not_recalled(self):
