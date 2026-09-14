@@ -37,3 +37,7 @@ Regression and browser checks establish specific software behavior, not predicti
 Yahoo candles and Finviz scans are not broker executable quotes. Spread, live halt state, verified catalysts, market impact and actual fills are not connected. No new model is approved for live trading; no accuracy or recovery promise is made.
 
 Calendar reference: https://www.nyse.com/markets/hours-calendars
+
+## Live verification follow-up
+
+The first repaired scan on 2026-09-14 restored publication but exposed zero Finviz relative-volume rows despite three successful HTTP exports. The provider now explicitly requests the established Elite rich columns through export.ashx, spaces requests by six seconds, and reports DEGRADED when required RVOL coverage is absent. No relative-volume values are estimated from cumulative volume.
