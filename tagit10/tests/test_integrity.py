@@ -114,4 +114,29 @@ class OutcomeIntegrityTests(unittest.TestCase):
   freeze_signals(self.state,[self.row],self.at.isoformat())
   self.assertEqual(len(self.state['signalLedger']),before)
 
+class RefreshBudgetTests(unittest.TestCase):
+ def test_three_fast_scans_do_not_exceed_previous_quote_budget(self):
+  state={'symbols':{},'signalLedger':{}}
+  count=0;seen=set()
+  for i in range(3):
+   hot,sweep=e.scan_lanes(state,[f'H{x}' for x in range(500)],[f'S{x}' for x in range(7000)],True)
+   count+=len(hot)+len(sweep);seen.update(sweep)
+  self.assertLessEqual(count,1040)
+  self.assertEqual(len(seen),540)
+ def test_pending_and_active_symbols_keep_priority(self):
+  state={'symbols':{'ACTIVE':{'lastStage':'EARLY'}},'signalLedger':{'p':{'symbol':'PENDING','label':'PENDING','version':VERSION}}}
+  hot,_=e.scan_lanes(state,[f'H{x}' for x in range(500)],[],True)
+  self.assertEqual(hot[:2],['PENDING','ACTIVE'])
+ def test_cached_finviz_keeps_original_collection_time(self):
+  import tempfile,os
+  at=datetime(2026,9,14,14,tzinfo=timezone.utc)
+  with tempfile.TemporaryDirectory() as d,patch.object(e,'ROOT',Path(d)),patch.dict(os.environ,{'TAGIT_CONTINUOUS':'1'}),patch.object(e,'TOKEN','unit-test-placeholder'),patch.object(e,'now',return_value=at) as clock,patch.object(e,'get',return_value=b'Ticker,Relative Volume\nTEST,3\n') as get,patch.object(e.time,'sleep'):
+   e.finviz_rows();first=e.PROVIDER_HEALTH['finviz']['collectedAtUTC']
+   clock.return_value=at+timedelta(seconds=30);e.finviz_rows()
+   self.assertEqual(get.call_count,3)
+   self.assertEqual(e.PROVIDER_HEALTH['finviz']['collectedAtUTC'],first)
+   self.assertEqual(e.PROVIDER_HEALTH['finviz']['cacheAgeSeconds'],30)
+   clock.return_value=at+timedelta(seconds=121);e.finviz_rows()
+   self.assertEqual(get.call_count,6)
+
 if __name__=='__main__':unittest.main()
