@@ -28,6 +28,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
  await page.locator('[data-view="radar"]').click();
  async function refresh(newFeed,count){
   feed=newFeed;await page.locator('#refresh').click();
+  await page.waitForFunction(()=>!document.getElementById('refresh').disabled);
   await page.waitForFunction(n=>document.getElementById('confirmedN').textContent===n,String(count));
  }
  const legacy=fresh();legacy.engineVersion='10.2';

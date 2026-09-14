@@ -39,7 +39,7 @@ def evaluate_signals(state, rows, observed_at):
         by_time={p[0]:p for p in points if len(p)>=6 and first<=p[0]<deadline and p[0]+60<=end}
         complete=all(t in by_time for t in range(first,deadline,60))
         if not complete:
-            if end>deadline+900:
+            if end>=deadline+900:
                 signal.update(label='UNSCORABLE',labelReason='Missing subsequent complete OHLC minutes',evaluatedAtUTC=observed_at)
             continue
         bars=[by_time[t] for t in range(first,deadline,60)]
