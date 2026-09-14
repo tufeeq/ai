@@ -1,0 +1,16 @@
+const assert=require('assert');
+const E=require('../engine');
+const previous={monthlyRevenue:850000,cashRunwayDays:43,overdueAR:391000,activeProjects:14,atRiskProjects:4,pipeline:6200000,stalePipeline:1360000,vendorLeakage:186000,churnRiskPct:38,revenueAtRisk:120000,overCapacityPct:22,capacityRevenueAtRisk:90000};
+const day1={monthlyRevenue:872000,cashRunwayDays:36,overdueAR:468000,activeProjects:15,atRiskProjects:5,pipeline:5980000,stalePipeline:1710000,vendorLeakage:224000,churnRiskPct:57,revenueAtRisk:310000,overCapacityPct:34,capacityRevenueAtRisk:215000};
+const prevScore=E.scoreCompany(previous),startScore=E.scoreCompany(day1),decisions=E.detectDecisions(day1);
+assert(startScore<prevScore,'Day 1 deterioration should reduce health');
+assert.deepStrictEqual(new Set(decisions.map(x=>x.domain)),new Set(['Finance','Revenue','Delivery','Procurement','Customer','People']));
+assert(decisions.every(x=>Number.isFinite(x.expectedImpact)&&x.expectedImpact>=0));
+assert(decisions.every(x=>x.priority<=x.impact),'Risk-adjusted priority must not exceed exposure');
+let state={...day1};
+for(const decision of decisions) state=E.simulate(state,decision);
+const endScore=E.scoreCompany(state);
+assert(endScore>startScore,'Executing modeled interventions should improve aggregate health');
+assert(state.stalePipeline<day1.stalePipeline,'Revenue intervention must reduce stale pipeline, not only inflate pipeline');
+assert(state.vendorLeakage<day1.vendorLeakage,'Procurement intervention must reduce leakage');
+console.log(JSON.stringify({status:'PASS',previousScore:prevScore,day1Score:startScore,postInterventionScore:endScore,healthLift:endScore-startScore,decisionCount:decisions.length,domains:[...new Set(decisions.map(x=>x.domain))],topDecisions:decisions.slice(0,4).map(({domain,title,impact,expectedImpact,priority})=>({domain,title,impact,expectedImpact,priority})),postState:state},null,2));
