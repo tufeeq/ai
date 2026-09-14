@@ -9,6 +9,12 @@ sampled stocks, 10 sessions, and a frozen chronological test. All three hypothes
 were rejected. See [STUDY_RESULTS.md](STUDY_RESULTS.md) for the full results and
 limitations. The runtime is explicitly marked rejected-model data collection only.
 
+**Quote audit added:** 10,375 historical SIP quotes for 12 preselected entry windows
+found five candle-based entry rejections with later eligible quotes. This exposes
+an execution-measurement limitation, not a profitable model. See
+[QUOTE_FINDINGS.md](QUOTE_FINDINGS.md). News availability checks are implemented;
+a complete historical news feed has not been connected.
+
 ## What changes
 
 - Equities with known market capitalization below USD 1 billion; price USD 0.15–30.

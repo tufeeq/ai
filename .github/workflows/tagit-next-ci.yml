@@ -28,3 +28,8 @@ jobs:
         working-directory: tagit-next
       - run: python verify_study.py
         working-directory: tagit-next
+      - run: |
+          cp data/quote-audit.json /tmp/quote-audit-expected.json
+          python quote_audit.py
+          cmp data/quote-audit.json /tmp/quote-audit-expected.json
+        working-directory: tagit-next
