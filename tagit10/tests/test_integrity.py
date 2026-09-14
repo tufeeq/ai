@@ -35,6 +35,12 @@ class BarIntegrityTests(unittest.TestCase):
   x=self.feature(instrument='ETF');self.assertEqual(x['stage'],'WATCH')
  def test_missing_window_minute_blocks(self):
   pts=self.points();pts.pop(20);self.assertFalse(structure(pts)['windowsComplete'])
+ def test_previous_session_cannot_publish_fresh_signal(self):
+  at=datetime(2026,9,14,20,0,tzinfo=timezone.utc)
+  pts=[(at.timestamp()-60*(31-i),10+i*.01,25000,10+i*.01,10+i*.01+.005,10+i*.01-.005) for i in range(31)]
+  with patch.object(e,'chart',return_value=(pts,{'instrumentType':'EQUITY'},10)),patch.object(e,'now',return_value=at):
+   x=e.features('TEST',{'Relative Volume':'3'},'regular')
+  self.assertFalse(x['quoteFresh']);self.assertEqual(x['stage'],'WATCH')
  def test_labor_day_closed(self):
   self.assertEqual(e.session(datetime(2026,9,7,10,tzinfo=e.ET)),'closed')
  def test_early_close_and_unknown_calendar(self):
