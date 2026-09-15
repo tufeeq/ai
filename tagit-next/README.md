@@ -148,3 +148,8 @@ configuration. Faster refreshing or a new visual design alone cannot resolve the
 
 References: https://docs.alpaca.markets/us/docs/real-time-stock-pricing-data
 and https://docs.alpaca.markets/us/reference/stockbars
+
+
+Alternative hosting: [Cloudflare deployment instructions](quote-service/CLOUDFLARE.md).
+The Worker adapter is implemented; account access, protected Alpaca keys and actual
+hosted verification are still required. This does not establish trading performance.

@@ -1,5 +1,5 @@
 import {createMarketService} from './market.mjs';
-export function createHandler({service=createMarketService(),env=process.env}={}){
+export function createHandler({env=globalThis.process?.env??{},service=createMarketService({env})}={}){
  return async function handle(req,res){
   const origin=req.headers.origin,allowed=env.TAGIT_ALLOWED_ORIGIN||'https://tufeeq.github.io';
   res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Vary','Origin');res.setHeader('X-Content-Type-Options','nosniff');
@@ -23,4 +23,9 @@ export function createHandler({service=createMarketService(),env=process.env}={}
   }
  };
 }
-export default createHandler();
+// Lazy initialization also permits importing the handler in Web API runtimes.
+let defaultHandler;
+export default function handle(req,res){
+ defaultHandler??=createHandler();
+ return defaultHandler(req,res);
+}

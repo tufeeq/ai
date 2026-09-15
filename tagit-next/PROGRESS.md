@@ -110,3 +110,27 @@ Frontend deployment succeeded in Pages run 34994737101; research CI run 34994732
 passed the 72 software checks. Public re-verification from this workspace timed out
 in HTTP and browser attempts; local UI checks passed. This failed external check
 is retained in LIVE_FINDINGS.md, and no successful direct price connection is claimed.
+
+
+## September 15 — alternative Cloudflare deployment route
+
+At the user's request to try another method, added a Cloudflare Workers adapter
+and configuration under quote-service, reusing the independent service and HTTP
+contract. Six new adapter tests pass (28 Node tests total). The handler now initializes
+lazily so the Worker imports without a Node process global, and explicit environment
+bindings reach the market service correctly. No new market data was requested.
+
+Cloudflare is available for connection, but is not yet connected; no Cloudflare
+runtime account/token or Alpaca runtime keys were found. This is a tested alternative
+implementation, not a successful deployment. The public endpoint remains null.
+See quote-service/CLOUDFLARE.md for exact activation steps. Next: obtain authorized
+Cloudflare access, deploy without changing plans, configure protected Alpaca keys,
+verify actual HTTP quotes and only then publish the verified backend origin.
+Historical rejected hypotheses and five unresolved exits remain unchanged.
+
+
+Alternative build verification: Wrangler 4.132.0 `deploy --dry-run` succeeded
+(10.84 KiB bundle). Local workerd startup could not be verified: Wrangler failed
+with `uv_interface_addresses returned Unknown system error 1` in this workspace.
+The local smoke check timed out after 25 seconds and its process was stopped.
+Do not equate the successful build and Node tests with a successful hosted run.
