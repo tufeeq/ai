@@ -9,6 +9,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%23102b30'/%3E%3Ctext x='9' y='30' fill='%235ce0ba' font-size='30' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
   <script src="app.js" defer></script>
+  <script src="prices.js" type="module"></script>
 </head>
 <body>
   <a class="skip" href="#main">انتقل إلى المحتوى</a>
@@ -16,11 +17,20 @@
     <div class="brand" dir="ltr"><span class="brand-icon">T</span><span>TAGit <b>NEXT</b></span></div>
     <span class="version">نسخة بحثية <i></i></span>
   </header>
-  <nav aria-label="التنقل الرئيسي"><div class="nav-inner"><a href="#overview">نظرة عامة</a><a href="#ledger">سجل الاختبارات</a><a href="#readiness">جاهزية التشغيل</a></div></nav>
+  <nav aria-label="التنقل الرئيسي"><div class="nav-inner"><a href="#prices">الأسعار</a><a href="#overview">البحث</a><a href="#ledger">سجل الاختبارات</a><a href="#readiness">الجاهزية</a></div></nav>
   <main id="main">
+    <section id="prices" class="panel price-panel" aria-labelledby="prices-title">
+      <div class="section-head"><div><p class="eyebrow">متابعة الأسعار · دون تنفيذ صفقات</p><h2 id="prices-title">الطلب والعرض وآخر صفقة</h2></div><span id="price-feed" class="state neutral">غير متصل</span></div>
+      <p id="price-status" class="notice" role="status">جارٍ فحص إعدادات اتصال الأسعار…</p>
+      <form id="price-form" class="price-controls"><label for="price-symbols">رموز الأسهم · حتى 20 سهمًا<input id="price-symbols" value="SENS, NUAI, BTCT" dir="ltr" autocomplete="off" spellcheck="false"></label><button id="price-refresh" type="submit" disabled>تحديث الأسعار</button><button id="price-pause" type="button" disabled>إيقاف مؤقت</button></form>
+      <p class="muted">رموز البداية لمعاينة الاتصال، وليست ترشيحات. مصدر IEX يغطي سوقًا واحدًا، ولا يضمن آخر سعر على مستوى جميع الأسواق.</p>
+      <div class="table-wrap"><table><caption class="sr-only">متابعة الأسعار؛ وقت كل سعر بتوقيت نيويورك. سعر آخر صفقة يختلف عن الطلب والعرض.</caption><thead><tr><th>السهم</th><th>آخر صفقة</th><th>الطلب Bid</th><th>العرض Ask</th><th>حداثة الطلب والعرض</th><th>وقت السعر · نيويورك</th><th>القيمة السوقية $</th></tr></thead><tbody id="price-rows"></tbody></table></div>
+      <p id="price-empty" class="muted">لا توجد أسعار متصلة لعرضها. لن تُستبدل بأرقام تجريبية أو بأسعار الاختبارات التاريخية.</p>
+      <p id="price-reference" class="table-foot">يُتحقق من شرط القيمة السوقية دون مليار دولار قبل طلب الأسعار.</p>
+    </section>
     <section id="overview" class="hero">
       <div><p class="eyebrow">أبحاث الأسهم الأمريكية الصغيرة</p><h1>حركة كبيرة.<br><span>دليل يسبق القرار.</span></h1><p class="intro">مساحة مستقلة لفحص الفرص في الأسهم ذات القيمة السوقية دون مليار دولار، وقياس الحركة المتبقية بعد دخول قابل للتنفيذ.</p></div>
-      <aside class="status-card"><div class="status-top"><span class="dot"></span> حالة النسخة</div><h2>البحث متاح<br>والتشغيل اللحظي غير متصل</h2><p>المعروض نتائج تاريخية. الفرضيات الثلاث اختُبرت ورُفضت؛ لا توجد استراتيجية معتمدة لتقديم توصيات تداول.</p><div class="date-row">آخر نتائج بحثية <time datetime="2026-09-15">15 سبتمبر 2026</time></div></aside>
+      <aside class="status-card"><div class="status-top"><span class="dot"></span> حالة النسخة</div><h2>البحث متاح<br>والاستراتيجية غير معتمدة</h2><p>الدراسة أدناه تاريخية. الفرضيات الثلاث اختُبرت ورُفضت؛ لا توجد استراتيجية معتمدة لتقديم توصيات تداول.</p><div class="date-row">آخر نتائج بحثية <time datetime="2026-09-15">15 سبتمبر 2026</time></div></aside>
     </section>
     <div class="notice"><b>هذه الصفحة لا تعرض فرص جلسة اليوم.</b><span>عدم وجود بث لحظي لا يعني عدم وجود فرص في السوق. نجاح الاختبارات البرمجية لا يثبت نجاح التداول.</span></div>
     <div id="load-status" role="status">جارٍ تحميل السجل المحفوظ…</div>
@@ -45,7 +55,7 @@
     <section class="next-step"><span class="eyebrow">آخر تطوير · 15 سبتمبر 2026</span><h2>إصلاح التعامل مع تحديثات أسعار الخروج</h2><p>أُصلح تجاهل سعر صالح بعد تحديث غير صالح. بقيت 5 من 10 حالات غير محسومة؛ ظهرت تحديثات لاحقة بعد نحو 3.8–34.9 ثانية، خارج مهلة الخروج المحددة. لم يتغير تقييم أداء التداول.</p><p><b>الخطوة التالية:</b> اختبار أثر تأخر التنفيذ على عينة مختلفة بقواعد محددة مسبقًا.</p></section>
     <noscript><p class="notice">فعّل JavaScript لعرض سجل الحالات والبحث فيه. يمكنك قراءة الدراسة من الرابط أعلاه.</p></noscript>
   </main>
-  <footer><div class="brand" dir="ltr">TAGit <b>NEXT</b></div><span>بيانات تاريخية · لا تُنفّذ هذه الواجهة صفقات</span><a href="https://github.com/tufeeq/ai/tree/tagit-next-independent-20260914/tagit-next" target="_blank" rel="noopener">المشروع وسجل التطوير ↗</a></footer>
+  <footer><div class="brand" dir="ltr">TAGit <b>NEXT</b></div><span>بحث ومتابعة أسعار · لا تُنفّذ هذه الواجهة صفقات</span><a href="https://github.com/tufeeq/ai/tree/tagit-next-independent-20260914/tagit-next" target="_blank" rel="noopener">المشروع وسجل التطوير ↗</a></footer>
   <dialog id="detail"><div class="dialog-top"><h2 id="detail-title"></h2><button type="button" id="close-detail" aria-label="إغلاق التفاصيل">×</button></div><p class="notice">محاكاة تاريخية — المستويات أدناه ليست أسعار دخول أو أهدافًا حالية.</p><dl id="detail-values"></dl><p id="detail-note" class="muted"></p></dialog>
 </body>
 </html>

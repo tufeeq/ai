@@ -75,3 +75,33 @@ Future research cycles must refresh the public snapshot explicitly when publishi
 new findings; it is not an automatic live feed. The next research experiment remains
 execution latency on different predeclared development cases, with validation kept
 separate. Publishing this interface establishes no trading accuracy or profitability.
+
+
+## September 15 — dynamic quote integration and capability checks
+
+Added an independent read-only Node service and Arabic price panel: last trade,
+bid/ask, provider event timestamps, advancing age, explicit IEX/SIP/delayed coverage,
+bounded five-second refresh, cancellation, visibility suspension and retry backoff.
+The service requires timestamped metadata below $1B, excludes invalid caps/funds/
+shells and imports no old engine decisions. 2,197 eligible reference rows were found
+in the current saved broad export; this is not a full-market scan or a new training
+sample. Historical detector and execution outcomes remain unchanged.
+
+Actual connector tests restored IEX after initial internal errors. SIP returned a
+subscription rejection. Saved raw IEX snapshots for SENS, NUAI and BTCT plus a later
+clock check; this confirms connector access, not deployed-server connectivity.
+No strategy accuracy, full-market coverage or real fill claim is made.
+
+50 Python + 22 Node checks passed. Browser fixture checks covered changing prices,
+separate trade/bid/ask, idle aging, pause/resume, errors, backoff and symbol changes;
+no fixtures were published. Existing research ledger checks also passed.
+
+Production deployment of the completed service was attempted; Vercel rejected it
+with HTTP 402, exhausted 100/day free deployment quota, reset reported
+2026-09-16T16:13:06.470Z. Runtime Alpaca keys are also absent. The frontend is prepared
+with endpoint null and an explicit blocked status; no fake live quotes. See
+[LIVE_FINDINGS.md](LIVE_FINDINGS.md) for evidence and activation steps. Do not retry
+before quota reset or change the subscription. Next: deploy, set protected runtime
+keys, verify actual HTTP prices, then publish the verified endpoint. The independent
+latency experiment and forward validation still remain; this plumbing work does not
+supersede those research gates.

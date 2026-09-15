@@ -1,8 +1,11 @@
 # TAGit NEXT — independent small-cap rebuild
 
 **Published research interface:** https://tufeeq.github.io/ai/tagit-next/
-The Arabic interface exposes historical study and quote-audit cases; it is not a
-live scanner or an approved trading strategy. See [web/README.md](web/README.md)
+The Arabic interface exposes historical study and quote-audit cases and a price
+connection panel. The market-data service is implemented and tested but NOT deployed
+or connected: Vercel daily deployment quota and runtime credentials block activation.
+See [LIVE_FINDINGS.md](LIVE_FINDINGS.md) for checks, limits and exact next actions.
+It is not a live scanner or an approved trading strategy. See [web/README.md](web/README.md)
 for snapshot provenance and publication/update instructions.
 
 Latest iteration: [PROGRESS.md](PROGRESS.md) records the September 15 timeout-quote
