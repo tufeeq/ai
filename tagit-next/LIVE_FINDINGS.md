@@ -79,3 +79,18 @@ Browser fixtures were not published. Software validation is not trading evidence
 Official endpoint/coverage definitions:
 https://docs.alpaca.markets/us/reference/stocksnapshots-1
 https://docs.alpaca.markets/us/docs/real-time-stock-pricing-data
+
+
+## Publication verification
+
+Research CI passed on commit 05aba6241631c71c650f68a00abb15a2b5e15eb1
+(run https://github.com/tufeeq/ai/actions/runs/34994732934), including the 22 Node
+and 50 Python checks. The frontend build and GitHub Pages deployment both passed
+for b0f09faaaa93f597a229b66ea37fbd97773c79b6
+(run https://github.com/tufeeq/ai/actions/runs/34994737101).
+
+Final public HTTP requests and two browser navigation attempts from this workspace
+timed out. Local browser testing of the same assets passed, but a successful
+post-publication browser check could not be claimed for this update. This does not
+establish whether the public site is unavailable to the user. The price service
+remains unconfigured and undeployed regardless of frontend publication status.

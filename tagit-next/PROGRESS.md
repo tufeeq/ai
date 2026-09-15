@@ -105,3 +105,8 @@ before quota reset or change the subscription. Next: deploy, set protected runti
 keys, verify actual HTTP prices, then publish the verified endpoint. The independent
 latency experiment and forward validation still remain; this plumbing work does not
 supersede those research gates.
+
+Frontend deployment succeeded in Pages run 34994737101; research CI run 34994732934
+passed the 72 software checks. Public re-verification from this workspace timed out
+in HTTP and browser attempts; local UI checks passed. This failed external check
+is retained in LIVE_FINDINGS.md, and no successful direct price connection is claimed.
