@@ -38,10 +38,10 @@ async function refresh(){
  }catch(e){if(epoch!==generation)return;rows=[];render();el('price-empty').hidden=false;message(e.message);failures++;}
  finally{clearTimeout(timeout);if(epoch===generation){controller=null;el('price-refresh').disabled=!endpoint||paused;schedule();}}
 }
-function begin(){stopRequest();rows=[];render();failures=0;paused=false;el('price-pause').textContent='إيقاف مؤقت';refresh();}
+function begin(){stopRequest();rows=[];render();failures=0;paused=false;el('price-empty').hidden=false;el('price-status').textContent='جارٍ طلب الأسعار…';el('price-status').dataset.state='connecting';el('price-pause').textContent='إيقاف مؤقت';refresh();}
 el('price-form').addEventListener('submit',e=>{e.preventDefault();begin();});
-el('price-pause').addEventListener('click',()=>{paused=!paused;stopRequest();el('price-pause').textContent=paused?'استئناف':'إيقاف مؤقت';el('price-refresh').disabled=paused||!endpoint;if(paused){el('price-status').textContent='التحديث موقوف يدويًا.';render();}else refresh();});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){stopRequest();el('price-status').textContent='التحديث متوقف أثناء إخفاء الصفحة.';}else if(endpoint&&!paused)refresh();});
+el('price-pause').addEventListener('click',()=>{paused=!paused;stopRequest();el('price-pause').textContent=paused?'استئناف':'إيقاف مؤقت';el('price-refresh').disabled=paused||!endpoint;if(paused){el('price-status').textContent='التحديث موقوف يدويًا.';el('price-status').dataset.state='paused';render();}else{el('price-status').textContent='جارٍ استئناف الاتصال…';el('price-status').dataset.state='connecting';refresh();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){stopRequest();el('price-status').textContent='التحديث متوقف أثناء إخفاء الصفحة.';el('price-status').dataset.state='paused';}else if(endpoint&&!paused)refresh();});
 setInterval(()=>{if(rows.length)render();},1000);
 async function loadConfig(){
  try{const r=await fetch('live-config.json',{cache:'no-store'});if(!r.ok)throw new Error('CONFIG_UNAVAILABLE');config=await r.json();if(config.schema_version!==1||config.approved_for_live!==false)throw new Error('CONFIG_UNAVAILABLE');el('price-symbols').value=config.default_symbols.join(', ');if(!config.endpoint){message(config.deployment_status);return;}endpoint=serviceOrigin(config.endpoint);el('price-refresh').disabled=false;el('price-pause').disabled=false;refresh();}
