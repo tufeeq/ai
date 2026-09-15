@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {viewQuote,serviceOrigin,validPayload} from '../../web/price-state.mjs';
+test('view quote ages while no new response arrives',()=>{const r={status:'RECENT_IEX',feed:'iex',quote:{age_ms:1000},trade:{age_ms:2000}};assert.equal(viewQuote(r,3001).status,'STALE');assert.equal(viewQuote(r,3001).tradeStatus,'STALE');});
+test('delayed feed cannot be relabelled recent',()=>assert.equal(viewQuote({status:'DELAYED',feed:'delayed_sip',quote:{age_ms:0},trade:{age_ms:0}},0).tradeStatus,'DELAYED'));
+test('API URL cannot contain a key, query, password or non-HTTPS origin',()=>{assert.equal(serviceOrigin('https://example.com'),'https://example.com');for(const url of ['http://example.com','https://key:secret@example.com','https://example.com?key=secret','https://example.com/api/quotes','javascript:alert(1)'])assert.throws(()=>serviceOrigin(url));});
+test('missing, extra, duplicate and billion-dollar responses rejected',()=>{const row={symbol:'SENS',feed:'iex',status:'INVALID_QUOTE',market_cap:4e8,quote:null,trade:null,approved_for_live:false};const p={schema_version:1,status:'OK',feed:'iex',rows:[row],approved_for_live:false};assert(validPayload(p,['SENS']));assert(!validPayload(p,['NUAI']));assert(!validPayload({...p,rows:[row,row]},['SENS','NUAI']));assert(!validPayload({...p,rows:[{...row,market_cap:1e9}]},['SENS']));assert(!validPayload({...p,approved_for_live:true},['SENS']));});
