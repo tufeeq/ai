@@ -1,10 +1,18 @@
 """Ask-entry / bid-exit quote-path diagnostic, never an actual-fill claim."""
 import gzip
 import json
+import math
 from pathlib import Path
 from datetime import timedelta
 from collections import Counter
 from engine import timestamp, Config
+
+
+def valid_quote(q):
+    fields=('bid_price','ask_price','bid_size','ask_size')
+    if any(not isinstance(q.get(k),(int,float)) or not math.isfinite(q[k]) for k in fields):
+        return False
+    return 0<q['bid_price']<=q['ask_price'] and q['bid_size']>0 and q['ask_size']>0
 
 
 def evaluate(window, setup, cost=.0025):
@@ -25,11 +33,17 @@ def evaluate(window, setup, cost=.0025):
     for q in quotes:
         t=timestamp(q['timestamp'])
         if t<at: continue
-        valid=(0<q['bid_price']<=q['ask_price'] and q['bid_size']>0 and q['ask_size']>0)
+        valid=valid_quote(q)
         if t>deadline:
             # Exit at the first fresh valid quote at/after the deadline, <=3s delay.
-            if valid and (t-deadline).total_seconds()<=3: return exit_at('TIMEOUT',q,t)
-            break
+            if (t-deadline).total_seconds()>3:
+                break
+            if valid:
+                return exit_at('TIMEOUT',q,t)
+            # Invalid updates do not end the search for a later valid quote
+            # inside the SAME frozen allowance, and invalidate stale fallback.
+            previous=None
+            continue
         if not valid:
             previous=None
             continue

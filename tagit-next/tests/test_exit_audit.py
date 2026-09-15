@@ -28,3 +28,30 @@ class ExitAuditTests(unittest.TestCase):
     def test_invalid_quote_does_not_trigger_stop(self):
         s,w=self.fixture(); q=self.q('2026-08-24T14:01:00Z',8.); q['bid_size']=0; w['quotes']=[q]
         self.assertIsNone(evaluate(w,s)['net_pct'])
+
+    def test_invalid_after_deadline_does_not_hide_next_valid_quote(self):
+        s,w=self.fixture(); bad=self.q('2026-08-24T14:45:01Z',10.); bad['bid_size']=0
+        w['quotes']=[bad,self.q('2026-08-24T14:45:02Z',10.1)]
+        r=evaluate(w,s); self.assertEqual(r['outcome'],'TIMEOUT'); self.assertEqual(r['exit_bid'],10.1)
+
+    def test_invalid_update_clears_fresh_fallback(self):
+        s,w=self.fixture(); bad=self.q('2026-08-24T14:45:01Z',10.); bad['bid_size']=0
+        w['quotes']=[self.q('2026-08-24T14:44:59Z',10.),bad]
+        self.assertEqual(evaluate(w,s)['outcome'],'UNKNOWN_TIMEOUT_QUOTE')
+
+    def test_invalid_update_does_not_extend_allowance(self):
+        s,w=self.fixture(); bad=self.q('2026-08-24T14:45:01Z',10.); bad['bid_size']=0
+        w['quotes']=[bad,self.q('2026-08-24T14:45:03.000001Z',10.1)]
+        self.assertIsNone(evaluate(w,s)['net_pct'])
+
+    def test_nonfinite_price_not_a_target_fill(self):
+        s,w=self.fixture(); q=self.q('2026-08-24T14:01:00Z',float('inf')); w['quotes']=[q]
+        self.assertIsNone(evaluate(w,s)['net_pct'])
+
+    def test_nonfinite_size_not_a_valid_quote(self):
+        s,w=self.fixture(); q=self.q('2026-08-24T14:01:00Z',12.); q['bid_size']=float('nan'); w['quotes']=[q]
+        self.assertIsNone(evaluate(w,s)['net_pct'])
+
+    def test_exact_timeout_boundary_allowed(self):
+        s,w=self.fixture(); w['quotes']=[self.q('2026-08-24T14:45:03Z',10.)]
+        self.assertEqual(evaluate(w,s)['outcome'],'TIMEOUT')
