@@ -6,6 +6,7 @@ on:
     paths:
       - 'tagit/**'
       - 'tagit10/**'
+      - 'tagit-next/**'
       - 'marginos/**'
       - 'operon/**'
       - '.github/workflows/pages-tagx-deploy.yml'
@@ -38,6 +39,8 @@ jobs:
           node-version: 24
       - name: Validate frontends
         run: |
+          node --check tagit-next/app.js
+          python -m json.tool tagit-next/snapshot.json > /dev/null
           node --check tagit/live-v6.js
           node --check tagit/early-v9.js
           node --check tagit/live-v6-price-overlay.js
@@ -74,7 +77,9 @@ jobs:
       - name: Build Pages artifact
         run: |
           rm -rf _site
-          mkdir -p _site/tagit _site/tagit10 _site/marginos _site/operon
+          mkdir -p _site/tagit _site/tagit10 _site/marginos _site/operon _site/tagit-next
+          cp tagit-next/index.html tagit-next/app.js tagit-next/style.css tagit-next/snapshot.json _site/tagit-next/
+          test -s _site/tagit-next/index.html
           cp tagit/index.html tagit/post-session.html tagit/post-session.js tagit/post-session.css tagit/live-v6.js tagit/early-v9.js tagit/live-v6-price-overlay.js tagit/technical-v7.js tagit/feed-recovery-v7.js tagit/live-v6.css _site/tagit/
           cp tagit10/index.html tagit10/app.js tagit10/trader.js tagit10/trade_math.js tagit10/explosive-ui.js tagit10/session-ui.js tagit10/execution-ui.js tagit10/style.css _site/tagit10/
           mkdir -p _site/tagit10/reports
