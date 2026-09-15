@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#102b30">
+  <meta name="description" content="TAGit NEXT — مساحة بحث مستقلة لاكتشاف حركة الأسهم الصغيرة، مع سجل كامل للاختبارات وحدود البيانات.">
+  <title>TAGit NEXT | مساحة البحث</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%23102b30'/%3E%3Ctext x='9' y='30' fill='%235ce0ba' font-size='30' font-family='sans-serif'%3ET%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">انتقل إلى المحتوى</a>
+  <header class="masthead">
+    <div class="brand" dir="ltr"><span class="brand-icon">T</span><span>TAGit <b>NEXT</b></span></div>
+    <span class="version">نسخة بحثية <i></i></span>
+  </header>
+  <nav aria-label="التنقل الرئيسي"><div class="nav-inner"><a href="#overview">نظرة عامة</a><a href="#ledger">سجل الاختبارات</a><a href="#readiness">جاهزية التشغيل</a></div></nav>
+  <main id="main">
+    <section id="overview" class="hero">
+      <div><p class="eyebrow">أبحاث الأسهم الأمريكية الصغيرة</p><h1>حركة كبيرة.<br><span>دليل يسبق القرار.</span></h1><p class="intro">مساحة مستقلة لفحص الفرص في الأسهم ذات القيمة السوقية دون مليار دولار، وقياس الحركة المتبقية بعد دخول قابل للتنفيذ.</p></div>
+      <aside class="status-card"><div class="status-top"><span class="dot"></span> حالة النسخة</div><h2>البحث متاح<br>والتشغيل اللحظي غير متصل</h2><p>المعروض نتائج تاريخية. الفرضيات الثلاث اختُبرت ورُفضت؛ لا توجد استراتيجية معتمدة لتقديم توصيات تداول.</p><div class="date-row">آخر نتائج بحثية <time datetime="2026-09-15">15 سبتمبر 2026</time></div></aside>
+    </section>
+    <div class="notice"><b>هذه الصفحة لا تعرض فرص جلسة اليوم.</b><span>عدم وجود بث لحظي لا يعني عدم وجود فرص في السوق. نجاح الاختبارات البرمجية لا يثبت نجاح التداول.</span></div>
+    <div id="load-status" role="status">جارٍ تحميل السجل المحفوظ…</div>
+    <section class="stats" aria-label="نطاق الدراسة">
+      <article><span>الأسهم في العينة</span><strong id="symbols">—</strong><small>اختيار دون استخدام عوائد الأسهم</small></article>
+      <article><span>شموع الدقيقة</span><strong id="bars">—</strong><small>10 جلسات تاريخية</small></article>
+      <article><span>إشارات الاختبار التاريخي</span><strong id="setups">—</strong><small>2–4 سبتمبر 2026 · ليست صفقات</small></article>
+      <article><span>حالات حُسمت بالمحاكاة</span><strong id="resolved">—</strong><small>باقي الحالات ظاهر في السجل</small></article>
+    </section>
+    <section class="panel evidence" aria-labelledby="evidence-title"><div><p class="eyebrow">حصيلة الاختبار المحجوز زمنيًا</p><h2 id="evidence-title">كل الحالات تدخل في الصورة</h2><p>محاكاة باستخدام الشموع مع تكلفة 0.25٪ لكل جانب. الدخول المفترض في الدقيقة التالية لا يثبت إمكانية التنفيذ الفعلي.</p><a class="text-link" href="https://github.com/tufeeq/ai/blob/74f536a294994b89b97d0dc66bcbe9982fe929ae/tagit-next/STUDY_RESULTS.md" target="_blank" rel="noopener">اقرأ الدراسة وحدودها ↗</a></div><div id="outcomes" class="outcomes" aria-label="توزيع كل نتائج الاختبار"></div></section>
+    <section id="ledger" class="panel">
+      <div class="section-head"><div><p class="eyebrow">سجل قابل للفحص</p><h2>تفاصيل الاختبارات</h2></div><a href="snapshot.json" download class="secondary">تنزيل البيانات ↓</a></div>
+      <div class="tabs" role="group" aria-label="عينة الاختبار"><button type="button" class="active" id="study-tab" aria-pressed="true">اختبار الشموع · 125 حالة</button><button type="button" id="exit-tab" aria-pressed="false">تدقيق أسعار التنفيذ · 10 حالات</button></div>
+      <p id="sample-note" class="muted"></p>
+      <div class="filters"><label>بحث برمز السهم<input type="search" id="search" placeholder="مثال: SENS" autocomplete="off" dir="ltr"></label><label>نتيجة المحاكاة<select id="outcome-filter"><option value="">جميع النتائج</option></select></label><span id="row-count" aria-live="polite"></span></div>
+      <div class="table-wrap"><table><caption class="sr-only">حالات تاريخية، وليست توصيات حالية. الأوقات بتوقيت نيويورك.</caption><thead><tr><th>السهم</th><th>التاريخ والوقت · نيويورك</th><th>نتيجة المحاكاة</th><th>العائد المحاكى*</th><th><span class="sr-only">التفاصيل</span></th></tr></thead><tbody id="rows"></tbody></table></div>
+      <p id="empty" hidden>لا توجد حالات تطابق البحث. جرّب رمزًا آخر أو أزل الفلتر.</p>
+      <div class="pagination"><button type="button" id="previous">السابق</button><span id="page-count" aria-live="polite"></span><button type="button" id="next">التالي</button></div>
+      <p class="table-foot">* العائد للحالة المحسومة فقط، بعد التكلفة المفترضة. «غير محسوم» لا يساوي صفرًا؛ لم تُحذف الحالات الناقصة ولا تمثل هذه النتائج عائد محفظة.</p>
+    </section>
+    <section id="readiness" class="readiness"><div><p class="eyebrow">ما المتاح الآن؟</p><h2>جاهزية النسخة</h2><p class="muted">واجهة منشورة لفحص الأدلة. اعتماد استراتيجية وتشغيل تغذية لحظية مرحلتان لم تكتملَا.</p></div><div class="readiness-list"><article><span class="state ok">متاح</span><div><h3>الدراسة وسجل الحالات</h3><p>النجاحات والإخفاقات ونقص البيانات محفوظة معًا.</p></div></article><article><span class="state caution">قيد البحث</span><div><h3>دقة اكتشاف الفرص</h3><p>لم تجتز أي من الفرضيات الثلاث معايير الدراسة.</p></div></article><article><span class="state neutral">غير متصل</span><div><h3>تغذية الأسعار اللحظية</h3><p>يلزم تشغيل مستمر مع صلاحية البيانات المناسبة، ثم رصد أمامي بأسعار فعلية.</p></div></article><article><span class="state neutral">غير متصل</span><div><h3>الأخبار المؤرخة</h3><p>تغطية الأخبار غير معروفة؛ غياب خبر في البيانات لا يثبت عدم وجوده.</p></div></article></div></section>
+    <section class="next-step"><span class="eyebrow">آخر تطوير · 15 سبتمبر 2026</span><h2>إصلاح التعامل مع تحديثات أسعار الخروج</h2><p>أُصلح تجاهل سعر صالح بعد تحديث غير صالح. بقيت 5 من 10 حالات غير محسومة؛ ظهرت تحديثات لاحقة بعد نحو 3.8–34.9 ثانية، خارج مهلة الخروج المحددة. لم يتغير تقييم أداء التداول.</p><p><b>الخطوة التالية:</b> اختبار أثر تأخر التنفيذ على عينة مختلفة بقواعد محددة مسبقًا.</p></section>
+    <noscript><p class="notice">فعّل JavaScript لعرض سجل الحالات والبحث فيه. يمكنك قراءة الدراسة من الرابط أعلاه.</p></noscript>
+  </main>
+  <footer><div class="brand" dir="ltr">TAGit <b>NEXT</b></div><span>بيانات تاريخية · لا تُنفّذ هذه الواجهة صفقات</span><a href="https://github.com/tufeeq/ai/tree/tagit-next-independent-20260914/tagit-next" target="_blank" rel="noopener">المشروع وسجل التطوير ↗</a></footer>
+  <dialog id="detail"><div class="dialog-top"><h2 id="detail-title"></h2><button type="button" id="close-detail" aria-label="إغلاق التفاصيل">×</button></div><p class="notice">محاكاة تاريخية — المستويات أدناه ليست أسعار دخول أو أهدافًا حالية.</p><dl id="detail-values"></dl><p id="detail-note" class="muted"></p></dialog>
+</body>
+</html>
