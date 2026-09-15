@@ -1,5 +1,10 @@
 # TAGit NEXT — independent small-cap rebuild
 
+**Published research interface:** https://tufeeq.github.io/ai/tagit-next/
+The Arabic interface exposes historical study and quote-audit cases; it is not a
+live scanner or an approved trading strategy. See [web/README.md](web/README.md)
+for snapshot provenance and publication/update instructions.
+
 Latest iteration: [PROGRESS.md](PROGRESS.md) records the September 15 timeout-quote
 repair and five-case timing audit. The execution policy and frozen outcomes remain
 unchanged; no improved trading accuracy is claimed.

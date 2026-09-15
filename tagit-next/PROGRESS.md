@@ -49,3 +49,29 @@ retuning on these five cases or presenting a changed execution policy as a
 successful detector. Preserve an untouched validation period before any promotion.
 News coverage remains unknown; authentic publication/observation/version timing
 is still required. No profitable or higher-accuracy model is established.
+
+
+## September 15 — publish the research interface
+
+At the user's explicit request, published a separate Arabic read-only interface at
+https://tufeeq.github.io/ai/tagit-next/. The study engine remains on this independent
+branch; PR #13 is still draft and no strategy was promoted or brokerage order placed.
+
+The public export retains all 125 September 2–4 test cases and all ten August 24
+quote-exit cases, including the five unknown exits. It supports symbol search,
+outcome filters, pagination and per-case historical details. It displays no resolved-
+subset average as sample profitability. It explicitly states that live prices and
+archived timestamped news are not connected. The source snapshot remains research
+commit 74f536a294994b89b97d0dc66bcbe9982fe929ae; this publication changes no findings.
+
+Verified locally in Chromium at mobile and desktop widths: complete case counts,
+filters, unknown outcomes, details, late-quote disclosure, keyboard dismissal,
+pagination, missing-data error handling and no JavaScript exceptions. The check
+found and fixed mobile table overflow and RTL display of the resolved-case ratio.
+The Pages build/deploy passed (run 34989723252); follow-up ratio fix is commit
+d5eecdce2d8441c36d8c7e05f47bd24a17d1f700. No new market-data calls were used.
+
+Future research cycles must refresh the public snapshot explicitly when publishing
+new findings; it is not an automatic live feed. The next research experiment remains
+execution latency on different predeclared development cases, with validation kept
+separate. Publishing this interface establishes no trading accuracy or profitability.
