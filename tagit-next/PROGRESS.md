@@ -240,3 +240,12 @@ Required to activate: connect an accessible host, set protected Alpaca data keys
 run the activation probe against the deployed HTTP origin, then publish the verified
 endpoint. IEX observations remain limited to one exchange; real-time SIP requires an
 entitled data subscription. No live orders were placed.
+
+Publication verification: source CI 35103153193 and Pages deployment 35103227324
+succeeded. The public page loaded the new execution panel; selecting 1-second entry /
+30-second exit showed four negative outcomes, one positive and one no-entry case,
+including SLDB 4.204s and VUZI 26.919s late exits. Detected mixed cached JS on the
+published page and added explicit asset release parameters, including the imported
+price-state module. No app-origin JS error was observed; browser-extension telemetry
+errors were unrelated. Desktop interaction verified; no new mobile browser result
+is claimed in this cycle.
