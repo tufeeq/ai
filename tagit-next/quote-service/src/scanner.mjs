@@ -1,5 +1,7 @@
 import {settings,REFERENCE_URL,normalizeReference} from './market.mjs';
 export const RULES=Object.freeze({version:'discovery-1',minimumBars:13,volumeRatio:2,return3m:0.7,minDollars3m:25000,minTrades3m:30,maxSingleMinuteShare:0.7,maxSpread:0.8,maxEarlyDayGain:25,maxEarly3mGain:8,cooldown:1800000});
+const dateFormatter=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'});
+const sessionDate=t=>Number.isFinite(new Date(t).getTime())?dateFormatter.format(new Date(t)):null;
 const positive=x=>Number.isFinite(x)&&x>0;
 const pct=(a,b)=>positive(a)&&positive(b)?(a/b-1)*100:null;
 export function analyzeBars(input,now){
@@ -31,7 +33,7 @@ export function rankSnapshot(symbol,snapshot,metadata,now){
  return {symbol,...metadata,price,price_at:t?.t??null,age_ms:Number.isFinite(age)?age:null,previous_close:p?.c??null,day_change:pct(price,p?.c),day_volume:d?.v??null,day_dollars:positive(d?.c)?d.c*d.v:null,day_high:d?.h??null,minute_change:pct(snapshot?.minuteBar?.c,snapshot?.minuteBar?.o),minute_dollars:(snapshot?.minuteBar?.v??0)*(snapshot?.minuteBar?.c??0),spread_pct:spread,quote_at:q?.t??null,quote_fresh:qa>=0&&qa<=10000,bid:q?.bp??null,ask:q?.ap??null,status:age>=0&&age<=15000?'FRESH':'STALE'};
 }
 export function createScanner({env=process.env,fetcher=fetch,now=Date.now}={}){
- let cached=null,loading=null,universe=null,universeAt=0,newsCache=null,newsAt=0;const ledger=[],lastSignals=new Map();
+ let cached=null,loading=null,universe=null,universeAt=0,newsCache=null,newsAt=0,closesAt=0,closes=new Map();const ledger=[],lastSignals=new Map();
  async function request(url,auth=true){const s=settings(env);if(auth&&!s.configured)throw Error('RUNTIME_CREDENTIALS_NOT_CONFIGURED');const r=await fetcher(url,{headers:auth?{'APCA-API-KEY-ID':s.key,'APCA-API-SECRET-KEY':s.secret}:{},signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error(r.status===401?'PROVIDER_AUTH_FAILED':r.status===403?'FEED_NOT_ENTITLED':r.status===429?'RATE_LIMITED':'PROVIDER_UNAVAILABLE');return r.json();}
  async function scan(){
   const started=now(),s=settings(env);
@@ -45,7 +47,16 @@ export function createScanner({env=process.env,fetcher=fetch,now=Date.now}={}){
   const batches=[];for(let i=0;i<symbols.length;i+=150)batches.push(symbols.slice(i,i+150));
   for(let i=0;i<batches.length;i+=2)await Promise.all(batches.slice(i,i+2).map(async batch=>{try{Object.assign(snapshots,await request('https://data.alpaca.markets/v2/stocks/snapshots?feed='+s.feed+'&symbols='+encodeURIComponent(batch.join(','))));}catch{failed+=batch.length;}}));
   if(symbols.length&&!Object.keys(snapshots).length)throw Error('PROVIDER_UNAVAILABLE');
+  if(!closes.size||now()-closesAt>300000){
+   const next=new Map(),day=sessionDate(now());
+   for(let i=0;i<batches.length;i+=3)await Promise.all(batches.slice(i,i+3).map(async batch=>{try{
+    const daily=await request('https://data.alpaca.markets/v2/stocks/bars?timeframe=1Day&adjustment=split&feed='+s.feed+'&limit=10000&symbols='+encodeURIComponent(batch.join(','))+'&start='+encodeURIComponent(new Date(now()-7*86400000).toISOString())+'&end='+day+'T00:00:00Z');
+    for(const [symbol,bars]of Object.entries(daily.bars??{})){const prior=bars.filter(b=>sessionDate(b.t)<day&&positive(b.c)).sort((a,b)=>Date.parse(a.t)-Date.parse(b.t)).at(-1);if(prior)next.set(symbol,prior.c);}
+   }catch{/* Unverified daily gains remain blank, never raw split jumps. */}}));closes=next;closesAt=now();
+  }
   const rows=universe.rows.map(m=>rankSnapshot(m.symbol,snapshots[m.symbol],m,now())).filter(r=>positive(r.price));
+  for(const row of rows){row.previous_close=sessionDate(row.price_at)===sessionDate(now())?(closes.get(row.symbol)??null):null;row.day_change=pct(row.price,row.previous_close);row.change_basis=row.previous_close?'SPLIT_ADJUSTED_PREVIOUS_CLOSE':'UNVERIFIED';}
+
   // Candidate shortlist uses only current observations; includes fresh dollar-volume leaders as well as gainers.
   const gainers=[...rows].sort((a,b)=>(b.day_change??-Infinity)-(a.day_change??-Infinity));
   const active=rows.filter(r=>r.status==='FRESH').sort((a,b)=>(b.day_dollars??0)-(a.day_dollars??0));
