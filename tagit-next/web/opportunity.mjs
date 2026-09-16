@@ -2,6 +2,7 @@
 export const finite=x=>typeof x==='number'&&Number.isFinite(x);
 export const positive=x=>finite(x)&&x>0;
 export const elapsed=(at,now)=>{const t=Date.parse(at);return Number.isFinite(t)?now-t:Infinity;};
+export const isExtended=row=>row.extended===true||row.day_change>25||row.signal?.return_3m>8;
 export function assess(row,{now=Date.now(),serverTime,connected=true,feed='iex'}={}){
  const s=row.signal;const checks=[
   {key:'history',name:'دقائق حديثة مكتملة',pass:s?.ready===true&&elapsed(s?.bar_at,now)>=60000&&elapsed(s?.bar_at,now)<=150000,value:s?`${s.bars} دقيقة متاحة`:null},
@@ -20,7 +21,7 @@ export function assess(row,{now=Date.now(),serverTime,connected=true,feed='iex'}
  const p=row.plan;const recentScan=connected&&elapsed(serverTime,now)>=0&&elapsed(serverTime,now)<=90000;
  const planGood=positive(p?.entry)&&positive(p?.stop)&&p.entry>p.stop&&Array.isArray(p.targets)&&p.targets.length===2&&p.targets.every(t=>positive(t)&&t>p.entry);
  const livePlan=Boolean(recentScan&&feed!=='delayed_sip'&&checks.every(c=>c.pass)&&row.actionable===true&&planGood&&row.price>p.stop&&row.price<=p.entry*1.01);
- let state=livePlan?'READY':row.extended?'EXTENDED':!recentScan||!checks.find(c=>c.key==='trade').pass?'STALE':s?.expansion?'CONFIRM':'WATCH';
+ let state=livePlan?'READY':isExtended(row)?'EXTENDED':!recentScan||!checks.find(c=>c.key==='trade').pass?'STALE':s?.expansion?'CONFIRM':'WATCH';
  const blockers=checks.filter(c=>!c.pass).map(c=>c.name);
  if(!recentScan)blockers.unshift('الاتصال أو المسح غير حديث');
  if(feed==='delayed_sip')blockers.unshift('المصدر متأخر');
@@ -51,10 +52,10 @@ export function restoreJournal(value){
 }
 
 export function splitPriority(rows,options){
- const ranked=rows.map(row=>({row,assessment:assess(row,{...options,serverTime:row.scan_at??options.serverTime})})).sort((a,b)=>b.assessment.passed-a.assessment.passed||(b.row.score??0)-(a.row.score??0));
+ const ranked=rows.map(row=>({row,assessment:options.assessment?options.assessment(row):assess(row,{...options,serverTime:row.scan_at??options.serverTime})})).sort((a,b)=>b.assessment.passed-a.assessment.passed||(b.row.score??0)-(a.row.score??0));
  const upper=[],lower=[];
  for(const item of ranked){const a=item.assessment;const timely=a.checks.find(c=>c.key==='trade').pass&&elapsed(item.row.scan_at??options.serverTime,options.now??Date.now())>=0&&elapsed(item.row.scan_at??options.serverTime,options.now??Date.now())<=90000&&options.connected!==false;
-  (a.passed>=8&&timely&&!item.row.extended?upper:lower).push(item.row);
+  (a.passed>=8&&timely&&options.feed!=='delayed_sip'&&a.checks.filter(c=>['history','extension','dollars','prints','balance'].includes(c.key)).every(c=>c.pass)?upper:lower).push(item.row);
  }
  return {upper,lower};
 }
@@ -82,4 +83,23 @@ export function shariaStatus(record,now=Date.now()){
  const unknown={status:'UNKNOWN',icon:'؟',label:'الامتثال الشرعي غير متحقق',source:null};
  if(!record||!['COMPLIANT','NON_COMPLIANT'].includes(record.status)||!record.methodology||!record.source||!/^https:\/\//.test(record.source_url??'')||elapsed(record.reviewed_at,now)<0||elapsed(record.reviewed_at,now)>90*86400000||!Number.isFinite(Date.parse(record.valid_until))||Date.parse(record.valid_until)<now)return unknown;
  return {...record,icon:record.status==='COMPLIANT'?'✓':'×',label:record.status==='COMPLIANT'?'مطابق وفق الفحص الموثق':'غير مطابق وفق الفحص الموثق'};
+}
+
+// Trade and quote clocks advance independently. A slow scan cannot roll either back.
+const nyDate=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'});
+export const marketDate=at=>Number.isFinite(Date.parse(at))?nyDate.format(new Date(at)):null;
+const stamp=at=>Number.isFinite(Date.parse(at))?Date.parse(at):-Infinity;
+export function mergeMarketRow(current,incoming,{scan=false,now=Date.now()}={}){
+ const result=scan?{...incoming}:{...current};
+ const validTrade=r=>positive(r?.price)&&stamp(r.price_at)>-Infinity&&stamp(r.price_at)<=now;
+ const validQuote=r=>positive(r?.bid)&&positive(r?.ask)&&r.bid<=r.ask&&stamp(r.quote_at)>-Infinity&&stamp(r.quote_at)<=now;
+ const trade=validTrade(incoming)&&(!validTrade(current)||stamp(incoming.price_at)>=stamp(current.price_at))?incoming:validTrade(current)?current:null;
+ const quote=validQuote(incoming)&&(!validQuote(current)||stamp(incoming.quote_at)>=stamp(current.quote_at))?incoming:validQuote(current)?current:null;
+ result.price=trade?.price??null;result.price_at=trade?.price_at??null;
+ result.quote_at=quote?.quote_at??null;result.bid=quote?.bid??null;result.ask=quote?.ask??null;
+ result.spread_pct=quote?(quote.ask-quote.bid)/((quote.ask+quote.bid)/2)*100:null;
+ const session=marketDate(scan?incoming.scan_at:current?.scan_at);
+ result.day_change=session&&session===marketDate(result.price_at)&&positive(result.previous_close)?(result.price/result.previous_close-1)*100:null;
+ // Keep the scan's technical extension flag; day extension is recomputed from the live price.
+ return result;
 }
