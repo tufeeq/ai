@@ -8,9 +8,11 @@ See [LIVE_FINDINGS.md](LIVE_FINDINGS.md) for checks, limits and exact next actio
 It is not a live scanner or an approved trading strategy. See [web/README.md](web/README.md)
 for snapshot provenance and publication/update instructions.
 
-Latest iteration: [PROGRESS.md](PROGRESS.md) records the September 15 timeout-quote
-repair and five-case timing audit. The execution policy and frozen outcomes remain
-unchanged; no improved trading accuracy is claimed.
+Latest iteration: [execution latency experiment](EXECUTION_LATENCY_FINDINGS.md)
+freezes six different development cases and adds tested delay comparison tooling.
+September 16 quote retrieval failed (8 provider errors, zero quotes); all cases
+remain recorded, not classified as absent opportunities. Original policy and study
+outcomes are unchanged; no improved trading accuracy is claimed.
 
 **Status: research foundation completed; profitable trading strategy NOT established;
 continuous live operation NOT connected.** This code imports none of the earlier

@@ -134,3 +134,17 @@ Alternative build verification: Wrangler 4.132.0 `deploy --dry-run` succeeded
 with `uv_interface_addresses returned Unknown system error 1` in this workspace.
 The local smoke check timed out after 25 seconds and its process was stopped.
 Do not equate the successful build and Node tests with a successful hosted run.
+
+
+## September 16 — frozen execution-latency experiment
+
+Added a separate 1/3-second entry and 3/30-second exit-wait comparison on six
+chronological August 25 development signals, frozen before quote requests in
+af7c1118e9773c6326789404f81cb8d938332706. Eight new regression tests pass; 58 Python tests total.
+Original evaluator and rejected study outcomes are unchanged. All eight attempted
+Alpaca SIP requests failed with internal errors; zero quotes and six PROVIDER_ERROR
+cases in each of four scenarios are preserved. No new performance result exists.
+See EXECUTION_LATENCY_FINDINGS.md and data/execution-latency-input.json for errors,
+request budget (8/20) and exact resume parameters. Next: retrieve the same frozen
+windows after recovery, retain failures, then quantify paired delay/price risk.
+News coverage remains unknown. No deployment, orders or strategy promotion.
