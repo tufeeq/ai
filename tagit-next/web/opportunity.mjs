@@ -49,3 +49,37 @@ export function restoreJournal(value){
  if(!value||value.schema!==1||!Array.isArray(value.events))return [];
  return value.events.filter(e=>typeof e.id==='string'&&/^[A-Z][A-Z0-9.-]{0,9}$/.test(e.symbol)&&positive(e.start_price)&&Number.isFinite(Date.parse(e.started_at))).slice(-250).map(e=>({...e,points:Array.isArray(e.points)?e.points.filter(p=>positive(p.price)&&Number.isFinite(Date.parse(p.at))).slice(-360):[]}));
 }
+
+export function splitPriority(rows,options){
+ const ranked=rows.map(row=>({row,assessment:assess(row,{...options,serverTime:row.scan_at??options.serverTime})})).sort((a,b)=>b.assessment.passed-a.assessment.passed||(b.row.score??0)-(a.row.score??0));
+ const upper=[],lower=[];
+ for(const item of ranked){const a=item.assessment;const timely=a.checks.find(c=>c.key==='trade').pass&&elapsed(item.row.scan_at??options.serverTime,options.now??Date.now())>=0&&elapsed(item.row.scan_at??options.serverTime,options.now??Date.now())<=90000&&options.connected!==false;
+  (a.passed>=8&&timely&&!item.row.extended?upper:lower).push(item.row);
+ }
+ return {upper,lower};
+}
+// Snapshot-volume pressure proxy, not trade-side flow or capital entering/leaving a company.
+export function updatePressure(previous,row,at){
+ const ts=Date.parse(at),event=Date.parse(row.price_at),volume=row.day_volume;
+ if(!Number.isFinite(ts)||!Number.isFinite(event)||!positive(row.price)||!finite(volume)||volume<0||ts-event<0||ts-event>60000)return previous??null;
+ if(previous&&ts<=previous.at)return previous;
+ const sample={at:ts,price:row.price,volume};
+ if(!previous||ts-previous.at>90000||volume<previous.volume||new Date(ts).toISOString().slice(0,10)!==new Date(previous.at).toISOString().slice(0,10))return {...sample,segments:[]};
+ const delta=volume-previous.volume,dollars=delta*(row.price+previous.price)/2;
+ const side=row.price>previous.price?'up':row.price<previous.price?'down':'flat';
+ const segments=[...(previous.segments??[]).filter(x=>ts-x.at<=300000),...(delta>0?[{at:ts,dollars,side}]:[])];
+ return {...sample,segments};
+}
+export function pressureSummary(state,now=Date.now()){
+ if(!state||now-state.at>90000)return {status:'UNKNOWN',label:'غير متاح',up:null,down:null,flat:null,net:null};
+ const samples=state.segments.filter(x=>now-x.at<=300000),sum=side=>samples.filter(x=>x.side===side).reduce((s,x)=>s+x.dollars,0),up=sum('up'),down=sum('down'),flat=sum('flat'),total=up+down+flat;
+ if(samples.length<3||total<=0)return {status:'WARMUP',label:'تجميع عينات',up,down,flat,net:null};
+ const net=up-down,classified=(up+down)/total;
+ const status=classified<.6?'UNCLEAR':net/total>.15?'IN':net/total<-.15?'OUT':'BALANCED';
+ return {status,label:{IN:'↗ ضغط شراء تقديري',OUT:'↘ ضغط بيع تقديري',BALANCED:'↔ متوازن',UNCLEAR:'اتجاه غير واضح'}[status],up,down,flat,net,samples:samples.length,coverage:classified};
+}
+export function shariaStatus(record,now=Date.now()){
+ const unknown={status:'UNKNOWN',icon:'؟',label:'الامتثال الشرعي غير متحقق',source:null};
+ if(!record||!['COMPLIANT','NON_COMPLIANT'].includes(record.status)||!record.methodology||!record.source||!/^https:\/\//.test(record.source_url??'')||elapsed(record.reviewed_at,now)<0||elapsed(record.reviewed_at,now)>90*86400000||!Number.isFinite(Date.parse(record.valid_until))||Date.parse(record.valid_until)<now)return unknown;
+ return {...record,icon:record.status==='COMPLIANT'?'✓':'×',label:record.status==='COMPLIANT'?'مطابق وفق الفحص الموثق':'غير مطابق وفق الفحص الموثق'};
+}
