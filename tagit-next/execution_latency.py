@@ -1,4 +1,5 @@
 """Frozen development-only latency comparison; missing evidence stays unknown."""
+import gzip
 import json
 from collections import Counter
 from datetime import timedelta
@@ -90,6 +91,8 @@ def run(protocol, data):
 if __name__ == '__main__':
     root = Path(__file__).resolve().parent/'data'
     report = run(json.loads((root/'execution-latency-protocol.json').read_text()),
+                 json.loads(gzip.decompress((root/'execution-latency-quotes.json.gz').read_bytes()))
+                 if (root/'execution-latency-quotes.json.gz').exists() else
                  json.loads((root/'execution-latency-input.json').read_text()))
     (root/'execution-latency-report.json').write_text(json.dumps(report, indent=2)+'\n')
     print(json.dumps({k:v for k,v in report.items() if k != 'scenarios'}, indent=2))

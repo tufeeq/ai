@@ -10,9 +10,10 @@ for snapshot provenance and publication/update instructions.
 
 Latest iteration: [execution latency experiment](EXECUTION_LATENCY_FINDINGS.md)
 freezes six different development cases and adds tested delay comparison tooling.
-September 16 quote retrieval failed (8 provider errors, zero quotes); all cases
-remain recorded, not classified as absent opportunities. Original policy and study
-outcomes are unchanged; no improved trading accuracy is claimed.
+After eight retained provider errors, six successful requests returned 15,317 quotes.
+A 30-second exit allowance resolved two extra outcomes, but five simulated entries
+were four negative and one positive, with one further case lacking an eligible entry.
+This improves coverage, not trading accuracy; the original policy remains unchanged.
 
 **Status: research foundation completed; profitable trading strategy NOT established;
 continuous live operation NOT connected.** This code imports none of the earlier
