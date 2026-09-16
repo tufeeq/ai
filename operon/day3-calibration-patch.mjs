@@ -13,3 +13,4 @@ const swaps=[
 for(const [oldText,newText] of swaps){if(!src.includes(oldText))throw new Error('Expected source pattern not found: '+oldText.slice(0,80));src=src.replace(oldText,newText);}
 fs.writeFileSync(path,src);
 console.log('OPERON core calibrated for contextual customer, capacity, and service severity.');
+// day3 retry marker
