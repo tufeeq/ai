@@ -14,7 +14,7 @@ export function normalizeReference(raw,now){
     // Finviz numeric export Market Cap is in USD millions. Reject unknown units.
     const text=String(r['Market Cap']??'');
     const cap=/^\d+(?:\.\d+)?$/.test(text)?Number(text)*1e6:NaN;
-    if(!/^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol??'')||!industry||/exchange.traded|closed.end|shell compan/i.test(industry)||!finitePositive(cap)||cap>=1e9)continue;
+    if(!/^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol??'')||!industry||/exchange.traded|closed.end|shell compan/i.test(industry)||!finitePositive(cap)||cap>=1e8)continue;
     const rowAge=ageMs(r._snapshotTimestampUTC??raw.updatedAt,now);
     if(rowAge===null||rowAge<0||rowAge>MAX_REFERENCE_AGE_MS)continue;
     const floatMillions=Number(r.Float),shortText=String(r['Short Float']??''),shortPercent=/^\d+(?:\.\d+)?%$/.test(shortText)?Number(shortText.slice(0,-1)):null;

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {verifyConnection} from '../scripts/verify-connection.mjs';
 import {createMarketService} from '../src/market.mjs';
 const at='2026-09-16T14:00:00Z',now=Date.parse(at);
-const reference={schemaVersion:1,updatedAt:at,rows:[{Ticker:'SENS',Industry:'Medical Devices','Market Cap':'400'}]};
+const reference={schemaVersion:1,updatedAt:at,rows:[{Ticker:'SENS',Industry:'Medical Devices','Market Cap':'40'}]};
 const service=createMarketService({env:{ALPACA_API_KEY_ID:'fixture',ALPACA_API_SECRET_KEY:'fixture'},now:()=>now,fetcher:async url=>({ok:true,json:async()=>url.includes('raw.githubusercontent')?reference:{SENS:{latestQuote:{bp:1,ap:1.002,bs:100,as:100,t:at}}}})});
 const response=(value,{status=200,cors=true}={})=>new Response(JSON.stringify(value),{status,headers:cors?{'Access-Control-Allow-Origin':'https://tufeeq.github.io'}:{}});
 test('probe requires real quote response after configured health',async()=>{
