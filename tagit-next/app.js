@@ -1,119 +1,20 @@
-'use strict';
-const labels = {
-  TARGET: 'بلوغ الهدف', STOP: 'بلوغ الوقف', TIMEOUT: 'انتهاء المدة',
-  UNSCORABLE_GAP: 'فجوات في مسار السعر', ENTRY_NOT_AVAILABLE: 'دخول غير متاح',
-  NO_NEXT_MINUTE: 'شمعة الدخول مفقودة', UNRESOLVED: 'مسار غير محسوم',
-  UNKNOWN_TIMEOUT_QUOTE: 'سعر الخروج غير محسوم'
-};
-const $ = (id) => document.getElementById(id);
-const nf = new Intl.NumberFormat('en-US');
-const timeFormat = new Intl.DateTimeFormat('en-GB', {timeZone: 'America/New_York', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hourCycle:'h23'});
-const price = (n) => Number.isFinite(n) ? '$' + n.toFixed(4).replace(/0+$/, '').replace(/\.$/, '') : 'غير متاح';
-const net = (n) => Number.isFinite(n) ? (n > 0 ? '+' : '') + n.toFixed(2) + '%' : 'غير محسوم';
-const when = (s) => s ? timeFormat.format(new Date(s)) : 'غير متاح';
-let data, active = 'study', page = 0;
-const pageSize = 20;
-function node(tag, text, className) {
-  const el = document.createElement(tag);
-  if (text !== undefined) el.textContent = text;
-  if (className) el.className = className;
-  return el;
+const $=id=>document.getElementById(id),num=(v,d=2)=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('en-US',{maximumFractionDigits:d,minimumFractionDigits:d}):'—';
+const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const labels={WARMUP:'بيانات دقائق غير كافية',WATCH:'متابعة',EXPANSION:'تسارع حجم وسعر',BREAKOUT:'اختراق مع تسارع'};
+let endpoint='',data=null,view='early',selected=null,busy=false,quoteBusy=false,failed=false,clockOffset=0;
+const now=()=>Date.now()+clockOffset;
+const age=r=>Math.max(0,(now()-Date.parse(r.price_at))/1000);
+const ageText=r=>!r.price_at?'غير متاح':age(r)<60?Math.round(age(r))+' ث':age(r)<3600?Math.floor(age(r)/60)+' د':Math.floor(age(r)/3600)+' س';
+const safeLink=u=>{try{const x=new URL(u);return ['https:','http:'].includes(x.protocol)?escape(x.href):'#';}catch{return '#';}};
+const categories={FINANCING_OR_LISTING_RISK:'تمويل أو مخاطرة إدراج',CLINICAL_OR_REGULATORY:'تجارب سريرية أو تنظيم',EARNINGS:'نتائج مالية',DEAL:'صفقة أو اتفاق',OTHER:'خبر مرتبط'};
+const time=t=>new Date(t).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+function shown(){if(!data)return[];let rows=view==='alerts'?data.alerts.map(a=>({...data.rows.find(r=>r.symbol===a.symbol),...a})):view==='gainers'?[...data.rows].sort((a,b)=>(b.day_change??-1e9)-(a.day_change??-1e9)):data.rows;return rows.filter(r=>r.symbol.includes($('search').value.trim().toUpperCase())&&r.price<=Number($('max-price').value)).slice(0,60);}
+function render(){if(!data)return;const rows=shown();$('rows').innerHTML=rows.map(r=>`<tr><td><button data-symbol="${escape(r.symbol)}">${escape(r.symbol)}</button><small>${escape(r.name)}</small></td><td>${num(r.price,r.price<1?4:2)}</td><td class="${r.day_change>=0?'up':'down'}">${num(r.day_change)}%</td><td class="${r.signal?.return_3m>=0?'up':'down'}">${num(r.signal?.return_3m)}%</td><td>${num(r.signal?.volume_ratio,1)}×</td><td><span class="tag">${view==='alerts'?'رُصد '+time(r.detected_at)+' · لاحقًا '+num(r.observed_return_pct)+'٪':labels[r.stage]??'متابعة'}</span></td><td>${r.score??'—'}</td><td class="${age(r)>15?'warn':'up'}">${ageText(r)}</td></tr>`).join('');$('empty').hidden=rows.length>0;$('empty').textContent=view==='alerts'?'لم تُرصد إشارة تسارع مستوفية للشروط منذ تشغيل الخادم.':'لا توجد أسهم ضمن هذا الفلتر.';$('list-note').textContent=view==='early'?'الترتيب بحسب تسارع الدقائق المكتملة، وليس ارتفاع اليوم وحده. انقر على الرمز لعرض التفاصيل.':view==='gainers'?'ارتفاع اليوم مقارنة بإغلاق الجلسة السابقة من المصدر نفسه. الارتفاع الكبير وحده ليس إشارة دخول.':'أول وقت رصد فعلي بالخادم؛ لا تُنسب إشارات إلى وقت سابق. السجل مؤقت حتى إعادة التشغيل.';if(selected)detail();}
+function detail(){const r=data.rows.find(r=>r.symbol===selected);if(!r)return;const s=r.signal;const valid=!failed&&now()-Date.parse(data.server_time)<90000&&age(r)<=15&&r.actionable&&now()-Date.parse(r.quote_at)<=10000&&r.spread_pct!==null&&r.spread_pct<=0.8&&r.price>r.plan?.stop&&r.price<=r.plan?.entry*1.01;const plan=valid?r.plan:null;
+$('detail').innerHTML=`<h2><span dir="ltr">${escape(r.symbol)}</span> · ${num(r.price,r.price<1?4:2)} دولار</h2><p>${escape(r.name)} · NASDAQ · رسملة ${num(r.market_cap/1e6,1)} مليون دولار · فارق العرض والطلب ${num(r.spread_pct)}٪.</p><p>${s?.ready?`حركة ٣ دقائق: ${num(s.return_3m)}٪. حجم ${num(s.volume_ratio,1)}× متوسط الدقائق السابقة. قيمة تداول هذه الدقائق: $${num(s.dollars_3m,0)}. ${s.expansion?'تحققت شروط تسارع السعر والحجم.':'لم تجتمع شروط التسارع بعد.'}`:'لا توجد دقائق حديثة مكتملة كافية لاستخراج إشارة؛ يظهر السهم لمتابعة سعره فقط.'}</p>${plan?`<p class="up">خطة مشروطة: تفعيل عند تجاوز المستوى مع استمرار الحجم، وإبطال عند كسر المستوى أدناه. لا تطارد السعر إذا ابتعد عن التفعيل.</p><div class="plan"><div><span>مستوى التفعيل</span><strong>${num(plan.entry,4)}</strong></div><div><span>مستوى الإبطال</span><strong>${num(plan.stop,4)}</strong></div><div><span>هدف حسابي ١R</span><strong>${num(plan.targets[0],4)}</strong></div><div><span>هدف حسابي ٢R</span><strong>${num(plan.targets[1],4)}</strong></div></div>`:'<p class="warn">لا توجد خطة دخول مستوفية الآن: يلزم اجتماع التسارع وحداثة الصفقة والعرض، وفارق ≤ ٠٫٨٪، ومخاطرة محددة دون مطاردة السعر.</p>'}<p>آخر صفقة: ${r.price_at?time(r.price_at):'غير متاح'} · عمرها ${ageText(r)}. ${data.feed==='iex'?'تغطية IEX فقط.':''}</p><h3>الأخبار والسياق</h3>${r.news?.length?r.news.map(n=>`<p><a href="${safeLink(n.url)}" target="_blank" rel="noopener noreferrer">${escape(n.headline)}</a><br><small>${escape(n.source)} · ${new Date(n.published_at).toLocaleString('ar-SA')} · ${categories[n.category]??'خبر مرتبط'}</small></p>`).join(''):'<p>لم يظهر خبر مرتبط في النتائج المسترجعة؛ لا يعني ذلك عدم وجود خبر أو إثبات تلاعب.</p>'}<p>تصنيف الأخبار بحسب موضوع العنوان، وليس حكمًا على تأثيرها. تقييم الشركة وبيانات مراكز البيع المكشوف غير متصلين بعد، لذلك لا تُنسب الحركة إلى رخص التقييم أو ضغط شراء لتغطية المراكز.</p>${s?.ready?`<p>عدد الصفقات خلال ٣ دقائق: ${num(s.trades_3m,0)} · متوسط السعر المرجّح لحجم نافذة الدقائق: ${num(s.vwap_window,4)}.</p>`:''}`;
 }
-function signals() { return active === 'study' ? data.study.signals : data.exit.signals; }
-function showDetail(row) {
-  $('detail-title').textContent = row.symbol + ' · ' + (labels[row.outcome] || row.outcome);
-  const entry = active === 'study' ? row.entry : row.entry_ask;
-  const pairs = [
-    ['وقت الإشارة · نيويورك', when(row.at || row.id.split(/:(.*)/s)[1])],
-    ['الدخول المفترض', price(entry)], ['الوقف في المحاكاة', price(row.stop)],
-    ['الهدف في المحاكاة', price(row.target)], ['وقت الخروج · نيويورك', when(row.exit_at)],
-    ['العائد بعد التكلفة', net(row.net_pct)]
-  ];
-  if (active === 'exit') {
-    pairs.push(['سعر الخروج المرصود', price(row.exit_bid)], ['عدد تحديثات الأسعار', nf.format(row.quotes)]);
-    const later = data.timing.results.find(r => r.id === row.id);
-    if (later?.first_valid) pairs.push(['تأخر أول تحديث لاحق', later.first_valid.delay_seconds.toFixed(3) + ' s']);
-  }
-  $('detail-values').replaceChildren(...pairs.flatMap(([key,value]) => [node('dt',key), node('dd',value)]));
-  $('detail-note').textContent = active === 'study'
-    ? 'هذه محاكاة شموع: دخول عند افتتاح الدقيقة التالية، مع تكلفة 0.25٪ لكل جانب. القيم السوقية مأخوذة من لقطة لاحقة؛ تحيز البقاء ونقص البيانات ما زالا قائمين.'
-    : 'عينة تطوير بتاريخ 24 أغسطس، وليست اختبارًا مستقلًا لدقة التداول. دخول عند سعر عرض مرصود وخروج عند سعر طلب مرصود مع تكلفة 0.25٪ لكل جانب، دون إثبات تنفيذ فعلي.';
-  if (active === 'exit' && row.outcome === 'UNKNOWN_TIMEOUT_QUOTE') $('detail-note').textContent += ' السعر اللاحق خارج مهلة الخروج؛ لذلك لم يُستخدم لإعادة تصنيف النتيجة.';
-  if (active === 'exit' && row.limit_reached) $('detail-note').textContent += ' وصلت نافذة البيانات إلى حد الطلب؛ حدث الخروج المرصود داخل الجزء المتاح فقط.';
-  $('detail').showModal();
-}
-function renderRows() {
-  const query = $('search').value.trim().toUpperCase();
-  const outcome = $('outcome-filter').value;
-  const filtered = signals().filter(row => row.symbol.includes(query) && (!outcome || row.outcome === outcome));
-  const pages = Math.max(1,Math.ceil(filtered.length/pageSize));
-  page = Math.min(page,pages-1);
-  $('page-count').textContent = (page+1)+' / '+pages;
-  $('previous').disabled = page === 0;
-  $('next').disabled = page === pages-1;
-  $('rows').replaceChildren(...filtered.slice(page*pageSize,(page+1)*pageSize).map(row => {
-    const tr = node('tr');
-    const symbol = node('td',row.symbol); symbol.dir = 'ltr';
-    const at = node('td',when(row.at || row.entry_at),'num');
-    const status = node('td'); status.append(node('span',labels[row.outcome] || row.outcome,'badge '+row.outcome));
-    const pnl = node('td',net(row.net_pct),'num '+(Number.isFinite(row.net_pct) ? row.net_pct>0?'positive':'negative' : ''));
-    const detail = node('td'); const button = node('button','التفاصيل');
-    button.type='button'; button.setAttribute('aria-label','تفاصيل '+row.symbol+' '+when(row.at || row.entry_at));
-    button.addEventListener('click',()=>showDetail(row)); detail.append(button);
-    tr.append(symbol,at,status,pnl,detail); return tr;
-  }));
-  $('row-count').textContent = filtered.length + ' من ' + signals().length + ' حالة';
-  $('empty').hidden = filtered.length !== 0;
-}
-function chooseSample(sample) {
-  active = sample;
-  page = 0;
-  for (const key of ['study','exit']) {
-    $(key+'-tab').classList.toggle('active',key===sample);
-    $(key+'-tab').setAttribute('aria-pressed',String(key===sample));
-  }
-  $('search').value='';
-  const all = node('option','جميع النتائج'); all.value='';
-  const options = [...new Set(signals().map(row=>row.outcome))].map(outcome=>{const o=node('option',labels[outcome]||outcome);o.value=outcome;return o;});
-  $('outcome-filter').replaceChildren(all,...options);
-  $('sample-note').textContent = sample==='study'
-    ? '2–4 سبتمبر 2026 · 125 إشارة؛ 26 نتيجة محسومة، و99 حالة تعذّر دخولها أو استكمال تقييمها. أسعار مشتقة من الشموع وليست تنفيذات فعلية.'
-    : '24 أغسطس 2026 · عينة تطوير: 10 مداخل مفترضة، 5 نتائج محسومة و5 غير محسومة. لا يُعرض متوسط المجموعة المحسومة كربحية للعينة.';
-  renderRows();
-}
-async function init() {
-  try {
-    const response = await fetch('snapshot.json', {cache:'no-cache'});
-    if (!response.ok) throw new Error('HTTP '+response.status);
-    const payload = await response.json();
-    if (payload.schema_version!==1 || payload.approved_for_live!==false || payload.live_connected!==false || !Array.isArray(payload.study?.signals) || !Array.isArray(payload.exit?.signals)) throw new Error('Invalid research snapshot');
-    if (payload.study.signals.length!==payload.study.summary.setups || payload.exit.signals.length!==payload.exit.entries) throw new Error('Incomplete snapshot');
-    data = payload;
-    $('symbols').textContent=nf.format(data.universe.symbols);
-    $('bars').textContent=nf.format(data.universe.bars);
-    $('setups').textContent=nf.format(data.study.summary.setups);
-    $('resolved').textContent=data.study.summary.resolved+' / '+data.study.summary.setups;
-    const outcomes=Object.entries(data.study.summary.outcomes).sort((a,b)=>b[1]-a[1]);
-    $('outcomes').replaceChildren(...outcomes.map(([key,count])=>{
-      const row=node('div',undefined,'outcome-row'), track=node('div',undefined,'bar-track'),fill=node('div',undefined,'bar-fill '+key);
-      fill.style.width=(count/data.study.summary.setups*100)+'%';track.append(fill);track.setAttribute('aria-hidden','true');
-      row.append(node('span',labels[key]||key),track,node('b',String(count),'num'));return row;
-    }));
-    $('study-tab').addEventListener('click',()=>chooseSample('study'));
-    $('exit-tab').addEventListener('click',()=>chooseSample('exit'));
-    $('search').addEventListener('input',()=>{page=0;renderRows();});
-    $('outcome-filter').addEventListener('change',()=>{page=0;renderRows();});
-    $('previous').addEventListener('click',()=>{page--;renderRows();});
-    $('next').addEventListener('click',()=>{page++;renderRows();});
-    chooseSample('study');
-    $('load-status').textContent='';
-  } catch(error) {
-    $('load-status').textContent='تعذّر تحميل سجل البحث. أعد فتح الصفحة أو استخدم رابط الدراسة. لا توجد بيانات لحظية بديلة في هذه الواجهة.';
-    $('load-status').setAttribute('role','alert');
-    for(const id of ['study-tab','exit-tab','search','outcome-filter','previous','next']) $(id).disabled=true;
-    console.error('Research snapshot unavailable:',error.message);
-  }
-}
-$('close-detail').addEventListener('click',()=>$('detail').close());
-$('detail').addEventListener('click',(e)=>{if(e.target===$('detail')){const r=$('detail').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$('detail').close();}});
-init();
+async function get(path){const r=await fetch(endpoint+path,{cache:'no-store',signal:AbortSignal.timeout(90000)});const value=await r.json();if(!r.ok)throw Error(value.status||'HTTP_'+r.status);return value;}
+async function scan(){if(busy||document.hidden||!endpoint)return;busy=true;$('refresh').disabled=true;$('connection').textContent='جارٍ مسح ناسداك…';try{const next=await get('/api/scanner');if(next.schema_version!==1||!Array.isArray(next.rows)||!next.coverage)throw Error('INVALID_RESPONSE');data=next;clockOffset=Date.parse(data.server_time)-Date.now();failed=false;const c=data.coverage;$('scanned').textContent=c.eligible_small_caps.toLocaleString('en-US');$('priced').textContent=c.with_prices;$('fresh').textContent=c.fresh_prices;$('signals').textContent=data.rows.filter(r=>r.signal?.expansion).length;$('plans').textContent=data.rows.filter(r=>r.actionable).length;$('scan-time').textContent='آخر مسح '+time(data.server_time);$('connection').textContent=data.status==='PARTIAL'?'متصل · تغطية جزئية':'متصل · المسح يعمل';$('data-note').textContent=`${data.feed.toUpperCase()} · ${c.with_prices} سعر من ${c.eligible_small_caps} سهم مؤهل. الأسعار القديمة مميزة بعمرها؛ ${c.detailed_symbols} سهمًا ضمن فحص الدقائق المتعمق.${c.history_error?' تعذر اكتمال بيانات الدقائق في هذا المسح.':''}`;$('coverage').textContent=`قائمة ناسداك لدى المزود: ${c.nasdaq_assets}. بيانات الرسملة بتاريخ ${new Date(c.metadata_at).toLocaleString('ar-SA')}. تعذر جلب ${c.failed_symbols} رمز في المسح الأخير.`;render();}catch(e){failed=true;$('connection').textContent='تعذر التحديث';$('data-note').textContent='لم تصل بيانات جديدة. '+({CURRENT_UNIVERSE_REQUIRED:'مرجع الرسملة يحتاج تحديثًا.',PROVIDER_AUTH_FAILED:'مصدر الأسعار رفض الاتصال.',FEED_NOT_ENTITLED:'خطة البيانات لا تسمح بهذا الطلب.',RATE_LIMITED:'بلغ المصدر حد الطلبات؛ ستتم إعادة المحاولة.'}[e.message]||'سيعيد النظام المحاولة تلقائيًا. الأسعار المعروضة تبقى بتاريخها السابق.');if(!data)$('empty').textContent='المسح غير متاح حاليًا؛ لا توجد أسعار مصطنعة.';render();}finally{busy=false;$('refresh').disabled=false;}}
+async function quotes(){if(!data||quoteBusy||document.hidden||!endpoint||view==='alerts')return;const symbols=[...new Set([selected,...shown().slice(0,19).map(r=>r.symbol)].filter(Boolean))];if(!symbols.length)return;quoteBusy=true;try{const q=await get('/api/quotes?symbols='+encodeURIComponent(symbols.join(',')));for(const updated of q.rows??[]){const row=data.rows.find(r=>r.symbol===updated.symbol);if(row&&updated.trade){row.price=updated.trade.price;row.price_at=updated.trade.timestamp;row.day_change=row.previous_close>0?(row.price/row.previous_close-1)*100:null;row.quote_at=updated.quote?.timestamp??null;row.spread_pct=updated.quote?.spread_pct??null;/* A quote update cannot create a strategy signal or refresh its plan. */}}render();}catch{/* Keep event timestamps visible; scanner reports connectivity. */}finally{quoteBusy=false;}}
+$('rows').addEventListener('click',e=>{const b=e.target.closest('[data-symbol]');if(b){selected=b.dataset.symbol;detail();$('detail').scrollIntoView({behavior:'smooth',block:'nearest'});}});document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{view=b.dataset.view;document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('active',x===b));render();}));$('search').addEventListener('input',render);$('max-price').addEventListener('change',render);$('refresh').addEventListener('click',scan);document.addEventListener('visibilitychange',()=>{if(!document.hidden)scan();});
+try{const config=await fetch('live-config.json',{cache:'no-store'}).then(r=>r.json());const url=new URL(config.endpoint);if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash)throw Error();endpoint=url.origin;await scan();}catch{$('connection').textContent='عنوان الخدمة غير صالح';}setInterval(scan,30000);setInterval(quotes,5000);setInterval(()=>{if(data&&!document.hidden)render();},1000);
