@@ -45,3 +45,21 @@ distributed rate-limit guarantee. Quotes are observation data, never recommendat
 Official schemas:
 https://docs.alpaca.markets/us/reference/stocksnapshots-1
 https://docs.alpaca.markets/us/docs/real-time-stock-pricing-data
+
+## Activation verification
+
+After deploying with the protected runtime variables above, run:
+
+```
+node scripts/verify-connection.mjs https://YOUR-SERVICE-HOST SENS,NUAI,BTCT --write-config
+```
+
+This checks CORS, configured health, real HTTP quote responses, timestamp integrity,
+reference eligibility and symbol accounting before writing `web/live-config.json`.
+It never accepts health alone as evidence of prices. A failed check leaves the config
+untouched. The result reports quote freshness separately from transport connectivity;
+neither grants strategy approval. Publish the updated web export only after success.
+
+A mixed eligible/ineligible watchlist returns `PARTIAL`: eligible symbols retain their
+own observed prices, excluded symbols are listed explicitly and never sent to Alpaca.
+A list with no eligible symbols remains an explicit 422 response.

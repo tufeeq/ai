@@ -201,3 +201,42 @@ feature study on additional development cases BEFORE retrieving those windows;
 use negative controls and full failure accounting. A new untouched future period
 and prospective bid/ask observations are necessary before a performance claim.
 Do not retune this six-case sample or promote the 30-second policy.
+
+## September 16 — watchlist integrity and published execution evidence
+
+Recovered `9685012e16c7c823a385aaecef4882d7398a085a`, passed the existing 58
+Python and 28 Node tests. Rechecked three real IEX snapshots through the connector:
+requests succeeded but some events were stale and spreads wide. A current SIP
+snapshot request failed with `premium_feed_required` / recent SIP not permitted.
+Connector success still does not provision the hosted service.
+
+Repairs in this cycle:
+- A mixed watchlist now fetches eligible symbols and explicitly lists excluded
+  symbols, rather than suppressing the entire response. Excluded symbols never
+  reach the provider; no eligible symbols still returns 422.
+- Client validation now checks timestamp/age consistency, response receipt time,
+  per-row reference age, finite numeric sizes, feed/status agreement, and complete
+  non-overlapping symbol accounting. A failed refresh clears the connection badge.
+- Added an activation probe requiring successful health, CORS and an actual validated
+  price response. It writes the public endpoint only after those checks pass; it
+  reports freshness separately and never promotes the trading strategy.
+- Exported the exact frozen six-case execution diagnostic into the Arabic page with
+  four selectable timing scenarios. All unknowns and the no-entry case remain.
+  CI checks the public report against the frozen diagnostic byte for byte.
+
+Validation: 58 Python + 40 Node tests pass. Trading rules and historical study data
+are unchanged; no improved accuracy or profitability is claimed.
+
+Hosting observations: the connected Vercel team exists, but lists no projects and
+returns 404 for the former project ID. The prior quota reset record is September 16
+16:13 UTC, still in the future during this work; no billable upgrade was attempted.
+Cloudflare was offered for installation/connection and is not confirmed connected.
+No runtime Alpaca credentials were available. Endpoint remains null with an accurate
+HOSTING_ACCESS_REQUIRED state instead of asserting the old quota is the only cause.
+The cloud browser cannot open the local test server (ERR_BLOCKED_BY_CLIENT); this is
+an environment restriction, not evidence of a broken page or a passed browser test.
+
+Required to activate: connect an accessible host, set protected Alpaca data keys,
+run the activation probe against the deployed HTTP origin, then publish the verified
+endpoint. IEX observations remain limited to one exchange; real-time SIP requires an
+entitled data subscription. No live orders were placed.

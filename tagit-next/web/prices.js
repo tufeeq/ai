@@ -1,7 +1,7 @@
 import {viewQuote,serviceOrigin,validPayload} from './price-state.mjs';
 const el=id=>document.getElementById(id);
 const labels={RECENT_IEX:'تحديث حديث · IEX فقط',RECENT_SIP:'تحديث حديث · SIP',STALE:'سعر قديم',DELAYED:'متأخر 15 دقيقة',WIDE_SPREAD:'فارق طلب وعرض مرتفع',INVALID_QUOTE:'سعر غير صالح أو مفقود',FUTURE_TIMESTAMP:'توقيت غير صالح'};
-const errors={VERCEL_DAILY_LIMIT:'نشر خادم الأسعار متوقف مؤقتًا بسبب الحد اليومي للاستضافة. الربط الفعلي لم يعمل بعد.',RUNTIME_CREDENTIALS_NOT_CONFIGURED:'لم تُضبط مفاتيح Alpaca في خادم الأسعار.',FEED_NOT_ENTITLED:'الحساب لا يملك صلاحية مصدر الأسعار المحدد.',PROVIDER_AUTH_FAILED:'تعذر توثيق اتصال الخادم بمزود الأسعار.',RATE_LIMITED:'وصل مزود البيانات إلى حد الطلبات؛ ستتم إعادة المحاولة بعد مهلة.',CURRENT_UNIVERSE_REQUIRED:'مرجع القيمة السوقية غير حديث أو غير متاح. تعذر التحقق من شرط أقل من مليار دولار.',INELIGIBLE_SYMBOLS:'رمز غير مؤهل وفق مرجع القيمة السوقية الحالي، أو غير موجود فيه.',INVALID_SYMBOLS:'أدخل من 1 إلى 20 رمز سهم، مفصولة بفواصل.',INVALID_PAYLOAD:'الاستجابة غير متوافقة مع شروط البيانات؛ لم تُعرض كسعر صالح.',PROVIDER_UNAVAILABLE:'تعذر الوصول إلى مزود الأسعار.',DISCONNECTED:'انقطع اتصال الأسعار. البيانات السابقة لم تعد تُعرض كأسعار متصلة.'};
+const errors={HOSTING_ACCESS_REQUIRED:'خدمة الأسعار جاهزة برمجيًا، لكن يلزم ربط حساب الاستضافة وضبط بيانات مزود الأسعار قبل تشغيل الاتصال.',VERCEL_DAILY_LIMIT:'نشر خادم الأسعار متوقف مؤقتًا بسبب الحد اليومي للاستضافة. الربط الفعلي لم يعمل بعد.',RUNTIME_CREDENTIALS_NOT_CONFIGURED:'لم تُضبط مفاتيح Alpaca في خادم الأسعار.',FEED_NOT_ENTITLED:'الحساب لا يملك صلاحية مصدر الأسعار المحدد.',PROVIDER_AUTH_FAILED:'تعذر توثيق اتصال الخادم بمزود الأسعار.',RATE_LIMITED:'وصل مزود البيانات إلى حد الطلبات؛ ستتم إعادة المحاولة بعد مهلة.',CURRENT_UNIVERSE_REQUIRED:'مرجع القيمة السوقية غير حديث أو غير متاح. تعذر التحقق من شرط أقل من مليار دولار.',INELIGIBLE_SYMBOLS:'رمز غير مؤهل وفق مرجع القيمة السوقية الحالي، أو غير موجود فيه.',INVALID_SYMBOLS:'أدخل من 1 إلى 20 رمز سهم، مفصولة بفواصل.',INVALID_PAYLOAD:'الاستجابة غير متوافقة مع شروط البيانات؛ لم تُعرض كسعر صالح.',PROVIDER_UNAVAILABLE:'تعذر الوصول إلى مزود الأسعار.',DISCONNECTED:'انقطع اتصال الأسعار. البيانات السابقة لم تعد تُعرض كأسعار متصلة.'};
 const money=n=>typeof n==='number'&&Number.isFinite(n)?'$'+n.toLocaleString('en-US',{maximumFractionDigits:4}):'—';
 const time=s=>{const d=new Date(s);return Number.isFinite(d.getTime())?d.toLocaleTimeString('en-GB',{timeZone:'America/New_York',hour12:false}):'—';};
 const ago=ms=>ms===null?'غير معروف':ms<1000?'أقل من ثانية':Math.floor(ms/1000)+' ث';
@@ -28,17 +28,17 @@ async function refresh(){
  try{
   const r=await fetch(endpoint+'/api/quotes?symbols='+encodeURIComponent(symbols.join(',')),{cache:'no-store',signal:abort.signal});const p=await r.json();
   if(epoch!==generation)return;
-  if(!r.ok||p.status!=='OK')throw new Error(p.status||'DISCONNECTED');
+  if(!r.ok||!['OK','PARTIAL'].includes(p.status))throw new Error(p.status||'DISCONNECTED');
   if(!validPayload(p,symbols))throw new Error('INVALID_PAYLOAD');
   rows=p.rows;currentSymbols=symbols;requestDuration=performance.now()-started;received=performance.now();failures=0;
   el('price-status').textContent='اتصال الخدمة يعمل · طلب أسعار كل 5 ثوانٍ أثناء فتح الصفحة. حداثة كل سعر موضحة في صفه.';el('price-status').dataset.state='connected';
   el('price-feed').textContent=p.feed==='iex'?'IEX · سوق واحد':p.feed==='sip'?'SIP · أسعار مجمعة':'SIP · متأخر 15 دقيقة';
   el('price-reference').textContent='القيمة السوقية وفق مرجع '+new Date(p.metadata_at).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh',calendar:'gregory'})+' · نطاق مرجعي، وليس جميع الأسهم الأمريكية.';
-  el('price-empty').hidden=true;render();
- }catch(e){if(epoch!==generation)return;rows=[];render();el('price-empty').hidden=false;message(e.message);failures++;}
+  el('price-rejected').textContent=p.rejected?.length?'لم تُطلب أسعار الرموز التالية لعدم تحقق أهليتها في المرجع الحالي: '+p.rejected.join(', '):'';el('price-empty').hidden=true;render();
+ }catch(e){if(epoch!==generation)return;rows=[];render();el('price-feed').textContent='غير متصل';el('price-rejected').textContent='';el('price-empty').hidden=false;message(e.message);failures++;}
  finally{clearTimeout(timeout);if(epoch===generation){controller=null;el('price-refresh').disabled=!endpoint||paused;schedule();}}
 }
-function begin(){stopRequest();rows=[];render();failures=0;paused=false;el('price-empty').hidden=false;el('price-status').textContent='جارٍ طلب الأسعار…';el('price-status').dataset.state='connecting';el('price-pause').textContent='إيقاف مؤقت';refresh();}
+function begin(){if(!endpoint){message(config?.deployment_status);return;}stopRequest();rows=[];render();failures=0;paused=false;el('price-empty').hidden=false;el('price-status').textContent='جارٍ طلب الأسعار…';el('price-status').dataset.state='connecting';el('price-pause').textContent='إيقاف مؤقت';refresh();}
 el('price-form').addEventListener('submit',e=>{e.preventDefault();begin();});
 el('price-pause').addEventListener('click',()=>{paused=!paused;stopRequest();el('price-pause').textContent=paused?'استئناف':'إيقاف مؤقت';el('price-refresh').disabled=paused||!endpoint;if(paused){el('price-status').textContent='التحديث موقوف يدويًا.';el('price-status').dataset.state='paused';render();}else{el('price-status').textContent='جارٍ استئناف الاتصال…';el('price-status').dataset.state='connecting';refresh();}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){stopRequest();el('price-status').textContent='التحديث متوقف أثناء إخفاء الصفحة.';el('price-status').dataset.state='paused';}else if(endpoint&&!paused)refresh();});

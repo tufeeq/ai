@@ -1,11 +1,14 @@
-// Pure view state: age advances locally even when the network stops updating.
+// Validate timestamps against the server clock, never the user's device clock.
+const positive=n=>typeof n==='number'&&Number.isFinite(n)&&n>0;
+const stamp=s=>typeof s==='string'&&/(?:Z|[+-]\d{2}:\d{2})$/.test(s)?Date.parse(s):NaN;
+const statuses=new Set(['RECENT_IEX','RECENT_SIP','WIDE_SPREAD','STALE','DELAYED','INVALID_QUOTE','FUTURE_TIMESTAMP']);
 export function viewQuote(row,elapsed=0){
- const q=row.quote,t=row.trade;
- const quoteAge=Number.isFinite(q?.age_ms)?q.age_ms+Math.max(0,elapsed):null;
- const tradeAge=Number.isFinite(t?.age_ms)?t.age_ms+Math.max(0,elapsed):null;
+ const advance=Number.isFinite(elapsed)?Math.max(0,elapsed):Infinity;
+ const quoteAge=Number.isFinite(row.quote?.age_ms)?row.quote.age_ms+advance:null;
+ const tradeAge=Number.isFinite(row.trade?.age_ms)?row.trade.age_ms+advance:null;
  let status=row.status;
  if(['RECENT_IEX','RECENT_SIP','WIDE_SPREAD'].includes(status)&&quoteAge>3000)status='STALE';
- if(quoteAge===null&&['RECENT_IEX','RECENT_SIP'].includes(status))status='INVALID_QUOTE';
+ if(quoteAge===null&&['RECENT_IEX','RECENT_SIP','WIDE_SPREAD'].includes(status))status='INVALID_QUOTE';
  return {status,quoteAge,tradeAge,tradeStatus:row.feed==='delayed_sip'?'DELAYED':tradeAge===null?'MISSING':tradeAge>3000?'STALE':'RECENT'};
 }
 export function serviceOrigin(value){
@@ -14,8 +17,23 @@ export function serviceOrigin(value){
  return url.origin;
 }
 export function validPayload(p,symbols){
- if(p?.schema_version!==1||p.status!=='OK'||p.approved_for_live!==false||!['iex','sip','delayed_sip'].includes(p.feed)||!Array.isArray(p.rows)||p.rows.length!==symbols.length)return false;
- const returned=new Set(p.rows.map(r=>r.symbol));
- if(returned.size!==symbols.length||symbols.some(s=>!returned.has(s)))return false;
- return p.rows.every(r=>r.approved_for_live===false&&r.feed===p.feed&&typeof r.status==='string'&&typeof r.market_cap==='number'&&Number.isFinite(r.market_cap)&&r.market_cap>0&&r.market_cap<1e9&&(!r.quote||(Number.isFinite(r.quote.bid)&&Number.isFinite(r.quote.ask)&&r.quote.bid>0&&r.quote.ask>=r.quote.bid&&r.quote.bid_size>0&&r.quote.ask_size>0&&Number.isFinite(r.quote.age_ms)&&r.quote.age_ms>=0))&&(!r.trade||(Number.isFinite(r.trade.price)&&r.trade.price>0&&Number.isFinite(r.trade.age_ms)&&r.trade.age_ms>=0)));
+ if(p?.schema_version!==1||!['OK','PARTIAL'].includes(p.status)||p.approved_for_live!==false||!['iex','sip','delayed_sip'].includes(p.feed)||!Array.isArray(p.rows)||!p.rows.length)return false;
+ const server=stamp(p.server_time),received=stamp(p.provider_received_at),metadata=stamp(p.metadata_at);
+ if(!Number.isFinite(server)||!Number.isFinite(received)||received>server||server-received>1500||!Number.isFinite(metadata)||metadata>server||server-metadata>86400000)return false;
+ const rejected=p.rejected??[];
+ if(!Array.isArray(rejected)||rejected.some(s=>typeof s!=='string')||(p.status==='OK'&&rejected.length)||(p.status==='PARTIAL'&&!rejected.length))return false;
+ const accounted=[...p.rows.map(r=>r?.symbol),...rejected];
+ if(accounted.length!==symbols.length||new Set(accounted).size!==symbols.length||symbols.some(s=>!accounted.includes(s)))return false;
+ const timed=v=>Number.isFinite(v.age_ms)&&v.age_ms>=0&&Number.isFinite(stamp(v.timestamp))&&server-stamp(v.timestamp)>=0&&Math.abs(server-stamp(v.timestamp)-v.age_ms)<=2;
+ return p.rows.every(r=>{
+  if(!r||r.approved_for_live!==false||r.feed!==p.feed||!statuses.has(r.status)||!positive(r.market_cap)||r.market_cap>=1e9)return false;
+  const rowMetadata=stamp(r.metadata_at);
+  if(!Number.isFinite(rowMetadata)||rowMetadata>server||server-rowMetadata>86400000)return false;
+  const q=r.quote,t=r.trade;
+  if(q&&(!positive(q.bid)||!positive(q.ask)||q.ask<q.bid||!positive(q.bid_size)||!positive(q.ask_size)||!timed(q)))return false;
+  if(t&&(!positive(t.price)||!timed(t)))return false;
+  if(!q)return ['INVALID_QUOTE','FUTURE_TIMESTAMP'].includes(r.status);
+  const expected=p.feed==='delayed_sip'?'DELAYED':q.age_ms>3000?'STALE':(q.ask-q.bid)/q.ask*100>0.8?'WIDE_SPREAD':p.feed==='iex'?'RECENT_IEX':'RECENT_SIP';
+  return r.status===expected;
+ });
 }

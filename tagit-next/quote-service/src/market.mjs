@@ -62,13 +62,14 @@ export function createMarketService({env=process.env,fetcher=fetch,now=Date.now}
     if(!s.configured)throw new Error('RUNTIME_CREDENTIALS_NOT_CONFIGURED');
     const ref=await getReference();
     const rejected=symbols.filter(symbol=>!ref.rows.has(symbol));
-    if(rejected.length)return {schema_version:1,status:'INELIGIBLE_SYMBOLS',rejected,rows:[],server_time:new Date(now()).toISOString(),approved_for_live:false};
-    const key=s.feed+':'+symbols.join(',');let raw=cache.get(key);
+    const eligible=symbols.filter(symbol=>ref.rows.has(symbol));
+    if(!eligible.length)return {schema_version:1,status:'INELIGIBLE_SYMBOLS',rejected,rows:[],server_time:new Date(now()).toISOString(),approved_for_live:false};
+    const key=s.feed+':'+eligible.join(',');let raw=cache.get(key);
     if(!raw||now()-raw.received>1500){
       if(!inflight.has(key)){
         if(now()-windowStart>=60000){windowStart=now();requests=0;}if(requests>=90)throw new Error('RATE_LIMITED');requests++;
         inflight.set(key,(async()=>{
-          const payload=await fetchJSON('https://data.alpaca.markets/v2/stocks/snapshots?symbols='+encodeURIComponent(symbols.join(','))+'&feed='+s.feed,
+          const payload=await fetchJSON('https://data.alpaca.markets/v2/stocks/snapshots?symbols='+encodeURIComponent(eligible.join(','))+'&feed='+s.feed,
             {'APCA-API-KEY-ID':s.key,'APCA-API-SECRET-KEY':s.secret});
           if(!payload||Array.isArray(payload)||typeof payload!=='object')throw new Error('INVALID_PROVIDER_RESPONSE');
           const record={payload,received:now()};if(cache.size>=50)cache.delete(cache.keys().next().value);cache.set(key,record);return record;
@@ -77,8 +78,8 @@ export function createMarketService({env=process.env,fetcher=fetch,now=Date.now}
       raw=await inflight.get(key);
     }
     const checked=now();
-    return {schema_version:1,status:'OK',feed:s.feed,server_time:new Date(checked).toISOString(),provider_received_at:new Date(raw.received).toISOString(),metadata_at:ref.updated_at,
-      refresh_ms:5000,rows:symbols.map(symbol=>normalizeSnapshot(symbol,raw.payload[symbol],s.feed,checked,ref.rows.get(symbol))),approved_for_live:false,purpose:'PRICE_OBSERVATION_ONLY'};
+    return {schema_version:1,status:rejected.length?'PARTIAL':'OK',rejected,feed:s.feed,server_time:new Date(checked).toISOString(),provider_received_at:new Date(raw.received).toISOString(),metadata_at:ref.updated_at,
+      refresh_ms:5000,rows:eligible.map(symbol=>normalizeSnapshot(symbol,raw.payload[symbol],s.feed,checked,ref.rows.get(symbol))),approved_for_live:false,purpose:'PRICE_OBSERVATION_ONLY'};
   }
   return {quotes,async universe(){const r=await getReference();return {schema_version:1,updated_at:r.updated_at,source:r.source,rows:[...r.rows.values()],approved_for_live:false};},health(){const s=settings(env);return {schema_version:1,status:s.configured?'CONFIGURED_UNVERIFIED':'RUNTIME_CREDENTIALS_NOT_CONFIGURED',feed:s.feed,credentials_configured:s.configured,stream_connected:false,transport:'HTTP_POLLING',refresh_ms:5000,approved_for_live:false};}};
 }

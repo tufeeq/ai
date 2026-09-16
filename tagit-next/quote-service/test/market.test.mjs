@@ -26,3 +26,12 @@ test('provider exceptions cannot echo credentials',async()=>{const s=createMarke
 const response=()=>({headers:{},setHeader(k,v){this.headers[k]=v;},end(body){this.body=body;}});
 test('CORS denies another origin and write methods are disabled',async()=>{const h=createHandler({service:{health:()=>({status:'OK'})},env:{}});let r=response();await h({headers:{origin:'https://other.example'},method:'GET',url:'/api/health'},r);assert.equal(r.statusCode,403);r=response();await h({headers:{},method:'POST',url:'/api/quotes'},r);assert.equal(r.statusCode,405);});
 test('endpoint errors are no-store and contain no raw exceptions',async()=>{const h=createHandler({service:{quotes:async()=>{throw new Error('sensitive-provider-body');}},env:{}});const r=response();await h({headers:{origin:'https://tufeeq.github.io'},method:'GET',url:'/api/quotes?symbols=SENS'},r);assert.equal(r.statusCode,503);assert.equal(r.headers['Cache-Control'],'no-store');assert(!r.body.includes('sensitive'));assert.equal(JSON.parse(r.body).approved_for_live,false);});
+test('one ineligible symbol does not hide valid requested prices or reach the provider',async()=>{
+ const urls=[];const s=createMarketService({env,now:()=>now,fetcher:async url=>{urls.push(url);return {ok:true,json:async()=>url.includes('raw.githubusercontent')?ref:{SENS:q}};}});
+ const r=await s.quotes('SENS,AAPL');assert.equal(r.status,'PARTIAL');assert.deepEqual(r.rejected,['AAPL']);assert.deepEqual(r.rows.map(x=>x.symbol),['SENS']);assert(!urls[1].includes('AAPL'));assert.equal(r.approved_for_live,false);
+ const {validPayload}=await import('../../web/price-state.mjs');assert(validPayload(r,['SENS','AAPL']));
+});
+test('failed refresh does not return cached prices as connected',async()=>{
+ let clock=now,fail=false;const s=createMarketService({env,now:()=>clock,fetcher:async url=>url.includes('raw.githubusercontent')?{ok:true,json:async()=>ref}:fail?{ok:false,status:500}:{ok:true,json:async()=>({SENS:q})}});
+ await s.quotes('SENS');clock+=1600;fail=true;await assert.rejects(s.quotes('SENS'),/PROVIDER_UNAVAILABLE/);
+});
