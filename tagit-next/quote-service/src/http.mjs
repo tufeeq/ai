@@ -1,5 +1,7 @@
 import {createMarketService} from './market.mjs';
+import {createScanner} from './scanner.mjs';
 export function createHandler({env=globalThis.process?.env??{},service=createMarketService({env})}={}){
+ const scanner=createScanner({env});
  return async function handle(req,res){
   const origin=req.headers.origin,allowed=env.TAGIT_ALLOWED_ORIGIN||'https://tufeeq.github.io';
   res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Vary','Origin');res.setHeader('X-Content-Type-Options','nosniff');
@@ -11,6 +13,7 @@ export function createHandler({env=globalThis.process?.env??{},service=createMar
    const url=new URL(req.url,'http://localhost');let result;
    if(url.pathname==='/api/health')result=service.health();
    else if(url.pathname==='/api/quotes')result=await service.quotes(url.searchParams.get('symbols'));
+   else if(url.pathname==='/api/scanner')result=await scanner.get();
    else if(url.pathname==='/api/universe')result=await service.universe();
    else {res.statusCode=404;return res.end(JSON.stringify({status:'NOT_FOUND'}));}
    res.statusCode=result.status==='INELIGIBLE_SYMBOLS'?422:200;res.end(JSON.stringify(result));
