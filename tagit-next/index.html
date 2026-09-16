@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="style.css">
   <script src="app.js" defer></script>
   <script src="prices.js" type="module"></script>
+  <script src="execution.js" type="module"></script>
 </head>
 <body>
   <a class="skip" href="#main">انتقل إلى المحتوى</a>
@@ -26,11 +27,12 @@
       <p class="muted">رموز البداية لمعاينة الاتصال، وليست ترشيحات. مصدر IEX يغطي سوقًا واحدًا، ولا يضمن آخر سعر على مستوى جميع الأسواق.</p>
       <div class="table-wrap"><table><caption class="sr-only">متابعة الأسعار؛ وقت كل سعر بتوقيت نيويورك. سعر آخر صفقة يختلف عن الطلب والعرض.</caption><thead><tr><th>السهم</th><th>آخر صفقة</th><th>الطلب Bid</th><th>العرض Ask</th><th>حداثة الطلب والعرض</th><th>وقت السعر · نيويورك</th><th>القيمة السوقية $</th></tr></thead><tbody id="price-rows"></tbody></table></div>
       <p id="price-empty" class="muted">لا توجد أسعار متصلة لعرضها. لن تُستبدل بأرقام تجريبية أو بأسعار الاختبارات التاريخية.</p>
+      <p id="price-rejected" class="muted" role="status"></p>
       <p id="price-reference" class="table-foot">يُتحقق من شرط القيمة السوقية دون مليار دولار قبل طلب الأسعار.</p>
     </section>
     <section id="overview" class="hero">
       <div><p class="eyebrow">أبحاث الأسهم الأمريكية الصغيرة</p><h1>حركة كبيرة.<br><span>دليل يسبق القرار.</span></h1><p class="intro">مساحة مستقلة لفحص الفرص في الأسهم ذات القيمة السوقية دون مليار دولار، وقياس الحركة المتبقية بعد دخول قابل للتنفيذ.</p></div>
-      <aside class="status-card"><div class="status-top"><span class="dot"></span> حالة النسخة</div><h2>البحث متاح<br>والاستراتيجية غير معتمدة</h2><p>الدراسة أدناه تاريخية. الفرضيات الثلاث اختُبرت ورُفضت؛ لا توجد استراتيجية معتمدة لتقديم توصيات تداول.</p><div class="date-row">آخر نتائج بحثية <time datetime="2026-09-15">15 سبتمبر 2026</time></div></aside>
+      <aside class="status-card"><div class="status-top"><span class="dot"></span> حالة النسخة</div><h2>البحث متاح<br>والاستراتيجية غير معتمدة</h2><p>الدراسة أدناه تاريخية. الفرضيات الثلاث اختُبرت ورُفضت؛ لا توجد استراتيجية معتمدة لتقديم توصيات تداول.</p><div class="date-row">آخر نتائج بحثية <time datetime="2026-09-16">16 سبتمبر 2026</time></div></aside>
     </section>
     <div class="notice"><b>هذه الصفحة لا تعرض فرص جلسة اليوم.</b><span>عدم وجود بث لحظي لا يعني عدم وجود فرص في السوق. نجاح الاختبارات البرمجية لا يثبت نجاح التداول.</span></div>
     <div id="load-status" role="status">جارٍ تحميل السجل المحفوظ…</div>
@@ -52,7 +54,15 @@
       <p class="table-foot">* العائد للحالة المحسومة فقط، بعد التكلفة المفترضة. «غير محسوم» لا يساوي صفرًا؛ لم تُحذف الحالات الناقصة ولا تمثل هذه النتائج عائد محفظة.</p>
     </section>
     <section id="readiness" class="readiness"><div><p class="eyebrow">ما المتاح الآن؟</p><h2>جاهزية النسخة</h2><p class="muted">واجهة منشورة لفحص الأدلة. اعتماد استراتيجية وتشغيل تغذية لحظية مرحلتان لم تكتملَا.</p></div><div class="readiness-list"><article><span class="state ok">متاح</span><div><h3>الدراسة وسجل الحالات</h3><p>النجاحات والإخفاقات ونقص البيانات محفوظة معًا.</p></div></article><article><span class="state caution">قيد البحث</span><div><h3>دقة اكتشاف الفرص</h3><p>لم تجتز أي من الفرضيات الثلاث معايير الدراسة.</p></div></article><article><span class="state neutral">غير متصل</span><div><h3>تغذية الأسعار اللحظية</h3><p>يلزم تشغيل مستمر مع صلاحية البيانات المناسبة، ثم رصد أمامي بأسعار فعلية.</p></div></article><article><span class="state neutral">غير متصل</span><div><h3>الأخبار المؤرخة</h3><p>تغطية الأخبار غير معروفة؛ غياب خبر في البيانات لا يثبت عدم وجوده.</p></div></article></div></section>
-    <section class="next-step"><span class="eyebrow">آخر تطوير · 15 سبتمبر 2026</span><h2>إصلاح التعامل مع تحديثات أسعار الخروج</h2><p>أُصلح تجاهل سعر صالح بعد تحديث غير صالح. بقيت 5 من 10 حالات غير محسومة؛ ظهرت تحديثات لاحقة بعد نحو 3.8–34.9 ثانية، خارج مهلة الخروج المحددة. لم يتغير تقييم أداء التداول.</p><p><b>الخطوة التالية:</b> اختبار أثر تأخر التنفيذ على عينة مختلفة بقواعد محددة مسبقًا.</p></section>
+    <section id="execution" class="panel">
+      <div class="section-head"><div><p class="eyebrow">نتائج 16 سبتمبر · عينة تطوير بتاريخ 25 أغسطس</p><h2>أثر تأخر التنفيذ</h2></div><a href="execution-latency.json" download class="secondary">تنزيل النتائج ↓</a></div>
+      <p class="muted">6 حالات محددة مسبقًا، و15,317 تحديث طلب وعرض. المقارنة تفحص أثر مهلة رصد سعر الخروج؛ لا تثبت تنفيذًا فعليًا أو نجاح الاستراتيجية.</p>
+      <div class="filters"><label for="latency-scenario">سيناريو التأخير<select id="latency-scenario" disabled></select></label></div>
+      <p id="latency-status" role="status">جارٍ تحميل نتائج التجربة…</p>
+      <div class="table-wrap"><table><caption class="sr-only">نتيجة كل حالة مع الحفاظ على حالات نقص البيانات</caption><thead><tr><th>السهم</th><th>النتيجة</th><th>العائد المحاكى</th><th>تأخر الخروج عن الموعد</th></tr></thead><tbody id="latency-rows"></tbody></table></div>
+      <p class="table-foot">المهلة الأصلية 3 ثوانٍ تترك حالتين غير محسومتين. مهلة 30 ثانية تتيح رصد خروجهما لاحقًا؛ لا يجوز نقل السعر اللاحق إلى وقت الخروج الأصلي. لم يُعتمد تغيير سياسة التنفيذ.</p>
+    </section>
+    <section class="next-step"><span class="eyebrow">آخر تطوير · 16 سبتمبر 2026</span><h2>فصل جاهزية البيانات عن أداء الاستراتيجية</h2><p>اكتملت تجربة التأخير على العينة المحددة: مع مهلة 30 ثانية، أربع نتائج سالبة ونتيجة موجبة وحالة دون دخول مؤهل. بقيت الاستراتيجية غير معتمدة.</p><p>تحسن التحقق من أوقات الأسعار وأحجام الطلب والعرض، وأصبح الرمز غير المؤهل لا يحجب بقية الرموز المؤهلة. تفعيل الأسعار المتصلة ما زال يتطلب استضافة ومفاتيح مزود البيانات.</p></section>
     <noscript><p class="notice">فعّل JavaScript لعرض سجل الحالات والبحث فيه. يمكنك قراءة الدراسة من الرابط أعلاه.</p></noscript>
   </main>
   <footer><div class="brand" dir="ltr">TAGit <b>NEXT</b></div><span>بحث ومتابعة أسعار · لا تُنفّذ هذه الواجهة صفقات</span><a href="https://github.com/tufeeq/ai/tree/tagit-next-independent-20260914/tagit-next" target="_blank" rel="noopener">المشروع وسجل التطوير ↗</a></footer>
