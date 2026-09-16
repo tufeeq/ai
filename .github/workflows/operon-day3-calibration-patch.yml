@@ -1,0 +1,35 @@
+name: OPERON Day3 Calibration Patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'operon/day3-calibration-patch.mjs'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply contextual alert calibration
+        run: node operon/day3-calibration-patch.mjs
+      - name: Validate calibrated core
+        run: |
+          node --check operon/core.mjs
+          node operon/tests/day3-core-calibration.mjs
+          node --test operon/tests/core.test.mjs
+      - name: Commit calibrated core
+        run: |
+          git config user.name "operon-validation-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add operon/core.mjs
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(operon): calibrate record-level alert severity"
+          git push origin HEAD:main
