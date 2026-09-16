@@ -17,7 +17,8 @@ export function normalizeReference(raw,now){
     if(!/^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol??'')||!industry||/exchange.traded|closed.end|shell compan/i.test(industry)||!finitePositive(cap)||cap>=1e9)continue;
     const rowAge=ageMs(r._snapshotTimestampUTC??raw.updatedAt,now);
     if(rowAge===null||rowAge<0||rowAge>MAX_REFERENCE_AGE_MS)continue;
-    rows.set(symbol,{symbol,name:r.Company??symbol,market_cap:cap,metadata_at:r._snapshotTimestampUTC??raw.updatedAt});
+    const floatMillions=Number(r.Float),shortText=String(r['Short Float']??''),shortPercent=/^\d+(?:\.\d+)?%$/.test(shortText)?Number(shortText.slice(0,-1)):null;
+    rows.set(symbol,{symbol,name:r.Company??symbol,market_cap:cap,float_shares:finitePositive(floatMillions)?floatMillions*1e6:null,short_float_pct:shortPercent,short_interest_as_of:null,metadata_at:r._snapshotTimestampUTC??raw.updatedAt});
   }
   return {source:'Finviz reference metadata only',updated_at:raw.updatedAt,rows};
 }

@@ -1,5 +1,5 @@
 import {settings,REFERENCE_URL,normalizeReference} from './market.mjs';
-export const RULES=Object.freeze({version:'discovery-1',minimumBars:13,volumeRatio:2,return3m:0.7,minDollars3m:25000,minTrades3m:30,maxSingleMinuteShare:0.7,maxSpread:0.8,cooldown:1800000});
+export const RULES=Object.freeze({version:'discovery-1',minimumBars:13,volumeRatio:2,return3m:0.7,minDollars3m:25000,minTrades3m:30,maxSingleMinuteShare:0.7,maxSpread:0.8,maxEarlyDayGain:25,maxEarly3mGain:8,cooldown:1800000});
 const positive=x=>Number.isFinite(x)&&x>0;
 const pct=(a,b)=>positive(a)&&positive(b)?(a/b-1)*100:null;
 export function analyzeBars(input,now){
@@ -68,17 +68,18 @@ export function createScanner({env=process.env,fetcher=fetch,now=Date.now}={}){
    const signal=analyzeBars(histories[row.symbol]??[],checked);row.signal=signal;
    row.news=(newsCache??[]).filter(n=>n.symbols?.includes(row.symbol)&&Date.parse(n.created_at)<=checked).slice(0,3).map(n=>({headline:n.headline,url:n.url,source:n.source,published_at:n.created_at,first_seen_at:new Date(newsAt).toISOString(),category:classifyHeadline(n.headline)}));
    row.catalyst_status=newsError?'UNAVAILABLE':row.news.length?'RELATED_NEWS':'NO_NEWS_IN_RESULTS';
-   row.fundamentals_status='NOT_CONNECTED';row.short_interest_status='NOT_CONNECTED';
+   row.fundamentals_status='NOT_CONNECTED';row.short_interest_status=row.short_float_pct!==null?'REFERENCE_ONLY_AS_OF_UNKNOWN':'NOT_AVAILABLE';
    row.score=signal?.ready?Math.round(Math.min(40,Math.max(0,signal.return_3m)*10)+Math.min(35,(signal.volume_ratio??0)*7)+Math.min(15,signal.dollars_3m/10000)+(signal.breakout?10:0)):0;
-   row.stage=!signal?.ready?'WARMUP':signal.expansion?(signal.breakout?'BREAKOUT':'EXPANSION'):'WATCH';
-   row.actionable=Boolean(signal?.expansion&&signal.plan_valid&&row.status==='FRESH'&&row.quote_fresh&&row.spread_pct!==null&&row.spread_pct<=RULES.maxSpread&&s.feed!=='delayed_sip'&&row.price<=signal.trigger*1.01&&row.price>signal.stop);
+   row.extended=(row.day_change??0)>RULES.maxEarlyDayGain||(signal?.return_3m??0)>RULES.maxEarly3mGain;
+   row.stage=row.extended?'EXTENDED':!signal?.ready?'WARMUP':signal.expansion?(signal.breakout?'BREAKOUT':'EXPANSION'):'WATCH';
+   row.actionable=Boolean(!row.extended&&signal?.expansion&&signal.plan_valid&&row.status==='FRESH'&&row.quote_fresh&&row.spread_pct!==null&&row.spread_pct<=RULES.maxSpread&&s.feed!=='delayed_sip'&&row.price<=signal.trigger*1.01&&row.price>signal.stop);
    row.plan=row.actionable?{entry:Math.max(row.ask,signal.trigger),stop:signal.stop,targets:[],kind:'CONDITIONAL'}:null;
    if(row.plan){const risk=row.plan.entry-row.plan.stop;row.plan.targets=[row.plan.entry+risk,row.plan.entry+2*risk];}
    if(signal?.expansion&&row.status==='FRESH'&&s.feed!=='delayed_sip'&&checked-(lastSignals.get(row.symbol)??0)>=RULES.cooldown){lastSignals.set(row.symbol,checked);ledger.unshift({symbol:row.symbol,detected_at:new Date(checked).toISOString(),price:row.price,price_at:row.price_at,stage:row.stage,score:row.score,plan:row.plan});}
   }
   ledger.splice(200);
   for(const alert of ledger){const row=rows.find(r=>r.symbol===alert.symbol);if(row?.price&&row.price_at&&Date.parse(row.price_at)>=Date.parse(alert.detected_at)){alert.last_price=row.price;alert.last_price_at=row.price_at;alert.max_observed_price=Math.max(alert.max_observed_price??alert.price,row.price);alert.min_observed_price=Math.min(alert.min_observed_price??alert.price,row.price);alert.observed_return_pct=pct(row.price,alert.price);alert.max_observed_return_pct=pct(alert.max_observed_price,alert.price);alert.min_observed_return_pct=pct(alert.min_observed_price,alert.price);}}
-  cached={schema_version:1,status:failed||historyError?'PARTIAL':'OK',server_time:new Date(checked).toISOString(),scan_started_at:new Date(started).toISOString(),refresh_ms:30000,feed:s.feed,coverage:{nasdaq_assets:universe.listed,eligible_small_caps:symbols.length,with_prices:rows.length,fresh_prices:rows.filter(r=>r.status==='FRESH').length,failed_symbols:failed,detailed_symbols:shortlist.length,metadata_at:universe.metadata_at,scope:'NASDAQ equities below $1B present in reference; excludes missing metadata and funds',history_error:historyError,news_error:newsError,news_at:newsAt?new Date(newsAt).toISOString():null},rules:RULES,rows:rows.sort((a,b)=>b.score-a.score||(b.day_change??-Infinity)-(a.day_change??-Infinity)).slice(0,150),gainers:gainers.slice(0,50).map(r=>r.symbol),alerts:ledger,storage:'PROCESS_MEMORY',strategy_validation:'UNPROVEN',coverage_note:s.feed==='iex'?'IEX single exchange; not the entire US market':'Consolidated feed'};return cached;
+  cached={schema_version:1,status:failed||historyError?'PARTIAL':'OK',server_time:new Date(checked).toISOString(),scan_started_at:new Date(started).toISOString(),refresh_ms:30000,feed:s.feed,coverage:{nasdaq_assets:universe.listed,eligible_small_caps:symbols.length,with_prices:rows.length,fresh_prices:rows.filter(r=>r.status==='FRESH').length,failed_symbols:failed,detailed_symbols:shortlist.length,metadata_at:universe.metadata_at,scope:'NASDAQ equities below $1B present in reference; excludes missing metadata and funds',history_error:historyError,news_error:newsError,news_at:newsAt?new Date(newsAt).toISOString():null},rules:RULES,rows:[...new Map([...rows.sort((a,b)=>Number(a.extended)-Number(b.extended)||b.score-a.score||(b.day_change??-Infinity)-(a.day_change??-Infinity)).slice(0,150),...gainers.slice(0,50)].map(r=>[r.symbol,r])).values()],gainers:gainers.slice(0,50).map(r=>r.symbol),alerts:ledger,storage:'PROCESS_MEMORY',strategy_validation:'UNPROVEN',coverage_note:s.feed==='iex'?'IEX single exchange; not the entire US market':'Consolidated feed'};return cached;
  }
  return {async get(){if(cached&&now()-Date.parse(cached.server_time)<30000)return cached;if(!loading)loading=scan().finally(()=>loading=null);return loading;}};
 }
