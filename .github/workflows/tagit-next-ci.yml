@@ -1,0 +1,59 @@
+name: TAGit NEXT independent checks
+on:
+  pull_request:
+    paths:
+      - 'tagit-next/**'
+      - '.github/workflows/tagit-next-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tagit-next/**'
+      - '.github/workflows/tagit-next-ci.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm test
+        working-directory: tagit-next/quote-service
+      - run: node --check tagit-next/web/prices.js
+      - run: node --check tagit-next/web/execution.js
+      - run: python tagit-next/export_execution.py --check
+      - run: python -m pip install -r tagit-next/requirements.txt
+      - run: python -m unittest discover -s tests -v
+        working-directory: tagit-next
+      - run: |
+          python replay.py --output /tmp/tagit-next-report.json
+          cmp data/report.json /tmp/tagit-next-report.json
+        working-directory: tagit-next
+      - run: python verify_study.py
+        working-directory: tagit-next
+      - run: |
+          cp data/quote-audit.json /tmp/quote-audit-expected.json
+          python quote_audit.py
+          cmp data/quote-audit.json /tmp/quote-audit-expected.json
+        working-directory: tagit-next
+      - run: |
+          cp data/exit-audit.json /tmp/exit-audit-expected.json
+          python exit_audit.py
+          cmp data/exit-audit.json /tmp/exit-audit-expected.json
+        working-directory: tagit-next
+      - run: |
+          cp data/timeout-timing-report.json /tmp/timeout-timing-expected.json
+          python timeout_timing.py
+          cmp data/timeout-timing-report.json /tmp/timeout-timing-expected.json
+        working-directory: tagit-next
+
+      - run: |
+          cp data/execution-latency-report.json /tmp/execution-latency-expected.json
+          python execution_latency.py
+          cmp data/execution-latency-report.json /tmp/execution-latency-expected.json
+        working-directory: tagit-next

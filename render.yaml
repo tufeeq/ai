@@ -1,0 +1,28 @@
+# Initial connection test only. Free instances sleep after inactivity.
+# Select a paid compute plan in Render before relying on continuous operation.
+services:
+  - type: web
+    name: tagit-next-quotes
+    runtime: node
+    plan: free
+    region: virginia
+    repo: https://github.com/tufeeq/ai
+    branch: tagit-next-independent-20260914
+    rootDir: tagit-next/quote-service
+    buildCommand: node --check server.mjs
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeployTrigger: off
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: HOST
+        value: 0.0.0.0
+      - key: TAGIT_DATA_FEED
+        value: iex
+      - key: TAGIT_ALLOWED_ORIGIN
+        value: https://tufeeq.github.io
+      - key: ALPACA_API_KEY_ID
+        sync: false
+      - key: ALPACA_API_SECRET_KEY
+        sync: false
