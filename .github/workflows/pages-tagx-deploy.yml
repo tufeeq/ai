@@ -114,4 +114,33 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
+      - name: Verify public DONT CHAOS URL and release bytes
+        env:
+          PAGES_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          python - <<'PY'
+          import hashlib, os, pathlib, time, urllib.request
+          base = os.environ['PAGES_URL'].rstrip('/') + '/dont-chaos/'
+          for name in ['index.html', 'manifest.webmanifest', 'icon.svg', 'sw.js']:
+              expected = pathlib.Path('_site/dont-chaos', name).read_bytes()
+              path = '' if name == 'index.html' else name
+              url = base + path + '?verify=' + os.environ['GITHUB_SHA']
+              for attempt in range(6):
+                  try:
+                      req = urllib.request.Request(url, headers={'Cache-Control': 'no-cache', 'User-Agent': 'DONT-CHAOS-Deployment-Check'})
+                      with urllib.request.urlopen(req, timeout=15) as response:
+                          actual = response.read()
+                          if response.status != 200:
+                              raise RuntimeError('Unexpected HTTP status: ' + str(response.status))
+                      if actual != expected:
+                          raise RuntimeError('Published asset differs from verified release: ' + name)
+                      print('HTTP 200, exact release match:', base + path, len(actual), 'bytes, sha256', hashlib.sha256(actual).hexdigest())
+                      break
+                  except Exception as exc:
+                      print('Verification attempt', attempt + 1, name, str(exc))
+                      if attempt == 5:
+                          raise
+                      time.sleep(5)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write('## DONT CHAOS public deployment verified\n\n' + base + '\n\nAll four public assets returned HTTP 200 and exactly matched the checksummed release.\n')
+          PY
