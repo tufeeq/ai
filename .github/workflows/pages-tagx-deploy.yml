@@ -102,6 +102,7 @@ jobs:
           sha256sum -c dont-chaos/release.sha256
           mkdir -p _site/dont-chaos
           tar -xzf dont-chaos/release.tgz -C _site/dont-chaos
+          python dont-chaos/turbo-install.py _site/dont-chaos
           test -s _site/dont-chaos/index.html
           python -m json.tool _site/dont-chaos/manifest.webmanifest > /dev/null
           node --check _site/dont-chaos/sw.js
@@ -144,3 +145,10 @@ jobs:
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
               summary.write('## DONT CHAOS public deployment verified\n\n' + base + '\n\nAll four public assets returned HTTP 200 and exactly matched the checksummed release.\n')
           PY
+      - name: Live-browser check for CHAOS TURBO release
+        if: contains(github.event.head_commit.message, 'CHAOS TURBO')
+        env:
+          PAGES_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          npm install --no-save --prefix /tmp/chaos-browser playwright
+          NODE_PATH=/tmp/chaos-browser/node_modules node dont-chaos/turbo-smoke.cjs

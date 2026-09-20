@@ -1,26 +1,21 @@
-# DON'T: CHAOS — playable browser beta 1.0.0
+# DON'T: CHAOS — TURBO 2.0.0
 
-Six original scenario worlds, The Director, crossover runs, deterministic daily challenges, asynchronous friend traps, recorded-input replay, locally generated share cards, local progress, keyboard/touch controls and optional audio.
+A mobile-first, local-first scenario arcade. Twelve original worlds, five selectable levels per world (60 level configurations), three hearts, combo multipliers, hit chains, level stars, faster transitions and a level-five boss variant. The first six cards are new action worlds: Neon Chase, Rooftop Ninja, Meteor Raid, Lava Rush, Cannon Cove and Dragon Arena.
 
-No accounts, dependencies, analytics, API credentials, camera or microphone access. No real cash prizes. The Director is scripted, not live AI. Scores are stored locally and friend targets are unverified. This release does not include synchronous multiplayer, global leaderboards or licensed celebrity/game characters.
+## Play
+Choose a world and level, then press PLAY. Real instructions appear in green. React using on-screen buttons, A/S/D or a left/right swipe in supported worlds. School uses hold/release. Repeated-hit counters appear for armored enemies in higher levels. Five consecutive saves enable double-score combos. A mistake costs a heart. Three mistakes end the run. Every world has an instantly accessible boss variant; no purchases or unlock wait.
 
-## Release and source
-The ordinary static HTML/CSS/JavaScript source, original inline SVG art, manifest, icon and service worker are inside the checksummed release. It is stored as six binary chunks to fit the publishing connector's per-request transfer size. No decoding is done in the player's browser.
+## Audio
+Twelve original procedural music themes with melody, bass, chords and percussion, at 128–182 BPM depending on level. Music starts from a player gesture. Separate music/effects switches, master mute and volume are in Profile. The speaker button is visible on mobile. Pause/backgrounding stops the sequencer and suspends the audio context. No audio files, API calls, camera or microphone permissions are required.
 
-From the repository root:
+## Timing
+Encounter response windows start at 1.85 / 1.55 / 1.28 / 1.08 / 1.00 seconds depending on level, with extra time for multi-hit opponents. Successful encounters move on after 0.14 seconds (previously 0.58). World portals auto-start after 3.6 seconds and may be tapped to skip; initial solo countdown is 0.8 seconds. These are designed values, not claims about measured human engagement.
 
-```sh
-cat dont-chaos/release.part* > dont-chaos/release.tgz
-sha256sum -c dont-chaos/release.sha256
-mkdir -p /tmp/dont-chaos
-# The verified archive contains only index.html, icon.svg, manifest.webmanifest, sw.js and README.md.
-tar -xzf dont-chaos/release.tgz -C /tmp/dont-chaos
-python3 -m http.server 8080 --directory /tmp/dont-chaos
-```
+## Records and sharing
+Local level stars and v2 score records. v1 scores are retained separately because the scoring model changed; nickname and motion preference migrate. Friend links encode v2 course seed, level, trap, nickname and self-reported score. v1 links are rejected with a clear message. Replays use recorded, encounter-relative inputs. No global leaderboard, live multiplayer, real cash rewards or licensed celebrity characters. The Director is scripted.
 
-The existing Pages workflow publishes the extracted assets under `/ai/dont-chaos/` while preserving its existing application directories. Future Pages deployments include this game automatically.
+## Source and deployment
+The downloadable source package contains editable expansion.js, art.js, audio.js, game.js, style.css, turbo.css, shell.html and build.py. The production bundle is ordinary static HTML/CSS/JS. The repository keeps its verified v1 release and applies a checksummed copy/insert delta to reconstruct v2 during Pages builds. No patching or decoding is required in the player's browser.
 
-## Verification
-Desktop 1440px and emulated mobile 390px layouts checked. Successful complete runs through all six worlds and all 18 crossover encounters. Forbidden actions fail, pause freezes progression, tested recorded-input replays match their original scores, challenge seed/trap/name/score round-trip, malformed payload rejection and deterministic daily courses checked. No uncaught JavaScript exceptions in these checks.
-
-Local browser navigation was restricted by the build environment; game automation used in-memory Chromium documents. Physical iOS/Safari, real-world virality/load and offline service-worker behavior were not certified by those tests. See the delivered source ZIP for editable development sources and test evidence.
+## Verification limitations
+Automated Chromium checks and screenshots are included in the source package. In-memory browser tests do not certify physical iPhone/Safari behavior, human enjoyment or virality. Public deployment checks must be read separately from local browser tests. No persistent background testing is implied.
