@@ -1,4 +1,4 @@
-name: Deploy TAGit + MarginOS + OPERON
+name: Deploy TAGit + MarginOS + OPERON + DONT CHAOS
 
 on:
   push:
@@ -9,6 +9,7 @@ on:
       - 'tagit-next/**'
       - 'marginos/**'
       - 'operon/**'
+      - 'dont-chaos/**'
       - '.github/workflows/pages-tagx-deploy.yml'
   workflow_dispatch:
 
@@ -95,6 +96,15 @@ jobs:
           cp operon/index.html operon/engine.js operon/app.mjs operon/core.mjs operon/styles.css operon/favicon.svg operon/welcome.html operon/marketing.css operon/marketing.mjs _site/operon/
           test -e _site/operon/index.html
           test -e _site/operon/engine.js
+      - name: Verify and unpack DONT CHAOS
+        run: |
+          cat dont-chaos/release.part* > dont-chaos/release.tgz
+          sha256sum -c dont-chaos/release.sha256
+          mkdir -p _site/dont-chaos
+          tar -xzf dont-chaos/release.tgz -C _site/dont-chaos
+          test -s _site/dont-chaos/index.html
+          python -m json.tool _site/dont-chaos/manifest.webmanifest > /dev/null
+          node --check _site/dont-chaos/sw.js
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site artifact
