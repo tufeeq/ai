@@ -103,9 +103,20 @@ jobs:
           mkdir -p _site/dont-chaos
           tar -xzf dont-chaos/release.tgz -C _site/dont-chaos
           python dont-chaos/turbo-install.py _site/dont-chaos
+          python dont-chaos/directors-install.py _site/dont-chaos
           test -s _site/dont-chaos/index.html
           python -m json.tool _site/dont-chaos/manifest.webmanifest > /dev/null
           node --check _site/dont-chaos/sw.js
+      - name: Browser gate for DIRECTORS CUT before publication
+        if: contains(github.event.head_commit.message, 'DIRECTORS CUT')
+        run: |
+          npm install --no-save --prefix /tmp/chaos-browser playwright@1.62.1
+          node /tmp/chaos-browser/node_modules/playwright/cli.js install --with-deps webkit
+          python -m http.server 8765 --directory _site > /tmp/chaos-http.log 2>&1 &
+          server=$!
+          trap 'kill "$server" || true' EXIT
+          SITE_URL=http://127.0.0.1:8765/dont-chaos/ WEBKIT=1 NODE_PATH=/tmp/chaos-browser/node_modules node dont-chaos/directors-smoke.cjs
+          cp /tmp/dont-chaos-v3-live-report.json /tmp/dont-chaos-v3-predeploy.json
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site artifact
@@ -122,7 +133,8 @@ jobs:
           python - <<'PY'
           import hashlib, os, pathlib, time, urllib.request
           base = os.environ['PAGES_URL'].rstrip('/') + '/dont-chaos/'
-          for name in ['index.html', 'manifest.webmanifest', 'icon.svg', 'sw.js']:
+          names = ['index.html', 'style.css', 'engine.js', 'renderer.js', 'sound.js', 'app.js', 'manifest.webmanifest', 'icon.svg', 'sw.js', 'music/neon.mp3', 'music/orbit.mp3', 'music/night.mp3', 'music/temple.mp3', 'classic/index.html']
+          for name in names:
               expected = pathlib.Path('_site/dont-chaos', name).read_bytes()
               path = '' if name == 'index.html' else name
               url = base + path + '?verify=' + os.environ['GITHUB_SHA']
@@ -143,12 +155,18 @@ jobs:
                           raise
                       time.sleep(5)
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
-              summary.write('## DONT CHAOS public deployment verified\n\n' + base + '\n\nAll four public assets returned HTTP 200 and exactly matched the checksummed release.\n')
+              summary.write('## DIRECTORS CUT public deployment verified\n\n' + base + '\n\nAll ' + str(len(names)) + ' public assets, including four MP3s and the classic archive, returned HTTP 200 and exactly matched this build.\n')
           PY
-      - name: Live-browser check for CHAOS TURBO release
-        if: contains(github.event.head_commit.message, 'CHAOS TURBO')
+      - name: Live-browser check for DIRECTORS CUT release
+        if: contains(github.event.head_commit.message, 'DIRECTORS CUT')
         env:
           PAGES_URL: ${{ steps.deployment.outputs.page_url }}
         run: |
-          npm install --no-save --prefix /tmp/chaos-browser playwright
-          NODE_PATH=/tmp/chaos-browser/node_modules node dont-chaos/turbo-smoke.cjs
+          WEBKIT=1 NODE_PATH=/tmp/chaos-browser/node_modules node dont-chaos/directors-smoke.cjs
+      - name: Preserve DIRECTORS CUT QA reports
+        if: always() && contains(github.event.head_commit.message, 'DIRECTORS CUT')
+        uses: actions/upload-artifact@v4
+        with:
+          name: directors-cut-browser-reports
+          path: /tmp/dont-chaos-v3-*.json
+          if-no-files-found: warn
