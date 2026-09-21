@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Verified source-only release; unpack at build time, never in the browser."""
 from pathlib import Path
-import hashlib, io, shutil, subprocess, sys, tarfile
+import hashlib, io, os, shutil, subprocess, sys, tarfile
 repo=Path(__file__).resolve().parent
 parts=sorted(repo.glob('directors.part[0-9][0-9]'))
 data=b''.join(p.read_bytes() for p in parts)
@@ -21,6 +21,12 @@ if (classic/'sw.js').exists():
  (classic/'sw.js').write_text(old)
 for src in (work/'site').iterdir():
  if src.is_file():shutil.copy2(src,target/src.name)
+# Provision the encoder only on the disposable GitHub-hosted build runner.
+if not shutil.which('ffmpeg'):
+ if os.environ.get('GITHUB_ACTIONS')!='true':
+  raise RuntimeError('Install ffmpeg before building the original MP3 soundtrack.')
+ subprocess.run(['sudo','apt-get','update','-qq'],check=True)
+ subprocess.run(['sudo','apt-get','install','-y','--no-install-recommends','ffmpeg'],check=True)
 # Music is a separately rendered, ordinary MP3 asset on the same origin.
 subprocess.run([sys.executable,str(work/'source/music.py'),str(target/'music')],check=True)
 for src in (work/'site').glob('*.js'):subprocess.run(['node','--check',str(src)],check=True)
