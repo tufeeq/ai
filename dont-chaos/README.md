@@ -1,15 +1,17 @@
-# DON’T: CHAOS — Director’s Cut 3.0.0
+# DON'T: CHAOS — original English scenario game 4.1
 
-Four rebuilt continuous-action games: Neon Getaway (lanes and shield), Orbit Rescue (aim, projectile combat and friendly ships), The Last Shift (sustained flashlight and energy management), and Skybound Temple (gravity, gaps, gems and red crystals). Original layered Canvas 2.5D artwork; not WebGL or AAA assets. Arabic mobile-first UI, five chapter configurations per world, explicit comfortable/balanced/expert pacing. Earlier twelve-world v2 implementation is preserved at ./classic/.
+The Director -> choose one of six character worlds -> reveal ONE rule -> survive authored temptation scenes -> actual failure and replay -> share a trap with a friend. This restores the agreed original format, rather than the Arabic racing/shooting redesign.
 
-## What changed
-Default comfortable movement, explicit three-second countdown, five-second opening grace before hazards spawn, no hidden acceleration. Five health pips and damage protection. Actual objectives rather than passive timer-only completion. Touch, keyboard, hold and drag controls. Deterministic input replay, validated seeded challenge links with unverified client scores, local records, and PNG scorecards.
+## This release
+Platform Kingdom, Block World, Night Shift, Creator Mansion, Zombie House, Space Impostor. Three authored episodes per world. Story / Standard / Expert response windows are 5.8 / 4.8 / 3.8 seconds, without hidden acceleration. Four-world crossover and cumulative-rule finale, UTC daily challenge, fake-victory/mirror/confetti friend traps, real recorded snapshots, PNG scorecards, local records and nickname/settings persistence.
 
-## Sound
-Four original MP3s rendered offline by source/music.py using Python and ffmpeg, served from the same origin. Native HTML media music starts from an explicit button. Web Audio is used only for short effects. Visible playback/error status and an independent native media test player are included. Media time advancing is evidence of browser playback, not proof of physical phone audibility.
+Full-body animated Canvas character rigs and illustrated scenes replace all cropped concept-board portraits. English is fixed even in an Arabic browser locale. Four same-origin original MP3 tracks, explicit START WITH SOUND, native audio test controls, separate SFX switch, pause/resume and playback status.
 
-## Source and deployment
-The checksummed directors.part00–07 archive contains readable HTML, CSS, JS, music renderer and engine tests. directors-install.py reconstructs the source at build time, preserves v2 at classic/, renders the MP3s, and runs syntax and engine tests. No decoding or patching happens in the player's browser. directors-smoke.cjs is the canonical HTTP browser test (supersedes the bundled initial smoke script). The Pages workflow retains the other applications and validates public release bytes, including music.
+Independent 2D fan playtest, not an official or licensed collaboration. The creator host is fictional. No real cash, camera or microphone access, analytics, accounts, global leaderboard or synchronous multiplayer. Browser playback progress is not physical iPhone speaker certification. No claim of virality or finished commercial visual quality.
 
-## Scope and limitations
-No camera/microphone, analytics, API credentials, payments, licensed characters, global leaderboard or live multiplayer. The Director is scripted. Thirty-two engine checks passed locally, including input-only automated completion of twenty chapter configurations at comfortable pace on one seed. Those are deterministic correctness tests, not proof of human enjoyment or all possible courses. In-memory Chromium checks verified controls, MP3 playback progress and pause; live HTTP Chrome/WebKit results are recorded separately in the DIRECTORS CUT Actions run. Physical iPhone/Safari speaker output and real-world retention are not certified.
+## Build and verification
+The thirteen original.partNN files contain base64 text of a checksummed XZ source archive. original-install.py validates and unpacks it at build time; the browser only receives ordinary HTML/CSS/JS and MP3 files. Earlier v2 is preserved under classic/ and v3 under directors/. Other applications in the shared Pages artifact remain unchanged.
+
+Readable source, engine tests and the canonical HTTP Chrome/WebKit release test are inside the archive. Fifteen deterministic engine checks cover six worlds, three episodes, three paces and three seeds plus rule/flow invariants. The ORIGINAL CHAOS Actions run records prepublication and live-site checks of English, all six worlds, native MP3 playback, actual controls, pause, persistence, failure/replay, scorecard download, friend-trap link roundtrip and mobile/desktop layouts. Read the run's actual outcome before claiming publication; tests do not certify human enjoyment or physical-device audibility.
+
+Entry point: https://tufeeq.github.io/ai/dont-chaos/?release=original-4.1

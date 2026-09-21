@@ -104,19 +104,20 @@ jobs:
           tar -xzf dont-chaos/release.tgz -C _site/dont-chaos
           python dont-chaos/turbo-install.py _site/dont-chaos
           python dont-chaos/directors-install.py _site/dont-chaos
+          python dont-chaos/original-install.py _site/dont-chaos
           test -s _site/dont-chaos/index.html
           python -m json.tool _site/dont-chaos/manifest.webmanifest > /dev/null
           node --check _site/dont-chaos/sw.js
-      - name: Browser gate for DIRECTORS CUT before publication
-        if: contains(github.event.head_commit.message, 'DIRECTORS CUT')
+      - name: Browser gate for ORIGINAL CHAOS before publication
+        if: contains(github.event.head_commit.message, 'ORIGINAL CHAOS')
+        timeout-minutes: 10
         run: |
           npm install --no-save --prefix /tmp/chaos-browser playwright@1.62.1
           node /tmp/chaos-browser/node_modules/playwright/cli.js install --with-deps webkit
           python -m http.server 8765 --directory _site > /tmp/chaos-http.log 2>&1 &
           server=$!
           trap 'kill "$server" || true' EXIT
-          SITE_URL=http://127.0.0.1:8765/dont-chaos/ WEBKIT=1 NODE_PATH=/tmp/chaos-browser/node_modules node dont-chaos/directors-smoke.cjs
-          cp /tmp/dont-chaos-v3-live-report.json /tmp/dont-chaos-v3-predeploy.json
+          SITE_URL=http://127.0.0.1:8765/dont-chaos/ WEBKIT=1 QA_DIR=/tmp/chaos-original-predeploy NODE_PATH=/tmp/chaos-browser/node_modules node /tmp/dont-chaos-original-source/tests/release/smoke.cjs
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site artifact
@@ -131,9 +132,11 @@ jobs:
           PAGES_URL: ${{ steps.deployment.outputs.page_url }}
         run: |
           python - <<'PY'
-          import hashlib, os, pathlib, time, urllib.request
+          import hashlib, json, os, pathlib, time, urllib.request
           base = os.environ['PAGES_URL'].rstrip('/') + '/dont-chaos/'
-          names = ['index.html', 'style.css', 'engine.js', 'renderer.js', 'sound.js', 'app.js', 'manifest.webmanifest', 'icon.svg', 'sw.js', 'music/neon.mp3', 'music/orbit.mp3', 'music/night.mp3', 'music/temple.mp3', 'classic/index.html']
+          manifest = json.loads(pathlib.Path('_site/dont-chaos/original-release.json').read_text())
+          assert manifest['build'] == 'original-4.1.0'
+          names = list(manifest['files']) + ['original-release.json']
           for name in names:
               expected = pathlib.Path('_site/dont-chaos', name).read_bytes()
               path = '' if name == 'index.html' else name
@@ -155,18 +158,21 @@ jobs:
                           raise
                       time.sleep(5)
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
-              summary.write('## DIRECTORS CUT public deployment verified\n\n' + base + '\n\nAll ' + str(len(names)) + ' public assets, including four MP3s and the classic archive, returned HTTP 200 and exactly matched this build.\n')
+              summary.write('## ORIGINAL CHAOS English deployment verified\n\n' + base + '\n\nAll ' + str(len(names)) + ' public assets, including four MP3s and both prior releases, returned HTTP 200 and exactly matched this build.\n')
           PY
-      - name: Live-browser check for DIRECTORS CUT release
-        if: contains(github.event.head_commit.message, 'DIRECTORS CUT')
+      - name: Live-browser check for ORIGINAL CHAOS release
+        if: contains(github.event.head_commit.message, 'ORIGINAL CHAOS')
+        timeout-minutes: 6
         env:
           PAGES_URL: ${{ steps.deployment.outputs.page_url }}
         run: |
-          WEBKIT=1 NODE_PATH=/tmp/chaos-browser/node_modules node dont-chaos/directors-smoke.cjs
-      - name: Preserve DIRECTORS CUT QA reports
-        if: always() && contains(github.event.head_commit.message, 'DIRECTORS CUT')
+          WEBKIT=1 QA_DIR=/tmp/chaos-original-live NODE_PATH=/tmp/chaos-browser/node_modules node /tmp/dont-chaos-original-source/tests/release/smoke.cjs
+      - name: Preserve ORIGINAL CHAOS QA reports and screenshots
+        if: always() && contains(github.event.head_commit.message, 'ORIGINAL CHAOS')
         uses: actions/upload-artifact@v4
         with:
-          name: directors-cut-browser-reports
-          path: /tmp/dont-chaos-v3-*.json
+          name: original-chaos-browser-reports
+          path: |
+            /tmp/chaos-original-predeploy/
+            /tmp/chaos-original-live/
           if-no-files-found: warn
