@@ -8,7 +8,11 @@ See [LIVE_FINDINGS.md](LIVE_FINDINGS.md) for checks, limits and exact next actio
 It is not a live scanner or an approved trading strategy. See [web/README.md](web/README.md)
 for snapshot provenance and publication/update instructions.
 
-Latest iteration: [execution latency experiment](EXECUTION_LATENCY_FINDINGS.md)
+Latest repair (September 22): entry auditing now preserves stop breaches during
+processing delay. Seven new regressions pass; saved entry/exit/latency results
+remain unchanged. See [PROGRESS.md](PROGRESS.md); no trading improvement is claimed.
+
+Previous experiment: [execution latency experiment](EXECUTION_LATENCY_FINDINGS.md)
 freezes six different development cases and adds tested delay comparison tooling.
 After eight retained provider errors, six successful requests returned 15,317 quotes.
 A 30-second exit allowance resolved two extra outcomes, but five simulated entries

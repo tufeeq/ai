@@ -10,7 +10,8 @@ from engine import timestamp, quote_check
 def audit(window, latency_seconds=1):
     s=window['setup']
     rows=sorted(window['quotes'],key=lambda q:timestamp(q['timestamp']))
-    earliest=timestamp(s['at'])+timedelta(seconds=latency_seconds)
+    setup_at=timestamp(s['at'])
+    earliest=setup_at+timedelta(seconds=latency_seconds)
     truncated=len(rows)>=window['limit']
     result=dict(id=s['id'],symbol=s['symbol'],at=s['at'],bar_outcome=s['outcome'],
                 quotes=len(rows),truncated=truncated,latency_seconds=latency_seconds,
@@ -21,13 +22,16 @@ def audit(window, latency_seconds=1):
     reasons=Counter(); eligible_start=None; previous=None
     for row in rows:
         t=timestamp(row['timestamp'])
-        if t<earliest: continue
+        if t<setup_at: continue
         if t>timestamp(s['expires_at']): break
         q=dict(timestamp=row['timestamp'],feed=window['feed'],bid=row['bid_price'],ask=row['ask_price'],
                bid_size=row['bid_size'],ask_size=row['ask_size'])
         # Once a valid positive-sized quote breaks the stop, never resurrect setup.
         if 0<q['bid']<=q['ask'] and q['bid_size']>0 and q['ask_size']>0 and q['bid']<=s['stop']:
             result['invalidated_at']=row['timestamp']; break
+        # Processing latency delays entry, not the existence of the setup.
+        # A stop breach during that delay must not be erased by a rebound.
+        if t<earliest: continue
         status=quote_check(s,q,row['timestamp']); reasons[status]+=1
         if status=='PAPER_EXECUTABLE':
             observation=dict(at=row['timestamp'],bid=q['bid'],ask=q['ask'],

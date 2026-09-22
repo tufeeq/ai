@@ -249,3 +249,43 @@ published page and added explicit asset release parameters, including the import
 price-state module. No app-origin JS error was observed; browser-extension telemetry
 errors were unrelated. Desktop interaction verified; no new mobile browser result
 is claimed in this cycle.
+
+
+## 2026-09-22 — prevent entries after a stop breach during processing delay
+
+Recovered branch head 6ba65cdfd0f5607c682d7f8f7b5e1c70cdbdf276; its CI passed (run 35137575071).
+The latest head records live-watchlist filter changes; those files were left untouched. The
+historical research universe remains below $1B; this repair neither expands nor
+changes the newer live NASDAQ under-$100M filter.
+
+Found an entry-audit causality defect: quotes before the assumed 1/3-second
+processing delay were skipped before checking stop invalidation. Thus a valid
+stop breach after setup creation but before entry eligibility could be forgotten
+and a subsequent rebound labelled eligible. This contradicts the documented
+no-resurrection rule. Entry now remains delayed, but observed stop breaches
+invalidate the setup from its creation time. Quotes before setup creation and
+after expiration still cannot invalidate it retroactively.
+
+Seven new synthetic regression tests cover a breach during 1/3-second latency,
+a breach at setup creation, pre-setup quotes, invalid zero-size quotes, exclusion
+of pre-latency entries, preservation of prior entry observations and expiry.
+Before the repair three assertions failed; after it all 65 Python tests pass,
+with no skips. Synthetic fixtures are NOT historical market observations.
+
+Recovered saved quote blobs by immutable GitHub URLs and verified their Git blob
+hashes. Replaying the 12-case entry audit (10,375 quotes), six-case/four-scenario
+latency study (15,317 quotes), and ten-case exit audit (56,743 quotes) produced
+exactly unchanged reports. The old five unknown exits remain unknown. This fixes
+a real software error, but demonstrates no improvement in measured profitability
+or discovery accuracy on those samples.
+
+No new market history downloaded: zero historical requests. One Alpaca clock
+check succeeded; it does not verify hosted price connectivity. No timestamped news
+archive tool was available; news coverage remains UNKNOWN. No orders, deployment,
+production merge, old engine imports or policy promotion. Evidence:
+data/entry-causality-check.json.
+
+Next: predeclare a pre-signal quote-liquidity feature study on additional
+development cases and matched non-signal controls before collecting their windows.
+Keep prior validation/test periods separate; do not choose thresholds based on
+the already observed August 24/25 outcomes. Forward bid/ask evidence is still needed.
