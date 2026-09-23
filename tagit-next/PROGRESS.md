@@ -289,3 +289,26 @@ Next: predeclare a pre-signal quote-liquidity feature study on additional
 development cases and matched non-signal controls before collecting their windows.
 Keep prior validation/test periods separate; do not choose thresholds based on
 the already observed August 24/25 outcomes. Forward bid/ask evidence is still needed.
+
+
+## 2026-09-23 — frozen pre-signal quote-liquidity feature study
+
+Frozen an outcome-independent eight-signal August 26 development sample and same-
+symbol ten-minute controls before retrieval in `19bc2b9e593a5b7bf857bcf51bc859b1b4ae89cf`. Eight SIP
+requests returned 10,607 quotes; none were capped or failed. The primary descriptive
+hypothesis passed in 7/8 pairs: signal windows usually had higher quote-update rates
+without wider median spread. This may reflect activity already captured by the
+price/volume detector and is not a remaining-move or profitability result.
+
+The predeclared liquidity-ready gate could not be evaluated: groups were 6 ready
+and 2 not ready, below the minimum of three each. Quote entry was observed in 5/6
+ready versus 2/2 not-ready cases, so this evidence does not justify filtering
+signals. Known candle outcomes (six ENTRY_NOT_AVAILABLE, one STOP, one TIMEOUT)
+were not used for selection. No return aggregate or accuracy claim.
+
+Added a reproducible analyzer, eight regression tests, raw data, exact report and
+CI replay; all 73 Python tests pass locally. Data budget: 8/20 requests. News
+coverage remains unknown. No orders, deployment or production promotion. See
+[PRESIGNAL_LIQUIDITY_FINDINGS.md](PRESIGNAL_LIQUIDITY_FINDINGS.md). Next: freeze
+the identical features on a deterministic August 31–September 1 validation sample,
+without retuning these development results.

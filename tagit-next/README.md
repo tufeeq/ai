@@ -8,9 +8,11 @@ See [LIVE_FINDINGS.md](LIVE_FINDINGS.md) for checks, limits and exact next actio
 It is not a live scanner or an approved trading strategy. See [web/README.md](web/README.md)
 for snapshot provenance and publication/update instructions.
 
-Latest repair (September 22): entry auditing now preserves stop breaches during
-processing delay. Seven new regressions pass; saved entry/exit/latency results
-remain unchanged. See [PROGRESS.md](PROGRESS.md); no trading improvement is claimed.
+Latest study (September 23): a frozen eight-pair development check found higher
+pre-signal quote activity in 7/8 pairs, but the liquidity gate had inadequate group
+size and did not demonstrate false-signal reduction. See
+[PRESIGNAL_LIQUIDITY_FINDINGS.md](PRESIGNAL_LIQUIDITY_FINDINGS.md). No trading
+accuracy or profitability improvement is claimed.
 
 Previous experiment: [execution latency experiment](EXECUTION_LATENCY_FINDINGS.md)
 freezes six different development cases and adds tested delay comparison tooling.
