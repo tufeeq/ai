@@ -10,6 +10,7 @@ verify:
 	python -m research.continuation --check
 	python -m research.continuation_probe --check
 	python -m research.continuation_paths --check
+	python -m research.share_capacity --check
 
 # Python 3.12+, Node 24. Offline, no account secrets needed.
 phase1:
@@ -43,3 +44,10 @@ continuation-refresh:
 continuation-paths:
 	python -m unittest discover -s tests -p 'test_continuation_paths.py' -v
 	python -m research.continuation_paths --check
+
+.PHONY: share-capacity
+share-capacity:
+	python -m unittest discover -s tests -p 'test_quote_units.py' -v
+	python -m unittest discover -s tests -p 'test_paper.py' -v
+	python -m unittest discover -s tests -p 'test_share_capacity.py' -v
+	python -m research.share_capacity --check

@@ -1,6 +1,8 @@
 import json
 import sqlite3
 import unittest
+from unittest.mock import patch
+from research.execution import simulate
 from research.paper import evaluate
 from research.events import time
 
@@ -36,13 +38,27 @@ class Paper(unittest.TestCase):
         # Sequence is authoritative, with chronological insertion required in the journal.
         self.db.execute("UPDATE events SET payload=? WHERE kind='STREAM_STATUS'",(json.dumps(dict(state='DISCONNECTED')),))
         self.assertEqual(self.result()['status'],'UNKNOWN_COVERAGE')
-    def test_round_lot_size_and_feed_cannot_be_assumed(self):
-        self.signal();self.market();self.assertEqual(self.result(lots=[])['status'],'UNKNOWN_ROUND_LOT_SIZE')
-        self.db.execute("UPDATE signals SET feed='iex'")
+    def test_post_transition_shares_do_not_require_lot_metadata(self):
+        self.signal();self.market();r=self.result(lots=[])
+        self.assertEqual(r['status'],'TARGET')
+        self.assertEqual(r['quote_size_basis']['unit'],'shares')
+    def test_single_venue_stays_unqualified(self):
+        self.signal(feed='iex');self.market()
         self.assertEqual(self.result()['status'],'SINGLE_EXCHANGE_OR_DELAYED')
-    def test_future_lot_metadata_never_enables_execution(self):
-        self.signal();self.market();lots=[{**self.lots[0],'available_at':'2026-09-24T15:00:00Z'}]
-        self.assertEqual(self.result(lots=lots)['status'],'UNKNOWN_ROUND_LOT_SIZE')
+    def test_lot_metadata_does_not_multiply_share_sizes(self):
+        self.signal();self.market()
+        with patch('research.paper.simulate',wraps=simulate) as replay:
+            self.result(lots=self.lots)
+        quotes=replay.call_args.args[1]
+        self.assertEqual([q['ask_size'] for q in quotes],[1,1])
+        self.assertEqual([q['bid_size'] for q in quotes],[1,1])
+    def test_older_wire_units_unknown_even_with_lot_file(self):
+        self.at='2025-10-31T14:00:00.000Z';self.signal()
+        self.assertEqual(self.result()['status'],'UNKNOWN_QUOTE_SIZE_UNIT')
+    def test_invalid_size_does_not_enable_entry(self):
+        self.signal();self.market()
+        self.db.execute("UPDATE events SET payload=json_set(payload,'$.as',0.5) WHERE kind='MARKET' AND json_extract(payload,'$.T')='q'")
+        self.assertEqual(self.result()['status'],'NO_ENTRY')
     def test_no_plan_is_not_a_loss(self):
         self.signal(plan=False);r=self.result();self.assertEqual(r['status'],'NO_PLAN');self.assertIsNone(r['net_pct'])
 

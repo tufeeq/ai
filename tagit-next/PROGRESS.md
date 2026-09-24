@@ -1,5 +1,37 @@
 # Cumulative research progress
 
+## 2026-09-24 — corrected SIP share units and measured quantity limits
+
+Corrected an erroneous paper-observer assumption using Alpaca's dated CTA/UTP
+notice: post-November-2025 SIP quote sizes are shares, not round-lot counts. A
+versioned normalizer prevents 100x capacity inflation, removes an unnecessary
+lot-file gate, and leaves older/unknown encodings unqualified. Existing terminal
+outcomes and frozen reports are preserved. This supersedes the lot-metadata
+requirement in earlier progress entries, not their negative/unknown results.
+
+Before computing new quantity results, committed the six-case protocol as
+`2a190a743cc7d1ba305d9e02bd91e8ac835b82c1`. Reused the full saved quote paths and
+minute bars; zero market requests, no holdout access, no live-rule changes. At
+100 shares, one case meets displayed-size/1%-volume requirements at both observed
+checkpoints, four fail the volume cap and one remains unknown. Three exit prices
+remain missing, including two cases with known entry failures. No execution
+outcome or profitability claim is created. See SHARE_CAPACITY_FINDINGS.md.
+Local full verification passed 162 Python tests and 66 Node tests, with unchanged
+reproduction of earlier reports. CI runs the new capacity replay as an added gate.
+
+Cumulative: 322 development events, 118 resolved bar proxies, 179 unknown/ambiguous
+and 25 no-session entries; six quote-path cases, five fully retrieved intervals,
+three observed stop-price indications and three unknown fresh timeout prices.
+These denominators measure different evidence layers and are not interchangeable.
+The three-rising-closes hypothesis and prior features remain unapproved; the
+negative baseline is unchanged. No independent final holdout has been opened.
+
+Next: preregister original-signal 30-second entry windows for these six cases and
+quantity/latency/cost scenarios, retrieve only missing intervals, and report every
+failure/unknown. Do not recast minute-later first-ask anchors as actual signal-time
+entries. Live observer activation still requires protected runtime keys and
+operational verification; research changes do not imply deployment.
+
 ## 2026-09-24 — Phase 2 development ablations and public comparison evidence
 
 User authorized proceeding with Phase 2 and later stages. Frozen two isolated

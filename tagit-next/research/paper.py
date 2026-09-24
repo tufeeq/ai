@@ -11,10 +11,12 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from research.events import time
 from research.execution import simulate,Policy
+from research.quote_units import contract,normalize
 
 
 def evaluate(db,lots=None,now=None):
-    now=now or datetime.now(timezone.utc);lots=lots or []
+    # Retain the legacy lots argument for callers; lot metadata is not wire-unit evidence.
+    now=now or datetime.now(timezone.utc)
     signals=db.execute('SELECT id,symbol,at,feed,payload FROM signals ORDER BY at').fetchall()
     count=0
     for ident,symbol,at,feed,raw in signals:
@@ -26,11 +28,8 @@ def evaluate(db,lots=None,now=None):
         if not plan:result['status']='NO_PLAN'
         elif feed!='sip':result['status']='SINGLE_EXCHANGE_OR_DELAYED'
         else:
-            candidates=[l for l in lots if l.get('symbol')==symbol and l.get('source')
-                        and time(l['available_at'])<=start and time(l['valid_from'])<=start<time(l['valid_until'])
-                        and isinstance(l.get('shares'),int) and not isinstance(l['shares'],bool) and l['shares']>0]
-            lot=max(candidates,key=lambda l:time(l['available_at'])) if candidates else None
-            if lot is None:result['status']='UNKNOWN_ROUND_LOT_SIZE'
+            unit_basis=contract(at,provider='alpaca',feed=feed)
+            if unit_basis is None:result['status']='UNKNOWN_QUOTE_SIZE_UNIT'
             else:
                 iso=lambda t:t.isoformat(timespec='milliseconds').replace('+00:00','Z')
                 lower=start-timedelta(minutes=3)
@@ -56,8 +55,9 @@ def evaluate(db,lots=None,now=None):
                         elif r.get('T')=='q' and received>=start:
                             prior=[b for b in bars.values() if time(b['t'])+timedelta(minutes=1)<=received and (received-time(b['t'])).total_seconds()<=150]
                             b=max(prior,key=lambda x:time(x['t'])) if prior else None
+                            sizes=normalize(r.get('bs'),r.get('as'),r['t'],provider='alpaca',feed=r['feed'])
                             quotes.append(dict(sequence=seq,event_at=r['t'],available_at=received.isoformat(),
-                                bid=r.get('bp'),ask=r.get('ap'),bid_size=(r.get('bs') or 0)*lot['shares'],ask_size=(r.get('as') or 0)*lot['shares'],
+                                bid=r.get('bp'),ask=r.get('ap'),bid_size=sizes['bid_size'],ask_size=sizes['ask_size'],
                                 lagged_volume=b.get('v') if b else None,volume_available_at=b['available_at'].isoformat() if b else None,
                                 volume_end_at=(time(b['t'])+timedelta(minutes=1)).isoformat() if b else None))
                 if not began:complete=False
@@ -66,7 +66,7 @@ def evaluate(db,lots=None,now=None):
                 try:result=simulate(setup,quotes,Policy(),dict(complete=complete,start=at,end=end.isoformat()))
                 except (ValueError,KeyError,TypeError):result['status']='INVALID_PLAN_OR_EVENT'
                 if result['status']=='NO_ENTRY' and now<start+timedelta(seconds=30):result['status']='WAITING'
-                result.update(quantity=1,lot_size_source=lot['source'],coverage_basis='OBSERVED_SUBSCRIPTION_ONLY',
+                result.update(quantity=1,quote_size_basis=unit_basis,coverage_basis='OBSERVED_SUBSCRIPTION_ONLY',
                               policy='PHASE1_UNCALIBRATED_ONE_SHARE',performance_claim_allowed=False)
         result['evaluated_at']=now.isoformat()
         db.execute('INSERT INTO outcomes VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET status=excluded.status,payload=excluded.payload',(ident,result['status'],json.dumps(result,allow_nan=False)))
@@ -75,6 +75,5 @@ def evaluate(db,lots=None,now=None):
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('--db',required=True);p.add_argument('--lots');a=p.parse_args()
-    lots=json.loads(Path(a.lots).read_text()) if a.lots else []
-    with sqlite3.connect(a.db,timeout=5) as db:print(json.dumps({'evaluated':evaluate(db,lots),'profitability_claim_allowed':False}))
+    p=argparse.ArgumentParser();p.add_argument('--db',required=True);p.add_argument('--lots',help='Deprecated; a lot-size file does not establish quote wire units');a=p.parse_args()
+    with sqlite3.connect(a.db,timeout=5) as db:print(json.dumps({'evaluated':evaluate(db),'profitability_claim_allowed':False}))

@@ -1,5 +1,15 @@
 # Implementation status — 2026-09-24
 
+## Latest correction: share units and quantity qualification
+
+The earlier round-lot assumption was incorrect for post-November-2025 Alpaca SIP.
+The paper observer now uses versioned share units with no lot multiplier. All six
+frozen paths were audited at 1/100/1,000 shares with existing volume-cap assumptions;
+at 100 shares four cases fail the volume cap, one has two qualified snapshots and
+one remains unknown. Three exit prices remain missing, including two entry-cap
+failures. No verified fills or performance improvement. See
+[SHARE_CAPACITY_FINDINGS.md](SHARE_CAPACITY_FINDINGS.md); zero new data requests.
+
 ## Latest continuation: full SIP path retrieval
 
 The frozen six-case path audit added 85,688 quote records in 18 requests, with
@@ -39,7 +49,7 @@ at the user's request; see [PUBLICATION.md](PUBLICATION.md) for scope and verifi
 |---|---|---|
 | 1 — validation | Exact negative baseline reproduction; event/availability clocks; full unchanged scanner response-tape adapter; SQLite response hashes; execution/metrics/split components | >=12-month PIT listing/share universe including delisted securities, source receipt/revision times or labelled latency scenarios, calibrated costs, walk-forward runs and independent evidence |
 | 2 — improvements | Two preregistered development ablations, causal time/ATR/RVOL features, paired cluster intervals, full missing-data ledger and RTL comparison table; neither filter approved | Phase 1 data qualification, 20-session RVOL inputs, independent comparisons and final holdout >=500 evaluable signals |
-| 3 — infrastructure | File-backed SQLite, optional background regular-session scans, provider WebSocket, browser push, paper evaluator reusing `research.execution.simulate`, health/error reporting | Workspace confirmation, paid persistent host approval, runtime keys, restart/disk verification, lot metadata and subscription coverage; load/retention/backups need operational verification |
+| 3 — infrastructure | File-backed SQLite, optional background regular-session scans, provider WebSocket, browser push, paper evaluator reusing `research.execution.simulate`, health/error reporting | Workspace confirmation, paid persistent host approval, runtime keys, restart/disk verification, qualified quote-unit provenance and subscription coverage; load/retention/backups need operational verification |
 | 4 — Sharia | Server-side live Zoya adapter; sandbox rejected; stale, ambiguous and incomplete reports remain UNKNOWN | Live key/licensing, public display approval, underlying financial-statement date (not supplied by Basic response) |
 | 5 — interface | RTL historical performance and Phase 2 evidence published on 2026-09-24; source/date, missing outcomes and main-page link verified. Stream/fallback additions remain in research branch | Activate verified observation server and its matching client; real forward observations, calibrated probabilities and similar-signal statistics do not yet exist |
 
@@ -115,18 +125,18 @@ the detector's 2R target and existing Phase 1 latency/fee/impact assumptions.
 These are an uncalibrated observation policy, not chosen profitable parameters or
 scalable portfolio returns. Fee/impact calibration and sizing remain outstanding.
 
-Quotes use **round lots**, per Alpaca's official schema. The evaluator requires a
-dated lot-size metadata file to convert to shares; it does not silently multiply
-by an assumed constant. Required JSON list fields: `symbol`, positive integer
-`shares`, `source`, `available_at`, `valid_from`, `valid_until` (UTC-aware times).
-Future metadata cannot enable a fill. IEX/delayed signals are kept and labelled
-`SINGLE_EXCHANGE_OR_DELAYED`, not converted into consolidated execution evidence.
+Correction: the dated Alpaca CTA/UTP changelog specifies **shares** from November
+3, 2025. `research/quote_units.py` pins this contract and `paper.py` no longer
+requires or multiplies by lot metadata for these SIP records. Pre-transition data
+and other encodings remain unknown; a lot file alone cannot qualify their units.
+`TAGIT_LOT_METADATA` / `--lots` is accepted for compatibility but ignored. See the
+source, regression tests and diagnostic in [SHARE_CAPACITY_FINDINGS.md](SHARE_CAPACITY_FINDINGS.md).
+IEX/delayed signals remain `SINGLE_EXCHANGE_OR_DELAYED`, not consolidated evidence.
 
 Subscription gaps, missing volumes or unresolved exits remain explicit. Connection
 continuity is an observation proxy, not proof of NBBO completeness, quote firmness
 or attainable fills. Terminal outcomes are frozen; later disconnects do not rewrite
-an already-observed outcome. Unknown outcomes can be revisited after missing
-metadata is supplied. Every status remains in the public denominator. No aggregate
+an already-observed outcome. Unknown outcomes can be revisited when qualified evidence becomes available. Every status remains in the public denominator. No aggregate
 live expectancy is displayed yet.
 
 ## Capability inventory actually performed

@@ -87,7 +87,8 @@ def price_path(quotes, start, deadline, intervals):
     return finish('UNKNOWN_TIMEOUT_PRICE' if base['full_api_interval_covered'] else 'UNKNOWN_RETRIEVAL_GAP')
 
 
-def build():
+def load_paths():
+    """Load hash-qualified raw paths once; never infer missing intervals."""
     inputs = json.loads((ROOT / 'research/continuation-path-inputs.json').read_text())
     for p,d in inputs['sha256'].items():
         if sha(ROOT/p) != d: raise ValueError(f'Frozen path input changed: {p}')
@@ -124,10 +125,20 @@ def build():
             rows += chunk
             bound = time(chunk[-1]['timestamp']) if len(chunk)>=q['limit'] else time(q['end'])
             intervals.append((time(q['start']),bound))
-        result = price_path(rows,start,end-timedelta(seconds=3),intervals)
         cases.append({'id':c['id'],'symbol':c['symbol'],'sources':sources,'provider_errors':errors,
-                      'raw_records_in_requested_window':sum(start<=time(q['timestamp'])<=end for q in rows),
-                      'indication':result})
+                      'start':start, 'end':end, 'intervals':intervals, 'quotes':rows})
+    return inputs, protocol, retrieval, cases
+
+
+def build():
+    inputs, protocol, retrieval, paths = load_paths()
+    cases = []
+    for path in paths:
+        start, end, rows = path['start'], path['end'], path['quotes']
+        result = price_path(rows,start,end-timedelta(seconds=3),path['intervals'])
+        cases.append({k:path[k] for k in ('id','symbol','sources','provider_errors')})
+        cases[-1].update(raw_records_in_requested_window=sum(start<=time(q['timestamp'])<=end for q in rows),
+                         indication=result)
     return {'as_of':'2026-09-24','protocol_commit':inputs['protocol_commit'],
             'status':'DEVELOPMENT_PRICE_INDICATIONS_ONLY','requests_used':retrieval['requests_used'],
             'new_quote_records_including_boundary_overlap':sum(r['count'] for r in retrieval['requests']),

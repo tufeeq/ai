@@ -1,5 +1,10 @@
 # Frozen six-case SIP path audit — 24 September 2026
 
+**Subsequent unit correction (2026-09-24):** the lot-metadata prerequisite in this
+frozen audit is superseded for post-November-2025 Alpaca SIP by the official share
+unit contract. See [the correction and six-case quantity audit](SHARE_CAPACITY_FINDINGS.md).
+Original reports and price indications below remain unchanged; no fills are proved.
+
 **Measurement advanced; no profitable strategy or verified fill established.**
 Retrieved 85,688 new quote records in 18 requests (17 successful, one provider
 internal error), retaining boundary overlap and every error. Reused the five

@@ -1,5 +1,13 @@
 # TAGit NEXT — independent small-cap rebuild
 
+**Latest correction (24 September 2026):** [SIP share units and capacity findings](SHARE_CAPACITY_FINDINGS.md).
+The observer now interprets post-November-2025 Alpaca SIP sizes as shares instead
+of multiplying by a round-lot size. On the same six frozen cases, a 100-share
+snapshot scenario has one size/volume-qualified pair, four volume-cap failures
+and one remaining unknown; three exit prices are still missing across the full
+sample. No actual execution or profitability is established. Reproduce offline:
+`make -C tagit-next share-capacity`. No new market requests or signal-rule changes.
+
 **Latest SIP path audit:** [six-case findings and saved continuation](CONTINUATION_PATH_FINDINGS.md).
 18 market requests added 85,688 quote records; five full API intervals were retrieved.
 Three stop-first price indications and three unknown timeout prices remain; these

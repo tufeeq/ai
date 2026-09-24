@@ -8,8 +8,11 @@ See [implementation status](../IMPLEMENTATION_STATUS.md) before activation.
 to browser SSE). None is enabled by default. Persistent disk and an always-on
 host are required; the existing free deployment is not upgraded by this code.
 `GET /api/performance` exposes counts/unknowns and `GET /api/events` streams data.
-`TAGIT_PAPER_PYTHON` enables the shared Phase 1 evaluator; `TAGIT_LOT_METADATA`
-supplies dated round-lot sizes. Missing feed/metadata never produces assumed fills.
+`TAGIT_PAPER_PYTHON` enables the shared Phase 1 evaluator. Post-November-2025
+Alpaca SIP quote sizes are shares, with a versioned provider/date contract and no
+lot multiplier. `TAGIT_LOT_METADATA` is deprecated/ignored. Older/unknown units
+and partial feeds cannot establish consolidated execution evidence; see
+[the correction and capacity audit](../SHARE_CAPACITY_FINDINGS.md).
 Optional `ZOYA_API_KEY` and public display permission enable the Sharia adapter;
 missing financial-statement date still yields UNKNOWN. No keys are in this repo.
 The Dockerfile uses `tagit-next` as build context to include the Python evaluator.
