@@ -1,5 +1,11 @@
 # TAGit NEXT research and quote interface
 
+Phase 1 evidence addition (2026-09-24): publish `phase1.js` and
+`phase1-evidence.json` alongside `app.js` when this research branch is reviewed for
+publication. Generate/check evidence with `make -C tagit-next phase1` from the repo
+root. The new notice is research-only and does not change live signals. Older
+deployment descriptions below are historical, not current service health checks.
+
 Published at https://tufeeq.github.io/ai/tagit-next/
 
 Historical records remain pinned to research commit

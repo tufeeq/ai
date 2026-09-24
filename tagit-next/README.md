@@ -1,5 +1,13 @@
 # TAGit NEXT — independent small-cap rebuild
 
+**2026-09-24 Phase 1:** the current under-$100M discovery baseline is now exactly
+reproducible with `make -C tagit-next phase1` from the repository root (Python 3.12+,
+Node 24, offline). See [PHASE1_REPORT.md](PHASE1_REPORT.md) for the new event clock,
+quote-execution components, tests and explicit outstanding data/replay requirements.
+The baseline remains negative; Phase 1 is incomplete and Phase 2 is not enabled.
+Historical deployment descriptions below refer to earlier branch snapshots, not a
+fresh health check of the current public service.
+
 **Published research interface:** https://tufeeq.github.io/ai/tagit-next/
 The Arabic interface exposes historical study and quote-audit cases and a price
 connection panel. The market-data service is implemented and tested but NOT deployed

@@ -1,5 +1,30 @@
 # Cumulative research progress
 
+## 2026-09-24 — approved Phase 1 measurement foundation
+
+Starting from `d6940f3d18cbc7cfbfd4fbcec93f43740bb126ce`, kept discovery-1 rules
+unchanged and added an offline, hash-checked reproduction command:
+`make -C tagit-next phase1`. All baseline report fields/events reproduced exactly:
+322 signals, 84 evaluable, 238 missing, resolved close-return mean -1.4258583700865177%.
+The session bootstrap interval for that observed subset is [-2.2325474069001867%,
+-0.6613290450628821%], conditional on only ten sessions and incomplete outcomes;
+it is neither an independent strategy test nor the expectancy of all signals.
+
+Added availability-ordered event and detector clocks, PIT metadata component,
+quote triple-barrier approximation with liquidity/fee sensitivities, metrics,
+split/purge checks and fail-closed claim prerequisites. Tests cover future-data
+perturbations, delayed completed bars, delisting history, stop latching, deadline
+precedence and coverage gaps. Local full suites: 93 Python and 49 service Node
+tests passed. New methodology evidence is generated from the audit for the branch
+UI. CI now includes the one-command reproduction check.
+
+Zero new market-data calls; no paid changes or strategy promotion. Original
+rejected hypotheses, presignal failures and unknown execution outcomes remain
+unchanged. Phase 1 is explicitly incomplete: no 12-month PIT universe, full live
+shortlist replay, calibrated fills, walk-forward results or untouched holdout yet.
+Next: ingestion coverage manifests plus full scanner replay adapter, followed by
+PIT source inventory before freezing calendar folds. See `PHASE1_REPORT.md`.
+
 ## 2026-09-15 — timeout quote integrity
 
 Starting state: rejected independent small-cap hypotheses; ten quote-entry cases,

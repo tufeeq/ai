@@ -1,3 +1,4 @@
+import './phase1.js';
 import {isExtended,mergeMarketRow,marketDate,assess,splitPriority,updatePressure,pressureSummary,shariaStatus,sizePosition,recordObservation,outcome,restoreJournal,positive,finite,elapsed} from './opportunity.mjs?v=desk-5';
 const formatters=new Map();const numberFormat=d=>{if(!formatters.has(d))formatters.set(d,new Intl.NumberFormat('en-US',{maximumFractionDigits:d,minimumFractionDigits:d}));return formatters.get(d);};
 const $=id=>document.getElementById(id),N=(v,d=2)=>finite(v)?numberFormat(d).format(v):'—',E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

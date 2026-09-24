@@ -1,0 +1,20 @@
+{
+  "id": "phase1-discovery-integrity-20260924",
+  "status": "INFRASTRUCTURE_PARTIAL_NO_MODEL_CHANGE",
+  "base_commit": "d6940f3d18cbc7cfbfd4fbcec93f43740bb126ce",
+  "objective": "Validate current NASDAQ <100M discovery-1, not the separate <1B Python hypotheses",
+  "frozen_sha256": {
+    "quote-service/src/scanner.mjs": "6d04ed6155eb7ea39e247414d21975ebf2015a21cb91c3eb67fd37caec9c5d05",
+    "data/discovery-audit.json": "bf6ae9b3e6d3f5cbbfc2e53a03204823fa135059245a6960393ef41af42add4a",
+    "data/study-manifest.json": "6ce841265eb4ac91447908c3dddb3b145e3abdf90080ad5094c94074f4d445df"
+  },
+  "data_policy": "Reuse saved SIP first; no market data requests or purchases in this implementation",
+  "known_exposed_periods": [{"start":"2026-08-24","end":"2026-09-04","role":"DEVELOPMENT_ONLY"}],
+  "holdout": {"status":"LOCKED_NOT_SELECTED","dates":null,"opens":0,"reason":"Freeze only after point-in-time inventory and minimum 12-month coverage audit; never reuse known periods"},
+  "walk_forward_proposal": {"training_months":6,"validation_months":1,"purge":"Remove every label spanning a fold boundary","calendar_windows":"NOT_GENERATED_PENDING_DATA_INVENTORY"},
+  "bootstrap": {"unit":"session","iterations":5000,"seed":20260924,"confidence":0.95},
+  "multiple_testing": {"method":"Bonferroni","family":"All attempted configurations including failures; no inferential p-values asserted for current baseline"},
+  "execution": {"model":"Long marketable quotes, no partial fills or queue priority claims","cost_sensitivity":[{"name":"low","fee_bps_per_side":0,"impact_bps_at_full_participation":0},{"name":"base","fee_bps_per_side":1,"impact_bps_at_full_participation":20},{"name":"stress","fee_bps_per_side":5,"impact_bps_at_full_participation":40}],"calibrated":false},
+  "phase2_allowed":false,
+  "profitability_claim_allowed":false
+}
