@@ -1,4 +1,4 @@
-.PHONY: phase1 phase1-refresh
+.PHONY: phase1 phase1-refresh phase2 phase2-refresh
 .PHONY: verify
 verify:
 	python -m unittest discover -s tests -v
@@ -6,6 +6,7 @@ verify:
 	node --check web/app.js
 	node --check web/performance.js
 	python -m research.run --check
+	python -m research.phase2 --check
 
 # Python 3.12+, Node 24. Offline, no account secrets needed.
 phase1:
@@ -15,3 +16,12 @@ phase1:
 
 phase1-refresh:
 	python -m research.run
+
+# Exposed development data only. No network, live-rule change or holdout access.
+phase2:
+	python -m unittest discover -s tests -p 'test_phase2.py' -v
+	node --test web/phase2-view.test.mjs
+	python -m research.phase2 --check
+
+phase2-refresh:
+	python -m research.phase2

@@ -1,5 +1,41 @@
 # Cumulative research progress
 
+## 2026-09-24 — Phase 2 development ablations and public comparison evidence
+
+User authorized proceeding with Phase 2 and later stages. Frozen two isolated
+hypotheses and all 322 current-discovery events in `99d67d31812673da7a4a1ec68a4b577920daef0d`
+before new feature calculations. Both use exposed development dates, never an
+independent/holdout claim. No live signal rule or conditional plan was changed.
+
+Implemented causal session and prior-ATR features plus same-time 20-session RVOL,
+explicit availability/revision handling, a reproducible comparison runner, paired
+session-bootstrap intervals and full included/excluded/unknown-feature ledgers.
+Calendar localization handles DST and early closes. Reused every stored price bar;
+one Alpaca calendar metadata request, zero new price/quote/trade requests.
+
+Core-session filter: 231 selected, 79 evaluated, 152 missing; conditional mean
+-1.3207% against -1.4259%, difference +0.1052 pp, 95% CI [-0.0592,+0.3378].
+Momentum/ATR: 119 selected, 63 evaluated, 56 missing; conditional mean -1.4532%
+against -1.6385% on the same feature-observable population. Difference +0.1853 pp,
+95% CI [-0.1034,+0.6426]. ATR unavailable for 199 signals, retained separately.
+Both Bonferroni-adjusted intervals also cross zero. Neither filter is approved;
+no accuracy/remaining-upside/expectancy improvement is established. RVOL cannot
+yet be evaluated on only ten stored sessions or an unverified split-volume basis.
+
+Added an RTL evidence table with validation of counts, arithmetic and claim status;
+updated README, feature registry, implementation status and PHASE2_FINDINGS.md.
+One-command reproduction: `make -C tagit-next phase2`. Local full checks passed
+110 Python and 62 Node tests and exact negative baseline reproduction. CI includes
+the new artifact replay. Software tests are not trading validation.
+
+Existing background/SQLite/stream/paper and Sharia adapters remain unactivated
+pending documented runtime/data/licensing decisions. No paid change, deployment,
+order or production merge. Next: qualify PIT/split metadata and preceding RVOL
+history under a frozen retrieval manifest; independent comparisons require new
+qualified dates and complete quote entry/exit observations. Keep the final holdout
+locked, preserve both negative studies, and do not tune these thresholds again on
+this sample.
+
 ## 2026-09-24 — server observation, exact scanner replay and phased delivery
 
 Extended the approved implementation without altering discovery-1. Added persistent

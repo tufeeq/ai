@@ -3,14 +3,18 @@
 **Current implementation status:** [all-phase status and activation requirements](IMPLEMENTATION_STATUS.md).
 The branch now has opt-in server journaling, background regular-session observation,
 provider streaming and an RTL performance page. These components are not yet
-provisioned or proven in live use; Phase 2 remains blocked by Phase 1 data requirements.
+provisioned or proven in live use. [Phase 2 development comparisons](PHASE2_FINDINGS.md)
+now test session timing and volatility-scaled momentum separately, with full missing
+denominators and paired session-bootstrap intervals. Neither filter is approved.
+Run `make -C tagit-next phase2` to reproduce; independent validation remains pending.
 Run `make -C tagit-next verify` for all local checks without credentials.
 
 **2026-09-24 Phase 1:** the current under-$100M discovery baseline is now exactly
 reproducible with `make -C tagit-next phase1` from the repository root (Python 3.12+,
 Node 24, offline). See [PHASE1_REPORT.md](PHASE1_REPORT.md) for the new event clock,
 quote-execution components, tests and explicit outstanding data/replay requirements.
-The baseline remains negative; Phase 1 is incomplete and Phase 2 is not enabled.
+The baseline remains negative; Phase 1 data qualification is incomplete and Phase 2
+promotion to live rules remains blocked. Development diagnostics are isolated.
 Historical deployment descriptions below refer to earlier branch snapshots, not a
 fresh health check of the current public service.
 

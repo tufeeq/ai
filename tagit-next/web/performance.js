@@ -1,4 +1,11 @@
+import {comparisonRows} from './phase2-view.mjs';
 const $=id=>document.getElementById(id);
+try{
+ const r=await fetch('phase2-evidence.json',{cache:'no-cache'});if(!r.ok)throw Error();const e=await r.json();
+ const rows=comparisonRows(e);$('phase2-rows').replaceChildren();
+ for(const values of rows){const tr=document.createElement('tr');for(const [i,value]of values.entries()){const td=document.createElement('td');td.textContent=value;if(i>0)td.dir='ltr';tr.append(td);}$('phase2-rows').append(tr);}
+ $('phase2-status').textContent=`المصدر: سجل ${e.protocol} بتاريخ ${e.as_of}. جميع الإشارات ${e.full_baseline.signals}؛ المقيمة ${e.full_baseline.evaluable} والناقصة ${e.full_baseline.missing_outcomes}. لم يُعتمد أي فلتر ولم يُفتح الاختبار النهائي.`;
+}catch{$('phase2-status').textContent='تعذر التحقق من سجل مقارنة الميزات؛ لا توجد نتيجة معتمدة لعرضها.';}
 try{const r=await fetch('phase1-evidence.json',{cache:'no-cache'});if(!r.ok)throw Error();const e=await r.json();
  if(!Number.isFinite(e.resolved_expectancy_pct)||e.signals!==e.evaluable+e.unevaluable||e.profitability_claim_allowed!==false)throw Error('INVALID_EVIDENCE');
  $('baseline').textContent=`المصدر: سجل discovery-1 بتاريخ ${e.as_of}. ${e.signals} إشارة؛ ${e.evaluable} قابلة للتقييم و${e.unevaluable} ناقصة. متوسط الحالات المقيمة ${Number(e.resolved_expectancy_pct).toFixed(2)}٪ بعد تكلفة افتراضية. هذا ليس عائد جميع الإشارات ولا نتيجة اختبار الهدف والوقف.`;
