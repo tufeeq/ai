@@ -61,6 +61,9 @@ class PhaseOne(unittest.TestCase):
         self.assertEqual((r['status'],r['exit_at']),('TARGET',ts(3)))
         self.assertGreater(r['entry_price'],10.01);self.assertLess(r['exit_price'],11)
         self.assertLess(r['net_pct'],(11/10.01-1)*100)
+        only_entry=self.run_quotes([quote(1)])
+        self.assertEqual(only_entry['mfe_pct'],0)
+        self.assertLess(only_entry['mae_pct'],0)
 
     def test_cost_sensitivity_fixed_entry(self):
         rows=[quote(1),quote(2,11,11.01)]

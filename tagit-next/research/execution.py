@@ -57,8 +57,8 @@ size; it cannot turn into a later target after a rebound. No partial fills assum
                 and time(coverage['start'])<=start and time(coverage['end'])>=until)
     def finish(status,**kw):
         return {**base,'status':status,**kw,
-                'mae_pct':min(excursions) if excursions else None,
-                'mfe_pct':max(excursions) if excursions else None}
+                'mae_pct':min(0,min(excursions)) if excursions else None,
+                'mfe_pct':max(0,max(excursions)) if excursions else None}
     def executable(q,at,side):
         volume=q.get('lagged_volume')
         if isinstance(volume,bool) or not isinstance(volume,(int,float)) or not isfinite(volume) or volume<=0:return None
