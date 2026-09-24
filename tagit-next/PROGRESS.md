@@ -1,5 +1,32 @@
 # Cumulative research progress
 
+## 2026-09-24 — server observation, exact scanner replay and phased delivery
+
+Extended the approved implementation without altering discovery-1. Added persistent
+SQLite signal/scan/event/HTTP evidence, source WebSocket with browser SSE fallback,
+opt-in background regular-session scanning, and a paper evaluator calling the same
+Phase 1 execution function. Entry-size conversion requires dated round-lot metadata;
+partial feeds/gaps remain unknown. A captured-clock replay now reproduces concurrent
+scanner responses, cache hits and original scan output, with corruption checks.
+
+Added RTL server performance page and a live-only Zoya adapter that refuses to
+declare compliance when financial-statement dates are absent. Added a review-only
+Docker/persistent-host template; no paid deployment or subscription change.
+
+Two preregistered Alpaca metadata calls returned a 251-session calendar and current
+SENS reference fields. The latter has no historical share-count/publication fields;
+the calendar does not establish price/universe coverage. Zero new price-data calls.
+Local verification: 98 Python tests and 60 Node test-runner cases passed, including
+HTTP-to-SQLite-to-replay integration; existing browser opportunity assertions also
+ran. CI additionally builds and starts the credential-free mixed-runtime container.
+
+Phase 1 still lacks the full historical PIT dataset and calibrated execution;
+Phase 2 features are registered but NOT TESTED, no holdout opened. All earlier
+negative/unknown results retained. Render connector requires confirmation of the
+listed My Workspace before service access. Activation also needs approved hosting,
+runtime keys/entitlement and durable-volume checks. See IMPLEMENTATION_STATUS.md
+for exact blockers, prices, scope and next research step.
+
 ## 2026-09-24 — approved Phase 1 measurement foundation
 
 Starting from `d6940f3d18cbc7cfbfd4fbcec93f43740bb126ce`, kept discovery-1 rules

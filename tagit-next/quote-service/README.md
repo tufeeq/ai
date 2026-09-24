@@ -1,5 +1,23 @@
 # TAGit NEXT market-data service
 
+## New observer runtime (2026-09-24, opt-in)
+
+See [implementation status](../IMPLEMENTATION_STATUS.md) before activation.
+`server.mjs` supports `TAGIT_JOURNAL_PATH` (SQLite), `TAGIT_BACKGROUND=1`
+(exchange-clock regular-session scans), and `TAGIT_STREAM=1` (Alpaca WebSocket
+to browser SSE). None is enabled by default. Persistent disk and an always-on
+host are required; the existing free deployment is not upgraded by this code.
+`GET /api/performance` exposes counts/unknowns and `GET /api/events` streams data.
+`TAGIT_PAPER_PYTHON` enables the shared Phase 1 evaluator; `TAGIT_LOT_METADATA`
+supplies dated round-lot sizes. Missing feed/metadata never produces assumed fills.
+Optional `ZOYA_API_KEY` and public display permission enable the Sharia adapter;
+missing financial-statement date still yields UNKNOWN. No keys are in this repo.
+The Dockerfile uses `tagit-next` as build context to include the Python evaluator.
+The review-only paid Blueprint is `../render.persistent.example.yaml`.
+
+The legacy Vercel/Worker HTTP handler below remains request-driven; the new
+background/SQLite/WebSocket runtime requires the long-lived `server.mjs` process.
+
 Independent read-only Alpaca price service. No trading engines or order submission.
 Node 24, no external dependencies. `npm test` runs execution-integrity tests.
 

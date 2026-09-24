@@ -1,6 +1,7 @@
 // Research evidence is separate from live prices; this module cannot create signals.
 const method=document.querySelector('.method details');
 if(method){
+ const performance=document.createElement('a');performance.href='performance.html';performance.textContent='سجل الأداء التاريخي والورقي';method.append(performance);
  const notice=document.createElement('p');notice.id='phase1-evidence';
  notice.textContent='المرحلة الأولى للتحقق: لم تكتمل بعد. جارٍ تحميل سجل الدليل المؤرخ…';method.append(notice);
  fetch(new URL('./phase1-evidence.json',import.meta.url),{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error('Evidence unavailable');return r.json();}).then(e=>{

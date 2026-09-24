@@ -1,7 +1,7 @@
 import {createMarketService} from './market.mjs';
 import {createScanner} from './scanner.mjs';
-export function createHandler({env=globalThis.process?.env??{},service=createMarketService({env})}={}){
- const scanner=createScanner({env});
+export function createHandler({env=globalThis.process?.env??{},service=createMarketService({env}),runtime=null,sharia=null}={}){
+ const scanner=runtime?.scanner??createScanner({env});
  return async function handle(req,res){
   const origin=req.headers.origin,allowed=env.TAGIT_ALLOWED_ORIGIN||'https://tufeeq.github.io';
   res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Vary','Origin');res.setHeader('X-Content-Type-Options','nosniff');
@@ -11,7 +11,10 @@ export function createHandler({env=globalThis.process?.env??{},service=createMar
   if(req.method!=='GET'){res.statusCode=405;return res.end(JSON.stringify({status:'METHOD_NOT_ALLOWED'}));}
   try{
    const url=new URL(req.url,'http://localhost');let result;
-   if(url.pathname==='/api/health')result=service.health();
+   if(url.pathname==='/api/health')result={...service.health(),runtime:runtime?.status()??null};
+   else if(url.pathname==='/api/events'&&runtime)return runtime.events(req,res);
+   else if(url.pathname==='/api/performance')result=runtime?.journal?{...runtime.journal.summary(),runtime:runtime.status(),recent:runtime.journal.recentSignals(100)}:{status:'SERVER_JOURNAL_NOT_CONFIGURED',profitability_claim_allowed:false};
+   else if(url.pathname==='/api/sharia'&&sharia)result=await sharia.get(url.searchParams.get('symbol'));
    else if(url.pathname==='/api/quotes')result=await service.quotes(url.searchParams.get('symbols'));
    else if(url.pathname==='/api/scanner')result=await scanner.get();
    else if(url.pathname==='/api/universe')result=await service.universe();

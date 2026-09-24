@@ -1,5 +1,11 @@
 # TAGit NEXT — independent small-cap rebuild
 
+**Current implementation status:** [all-phase status and activation requirements](IMPLEMENTATION_STATUS.md).
+The branch now has opt-in server journaling, background regular-session observation,
+provider streaming and an RTL performance page. These components are not yet
+provisioned or proven in live use; Phase 2 remains blocked by Phase 1 data requirements.
+Run `make -C tagit-next verify` for all local checks without credentials.
+
 **2026-09-24 Phase 1:** the current under-$100M discovery baseline is now exactly
 reproducible with `make -C tagit-next phase1` from the repository root (Python 3.12+,
 Node 24, offline). See [PHASE1_REPORT.md](PHASE1_REPORT.md) for the new event clock,
