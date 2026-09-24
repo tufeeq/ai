@@ -1,7 +1,8 @@
 # Implementation status — 2026-09-24
 
 Scope: current NASDAQ <$100M discovery-1. No signal rules changed. No subscription,
-order, paid service, production merge or production deployment performed.
+order, paid service or strategy promotion. Historical evidence frontend published
+at the user's request; see [PUBLICATION.md](PUBLICATION.md) for scope and verification.
 
 ## What is implemented versus proven
 
@@ -11,7 +12,7 @@ order, paid service, production merge or production deployment performed.
 | 2 — improvements | Two preregistered development ablations, causal time/ATR/RVOL features, paired cluster intervals, full missing-data ledger and RTL comparison table; neither filter approved | Phase 1 data qualification, 20-session RVOL inputs, independent comparisons and final holdout >=500 evaluable signals |
 | 3 — infrastructure | File-backed SQLite, optional background regular-session scans, provider WebSocket, browser push, paper evaluator reusing `research.execution.simulate`, health/error reporting | Workspace confirmation, paid persistent host approval, runtime keys, restart/disk verification, lot metadata and subscription coverage; load/retention/backups need operational verification |
 | 4 — Sharia | Server-side live Zoya adapter; sandbox rejected; stale, ambiguous and incomplete reports remain UNKNOWN | Live key/licensing, public display approval, underlying financial-statement date (not supplied by Basic response) |
-| 5 — interface | RTL performance page, stream/fallback indicators, source/date and missing outcomes, link from methodology | Publish reviewed frontend and connect verified server; real forward observations, calibrated probabilities and similar-signal statistics do not yet exist |
+| 5 — interface | RTL historical performance and Phase 2 evidence published on 2026-09-24; source/date, missing outcomes and main-page link verified. Stream/fallback additions remain in research branch | Activate verified observation server and its matching client; real forward observations, calibrated probabilities and similar-signal statistics do not yet exist |
 
 **No final configuration or profitable strategy has been selected.** Null effects
 mean NOT TESTED, not zero or success. The two development effects are conditional
