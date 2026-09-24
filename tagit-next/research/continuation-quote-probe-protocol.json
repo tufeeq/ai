@@ -1,0 +1,64 @@
+{
+  "id": "continuation-gap-quote-probe-20260924",
+  "purpose": "Check whether valid SIP quotes exist in the first missing/ambiguous minute. Not a fill, label repair, return or strategy test.",
+  "sample_sha256": "aa75b557d8b044e2de0f4ce01086e74a6b1f38b68d4ff9f805d3545fee3e8f07",
+  "sample_size": 6,
+  "cached_source": "data/exit-windows.json.gz",
+  "cached_source_sha256": "cf1b8ace9d3f2c8f1435d799227c4b6716146b74b2dd5e4233d1699ffca9f1d3",
+  "cached_case": "2026-08-24|BTCT|2026-08-24T14:04:00.000Z",
+  "new_requests": [
+    {
+      "case_id": "2026-09-01|SGLY|2026-09-01T18:32:00.000Z",
+      "symbol": "SGLY",
+      "start": "2026-09-01T18:33:00+00:00",
+      "duration_seconds": 60,
+      "limit": 10000,
+      "feed": "sip",
+      "sort": "asc"
+    },
+    {
+      "case_id": "2026-08-28|AKTX|2026-08-28T15:40:00.000Z",
+      "symbol": "AKTX",
+      "start": "2026-08-28T15:42:00+00:00",
+      "duration_seconds": 60,
+      "limit": 10000,
+      "feed": "sip",
+      "sort": "asc"
+    },
+    {
+      "case_id": "2026-09-01|FWRD|2026-09-01T14:18:00.000Z",
+      "symbol": "FWRD",
+      "start": "2026-09-01T14:20:00+00:00",
+      "duration_seconds": 60,
+      "limit": 10000,
+      "feed": "sip",
+      "sort": "asc"
+    },
+    {
+      "case_id": "2026-09-04|NKLR|2026-09-04T15:04:00.000Z",
+      "symbol": "NKLR",
+      "start": "2026-09-04T15:07:00+00:00",
+      "duration_seconds": 60,
+      "limit": 10000,
+      "feed": "sip",
+      "sort": "asc"
+    },
+    {
+      "case_id": "2026-08-31|BTCT|2026-08-31T17:44:00.000Z",
+      "symbol": "BTCT",
+      "start": "2026-08-31T18:22:00+00:00",
+      "duration_seconds": 60,
+      "limit": 10000,
+      "feed": "sip",
+      "sort": "asc"
+    }
+  ],
+  "selection": "Fixed six-case missingness sample; cached BTCT already has quotes during the requested minute, so do not download it again. Fetch one minute for each remaining case, no pagination in this diagnostic. Every failure/cap retained.",
+  "valid_quote": "Positive finite bid/ask and displayed sizes, bid<=ask. Size units are not converted or interpreted as executable capacity; historical event time is not receipt time.",
+  "outputs": "Raw responses, provenance, counts, first/last valid quote time, spread range, capped/partial flags. No quotes means UNKNOWN not untradeable.",
+  "request_cap": 5,
+  "retry_policy": "No retries in this probe; retain provider errors.",
+  "deployment_allowed": false,
+  "changes_bar_labels": false,
+  "holdout_opens": 0
+}
