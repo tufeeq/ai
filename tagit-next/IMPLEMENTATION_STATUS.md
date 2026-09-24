@@ -1,5 +1,15 @@
 # Implementation status — 2026-09-24
 
+## Latest continuation: full SIP path retrieval
+
+The frozen six-case path audit added 85,688 quote records in 18 requests, with
+five complete API intervals and one provider-error checkpoint. Three stop-first
+price indications and three unknown timeout prices; **zero verified execution
+outcomes**. No calibration, live-rule change or profitability claim. The AKTX
+indication is an immediate spread loss, not a later fall or approved scanner trade.
+See [CONTINUATION_PATH_FINDINGS.md](CONTINUATION_PATH_FINDINGS.md) for all cases,
+reproduction and the precise BTCT retrieval cursor. Prior reports remain frozen.
+
 ## Latest research cycle: continuation ordering
 
 Added a separately preregistered +10% target / -3% stop / 60-minute bar diagnostic

@@ -9,6 +9,7 @@ verify:
 	python -m research.phase2 --check
 	python -m research.continuation --check
 	python -m research.continuation_probe --check
+	python -m research.continuation_paths --check
 
 # Python 3.12+, Node 24. Offline, no account secrets needed.
 phase1:
@@ -37,3 +38,8 @@ continuation:
 continuation-refresh:
 	python -m research.continuation
 	python -m research.continuation_probe
+
+.PHONY: continuation-paths
+continuation-paths:
+	python -m unittest discover -s tests -p 'test_continuation_paths.py' -v
+	python -m research.continuation_paths --check

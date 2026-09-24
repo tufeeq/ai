@@ -1,5 +1,11 @@
 # TAGit NEXT — independent small-cap rebuild
 
+**Latest SIP path audit:** [six-case findings and saved continuation](CONTINUATION_PATH_FINDINGS.md).
+18 market requests added 85,688 quote records; five full API intervals were retrieved.
+Three stop-first price indications and three unknown timeout prices remain; these
+are not live-approved entries or verified fills. One provider error is retained
+with its exact resume cursor. Reproduce: `make -C tagit-next continuation-paths`.
+
 **New continuation audit (24 September 2026):** [target-before-stop results](CONTINUATION_FINDINGS.md).
 All 322 existing detector events now have an explicit +10% / -3% / 60-minute bar
 classification, with gaps and intraminute ambiguity retained. The preregistered
