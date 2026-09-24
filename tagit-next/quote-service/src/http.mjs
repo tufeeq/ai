@@ -1,7 +1,9 @@
 import {createMarketService} from './market.mjs';
 import {createScanner} from './scanner.mjs';
+import {createLabService} from './lab.mjs';
 export function createHandler({env=globalThis.process?.env??{},service=createMarketService({env}),runtime=null,sharia=null}={}){
  const scanner=runtime?.scanner??createScanner({env});
+ const lab=createLabService({env});
  return async function handle(req,res){
   const origin=req.headers.origin,allowed=env.TAGIT_ALLOWED_ORIGIN||'https://tufeeq.github.io';
   res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Vary','Origin');res.setHeader('X-Content-Type-Options','nosniff');
@@ -12,6 +14,8 @@ export function createHandler({env=globalThis.process?.env??{},service=createMar
   try{
    const url=new URL(req.url,'http://localhost');let result;
    if(url.pathname==='/api/health')result={...service.health(),runtime:runtime?.status()??null};
+   else if(url.pathname==='/api/lab/connection')result=await lab.connection();
+   else if(url.pathname==='/api/lab/provider')result=await lab.data(url.searchParams);
    else if(url.pathname==='/api/events'&&runtime)return runtime.events(req,res);
    else if(url.pathname==='/api/performance')result=runtime?.journal?{...runtime.journal.summary(),runtime:runtime.status(),recent:runtime.journal.recentSignals(100)}:{status:'SERVER_JOURNAL_NOT_CONFIGURED',profitability_claim_allowed:false};
    else if(url.pathname==='/api/sharia'&&sharia)result=await sharia.get(url.searchParams.get('symbol'));
@@ -21,9 +25,9 @@ export function createHandler({env=globalThis.process?.env??{},service=createMar
    else {res.statusCode=404;return res.end(JSON.stringify({status:'NOT_FOUND'}));}
    res.statusCode=result.status==='INELIGIBLE_SYMBOLS'?422:200;res.end(JSON.stringify(result));
   }catch(e){
-   const known=new Set(['INVALID_SYMBOLS','INVALID_FEED','CURRENT_UNIVERSE_REQUIRED','RUNTIME_CREDENTIALS_NOT_CONFIGURED','PROVIDER_AUTH_FAILED','FEED_NOT_ENTITLED','RATE_LIMITED','PROVIDER_UNAVAILABLE','INVALID_PROVIDER_RESPONSE']);
+   const known=new Set(['INVALID_LAB_QUERY','INVALID_SYMBOLS','INVALID_FEED','CURRENT_UNIVERSE_REQUIRED','RUNTIME_CREDENTIALS_NOT_CONFIGURED','PROVIDER_AUTH_FAILED','FEED_NOT_ENTITLED','RATE_LIMITED','PROVIDER_UNAVAILABLE','INVALID_PROVIDER_RESPONSE']);
    const status=known.has(e.message)?e.message:'SERVICE_ERROR';
-   res.statusCode=status==='INVALID_SYMBOLS'?400:status==='RATE_LIMITED'?429:503;
+   res.statusCode=['INVALID_SYMBOLS','INVALID_LAB_QUERY'].includes(status)?400:status==='RATE_LIMITED'?429:503;
    if(status==='RATE_LIMITED')res.setHeader('Retry-After','30');
    res.end(JSON.stringify({schema_version:1,status,rows:[],approved_for_live:false}));
   }
