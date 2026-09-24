@@ -1,0 +1,119 @@
+name: TAGit Lab
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tagit-lab/tagit_lab/**'
+      - 'tagit-lab/tests/**'
+      - 'tagit-lab/js/**'
+      - 'tagit-lab/requirements*.txt'
+      - '.github/workflows/tagit-lab.yml'
+  schedule:
+    - cron: '40 21 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'check = connection; forward = completed session; research = development period'
+        type: choice
+        options: [check, forward, research]
+        default: check
+      date:
+        description: 'Forward session YYYY-MM-DD; empty = latest completed session'
+        required: false
+      stress_variant:
+        description: 'Variant for the development cost stress test'
+        type: choice
+        options: [baseline, no_extended, rvol_tod, price_ge_1, spread_cap, no_dilution, skip_open_15, target_1r, hold_15, window_low_stop, wide_stop, quality_combo]
+        default: baseline
+permissions:
+  contents: write
+concurrency:
+  group: tagit-lab
+  cancel-in-progress: false
+jobs:
+  lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    defaults:
+      run:
+        working-directory: tagit-lab
+    env:
+      ALPACA_KEY_ID: ${{ secrets.ALPACA_API_KEY_ID || secrets.ALPACA_KEY_ID || secrets.APCA_API_KEY_ID }}
+      ALPACA_SECRET_KEY: ${{ secrets.ALPACA_API_SECRET_KEY || secrets.ALPACA_SECRET_KEY || secrets.APCA_API_SECRET_KEY }}
+      TAGIT_LAB_PROXY_URL: https://tagit-next-quotes.onrender.com/api/lab/provider
+      SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT || 'TAGit Research tufeeq11@gmail.com' }}
+      TASK: ${{ inputs.task || (github.event_name == 'schedule' && 'forward') || 'check' }}
+      SESSION_DATE: ${{ inputs.date }}
+      STRESS_VARIANT: ${{ inputs.stress_variant || 'baseline' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: tagit-lab/requirements-dev.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: pip install -r requirements-dev.txt
+      - name: Verify the research engine
+        env:
+          ALPACA_KEY_ID: ''
+          ALPACA_SECRET_KEY: ''
+          TAGIT_LAB_PROXY_URL: ''
+        run: python -m pytest -q
+      - uses: actions/cache@v4
+        if: env.TASK != 'check'
+        with:
+          path: tagit-lab/data
+          key: tagit-lab-data-v1-${{ github.run_id }}
+          restore-keys: tagit-lab-data-v1-
+      - name: Verify real Alpaca historical data
+        run: |
+          python -m tagit_lab.publish --probe
+          python -c 'import json; d=json.load(open("results/connection.json")); assert d["status"] == "CONNECTED", d["status"]'
+      - name: Evaluate a completed session
+        if: env.TASK == 'forward'
+        run: |
+          if [ -z "$SESSION_DATE" ]; then
+            SESSION_DATE="$(python -m tagit_lab.publish --latest-session)"
+          fi
+          export SESSION_DATE
+          python -c 'import os,datetime; datetime.date.fromisoformat(os.environ["SESSION_DATE"])'
+          python -m tagit_lab forward --date "$SESSION_DATE"
+          python -m tagit_lab report
+      - name: Run development research; keep holdout sealed
+        if: env.TASK == 'research'
+        run: |
+          python -m tagit_lab fetch --start 2024-07-01 --end 2025-12-31
+          python -m tagit_lab --quiet backtest
+          python -m tagit_lab walkforward
+          python -m tagit_lab stress --variant "$STRESS_VARIANT"
+          python -m tagit_lab report
+      - name: Export public results
+        if: always()
+        run: python -m tagit_lab.publish
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tagit-lab-results-${{ github.run_id }}
+          path: |
+            tagit-lab/results/
+            tagit-next/lab/results/
+          if-no-files-found: warn
+      - name: Save research ledger and dashboard
+        if: always()
+        run: |
+          git config user.name 'tagit-lab-bot'
+          git config user.email 'tagit-lab-bot@users.noreply.github.com'
+          git add -- ../tagit-next/lab/results
+          if [ -d results ]; then
+            find results -type f \( -name '*.json' -o -name '*.html' -o -name '*.csv' -o -name '*.npz' \) -print0 | xargs -0 -r git add --
+          fi
+          if ! git diff --cached --quiet; then
+            git commit -m 'Update TAGit Lab connection and research ledger'
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi

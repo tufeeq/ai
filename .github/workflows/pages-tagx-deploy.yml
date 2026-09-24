@@ -11,6 +11,10 @@ on:
       - 'operon/**'
       - 'dont-chaos/**'
       - '.github/workflows/pages-tagx-deploy.yml'
+  workflow_run:
+    workflows: ['TAGit Lab']
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -40,6 +44,8 @@ jobs:
           node-version: 24
       - name: Validate frontends
         run: |
+          node --check tagit-next/workspace-tabs.mjs
+          node --check tagit-next/lab/lab.mjs
           node --check tagit-next/app.js
           node --check tagit-next/phase1.js
           node --check tagit-next/performance.js
@@ -91,6 +97,9 @@ jobs:
           rm -rf _site
           mkdir -p _site/tagit _site/tagit10 _site/marginos _site/operon _site/tagit-next
           cp tagit-next/opportunity.mjs tagit-next/index.html tagit-next/app.js tagit-next/style.css tagit-next/snapshot.json tagit-next/prices.js tagit-next/price-state.mjs tagit-next/live-config.json tagit-next/execution.js tagit-next/execution-latency.json _site/tagit-next/
+          cp tagit-next/workspace-tabs.mjs _site/tagit-next/
+          cp -R tagit-next/lab _site/tagit-next/lab
+          test -s _site/tagit-next/lab/index.html
           test -s _site/tagit-next/index.html
           cp tagit-next/phase1.js tagit-next/phase1-evidence.json tagit-next/performance.html tagit-next/performance.js tagit-next/phase2-view.mjs tagit-next/phase2-evidence.json tagit-next/evidence-release.json _site/tagit-next/
           cp tagit/index.html tagit/post-session.html tagit/post-session.js tagit/post-session.css tagit/live-v6.js tagit/early-v9.js tagit/live-v6-price-overlay.js tagit/technical-v7.js tagit/feed-recovery-v7.js tagit/live-v6.css _site/tagit/
@@ -185,3 +194,4 @@ jobs:
             /tmp/chaos-original-predeploy/
             /tmp/chaos-original-live/
           if-no-files-found: warn
+

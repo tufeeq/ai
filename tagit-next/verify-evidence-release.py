@@ -14,8 +14,8 @@ parser.add_argument('--local', action='store_true')
 args = parser.parse_args()
 manifest = json.loads((root / 'evidence-release.json').read_text())
 for name, digest in manifest['files'].items():
-    if Path(name).name != name:
-        raise SystemExit('Release paths must be basenames')
+    if Path(name).is_absolute() or '..' in Path(name).parts or '\\' in name:
+        raise SystemExit('Release paths must stay inside the frontend')
     if hashlib.sha256((root / name).read_bytes()).hexdigest() != digest:
         raise SystemExit('Local release mismatch: ' + name)
 if args.local:
@@ -43,5 +43,6 @@ for name in [*manifest['files'], 'evidence-release.json']:
                 raise
             time.sleep(5)
 with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
-    out.write('\n## TAGit NEXT evidence update verified\n\n' + base + '\n\n' + base + 'performance.html\n\n')
-    out.write('All frontend/evidence assets match the release manifest. Existing live configuration and detector preserved; no strategy promotion.\n')
+    out.write('\n## TAGit NEXT Lab release verified\n\n' + base + '\n\n' + base + 'performance.html\n\n')
+    out.write('All frontend/evidence assets match the release manifest. Lab tab and historical data integration verified; no strategy promotion.\n')
+
