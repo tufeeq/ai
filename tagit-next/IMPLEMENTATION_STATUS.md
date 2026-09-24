@@ -1,5 +1,24 @@
 # Implementation status — 2026-09-24
 
+## Latest research cycle: continuation ordering
+
+Added a separately preregistered +10% target / -3% stop / 60-minute bar diagnostic
+and a causal three-rising-closes comparison on all 322 exposed events. 118 bar
+return proxies, 25 no-session-entry cases and 179 unknown/ambiguous outcomes are
+retained. The feature retained only 3 of 11 observed targets and is not approved.
+Five frozen Alpaca minute-window requests returned 23 quotes; a sixth case reused
+4,399 cached quotes. Four of six problematic windows contained valid quotes, but
+no full execution outcome was resolved. See [CONTINUATION_FINDINGS.md](CONTINUATION_FINDINGS.md)
+for denominators, conditional results, protocols and the exact continuation point.
+Reproduce with `make -C tagit-next continuation`. No independent claim, production
+strategy change, new subscription or final holdout access.
+
+Hosting authorization has progressed since the activation inventory below: the
+user approved the My Workspace selection and $9.50/month basic Render compute
+plus 10GB disk. The new-service form was prepared, but publication of the observer
+still awaits secure Alpaca key entry and actual deployment/restart verification.
+This research cycle does not imply those operational steps have completed.
+
 Scope: current NASDAQ <$100M discovery-1. No signal rules changed. No subscription,
 order, paid service or strategy promotion. Historical evidence frontend published
 at the user's request; see [PUBLICATION.md](PUBLICATION.md) for scope and verification.

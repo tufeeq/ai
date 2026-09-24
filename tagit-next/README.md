@@ -1,5 +1,13 @@
 # TAGit NEXT — independent small-cap rebuild
 
+**New continuation audit (24 September 2026):** [target-before-stop results](CONTINUATION_FINDINGS.md).
+All 322 existing detector events now have an explicit +10% / -3% / 60-minute bar
+classification, with gaps and intraminute ambiguity retained. The preregistered
+three-rising-closes hypothesis retained only 3 of 11 observed target-first cases
+and is not adopted. Five targeted Alpaca requests plus reused cache demonstrate
+that missing candles can still contain quotes; they do not prove fills. Reproduce
+offline with `make -C tagit-next continuation`. No live-rule or profitability claim.
+
 **Current implementation status:** [all-phase status and activation requirements](IMPLEMENTATION_STATUS.md).
 The branch now has opt-in server journaling, background regular-session observation,
 provider streaming and an RTL performance page. These components are not yet

@@ -7,6 +7,8 @@ verify:
 	node --check web/performance.js
 	python -m research.run --check
 	python -m research.phase2 --check
+	python -m research.continuation --check
+	python -m research.continuation_probe --check
 
 # Python 3.12+, Node 24. Offline, no account secrets needed.
 phase1:
@@ -25,3 +27,13 @@ phase2:
 
 phase2-refresh:
 	python -m research.phase2
+
+.PHONY: continuation continuation-refresh
+continuation:
+	python -m unittest discover -s tests -p 'test_continuation.py' -v
+	python -m research.continuation --check
+	python -m research.continuation_probe --check
+
+continuation-refresh:
+	python -m research.continuation
+	python -m research.continuation_probe
