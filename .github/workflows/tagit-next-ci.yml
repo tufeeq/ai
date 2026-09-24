@@ -63,3 +63,9 @@ jobs:
           python presignal_liquidity.py
           cmp data/presignal-liquidity-report.json /tmp/presignal-liquidity-expected.json
         working-directory: tagit-next
+
+      - run: |
+          cp data/presignal-liquidity-validation-report.json /tmp/presignal-liquidity-validation-expected.json
+          python presignal_validation.py
+          cmp data/presignal-liquidity-validation-report.json /tmp/presignal-liquidity-validation-expected.json
+        working-directory: tagit-next

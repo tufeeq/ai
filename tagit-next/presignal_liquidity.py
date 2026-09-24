@@ -72,15 +72,20 @@ def run(protocol,raw):
         results.append(dict(base,signal_features=signal,control_features=control,
                             paper_entry_status=entry['status'],paper_entry_observed=bool(entry['first_eligible']),
                             pair_result='WIN' if pair_win else 'LOSS' if complete else 'UNKNOWN'))
+    rules=protocol.get('decision_rules',{})
+    primary_min_wins=rules.get('primary_min_wins',6)
+    secondary_min_group=rules.get('secondary_min_group_size',3)
+    secondary_min_difference=rules.get('secondary_min_rate_difference',.25)
     wins=sum(r['pair_result']=='WIN' for r in results)
     primary=dict(wins=wins,total_frozen=len(results),unknown=sum(r['pair_result']=='UNKNOWN' for r in results),
-                 passed=wins>=6,decision='PASS' if wins>=6 else 'REJECT')
+                 passed=wins>=primary_min_wins,
+                 decision='PASS' if wins>=primary_min_wins else 'REJECT')
     ready=[r for r in results if r.get('signal_features') and r['signal_features']['liquidity_ready']]
     not_ready=[r for r in results if r.get('signal_features') and not r['signal_features']['liquidity_ready']]
     def rate(group):
         return sum(r.get('paper_entry_observed',False) for r in group)/len(group) if group else None
     rr,nr=rate(ready),rate(not_ready)
-    sufficient=len(ready)>=3 and len(not_ready)>=3
+    sufficient=len(ready)>=secondary_min_group and len(not_ready)>=secondary_min_group
     diff=(rr-nr) if sufficient else None
     secondary=dict(ready_cases=len(ready),not_ready_cases=len(not_ready),
                    ready_entry_observed=sum(r.get('paper_entry_observed',False) for r in ready),
@@ -88,14 +93,21 @@ def run(protocol,raw):
                    ready_entry_rate=round(rr,4) if rr is not None else None,
                    not_ready_entry_rate=round(nr,4) if nr is not None else None,
                    rate_difference=round(diff,4) if diff is not None else None,
-                   decision='PASS' if sufficient and diff>=.25 else 'REJECT' if sufficient else 'INSUFFICIENT_GROUP_SIZE')
+                   decision='PASS' if sufficient and diff>=secondary_min_difference else 'REJECT' if sufficient else 'INSUFFICIENT_GROUP_SIZE')
+    if protocol['scope'].startswith('Development-only'):
+        limitations=['Historical quote event times are not receipt times or fills.',
+                     'Eight development pairs are insufficient for a performance claim.',
+                     'Candle outcomes were known before this feature study but were excluded from selection.',
+                     'No validation/test period, news archive, halt verification or portfolio simulation used.']
+    else:
+        limitations=['Historical quote event times are not receipt times or fills.',
+                     f'{len(results)} validation pairs are insufficient for a performance claim.',
+                     'Candle outcomes predated this replication but were excluded from deterministic selection and all thresholds.',
+                     'No held-out test period, news archive, halt verification or portfolio simulation used.']
     return dict(scope=protocol['scope'],protocol_commit=raw['protocol_commit'],market_requests=raw['market_requests'],
                 quotes=raw['quotes'],news_coverage='UNKNOWN_NOT_CONNECTED',primary=primary,secondary=secondary,
                 outcomes=dict(Counter(r['known_candle_outcome'] for r in results)),results=results,
-                limitations=['Historical quote event times are not receipt times or fills.',
-                             'Eight development pairs are insufficient for a performance claim.',
-                             'Candle outcomes were known before this feature study but were excluded from selection.',
-                             'No validation/test period, news archive, halt verification or portfolio simulation used.'],
+                limitations=limitations,
                 approved_for_live=False)
 
 

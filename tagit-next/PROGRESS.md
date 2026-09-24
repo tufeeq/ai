@@ -312,3 +312,40 @@ coverage remains unknown. No orders, deployment or production promotion. See
 [PRESIGNAL_LIQUIDITY_FINDINGS.md](PRESIGNAL_LIQUIDITY_FINDINGS.md). Next: freeze
 the identical features on a deterministic August 31–September 1 validation sample,
 without retuning these development results.
+
+
+## 2026-09-24 — independent replication rejects the liquidity gate
+
+Recovered branch head `adffe76771de868446818f5d0ac45d1e3c96c86d`; its CI passed
+(run 35824964530). The identical pre-signal features were frozen on twelve
+deterministically selected BASE validation signals from August 31–September 1
+before quote retrieval in `7e70712adf295ca567691c74acfb3f11c54c5f98`.
+Selection used only SHA256(seed|signal ID); known candle outcomes did not select
+cases or thresholds. The replication threshold was fixed at 9/12, preserving the
+development study's 75% paired rate. Liquidity-ready remained five quotes, p90
+spread <=80 bps and terminal age <=3 seconds.
+
+Twelve SIP requests returned 8,979 quotes with zero failures and zero capped
+responses. Raw windows were saved before analysis in
+`2259316f79c4b57a4a46f8102adf8e8039b5efa9`. Data budget: 12/20 requests.
+The descriptive activity result replicated in 10/12 pairs, but this can reflect
+activity already captured by the detector and does not measure remaining upside.
+
+The false-signal/executability hypothesis was decisively rejected: groups were
+adequate at seven ready and five not-ready, yet quote entry was observed in 7/7 and
+5/5 respectively, a zero percentage-point difference. Do not add this gate. All
+twelve cases had an eligible quote event although their candle labels included six
+ENTRY_NOT_AVAILABLE, two UNSCORABLE_GAP, two UNRESOLVED, one NO_NEXT_MINUTE and one
+TIMEOUT. That is a data-resolution correction, not proof of favorable fills or exits.
+
+Updated the analyzer to use frozen per-protocol thresholds while preserving the
+old development report byte-for-byte. Added exact replay and selection-integrity
+checks; all 78 Python tests pass locally. No return aggregate, accuracy, order,
+deployment, subscription change or production promotion. News remains
+UNKNOWN_NOT_CONNECTED. See
+[PRESIGNAL_VALIDATION_FINDINGS.md](PRESIGNAL_VALIDATION_FINDINGS.md).
+
+Next: freeze a prospective, post-protocol sample with actual observation/receipt
+times and complete bid/ask exits, then test whether the replicated activity change
+predicts remaining movement after executable entry. Preserve all negative, missing
+and halted cases; do not tune on either historical feature sample.

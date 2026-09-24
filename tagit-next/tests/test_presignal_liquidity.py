@@ -56,3 +56,19 @@ class PresignalLiquidityTests(unittest.TestCase):
         rows=[q(f'2026-08-26T14:00:{s:02d}Z') for s in [50,55,57,58,59]]+[q('2026-08-26T14:01:01Z')]
         raw={'protocol_commit':'a','market_requests':1,'quotes':6,'windows':[{'id':c['id'],'quotes':rows,'truncated':False}]}
         self.assertEqual(run(p,raw)['secondary']['decision'],'INSUFFICIENT_GROUP_SIZE')
+
+    def test_protocol_specific_primary_threshold_is_not_development_six(self):
+        cases=[];windows=[]
+        for i in range(12):
+            c=self.case(f'X{i}:2026-08-26T14:01:00Z');c['symbol']=f'X{i}';cases.append(c)
+            control=[q(f'2026-08-26T13:50:{s:02d}Z',10,10.02) for s in [5,15,25,35,45,59]]
+            if i < 8:
+                signal=[q(f'2026-08-26T14:00:{s:02d}Z',10,10.01) for s in [5,15,25,35,45,55,58,59]]
+            else:
+                signal=[q(f'2026-08-26T14:00:{s:02d}Z',10,10.03) for s in [5,15,25,35,45]]
+            windows.append({'id':c['id'],'quotes':control+signal+[q('2026-08-26T14:01:01Z')],'truncated':False})
+        p={'scope':'validation','selection':{'cases':cases},'decision_rules':{'primary_min_wins':9}}
+        raw={'protocol_commit':'a','market_requests':12,'quotes':120,'windows':windows}
+        r=run(p,raw)
+        self.assertEqual(r['primary']['wins'],8)
+        self.assertFalse(r['primary']['passed'])

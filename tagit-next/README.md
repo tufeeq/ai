@@ -8,11 +8,11 @@ See [LIVE_FINDINGS.md](LIVE_FINDINGS.md) for checks, limits and exact next actio
 It is not a live scanner or an approved trading strategy. See [web/README.md](web/README.md)
 for snapshot provenance and publication/update instructions.
 
-Latest study (September 23): a frozen eight-pair development check found higher
-pre-signal quote activity in 7/8 pairs, but the liquidity gate had inadequate group
-size and did not demonstrate false-signal reduction. See
-[PRESIGNAL_LIQUIDITY_FINDINGS.md](PRESIGNAL_LIQUIDITY_FINDINGS.md). No trading
-accuracy or profitability improvement is claimed.
+Latest study (September 24): the pre-signal activity pattern replicated in 10/12
+frozen validation pairs, but the liquidity-ready gate failed: quote entry was seen
+in 7/7 ready and 5/5 not-ready cases. The feature is descriptive and is not added
+to the detector. See [PRESIGNAL_VALIDATION_FINDINGS.md](PRESIGNAL_VALIDATION_FINDINGS.md).
+No remaining-move, trading-accuracy or profitability improvement is claimed.
 
 Previous experiment: [execution latency experiment](EXECUTION_LATENCY_FINDINGS.md)
 freezes six different development cases and adds tested delay comparison tooling.
