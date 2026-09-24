@@ -27,6 +27,12 @@ listed My Workspace before service access. Activation also needs approved hostin
 runtime keys/entitlement and durable-volume checks. See IMPLEMENTATION_STATUS.md
 for exact blockers, prices, scope and next research step.
 
+Initial container CI built the image and imported the Python evaluator, but its
+first HTTP probe hit a connection reset immediately after container start. The
+readiness check now retries startup transport failures for at most 30 seconds and
+prints container logs on failure; it still requires an actual successful health
+payload. No application check was removed or converted into a passing assumption.
+
 ## 2026-09-24 — approved Phase 1 measurement foundation
 
 Starting from `d6940f3d18cbc7cfbfd4fbcec93f43740bb126ce`, kept discovery-1 rules
