@@ -41,7 +41,7 @@ lab/, performance.*   TAGit Lab and the evidence page (unchanged)
 | Real-time consolidated last sale, bid/ask, day volume | Nasdaq.com quote API (unofficial, minute resolution) | quote service overlay (`consolidated`) |
 | Previous close | Alpaca SIP daily bars (older than 15 min, free) | quote service overlay |
 | Trading halts | Nasdaq Trader halts RSS | quote service (`halt`), 30 s cache |
-| Filings: offerings, listing notices, late filings, shares outstanding | SEC EDGAR | `data/enrichment.json`, 4× per weekday |
+| Filings: offerings, listing notices, late filings, shares outstanding | SEC EDGAR | `data/enrichment.json`, twice per weekday |
 | Listing status (deficient, delinquent, bankrupt) | Nasdaq Trader symbol directory | `data/enrichment.json` |
 | Dated short interest | FINRA consolidated short interest | `data/enrichment.json` |
 | Live alert outcomes | scanner alerts + Nasdaq.com minute prices | `data/forward-outcomes.json`, daily |
