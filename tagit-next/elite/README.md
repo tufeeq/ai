@@ -55,7 +55,7 @@ TAG_ELITE_REPLAY_DB=/absolute/persistent/elite-replay.sqlite node scripts/replay
 
 راقب `lastObservedAt`, `lastError`, `busy`, `computeMs`, `processedBars`, `invalidBars`, `inputs`, `opportunities`, `transitions`, `storage`, `durabilityVerified`. عند تعطل التاريخ المتابع، لا تُنشأ بيانات تعويضية. توقف المصدر يظل واضحًا. حالات الخطأ مصنفة ولا تعرض مفاتيح أو headers.
 
-للرجوع: واجهة NEXT القديمة لم تتغير، ويمكن العودة إليها فورًا. يمكن إعادة نشر commit Render السابق `8f02f78655bf37bac089c80f16a4f3c785b6e710`، أو إلغاء commit التكامل (server/runtime/scanner/scanner-trace) مع إبقاء وحدة elite وأرشيفها. لا تحذف SQLite. احفظ نسخة قرص قبل تعديل schema؛ الترحيل الحالي إضافي لا يغيّر جداول NEXT.
+للرجوع: واجهة NEXT القديمة لم تتغير، ويمكن العودة إليها فورًا. يمكن إعادة نشر commit Render السابق `8f02f78655bf37bac089c80f16a4f3c785b6e710`، أو إلغاء تكامل server/bridge/http مع إبقاء ملفات المحرك الأصلية المجمدة دون تغيير مع إبقاء وحدة elite وأرشيفها. لا تحذف SQLite. احفظ نسخة قرص قبل تعديل schema؛ الترحيل الحالي إضافي لا يغيّر جداول NEXT.
 
 ## خطة الإطلاق وحالة الإنجاز
 
@@ -79,4 +79,6 @@ TAG_ELITE_REPLAY_DB=/absolute/persistent/elite-replay.sqlite node scripts/replay
 
 التفاصيل: [التدقيق](docs/AUDIT.md)، [المنهجية](docs/METHODOLOGY.md)، [النتائج](docs/RESULTS.md)، [سجل التجارب](docs/experiment-registry.json)، [القبول](docs/ACCEPTANCE.md).
 
-المعاينة المستقلة الخاصة: https://tag-elite.tufeeq11.chatgpt.site . نشر خلفية Render الجديدة محجوب بالمراجعة الآلية إلى أن يوافق المستخدم صراحة على تحديث الخدمة القائمة.
+واجهة التشغيل المنشورة: https://tagit-next-quotes.onrender.com/elite/ . اختر «رصد حي موازٍ» للمراقبة أثناء فتح الصفحة. نُشرت بموافقة المستخدم في 25 سبتمبر 2026، وتحقّق اتصال الماسح واستدعاء الراصد بنجاح. يبقى التخزين مؤقتًا والتشغيل عند الطلب. تفاصيل الإصدار والتحقق في [سجل النشر](docs/RELEASE.md).
+
+المعاينة المستقلة الخاصة للأرشيف: https://tag-elite.tufeeq11.chatgpt.site . لا تتصل هذه المعاينة الثابتة بالرصد الحي.
