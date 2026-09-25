@@ -1,0 +1,154 @@
+{
+  "id": "SIGNAL_CLOCK_EXECUTION_20260925",
+  "base_commit": "2a6c47b46a7a2cfa9d9da0c682ea7228f59fa9b0",
+  "status": "EXPOSED_DEVELOPMENT_ONLY",
+  "selection": "All six previously frozen missingness cases; no reselection or holdout claim.",
+  "question": "How does original-signal entry qualification with fixed quantity, latency and costs differ from minute-later price snapshots?",
+  "cases": [
+    {
+      "id": "2026-08-24|BTCT|2026-08-24T14:04:00.000Z",
+      "symbol": "BTCT",
+      "reason": "AMBIGUOUS_BOTH",
+      "signal_at": "2026-08-24T14:04:00.000Z",
+      "entry_at": "2026-08-24T14:05:00+00:00",
+      "first_missing_at": "2026-08-24T14:05:00+00:00",
+      "deadline": "2026-08-24T15:05:00+00:00",
+      "reference_price": 1.7701,
+      "cached_entry_source": "data/quote-windows.json.gz",
+      "request": null
+    },
+    {
+      "id": "2026-09-01|SGLY|2026-09-01T18:32:00.000Z",
+      "symbol": "SGLY",
+      "reason": "UNKNOWN_ENTRY_BAR",
+      "signal_at": "2026-09-01T18:32:00.000Z",
+      "entry_at": "2026-09-01T18:33:00+00:00",
+      "first_missing_at": "2026-09-01T18:33:00+00:00",
+      "deadline": null,
+      "reference_price": 1.45,
+      "cached_entry_source": null,
+      "request": {
+        "symbol": "SGLY",
+        "start": "2026-09-01T18:32:00.000Z",
+        "end": "2026-09-01T18:33:00+00:00",
+        "feed": "sip",
+        "sort": "asc",
+        "limit": 10000
+      }
+    },
+    {
+      "id": "2026-08-28|AKTX|2026-08-28T15:40:00.000Z",
+      "symbol": "AKTX",
+      "reason": "UNKNOWN_PATH_GAP",
+      "signal_at": "2026-08-28T15:40:00.000Z",
+      "entry_at": "2026-08-28T15:41:00+00:00",
+      "first_missing_at": "2026-08-28T15:42:00+00:00",
+      "deadline": "2026-08-28T16:41:00+00:00",
+      "reference_price": 9.33,
+      "cached_entry_source": null,
+      "request": {
+        "symbol": "AKTX",
+        "start": "2026-08-28T15:40:00.000Z",
+        "end": "2026-08-28T15:41:00+00:00",
+        "feed": "sip",
+        "sort": "asc",
+        "limit": 10000
+      }
+    },
+    {
+      "id": "2026-09-01|FWRD|2026-09-01T14:18:00.000Z",
+      "symbol": "FWRD",
+      "reason": "UNKNOWN_PATH_GAP",
+      "signal_at": "2026-09-01T14:18:00.000Z",
+      "entry_at": "2026-09-01T14:19:00+00:00",
+      "first_missing_at": "2026-09-01T14:20:00+00:00",
+      "deadline": "2026-09-01T15:19:00+00:00",
+      "reference_price": 16.7799,
+      "cached_entry_source": "data/presignal-liquidity-validation-quotes.json",
+      "request": null
+    },
+    {
+      "id": "2026-09-04|NKLR|2026-09-04T15:04:00.000Z",
+      "symbol": "NKLR",
+      "reason": "UNKNOWN_PATH_GAP",
+      "signal_at": "2026-09-04T15:04:00.000Z",
+      "entry_at": "2026-09-04T15:05:00+00:00",
+      "first_missing_at": "2026-09-04T15:07:00+00:00",
+      "deadline": "2026-09-04T16:05:00+00:00",
+      "reference_price": 5.1,
+      "cached_entry_source": null,
+      "request": {
+        "symbol": "NKLR",
+        "start": "2026-09-04T15:04:00.000Z",
+        "end": "2026-09-04T15:05:00+00:00",
+        "feed": "sip",
+        "sort": "asc",
+        "limit": 10000
+      }
+    },
+    {
+      "id": "2026-08-31|BTCT|2026-08-31T17:44:00.000Z",
+      "symbol": "BTCT",
+      "reason": "UNKNOWN_PATH_GAP",
+      "signal_at": "2026-08-31T17:44:00.000Z",
+      "entry_at": "2026-08-31T17:45:00+00:00",
+      "first_missing_at": "2026-08-31T18:22:00+00:00",
+      "deadline": "2026-08-31T18:45:00+00:00",
+      "reference_price": 2.0501,
+      "cached_entry_source": null,
+      "request": {
+        "symbol": "BTCT",
+        "start": "2026-08-31T17:44:00.000Z",
+        "end": "2026-08-31T17:45:00+00:00",
+        "feed": "sip",
+        "sort": "asc",
+        "limit": 10000
+      }
+    }
+  ],
+  "quantity": 100,
+  "entry_window_seconds": 30,
+  "entry_cap_multiplier": 1.001,
+  "stop_multiplier": 0.97,
+  "target_multiplier": 1.1,
+  "horizon_seconds": 3600,
+  "exit_wait_seconds": 3,
+  "reference": "signal_price (last completed close), verified against the ending minute bar; NEVER the future entry field or first future ask. Fixed +10%/-3% diagnostic, not the live detector plan.",
+  "latency_seconds": [
+    1,
+    3
+  ],
+  "cost_scenarios": [
+    {
+      "id": "BASE",
+      "fee_bps_per_side": 1,
+      "impact_bps_at_full_participation": 20
+    },
+    {
+      "id": "STRESS",
+      "fee_bps_per_side": 2,
+      "impact_bps_at_full_participation": 40
+    }
+  ],
+  "max_participation": 0.01,
+  "quote_age_seconds": 3,
+  "max_completed_bar_age_seconds": 90,
+  "availability": "Historical event-time receipt assumption; entry decision delays of 1/3 seconds. Minute volume available at bar end. Actual transport, bar-revision and exit-order latency unknown; no fill claims.",
+  "coverage": "Use continuous retrieved prefix only; never process a quote after a gap. Conflicting same-microsecond observations truncate the qualified prefix; no arbitrary sequence. Exact duplicates removed for transitions, never summed for size.",
+  "unknown_entry": "When a missing/invalid volume could affect an otherwise price-and-size-qualified entry, stop before that quote and retain UNKNOWN_ENTRY_LIQUIDITY; do not turn missing evidence into NO_ENTRY.",
+  "request_budget": 20,
+  "retrieval": "Four missing signal-to-next-minute intervals including the 30-second bridge for early fills. Reuse BTCT Aug24 and FWRD entry caches. Capped pages resume inclusively at final timestamp, FIFO; no retries, no identical query twice; save errors and resume cursor.",
+  "performance": "Per-case conditional scenario returns only. No resolved-only mean, no selected winner, no probability, no live-rule change. Retain all six cases in each scenario.",
+  "holdout_opens": 0,
+  "deployment_allowed": false,
+  "source_sha256": {
+    "research/continuation-quote-sample.json": "aa75b557d8b044e2de0f4ce01086e74a6b1f38b68d4ff9f805d3545fee3e8f07",
+    "research/continuation-path-inputs.json": "cba1957e955b579c5a928209f550d934b71cb3742126a9f29981d2d80c4d877b",
+    "data/discovery-audit.json": "bf6ae9b3e6d3f5cbbfc2e53a03204823fa135059245a6960393ef41af42add4a",
+    "data/study-manifest.json": "6ce841265eb4ac91447908c3dddb3b145e3abdf90080ad5094c94074f4d445df",
+    "data/quote-windows.json.gz": "d1693f3c9417736279a60a1b4c7f16641d02ab5be0cef29fa5ad6be723b57de0",
+    "data/presignal-liquidity-validation-quotes.json": "07ef763fff77cc5e4253a178f17b54d77f65939e2aa4134cc45d0599bfe7b9dc",
+    "research/quote_units.py": "1277c493c24e296ec5ab28db7c89e8674448edd1b3cdbb19e64bf46d48a23a3e",
+    "research/execution.py": "2280dc046e983d0fec4e935c023f8e3604cc54f8c342f658e47709f4d7e19154"
+  }
+}
