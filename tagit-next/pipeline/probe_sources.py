@@ -136,6 +136,25 @@ if status == 200 and j(body).get('alerts'):
 probe('Stooq daily CSV', f'https://stooq.com/q/d/l/?s={sym.lower()}.us&i=d', {'User-Agent': BROWSER_UA},
       lambda b: b.decode().splitlines()[-1][:120])
 
+# ---- FINRA request formats ------------------------------------------------------------------
+FIN = 'https://api.finra.org/data/group/otcMarket/name/consolidatedShortInterest'
+FH = {'Accept': 'application/json', 'Content-Type': 'application/json'}
+def post(label, body):
+    req = urllib.request.Request(FIN, data=json.dumps(body).encode(), headers=FH)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            print(f'FINRA {label}: {r.status} {r.read()[:260]!r}', flush=True)
+    except urllib.error.HTTPError as e:
+        print(f'FINRA {label}: {e.code} {e.read()[:260]!r}', flush=True)
+probe('FINRA partitions', 'https://api.finra.org/partitions/group/otcMarket/name/consolidatedShortInterest', {'Accept': 'application/json'},
+      lambda b: b[:300].decode('utf-8', 'replace'))
+post('limit only', {'limit': 1})
+post('sortFields', {'limit': 1, 'sortFields': ['-settlementDate']})
+post('fields', {'limit': 1, 'fields': ['settlementDate', 'symbolCode']})
+post('compare equal lower', {'limit': 2, 'compareFilters': [{'compareType': 'equal', 'fieldName': 'settlementDate', 'fieldValue': '2026-09-15'}]})
+post('compare EQUAL upper', {'limit': 2, 'compareFilters': [{'compareType': 'EQUAL', 'fieldName': 'settlementDate', 'fieldValue': '2026-09-15'}]})
+post('domain symbol', {'limit': 3, 'domainFilters': [{'fieldName': 'symbolCode', 'values': ['SENS', 'NUAI']}], 'sortFields': ['-settlementDate']})
+
 out = os.environ.get('PROBE_OUT')
 if out:
     with open(out, 'w') as f:
