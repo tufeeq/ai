@@ -29,11 +29,11 @@ const MAX_CAP_MILLIONS = 100;
 const arg = (name) => { const i = process.argv.indexOf(name); return i >= 0 ? process.argv[i + 1] : null; };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// The relay allows 40 provider requests per minute; stay under it and retry politely.
+// The relay allows 40 provider requests per minute shared with viewers' live scans; use about 25.
 let lastCall = 0;
 async function getJson(url) {
   for (let attempt = 0; attempt < 6; attempt++) {
-    const wait = lastCall + 1600 - Date.now();
+    const wait = lastCall + 2400 - Date.now();
     if (wait > 0) await sleep(wait);
     lastCall = Date.now();
     try {
