@@ -20,6 +20,7 @@ on:
 
 permissions:
   contents: write
+  actions: write  # request a Pages deploy after publishing (GITHUB_TOKEN pushes trigger no workflows)
 
 concurrency:
   group: tagit-next-forward-${{ github.ref }}
@@ -74,6 +75,8 @@ jobs:
           retention-days: 90
       - name: Publish (main)
         if: steps.plan.outputs.command == 'evaluate' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name 'github-actions'
           git config user.email 'github-actions@github.com'
@@ -81,7 +84,10 @@ jobs:
           git diff --cached --quiet && { echo 'No change'; exit 0; }
           git commit -m 'data: TAGit NEXT forward outcomes ${{ steps.plan.outputs.day }}'
           for attempt in 1 2 3 4; do
-            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            if git pull --rebase --autostash origin main && git push origin HEAD:main; then
+              gh workflow run pages-tagx-deploy.yml --ref main
+              exit 0
+            fi
             sleep $((attempt * 5))
           done
           exit 1
