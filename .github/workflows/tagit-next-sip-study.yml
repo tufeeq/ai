@@ -1,0 +1,76 @@
+name: TAGit NEXT consolidated study
+
+# Replays the discovery-1 detector on consolidated (SIP) minute bars for every eligible symbol and
+# labels each signal. Daily after the close; manual runs backfill a date range.
+on:
+  schedule:
+    - cron: '40 20 * * 1-5'  # 16:40 EDT, once SIP bars for the whole session are available
+    - cron: '40 21 * * 1-5'  # 16:40 EST
+  workflow_dispatch:
+    inputs:
+      from:
+        description: First session (YYYY-MM-DD); empty = today only
+        default: ''
+      to:
+        description: Last session (YYYY-MM-DD); empty = today
+        default: ''
+  push:
+    branches: ['claude/**']
+    paths: ['tagit-next/pipeline/sip_study.mjs', 'tagit-next/src/core/sipscan.js', '.github/workflows/tagit-next-sip-study.yml']
+
+permissions:
+  contents: write
+  actions: write  # request a Pages deploy after publishing
+
+concurrency:
+  group: tagit-next-sip-study-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Tests
+        run: node --test tagit-next/tests/sipscan.test.mjs tagit-next/tests/sipstudy.test.mjs
+      - name: Study
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            # Branch check: a short recent range, not published.
+            node tagit-next/pipeline/sip_study.mjs --from "$(date -u -d '-6 days' +%F)" --to "$(date -u -d '-1 day' +%F)" --max-minutes 25
+          elif [ -n "${{ github.event.inputs.from }}" ]; then
+            node tagit-next/pipeline/sip_study.mjs --from "${{ github.event.inputs.from }}" --to "${{ github.event.inputs.to }}" --max-minutes 300
+          else
+            node tagit-next/pipeline/sip_study.mjs --today
+          fi
+      - name: Upload for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: sip-study
+          path: |
+            tagit-next/data/sip-outcomes.json
+            tagit-next/data/sip-events.json
+      - name: Publish (main)
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name 'github-actions'
+          git config user.email 'github-actions@github.com'
+          git add tagit-next/data/sip-outcomes.json tagit-next/data/sip-events.json
+          git diff --cached --quiet && { echo 'No change'; exit 0; }
+          git commit -m 'data: TAGit NEXT consolidated study'
+          for attempt in 1 2 3 4; do
+            if git pull --rebase --autostash origin main && git push origin HEAD:main; then
+              gh workflow run pages-tagx-deploy.yml --ref main
+              exit 0
+            fi
+            sleep $((attempt * 5))
+          done
+          exit 1

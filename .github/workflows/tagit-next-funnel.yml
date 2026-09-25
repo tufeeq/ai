@@ -1,0 +1,30 @@
+name: TAGit NEXT pipeline funnel
+
+# Diagnostic: where live stocks drop out, and the same detector on IEX versus consolidated SIP bars.
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/**']
+    paths: ['tagit-next/pipeline/funnel.mjs', 'tagit-next/pipeline/probe_trades.py', '.github/workflows/tagit-next-funnel.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  funnel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: python3 tagit-next/pipeline/probe_trades.py IPDN NIVF JAGX
+      - run: node tagit-next/pipeline/funnel.mjs funnel.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: funnel
+          path: funnel.json

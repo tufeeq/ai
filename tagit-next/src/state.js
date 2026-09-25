@@ -18,7 +18,8 @@ export function createState({ journal = [], watched = new Set(), settings = { ca
     quoteError: false,
     scan: null, // { server_time, feed, status, coverage, order, gainers, complements }
     enrichment: null, // data/enrichment.json: SEC, Nasdaq listing status, FINRA short interest
-    evidence: { relabel: null, forward: null }, // data/outcome-relabel.json, data/forward-outcomes.json
+    evidence: { relabel: null, forward: null, sip: null }, // published research files
+    sip: { phase: 'idle', result: null, error: null }, // consolidated (delayed) signal scan
     stocks: new Map(),
     pressure: new Map(),
     journal,
@@ -174,6 +175,39 @@ export function removeEvent(state, id) {
   return state.journal.length !== before;
 }
 
+// ---- consolidated signals ---------------------------------------------------------
+
+export const SIP_UNIVERSE_CAP_MILLIONS = 100;
+
+/** Symbols to scan on consolidated bars: the enrichment universe below $100M, else the scanner rows. */
+export function sipUniverse(state) {
+  const e = state.enrichment?.symbols;
+  if (e) {
+    const list = Object.entries(e).filter(([, v]) => v.reference_cap_millions > 0 && v.reference_cap_millions < SIP_UNIVERSE_CAP_MILLIONS).map(([s]) => s);
+    if (list.length) return list;
+  }
+  return state.scan?.order ?? [];
+}
+
+export const sipSymbols = (state) => [...new Set((state.sip.result?.signals ?? []).map((s) => s.symbol))];
+
+/** Latest consolidated signal for a symbol, if any. */
+export const sipSignalFor = (state, symbol) => (state.sip.result?.signals ?? []).find((s) => s.symbol === symbol) ?? null;
+
+/**
+ * Where the live price stands relative to a delayed signal's plan: still near the trigger,
+ * already extended past it, back below the stop, or unknown without a fresh price.
+ */
+export function sipPosition(signal, row, now) {
+  const price = row?.price;
+  const fresh = row?.price_at && now - Date.parse(row.price_at) <= (row.price_source === 'CONSOLIDATED' ? 180_000 : 60_000);
+  if (!(price > 0) || !fresh) return { key: 'UNKNOWN', label: 'لا سعر حي حديث' };
+  const change = (price / signal.price - 1) * 100;
+  if (signal.stop > 0 && price <= signal.stop) return { key: 'BROKEN', label: 'تحت مستوى الإبطال', change };
+  if (signal.trigger > 0 && price <= signal.trigger * 1.01) return { key: 'NEAR', label: 'ما زال قرب التفعيل', change };
+  return { key: 'EXTENDED', label: 'ابتعد عن نقطة الرصد', change };
+}
+
 // ---- selectors ------------------------------------------------------------------
 
 const inUniverse = (r) => positive(r.market_cap) && r.market_cap < UNIVERSE_CAP;
@@ -200,6 +234,10 @@ export function visibleRows(state, now) {
   if (view === 'watch') {
     // The watch list is the user's own: no universe filter, placeholders until data arrives.
     rows = [...state.watched].map((s) => state.stocks.get(s) ?? { symbol: s, name: s, placeholder: true });
+  } else if (view === 'sip') {
+    // Symbols with a consolidated signal, so the quote rotation fetches their live prices.
+    rows = sipSymbols(state).map((s) => state.stocks.get(s) ?? { symbol: s, name: s, placeholder: true });
+    return rows.slice(0, LIST_LIMIT);
   } else {
     rows = (state.scan?.order ?? []).map((s) => state.stocks.get(s)).filter((r) => r && inUniverse(r));
   }

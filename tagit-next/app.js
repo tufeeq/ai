@@ -10,12 +10,16 @@ import { renderJournal, JOURNAL_NOTE } from './src/views/journal.js';
 import { renderDossier } from './src/views/dossier.js';
 import { renderStatus, renderMetrics, renderNotices, coverageText } from './src/views/status.js';
 import { renderEvidence } from './src/views/evidence.js';
+import { renderSipList, SIP_NOTE } from './src/views/sip.js';
+import { sipScan } from './src/core/sipscan.js';
+import { sipUniverse } from './src/state.js';
 
 const SCAN_INTERVAL_MS = 30_000;
 const QUOTE_INTERVAL_MS = 5_000;
 const SAVE_THROTTLE_MS = 5_000;
 const SHEET_BREAKPOINT = 1080;
 const STATIC_REFRESH_MS = 30 * 60_000;
+const SIP_INTERVAL_MS = 5 * 60_000; // relay windows move in 5-minute buckets
 
 const $ = (id) => document.getElementById(id);
 const clock = () => Date.now();
@@ -40,6 +44,7 @@ function persist(force = false) {
 // ---- rendering --------------------------------------------------------------------
 
 const LIST_HEAD = html`<span>السهم</span><span>السعر / اليوم</span><span>الشروط</span><span>حجم ٣ د</span><span>الحالة</span><span>عمر الصفقة</span>`;
+const SIP_HEAD = html`<span>السهم</span><span>سعر الرصد / الوقت</span><span>صعود ٣ د · حجم</span><span>موقع السعر الآن</span>`;
 const JOURNAL_HEAD = html`<span>السهم / بداية الرصد</span><span>الرصد ← آخر عينة</span><span>التغير</span><span>أعلى / أدنى</span>`;
 
 function render() {
@@ -49,19 +54,23 @@ function render() {
   morph($('kpis'), renderMetrics(state, now));
   morph($('notices'), renderNotices(state));
 
-  const list = journal ? renderJournal(state) : renderList(state, now);
+  const sip = state.ui.view === 'sip';
+  const list = journal ? renderJournal(state) : sip ? renderSipList(state, now) : renderList(state, now);
   $('list').classList.toggle('is-journal', journal);
   $('list-head').classList.toggle('is-journal', journal);
-  morph($('list-head'), journal ? JOURNAL_HEAD : LIST_HEAD);
+  $('list').classList.toggle('is-sip', sip);
+  $('list-head').classList.toggle('is-sip', sip);
+  morph($('list-head'), journal ? JOURNAL_HEAD : sip ? SIP_HEAD : LIST_HEAD);
   morph($('list'), list.markup);
   $('empty').hidden = !list.empty;
   $('empty').textContent = list.empty;
-  $('row-count').textContent = journal ? `${list.count} سجلًا` : `${list.count} سهمًا معروضًا`;
-  $('list-note').textContent = journal ? JOURNAL_NOTE : LIST_NOTES[state.ui.view];
+  $('row-count').textContent = journal ? `${list.count} سجلًا` : sip ? `${list.count} إشارة` : `${list.count} سهمًا معروضًا`;
+  $('list-note').textContent = journal ? JOURNAL_NOTE : sip ? SIP_NOTE : LIST_NOTES[state.ui.view];
+  $('sip-count').textContent = state.sip.result ? state.sip.result.signals.length : state.sip.phase === 'error' ? '!' : '…';
   $('watch-count').textContent = state.watched.size;
   $('journal-count').textContent = state.journal.length;
-  $('max-price').disabled = journal;
-  document.querySelectorAll('[data-filter]').forEach((b) => { b.disabled = journal; });
+  $('max-price').disabled = journal || sip;
+  document.querySelectorAll('[data-filter]').forEach((b) => { b.disabled = journal || sip; });
 
   morph($('dossier'), renderDossier(state, now));
   $('dossier').classList.toggle('is-open', state.ui.sheet);
@@ -112,6 +121,27 @@ async function scan({ manual = false } = {}) {
   }
 }
 
+let sipBusy = false;
+/** Consolidated scan through the relay; every viewer requests the same 5-minute-aligned windows. */
+async function runSip() {
+  if (sipBusy || !client || document.hidden) return;
+  const symbols = sipUniverse(state);
+  if (!symbols.length) return;
+  sipBusy = true;
+  state.sip = { ...state.sip, phase: 'loading' };
+  scheduleRender();
+  try {
+    const result = await sipScan({ getJson: (url) => client.relay(url), service: state.endpoint, symbols, now: clock() });
+    if (!result.with_bars && result.failed) throw new Error('تعذر الوصول إلى بيانات SIP');
+    state.sip = { phase: 'ok', result, error: null };
+  } catch (e) {
+    state.sip = { ...state.sip, phase: 'error', error: e.message };
+  } finally {
+    sipBusy = false;
+    scheduleRender();
+  }
+}
+
 async function quotes() {
   if (quoting || !client || !state.scan || document.hidden) return;
   const symbols = nextQuoteSymbols(state, clock());
@@ -131,13 +161,16 @@ async function quotes() {
 
 /** Data published by the GitHub Actions jobs: disclosures, the corrected study and the live record. */
 async function loadPublished() {
-  const [enrichment, relabel, forward] = await Promise.all([
+  const [enrichment, relabel, forward, sip] = await Promise.all([
     loadStatic('data/enrichment.json'),
     loadStatic('data/outcome-relabel.json'),
     loadStatic('data/forward-outcomes.json'),
+    loadStatic('data/sip-outcomes.json'),
   ]);
   if (enrichment?.symbols) state.enrichment = enrichment;
-  state.evidence = { relabel: relabel?.corrected ? relabel : null, forward: forward?.days ? forward : null };
+  state.evidence = { relabel: relabel?.corrected ? relabel : null, forward: forward?.days ? forward : null, sip: sip?.totals ? sip : null };
+  // The first consolidated scan may have used only the scanner rows; widen it to the full universe.
+  if (client && (state.sip.result?.symbols ?? 0) < sipUniverse(state).length) runSip();
   morph($('evidence'), renderEvidence(state.evidence));
   scheduleRender();
 }
@@ -310,14 +343,17 @@ render();
 loadPublished();
 setInterval(loadPublished, STATIC_REFRESH_MS);
 try {
-  client = createClient(await loadEndpoint());
+  state.endpoint = await loadEndpoint();
+  client = createClient(state.endpoint);
   await scan();
+  runSip();
 } catch (e) {
   scanFailed(state, e.code ?? 'CONFIG_UNAVAILABLE');
   render();
 }
 setInterval(scan, SCAN_INTERVAL_MS);
 setInterval(quotes, QUOTE_INTERVAL_MS);
+setInterval(runSip, SIP_INTERVAL_MS);
 // Checks age with time: re-render every second so freshness and plans expire on screen.
 setInterval(() => {
   if (document.hidden) return;
