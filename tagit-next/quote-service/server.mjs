@@ -10,7 +10,7 @@ const elite=createElite(),bridge=createEvidenceBridge(),runtime=createRuntime({f
 const originalGet=runtime.scanner.get.bind(runtime.scanner);
 runtime.scanner.get=async()=>{const scan=await originalGet();elite.observe({scan,histories:bridge.snapshot(scan.server_time)});return scan;};
 const sweepWorker=createSweepWorker({sweep:createSweep(),observe:e=>elite.observe(e),drain:async()=>{await elite.drain();if(elite.status().lastError)throw Error('OBSERVER_FAILED');},enabled:process.env.TAG_ELITE_SWEEP!=='0'});
-const exposedElite={status:()=>({...elite.status(),sweep:sweepWorker.status()}),snapshot:()=>{const value=elite.snapshot();value.status.sweep=sweepWorker.status();return value;},timeline:id=>elite.timeline(id),refresh:()=>sweepWorker.refresh()};
+const exposedElite={status:()=>({...elite.status(),legacy_background:elite.status().background,background:sweepWorker.status().enabled,sweep:sweepWorker.status()}),snapshot:()=>{const value=elite.snapshot();value.status.legacy_background=value.status.background;value.status.sweep=sweepWorker.status();value.status.background=value.status.sweep.enabled;return value;},timeline:id=>elite.timeline(id),refresh:()=>sweepWorker.refresh()};
 const handle=createHandler({runtime,sharia:createSharia()});
 const server=http.createServer(async(req,res)=>{try{if(!await eliteHttp(req,res,exposedElite))await handle(req,res);}catch{res.statusCode=503;res.end(JSON.stringify({status:'SERVICE_ERROR'}));}}).listen(Number(process.env.PORT||8787),process.env.HOST||'0.0.0.0',()=>{runtime.start();sweepWorker.start();});
 for(const signal of ['SIGINT','SIGTERM'])process.once(signal,()=>{void sweepWorker.close().then(()=>runtime.close()).then(()=>elite.close());server.close();setTimeout(()=>process.exit(0),5000).unref();});
