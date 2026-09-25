@@ -22,3 +22,18 @@ export function reviewEvidence(o,at=Date.now(),live=true){
 export function visibleBars(o,cutoff){return (o.bars||[]).filter(b=>b[0]+60000<=cutoff&&(!Number.isFinite(b[6])||b[6]<=cutoff));}
 export function newsEvidence(n){return /\bstocks\b.*\bmoving\b|\bstocks\b.*\bpremarket\b/i.test(n.headline||'')?'MARKET_ROUNDUP':'PROVIDER_LINKED';}
 export function safeNewsUrl(url){try{const u=new URL(url);return u.protocol==='https:'?u.href:null;}catch{return null;}}
+
+// Outcomes are observed minute-close changes from the original detection price, not fills.
+export const horizons=[1,5,15,30,60];
+export function forwardEvidence(o,minutes,cutoff=Date.now()){
+ const first=Date.parse(o.first_at),target=first+minutes*60000;
+ if(!Number.isFinite(first)||!(o.first_price>0))return {status:'UNKNOWN'};
+ if(target>cutoff)return {status:'PENDING'};
+ const end=Math.ceil(target/60000)*60000;
+ if(end>cutoff)return {status:'PENDING'};
+ const candidates=visibleBars(o,cutoff).filter(b=>b[0]+60000===end&&Number.isFinite(b[4])&&b[4]>0);
+ // Conflicting revisions cannot be resolved from the public candle snapshot.
+ if(!candidates.length||new Set(candidates.map(b=>b[4])).size>1)return {status:'UNKNOWN'};
+ const b=candidates[0];
+ return {status:'OBSERVED',change:changePct(b[4],o.first_price),price:b[4],at:new Date(end).toISOString(),receivedAt:b[6]?new Date(b[6]).toISOString():null};
+}

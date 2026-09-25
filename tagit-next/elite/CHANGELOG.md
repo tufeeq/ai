@@ -22,3 +22,14 @@
 - Follow tracked symbols with stale histories, even if their old bars remain in the bridge cache.
 - Restore exported decision evidence across this corrective deployment. This is a partial decision snapshot, not a full durable input-journal backup.
 - Regression verification: 21 engine/observer/presentation tests, 62 existing NEXT service tests, and DOM flow checks. No strategy promotion.
+
+## 0.1.2 — 2026-09-25, outcome-first interface
+
+- Default to current observation, ignoring previously persisted archive preference. Explicit `?mode=replay` still opens history. Load archives only on request; archive failures cannot prevent live startup.
+- Separate activity detection from a buy recommendation and label model eligibility as simulation conditions, not proven entry quality.
+- Add observed changes at 1/5/15/30/60 minutes for every filtered discovery, aggregate rising/falling/flat/missing/pending counts, and retain losing discoveries.
+- Reference original detection price and use the minute close at ceil((first_at + horizon)/minute). Missing exact candles stay unknown; future completions/receipts stay excluded. Conflicting close revisions are unknown. These observations are not executable trade returns, and browser notification receipt/fill data are unavailable.
+- Improve mobile hierarchy, outcome cards and archive separation. No change to discovery/state thresholds or strategy promotion.
+- Verification: 22 engine/presentation tests and DOM scenarios for live default, stored replay preference, archive failure isolation, explicit replay, outcome navigation and return to live.
+- Refresh the partial public decision recovery snapshot before deployment; full persistent input logging remains unavailable.
+- Rollback code target: 96a4e31a53327c73fb431bba552bb07bf7a1e491. Retain latest decision snapshot if rolling back presentation changes.

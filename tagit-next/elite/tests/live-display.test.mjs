@@ -43,3 +43,14 @@ test('deployment recovery preserves first detection and does not replay old bars
  engine.process(normalizeBar({t:'2026-09-04T13:40:00Z',o:1,h:1,l:1,c:1,v:1},{symbol:'TEST',feed:'iex',receivedAt:new Date(clock).toISOString()}),{detect:{expansion:true}});
  assert.equal(engine.snapshots()[0].current_price,1.23);assert.equal(engine.snapshots()[0].first_price,1.35);assert.equal(engine.timeline(id).filter(e=>e.kind==='DISCOVERY').length,1);assert.equal(store.series(runId,o).length,1);store.close();
 });
+
+test('forward outcomes separate observed, pending and gaps without future leakage',async()=>{
+ const {forwardEvidence}=await import('../web/presentation.mjs');
+ const start=Date.parse('2026-09-04T14:00:20Z');
+ const o={first_at:new Date(start).toISOString(),first_price:10,bars:[[start+40000,10,10,8,9,100,start+100000]]};
+ assert.equal(forwardEvidence(o,1,start+59000).status,'PENDING');
+ assert.ok(Math.abs(forwardEvidence(o,1,start+100000).change+10)<1e-9);
+ assert.equal(forwardEvidence(o,5,start+600000).status,'UNKNOWN');
+ assert.equal(forwardEvidence({...o,bars:[[...o.bars[0].slice(0,6),start+300000]]},1,start+100000).status,'UNKNOWN');
+ assert.equal(forwardEvidence({...o,bars:[o.bars[0],[start+40000,10,10,8,8,100,start+100000]]},1,start+100000).status,'UNKNOWN');
+});
