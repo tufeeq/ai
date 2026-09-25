@@ -1,0 +1,72 @@
+name: TAGit NEXT exit study
+
+# Pre-registered exit rules (exit-study-1) on consolidated signals; development/holdout split.
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: First session (YYYY-MM-DD)
+        default: '2026-01-02'
+      to:
+        description: Last session (YYYY-MM-DD)
+        default: '2026-09-24'
+  push:
+    branches: ['claude/**']
+    paths: ['tagit-next/pipeline/exit_study.mjs', '.github/workflows/tagit-next-exit-study.yml']
+
+permissions:
+  contents: write
+  actions: write  # request a Pages deploy after publishing
+
+concurrency:
+  group: tagit-next-exit-study-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  exits:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Tests
+        run: node --test tagit-next/tests/exitstudy.test.mjs
+      - name: Study
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            node tagit-next/pipeline/exit_study.mjs --from "$(date -u -d '-4 days' +%F)" --to "$(date -u -d '-1 day' +%F)" --max-minutes 20
+          else
+            node tagit-next/pipeline/exit_study.mjs --from "${{ github.event.inputs.from }}" --to "${{ github.event.inputs.to }}" --max-minutes 320
+          fi
+      - name: Keep price paths for offline research
+        uses: actions/upload-artifact@v4
+        with:
+          name: signal-paths-${{ github.run_id }}
+          path: signal-paths/paths.json.gz
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exit-study
+          path: tagit-next/data/exit-study.json
+      - name: Publish (main)
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name 'github-actions'
+          git config user.email 'github-actions@github.com'
+          git add tagit-next/data/exit-study.json
+          git diff --cached --quiet && { echo 'No change'; exit 0; }
+          git commit -m 'data: TAGit NEXT exit study'
+          for attempt in 1 2 3 4; do
+            if git pull --rebase --autostash origin main && git push origin HEAD:main; then
+              gh workflow run pages-tagx-deploy.yml --ref main
+              exit 0
+            fi
+            sleep $((attempt * 5))
+          done
+          exit 1
