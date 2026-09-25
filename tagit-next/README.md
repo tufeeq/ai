@@ -1,5 +1,12 @@
 # TAGit NEXT — independent small-cap rebuild
 
+**Latest cycle (25 September 2026):** [original-signal entry audit](SIGNAL_CLOCK_FINDINGS.md).
+Four targeted requests added 121 SIP quotes; two entry windows were already cached.
+At 100 shares, all four fixed delay/cost scenarios have five no-entry cases and one
+unknown, with no simulated positions or returns. This is not evidence of absent
+market opportunities or of profitability. No live rules changed. Reproduce:
+`make -C tagit-next signal-clock`. Old reports and the final holdout remain untouched.
+
 **Latest correction (24 September 2026):** [SIP share units and capacity findings](SHARE_CAPACITY_FINDINGS.md).
 The observer now interprets post-November-2025 Alpaca SIP sizes as shares instead
 of multiplying by a round-lot size. On the same six frozen cases, a 100-share

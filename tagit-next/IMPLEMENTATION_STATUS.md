@@ -1,5 +1,15 @@
 # Implementation status — 2026-09-24
 
+## Research update — 2026-09-25
+
+The original-signal adapter and four frozen quantity/delay/cost scenarios are now
+reproducible. Four new requests supplied 121 SIP quotes; two entry caches were
+reused. All scenarios have five no-entry cases and one unknown, with no simulated
+positions or returns. This is not the live scanner's 2R plan and not evidence that
+market opportunities were absent. Earlier results and live rules remain unchanged.
+See [SIGNAL_CLOCK_FINDINGS.md](SIGNAL_CLOCK_FINDINGS.md). No paid action, deployment,
+holdout evaluation or strategy promotion occurred in this cycle.
+
 ## Latest correction: share units and quantity qualification
 
 The earlier round-lot assumption was incorrect for post-November-2025 Alpaca SIP.

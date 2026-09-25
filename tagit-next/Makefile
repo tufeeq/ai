@@ -11,6 +11,7 @@ verify:
 	python -m research.continuation_probe --check
 	python -m research.continuation_paths --check
 	python -m research.share_capacity --check
+	python -m research.signal_clock --check
 
 # Python 3.12+, Node 24. Offline, no account secrets needed.
 phase1:
@@ -51,3 +52,8 @@ share-capacity:
 	python -m unittest discover -s tests -p 'test_paper.py' -v
 	python -m unittest discover -s tests -p 'test_share_capacity.py' -v
 	python -m research.share_capacity --check
+
+.PHONY: signal-clock
+signal-clock:
+	python -m unittest discover -s tests -p 'test_signal_clock.py' -v
+	python -m research.signal_clock --check

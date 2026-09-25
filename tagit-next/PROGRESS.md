@@ -1,5 +1,41 @@
 # Cumulative research progress
 
+## 2026-09-25 — original-signal clock and execution eligibility
+
+Recovered fresh branch head `2a6c47b46a7a2cfa9d9da0c682ea7228f59fa9b0` from GitHub,
+verified its successful CI, and reviewed the baseline/entry/exit/size findings.
+Preregistered all six exposed cases and four 100-share delay/cost scenarios in
+`2d4a8e1c92bf41a8123fb32752ecd27fc4764ed2` before new market-data retrieval.
+Reused two entry windows and all later paths. Four requests returned 121 new SIP
+quotes, no errors/truncations; no duplicated downloads or paid changes.
+
+Added an offline adapter to the unchanged shared execution engine. Levels use the
+last completed close, never the old ledger's future `entry` open. Coverage gaps and
+conflicting same-time updates stop the qualified prefix. Missing potentially
+decisive volume stays unknown instead of manufacturing NO_ENTRY. All four fixed
+scenarios found five no-entry cases and one unknown, zero simulated positions,
+zero resolved returns. These are six cases, not 24 independent observations.
+
+At one-second/base settings: SGLY has no entry-window quote update; AKTX/FWRD/NKLR
+fail the 1% volume scenario; BTCT Aug31 exceeds the entry cap; BTCT Aug24 remains
+unknown after conflicting same-time sizes. The result is specific to the frozen
+close-anchored plan, not a finding that the market offered no opportunities.
+Full negative baseline and previous missing-data ledgers reproduce unchanged.
+Local checks: 175 Python + 66 Node tests pass; 13 new adapter tests. CI now includes
+the signal-clock reproduction. See SIGNAL_CLOCK_FINDINGS.md for all assumptions.
+
+Cumulative: the 322-event bar audit remains 118 resolved proxies, 179 unknown/
+ambiguous and 25 no-session entries. The six later quote paths still contain three
+stop-price indications and three unknown fresh timeout prices, not verified fills.
+Original-signal eligibility is a different evidence layer and does not overwrite
+those findings. No final holdout, live-rule change, production merge or order.
+
+Next: freeze a broader sample and a quote-anchored plan at its actual decision
+timestamp, then delay entry from that point. Do not loosen this diagnostic's
+thresholds or reuse its outcomes as independent validation. Runtime activation
+and PIT metadata requirements remain separate and unfulfilled. A current tool
+inventory found no dedicated Alpaca historical-news capability; news is UNKNOWN.
+
 ## 2026-09-24 — corrected SIP share units and measured quantity limits
 
 Corrected an erroneous paper-observer assumption using Alpaca's dated CTA/UTP
