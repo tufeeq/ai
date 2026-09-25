@@ -6,11 +6,12 @@ import {configuration} from './config.mjs';
 import {createCalendar,nyParts} from './calendar.mjs';
 import {normalizeBar} from './data.mjs';
 import {createEngine} from './engine.mjs';
+import {entryProposal} from './proposals.mjs';
 import {settings} from '../../quote-service/src/market.mjs';
 import {restoreDecisionSnapshot} from './recovery.mjs';
 export function createElite({env=process.env,fetcher=fetch,now=Date.now}={}) {
  const path=env.TAG_ELITE_DB||`${tmpdir()}/tag-elite.sqlite`;if(path!==':memory:')mkdirSync(dirname(path),{recursive:true});
- const store=openStore(path),config=configuration({...JSON.parse(env.TAG_ELITE_CONFIG_JSON||'{}'),mode:'SHADOW'}),runId='elite-shadow-v1-'+hash(config).slice(0,12),metadata=[],news=[],livePrices=new Map();
+ const store=openStore(path),config=configuration({...JSON.parse(env.TAG_ELITE_CONFIG_JSON||'{}'),mode:'SHADOW'}),runId='elite-shadow-v1-'+hash(config).slice(0,12),metadata=[],news=[],livePrices=new Map(),liveQuotes=new Map();
  store.run(runId,config);let recoveredDecisions=0;
  const recoveryFile=new URL('../recovery/2026-09-25-pre-fix.json',import.meta.url);
  if(existsSync(recoveryFile)&&env.TAG_ELITE_SKIP_RECOVERY!=='1')recoveredDecisions=restoreDecisionSnapshot(store,runId,config,JSON.parse(readFileSync(recoveryFile,'utf8')));
@@ -34,12 +35,13 @@ export function createElite({env=process.env,fetcher=fetch,now=Date.now}={}) {
   engine=createEngine({store,calendar,config,runId,metadata,news});
  }
  async function consume({scan,histories}) {
-  if(stopped||scan.server_time===lastScan)return;status.busy=true;status.lastError=null;const started=now();
+  if(stopped||lastScan&&Date.parse(scan.server_time)<=Date.parse(lastScan))return;status.busy=true;status.lastError=null;const started=now();
   try{
    const day=nyParts(scan.server_time).date;await calendarFor(day);if(!calendar.session(day))return;
    const receivedAt=new Date(now()).toISOString(),rows=new Map(scan.rows.map(r=>[r.symbol,r]));
    for(const row of scan.rows){
     if(row.price>0&&row.price_at)livePrices.set(row.symbol,{price:row.price,at:row.price_at,feed:scan.feed,received_at:scan.server_time});
+    if(row.bid>0&&row.ask>=row.bid&&row.quote_at){const quote={bid:row.bid,ask:row.ask,at:row.quote_at,received_at:scan.server_time};liveQuotes.set(row.symbol,quote);store.input(runId,{kind:'QUOTE',symbol:row.symbol,event_at:quote.at,received_at:quote.received_at,quote});}
     const record={symbol:row.symbol,exchange:row.exchange||'NASDAQ',market_cap:row.market_cap,valid_from:row.metadata_at,received_at:scan.server_time,source:'Finviz reference via NEXT scan',sharia:{status:'UNKNOWN',source:null}};
     if(record.valid_from&&Number.isFinite(record.market_cap)){metadata.push(record);store.input(runId,{kind:'METADATA',symbol:row.symbol,event_at:record.valid_from,received_at:scan.server_time,record});}
     for(const n of row.news||[]){const id=hash([row.symbol,n.url,n.headline,n.published_at]);if(newsSeen.has(id))continue;newsSeen.add(id);
@@ -57,24 +59,28 @@ export function createElite({env=process.env,fetcher=fetch,now=Date.now}={}) {
        }
      }
    }
+   let observedSymbols=0;
    for(const [symbol,raw]of Object.entries(combined)){
+     if(++observedSymbols%10===0)await new Promise(resolve=>setImmediate(resolve));
      const sorted=[...raw].sort((a,b)=>Date.parse(a.t)-Date.parse(b.t));const row=rows.get(symbol);
      for(let i=0;i<sorted.length;i++){
-       try{const b=normalizeBar(sorted[i],{symbol,feed:scan.feed,receivedAt});
+       try{const b=normalizeBar(sorted[i],{symbol,feed:scan.feed,receivedAt:scan.coverage?.version==='breadth-1'?new Date(now()).toISOString():receivedAt});
          if(row?.quote_fresh&&i===sorted.length-1)b.quote={bid:row.bid,ask:row.ask,t:row.quote_at};
          // Latest observed bar receives the original detector finding, never a retroactive discovery in a fetched history.
-         const detect=i===sorted.length-1&&row?.signal?.expansion?{...row.signal,liveShortlistReproduced:true}: {expansion:false};
+         const detect=i===sorted.length-1&&row?.signal?.expansion?{...row.signal,liveShortlistReproduced:row.signal.provenance!=='BROAD_UNIVERSE_SWEEP'}: {expansion:false};
          engine.process(b,{detect});status.processedBars++;
        }catch(e){if(['INVALID_BAR_TIME','INVALID_OHLCV','INCOMPLETE_OR_FUTURE_BAR'].includes(e.message))status.invalidBars++;else throw e;}
      }
    }
    if(metadata.length>10000)metadata.splice(0,metadata.length-10000);if(news.length>5000)news.splice(0,news.length-5000);
+   for(const o of store.snapshots(runId)){const events=store.timeline(o.id),proposal=entryProposal(o,events,liveQuotes.get(o.symbol),now());if(proposal.status==='PROPOSED'&&!events.some(e=>e.kind==='ENTRY_PROPOSAL'&&e.proposal?.decidedAt===proposal.decidedAt&&e.proposal?.version===proposal.version))store.event(o,{kind:'ENTRY_PROPOSAL',at:new Date(now()).toISOString(),proposal,reason:'Research proposal only; no execution or order sent'});}
+   if(scan.coverage)store.input(runId,{kind:'SCAN_COVERAGE',event_at:scan.server_time,received_at:new Date(now()).toISOString(),coverage:scan.coverage});
    lastScan=scan.server_time;status.lastObservedAt=scan.server_time;store.job('live-observer','OBSERVATION',scan.server_time,'IDLE');
   }catch(e){status.lastError=['RATE_LIMITED','FEED_NOT_ENTITLED','CALENDAR_UNAVAILABLE','CREDENTIALS_NOT_CONFIGURED','PROVIDER_UNAVAILABLE'].includes(e.message)?e.message:'OBSERVATION_FAILED';store.job('live-observer','OBSERVATION',lastScan,'FAILED',status.lastError);}
   finally{status.busy=false;status.computeMs=now()-started;}
  }
- return {observe(e){if(!status.busy&&!stopped)chain=chain.then(()=>consume(e)).catch(()=>{status.lastError='STORAGE_FAILED';});},
+ return {observe(e){if(stopped)return chain;chain=chain.then(()=>consume(e)).catch(()=>{status.lastError='STORAGE_FAILED';});return chain;},
   status:()=>({...status,...store.summary(),storage:status.storage}),
-  snapshot(){const rows=store.snapshots(runId);return {name:'TAG elite',status:this.status(),mode:'SHADOW',serverTime:new Date(now()).toISOString(),opportunities:rows.map(o=>({...o,bars:store.series(runId,o),lastTrade:livePrices.get(o.symbol)??null,timeline:store.timeline(o.id)})),rulesPromoted:false};},
+  snapshot(){const rows=store.snapshots(runId);return {name:'TAG elite',status:this.status(),mode:'SHADOW',serverTime:new Date(now()).toISOString(),opportunities:rows.map(o=>({...o,bars:store.series(runId,o),lastTrade:livePrices.get(o.symbol)??null,timeline:store.timeline(o.id),proposal:entryProposal(o,store.timeline(o.id),liveQuotes.get(o.symbol),now())})),rulesPromoted:false};},
   timeline:id=>store.timeline(id),async close(){stopped=true;await chain;store.close();},drain:()=>chain};
 }

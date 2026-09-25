@@ -33,3 +33,12 @@
 - Verification: 22 engine/presentation tests and DOM scenarios for live default, stored replay preference, archive failure isolation, explicit replay, outcome navigation and return to live.
 - Refresh the partial public decision recovery snapshot before deployment; full persistent input logging remains unavailable.
 - Rollback code target: 96a4e31a53327c73fb431bba552bb07bf7a1e491. Retain latest decision snapshot if rolling back presentation changes.
+
+## 0.1.3 — 2026-09-25, breadth observation and conditional paper proposals
+
+- New breadth-1 observer scans every currently eligible NASDAQ reference symbol without a top-N cap, in batches of 100 with concurrency two, bounded pagination and overlapping incremental candle requests. Partial and failed batches cannot create discoveries; fresh quotes are fetched after history. Existing NEXT shortlist/rules remain unchanged.
+- A single-flight worker starts with the service and repeats 60 seconds after each cycle. Rate limits back off for 120 seconds. Provider calendar determines premarket/regular hours. After-hours remains disabled without a confirmed end time. Render Free sleep/restart and ephemeral storage remain real blockers to guaranteed continuous coverage.
+- Persist coverage records, quote observations and research proposal events. Broader discovery provenance is explicit. Original discoveries survive; no historical candles are retrospectively declared new discoveries. Observer yields between symbol groups to preserve API responsiveness.
+- reclaim-paper-1 requires an existing confirmed recovery, existing quality/eligibility gates and a quote actually timestamped after confirmation plus 1 second. Price band, stop scenario and 2-minute expiration are frozen using the confirmation event. New thresholds are preregistered research definitions, not independently validated.
+- Unknown Sharia eligibility still blocks proposed entry. No financial data or ratings were invented, no order API added, and no paid infrastructure provisioned.
+- Verification: 27 elite tests, 62 existing service tests, DOM checks for current/replay isolation and outcome navigation. Coverage, partial pagination, single-flight polling, quote receipt/cutoff, stale/expired plans, execution band and eligibility gates covered with synthetic fixtures.

@@ -10,6 +10,7 @@ export async function eliteHttp(req,res,elite) {
    if(req.headers.origin&&req.headers.origin!=='https://tufeeq.github.io'){res.statusCode=403;res.end('Origin not allowed');return true;}
    res.setHeader('Access-Control-Allow-Origin','https://tufeeq.github.io');res.setHeader('Vary','Origin');res.setHeader('Content-Type','application/json; charset=utf-8');
    if(url.pathname==='/api/elite/status')res.end(JSON.stringify(elite.status()));
+   else if(url.pathname==='/api/elite/refresh'){void elite.refresh?.();res.end(JSON.stringify(elite.status()));}
    else if(url.pathname==='/api/elite/opportunities')res.end(JSON.stringify(elite.snapshot()));
    else if(url.pathname==='/api/elite/timeline'&&/^[a-f0-9]{24}$/.test(url.searchParams.get('id')||''))res.end(JSON.stringify(elite.timeline(url.searchParams.get('id'))));
    else{res.statusCode=404;res.end(JSON.stringify({status:'NOT_FOUND'}));}return true;

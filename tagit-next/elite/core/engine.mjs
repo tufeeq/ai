@@ -45,7 +45,7 @@ export function createEngine({store,calendar,config={},runId='shadow-1',sourceHa
         state.opportunity={id,symbol:bar.symbol,session:session.date,feed:bar.feed,mode:cfg.mode,first_at:bar.received_at,first_bar_at:bar.t,first_price:bar.c,
           methodology:cfg.version,detectorVersion:RULES.version,first_signal:initial,first_quality:q,first_eligibility:eligible,firstSessionPhase:session.phase,
           activityStartCandidate:state.bars.at(-3)?.t??bar.t,activityStartConfirmedAt:bar.received_at,
-          discoveryProvenance:signal.imported?'PRESERVED_BASELINE_REPLAY':'LEGACY_BAR_DETECTOR',liveShortlistReproduced:signal.liveShortlistReproduced===true,
+          discoveryProvenance:signal.imported?'PRESERVED_BASELINE_REPLAY':signal.provenance||'LEGACY_BAR_DETECTOR',liveShortlistReproduced:signal.liveShortlistReproduced===true,
           state:'DETECTED',state_since:bar.received_at,peak:bar.h,peak_at:bar.received_at,trough:bar.l,support:f.priorLow??bar.l,
           wave:1,recoveryAttempts:0,failedBreakouts:0,pendingState:null,pendingCount:0,recoveryLevel:null,recoveryCount:0,
           impulseVolume:mean(state.bars.slice(-3).map(x=>x.v)),pullbackStart:null,pullVolumes:[],lastConfirmedAt:null,entryReady:false};
