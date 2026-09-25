@@ -68,9 +68,34 @@ function sipStudyCard(st) {
   </div>`;
 }
 
+const RULE_NAMES = {
+  T10: 'خروج بعد ١٠ د', T30: 'خروج بعد ٣٠ د (الحالي)', T60: 'خروج بعد ٦٠ د', T120: 'خروج بعد ١٢٠ د',
+  TRAIL3: 'وقف متحرك ٣٪', TRAIL5: 'وقف متحرك ٥٪', TRAIL8: 'وقف متحرك ٨٪', DSTOP60: 'وقف الكاشف أو ٦٠ د',
+  TP5_SL3_60: 'هدف ٥٪ / وقف ٣٪', TP10_SL5_120: 'هدف ١٠٪ / وقف ٥٪', HALF5_TRAIL3: 'نصف عند ٥٪ ثم متحرك ٣٪',
+};
+
+function exitCard(x) {
+  if (!x?.development?.now) return '';
+  const ci = (s) => (s?.ci95 ? html`<small dir="ltr">[${f.num(s.ci95[0], 2)}, ${f.num(s.ci95[1], 2)}]</small>` : '');
+  const rows = Object.keys(x.development.now).map((k) => {
+    const d = x.development.now[k], h = x.holdout.now[k], hl = x.holdout.late?.[k];
+    return html`<tr class="${k === x.selected_on_development ? 'is-picked' : ''}"><th>${RULE_NAMES[k] ?? k}${k === x.selected_on_development ? ' ★' : ''}</th>
+      <td>${pctCell(d.mean_pct)}</td><td>${pctCell(h.mean_pct)} ${ci(h)}</td><td>${pctCell(hl?.mean_pct)}</td>
+      <td dir="ltr">${h.win_rate === null ? '—' : f.num(h.win_rate * 100, 0) + '%'}</td></tr>`;
+  });
+  return html`<div class="evidence-card wide">
+    <h4>دراسة طرق الخروج <small>${n(x.signals)} إشارة · ${n(x.sessions)} جلسة · الاختيار ★ على فترة التطوير فقط · بروتوكول ${x.protocol}</small></h4>
+    <table class="evidence-table">
+      <thead><tr><th>قاعدة الخروج</th><th>التطوير</th><th>الاختبار اللاحق (هامش ٩٥٪)</th><th>الاختبار بعد تأخير ١٧ د</th><th>نسبة الربح (اختبار)</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="note">كل القواعد حُددت قبل رؤية النتائج، وتُعرض كلها على فترة الاختبار لا الفائزة وحدها. الهامش من إعادة سحب جلسات كاملة؛ إن احتوى الصفر فالفرق غير مؤكد. التكلفة ٠٫٥ نقطة مفترضة، وعند لمس الوقف والهدف في الدقيقة نفسها يُحسب الوقف.</p>
+  </div>`;
+}
+
 export function renderEvidence(evidence) {
-  if (!evidence.relabel && !evidence.forward && !evidence.sip) {
+  if (!evidence.relabel && !evidence.forward && !evidence.sip && !evidence.exits) {
     return html`<p class="note">تعذر تحميل سجلات التحقق.</p>`;
   }
-  return html`${sipStudyCard(evidence.sip)}${evidence.relabel ? relabelTable(evidence.relabel) : ''}${forwardCard(evidence.forward)}`;
+  return html`${exitCard(evidence.exits)}${sipStudyCard(evidence.sip)}${evidence.relabel ? relabelTable(evidence.relabel) : ''}${forwardCard(evidence.forward)}`;
 }
