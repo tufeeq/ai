@@ -31,7 +31,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // The relay allows 40 provider requests per minute shared with viewers' live scans; use about 25.
 let lastCall = 0;
-async function getJson(url) {
+export async function getJson(url) {
   for (let attempt = 0; attempt < 6; attempt++) {
     const wait = lastCall + 2400 - Date.now();
     if (wait > 0) await sleep(wait);
