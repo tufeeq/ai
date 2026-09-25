@@ -3,6 +3,7 @@ import {mkdtempSync,rmSync,readFileSync} from 'node:fs';import {tmpdir} from 'no
 import {openStore} from '../core/store.mjs';import {configuration} from '../core/config.mjs';import {createCalendar} from '../core/calendar.mjs';
 import {normalizeBar,quality,eligibility,visibleNews} from '../core/data.mjs';import {createEngine} from '../core/engine.mjs';import {features} from '../core/features.mjs';
 import {simulate} from '../core/simulator.mjs';import {discoveryOutcome,partitions,walkForward,synchrony} from '../core/evaluation.mjs';
+import {createEvidenceBridge} from '../core/bridge.mjs';
 const start=Date.parse('2026-09-04T13:30:00Z'),calendar=createCalendar([{date:'2026-09-04',open:'09:30',close:'16:00'}]);
 const bar=(i,c=10,extra={})=>normalizeBar({t:new Date(start+i*60000).toISOString(),o:c,h:c+.02,l:c-.02,c,v:100000,n:100,...extra},{symbol:'TEST',feed:'sip',receivedAt:new Date(start+(i+1)*60000).toISOString()});
 function fixture(path=':memory:',options={}){const store=openStore(path),engine=createEngine({store,calendar,runId:'test',discoveryMode:'PRESERVED',config:{mode:'REPLAY'},...options});return {store,engine};}
@@ -71,4 +72,8 @@ test('corporate action pauses raw comparisons without modifying first detection'
 });
 test('two writers read checkpoint under transaction and do not overwrite first signal',()=>{
  const dir=mkdtempSync(join(tmpdir(),'elite-writers-')),path=join(dir,'a.db');const a=fixture(path),b=fixture(path);seed(a.engine);b.engine.process(bar(25,11));a.engine.process(bar(26,11));assert.equal(a.engine.snapshots()[0].current_price,11);assert.equal(b.engine.snapshots()[0].first_price,10);assert.equal(a.store.summary().opportunities,1);a.store.close();b.store.close();rmSync(dir,{recursive:true});
+});
+test('transport observer preserves provider JSON and does not expose future receipt',async()=>{
+ const body={bars:{TEST:[{t:new Date(start).toISOString(),c:10}]}};const bridge=createEvidenceBridge({now:()=>start+60000,fetcher:async()=>({ok:true,status:200,json:async()=>body})});
+ const result=await bridge.fetcher('https://data.alpaca.markets/v2/stocks/bars?timeframe=1Min',{});assert.deepEqual(await result.json(),body);assert.deepEqual(bridge.snapshot(new Date(start).toISOString()),{});assert.deepEqual(bridge.snapshot(new Date(start+60000).toISOString()).TEST,body.bars.TEST);
 });

@@ -78,3 +78,5 @@ TAG_ELITE_REPLAY_DB=/absolute/persistent/elite-replay.sqlite node scripts/replay
 - لا اعتماد للاستراتيجية أو وعد دقة/عائد/تعويض خسائر.
 
 التفاصيل: [التدقيق](docs/AUDIT.md)، [المنهجية](docs/METHODOLOGY.md)، [النتائج](docs/RESULTS.md)، [سجل التجارب](docs/experiment-registry.json)، [القبول](docs/ACCEPTANCE.md).
+
+المعاينة المستقلة الخاصة: https://tag-elite.tufeeq11.chatgpt.site . نشر خلفية Render الجديدة محجوب بالمراجعة الآلية إلى أن يوافق المستخدم صراحة على تحديث الخدمة القائمة.

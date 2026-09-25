@@ -3,6 +3,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 ca-cert
 WORKDIR /app
 COPY quote-service ./quote-service
 COPY research ./research
+COPY elite ./elite
 RUN mkdir -p /var/lib/tagit && chown -R node:node /app /var/lib/tagit
 USER node
 ENV HOST=0.0.0.0 PORT=10000 TAGIT_PAPER_PYTHON=/usr/bin/python3
