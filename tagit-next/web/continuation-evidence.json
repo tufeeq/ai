@@ -1,0 +1,1016 @@
+{
+  "protocol": "continuation-order-development-20260924",
+  "protocol_commit": "31c062d566da6943a72938cc6755594436abdf0d",
+  "as_of": "2026-09-24",
+  "status": "EXPOSED_DEVELOPMENT_ONLY",
+  "barrier_policy": {
+    "target_gross_pct": 10,
+    "stop_gross_pct": 3,
+    "horizon_minutes": 60,
+    "session_close": "Truncate holding horizon at the exchange close; report SESSION_END separately, with effective horizon. A signal at/after close has NO_SESSION_ENTRY.",
+    "ordering": "Check each contiguous positive-volume OHLC bar in chronological order. A boundary-crossing OPEN precedes its high/low. Otherwise simultaneous target and stop is AMBIGUOUS_BOTH, never a win or forced stop. A gap before resolution is UNKNOWN_PATH_GAP; later bars cannot repair it. Resolution before a later gap remains known. Target intrabar exit proxy is threshold; stop gaps use opening price. Outcome times are intervals, not exact ticks."
+  },
+  "entry_policy": {
+    "latency_seconds": 1,
+    "method": "First minute open at or after signal + latency, ceil to minute boundary. No fill assumed within the already-started minute. Exact entry minute required; missing/zero-volume/invalid data stays unknown. BAR_PROXY_NOT_EXECUTABLE."
+  },
+  "availability": "Explicit FINAL_BARS_AVAILABLE_AT_MINUTE_END_SCENARIO; source receipt/revision times absent. Feature reader must respect available_at when supplied and ignore unfinished/future bars.",
+  "all_signals": {
+    "signals": 322,
+    "bar_outcomes_resolved": 118,
+    "known_no_entry": 25,
+    "unknown_or_ambiguous": 179,
+    "status_counts": {
+      "AMBIGUOUS_BOTH": 1,
+      "NO_SESSION_ENTRY": 25,
+      "SESSION_END": 43,
+      "STOP": 42,
+      "TARGET": 11,
+      "TIMEOUT": 22,
+      "UNKNOWN_ENTRY_BAR": 34,
+      "UNKNOWN_PATH_GAP": 144
+    },
+    "conditional_target_rate": 0.07692307692307693,
+    "target_rate_identification_bounds_not_ci": [
+      0.034161490683229816,
+      0.5900621118012422
+    ],
+    "conditional_gross_return_proxy_pct": 0.031315238158926215,
+    "cost_scenarios": [
+      {
+        "assumed_round_trip_cost_pp": 0.5,
+        "conditional_mean_return_proxy_pct": -0.46868476184107377
+      },
+      {
+        "assumed_round_trip_cost_pp": 1.0,
+        "conditional_mean_return_proxy_pct": -0.9686847618410738
+      },
+      {
+        "assumed_round_trip_cost_pp": 2.0,
+        "conditional_mean_return_proxy_pct": -1.9686847618410739
+      }
+    ],
+    "executable_expectancy_pct": null,
+    "profitability_claim_allowed": false
+  },
+  "comparison": {
+    "id": "three_rising_closes",
+    "decision": "NOT_APPROVED_DEVELOPMENT_ONLY",
+    "same_observable_population_baseline": {
+      "signals": 322,
+      "bar_outcomes_resolved": 118,
+      "known_no_entry": 25,
+      "unknown_or_ambiguous": 179,
+      "status_counts": {
+        "AMBIGUOUS_BOTH": 1,
+        "NO_SESSION_ENTRY": 25,
+        "SESSION_END": 43,
+        "STOP": 42,
+        "TARGET": 11,
+        "TIMEOUT": 22,
+        "UNKNOWN_ENTRY_BAR": 34,
+        "UNKNOWN_PATH_GAP": 144
+      },
+      "conditional_target_rate": 0.07692307692307693,
+      "target_rate_identification_bounds_not_ci": [
+        0.034161490683229816,
+        0.5900621118012422
+      ],
+      "conditional_gross_return_proxy_pct": 0.031315238158926215,
+      "cost_scenarios": [
+        {
+          "assumed_round_trip_cost_pp": 0.5,
+          "conditional_mean_return_proxy_pct": -0.46868476184107377
+        },
+        {
+          "assumed_round_trip_cost_pp": 1.0,
+          "conditional_mean_return_proxy_pct": -0.9686847618410738
+        },
+        {
+          "assumed_round_trip_cost_pp": 2.0,
+          "conditional_mean_return_proxy_pct": -1.9686847618410739
+        }
+      ],
+      "executable_expectancy_pct": null,
+      "profitability_claim_allowed": false
+    },
+    "selected": {
+      "signals": 153,
+      "bar_outcomes_resolved": 58,
+      "known_no_entry": 13,
+      "unknown_or_ambiguous": 82,
+      "status_counts": {
+        "AMBIGUOUS_BOTH": 1,
+        "NO_SESSION_ENTRY": 13,
+        "SESSION_END": 21,
+        "STOP": 21,
+        "TARGET": 3,
+        "TIMEOUT": 13,
+        "UNKNOWN_ENTRY_BAR": 16,
+        "UNKNOWN_PATH_GAP": 65
+      },
+      "conditional_target_rate": 0.04225352112676056,
+      "target_rate_identification_bounds_not_ci": [
+        0.0196078431372549,
+        0.5555555555555556
+      ],
+      "conditional_gross_return_proxy_pct": -0.33071034940247285,
+      "cost_scenarios": [
+        {
+          "assumed_round_trip_cost_pp": 0.5,
+          "conditional_mean_return_proxy_pct": -0.8307103494024728
+        },
+        {
+          "assumed_round_trip_cost_pp": 1.0,
+          "conditional_mean_return_proxy_pct": -1.3307103494024728
+        },
+        {
+          "assumed_round_trip_cost_pp": 2.0,
+          "conditional_mean_return_proxy_pct": -2.330710349402473
+        }
+      ],
+      "executable_expectancy_pct": null,
+      "profitability_claim_allowed": false
+    },
+    "excluded": {
+      "signals": 169,
+      "bar_outcomes_resolved": 60,
+      "known_no_entry": 12,
+      "unknown_or_ambiguous": 97,
+      "status_counts": {
+        "NO_SESSION_ENTRY": 12,
+        "SESSION_END": 22,
+        "STOP": 21,
+        "TARGET": 8,
+        "TIMEOUT": 9,
+        "UNKNOWN_ENTRY_BAR": 18,
+        "UNKNOWN_PATH_GAP": 79
+      },
+      "conditional_target_rate": 0.1111111111111111,
+      "target_rate_identification_bounds_not_ci": [
+        0.047337278106508875,
+        0.621301775147929
+      ],
+      "conditional_gross_return_proxy_pct": 0.3812733061349453,
+      "cost_scenarios": [
+        {
+          "assumed_round_trip_cost_pp": 0.5,
+          "conditional_mean_return_proxy_pct": -0.11872669386505469
+        },
+        {
+          "assumed_round_trip_cost_pp": 1.0,
+          "conditional_mean_return_proxy_pct": -0.6187266938650546
+        },
+        {
+          "assumed_round_trip_cost_pp": 2.0,
+          "conditional_mean_return_proxy_pct": -1.6187266938650546
+        }
+      ],
+      "executable_expectancy_pct": null,
+      "profitability_claim_allowed": false
+    },
+    "unknown_feature": {
+      "signals": 0,
+      "bar_outcomes_resolved": 0,
+      "known_no_entry": 0,
+      "unknown_or_ambiguous": 0,
+      "status_counts": {},
+      "conditional_target_rate": null,
+      "target_rate_identification_bounds_not_ci": null,
+      "conditional_gross_return_proxy_pct": null,
+      "cost_scenarios": [
+        {
+          "assumed_round_trip_cost_pp": 0.5,
+          "conditional_mean_return_proxy_pct": null
+        },
+        {
+          "assumed_round_trip_cost_pp": 1.0,
+          "conditional_mean_return_proxy_pct": null
+        },
+        {
+          "assumed_round_trip_cost_pp": 2.0,
+          "conditional_mean_return_proxy_pct": null
+        }
+      ],
+      "executable_expectancy_pct": null,
+      "profitability_claim_allowed": false
+    },
+    "observed_targets_retained": 3,
+    "observed_targets_excluded": 8,
+    "conditional_target_rate_effect_pp": -3.4669555796316365,
+    "target_rate_bootstrap": {
+      "metric": "target_rate",
+      "effect_ci95_pp": [
+        -5.604260091734736,
+        -1.1054216659055456
+      ],
+      "selected_ci95": [
+        0.0,
+        8.695652173913043
+      ],
+      "comparator_ci95": [
+        3.7593984962406015,
+        11.888111888111888
+      ],
+      "valid_replicates": 5000,
+      "iterations": 5000,
+      "sessions": 10,
+      "small_cluster_warning": true,
+      "confirmatory_significance": "NOT_ELIGIBLE"
+    },
+    "return_proxy_bootstrap": {
+      "metric": "return_proxy",
+      "effect_ci95_pp": [
+        -0.8261633686815285,
+        0.047300169552418975
+      ],
+      "selected_ci95": [
+        -1.568587647453166,
+        -0.07414868375111203
+      ],
+      "comparator_ci95": [
+        -1.045303238451861,
+        0.18199839496738812
+      ],
+      "valid_replicates": 5000,
+      "iterations": 5000,
+      "sessions": 10,
+      "small_cluster_warning": true,
+      "confirmatory_significance": "NOT_ELIGIBLE"
+    },
+    "per_session": [
+      {
+        "session": "2026-08-24",
+        "baseline": {
+          "signals": 40,
+          "bar_outcomes_resolved": 10,
+          "known_no_entry": 1,
+          "unknown_or_ambiguous": 29,
+          "status_counts": {
+            "AMBIGUOUS_BOTH": 1,
+            "NO_SESSION_ENTRY": 1,
+            "SESSION_END": 5,
+            "STOP": 4,
+            "TIMEOUT": 1,
+            "UNKNOWN_ENTRY_BAR": 2,
+            "UNKNOWN_PATH_GAP": 26
+          },
+          "conditional_target_rate": 0.0,
+          "target_rate_identification_bounds_not_ci": [
+            0.0,
+            0.725
+          ],
+          "conditional_gross_return_proxy_pct": -1.1758821281213772,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": -1.6758821281213772
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": -2.175882128121377
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": -3.175882128121377
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        },
+        "selected": {
+          "signals": 20,
+          "bar_outcomes_resolved": 6,
+          "known_no_entry": 1,
+          "unknown_or_ambiguous": 13,
+          "status_counts": {
+            "AMBIGUOUS_BOTH": 1,
+            "NO_SESSION_ENTRY": 1,
+            "SESSION_END": 3,
+            "STOP": 3,
+            "UNKNOWN_PATH_GAP": 12
+          },
+          "conditional_target_rate": 0.0,
+          "target_rate_identification_bounds_not_ci": [
+            0.0,
+            0.65
+          ],
+          "conditional_gross_return_proxy_pct": -1.6816672015684375,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": -2.1816672015684375
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": -2.6816672015684375
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": -3.6816672015684375
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        }
+      },
+      {
+        "session": "2026-08-25",
+        "baseline": {
+          "signals": 30,
+          "bar_outcomes_resolved": 10,
+          "known_no_entry": 6,
+          "unknown_or_ambiguous": 14,
+          "status_counts": {
+            "NO_SESSION_ENTRY": 6,
+            "SESSION_END": 2,
+            "STOP": 6,
+            "TIMEOUT": 2,
+            "UNKNOWN_ENTRY_BAR": 3,
+            "UNKNOWN_PATH_GAP": 11
+          },
+          "conditional_target_rate": 0.0,
+          "target_rate_identification_bounds_not_ci": [
+            0.0,
+            0.4666666666666667
+          ],
+          "conditional_gross_return_proxy_pct": -1.4660122176635582,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": -1.9660122176635582
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": -2.4660122176635584
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": -3.4660122176635584
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        },
+        "selected": {
+          "signals": 16,
+          "bar_outcomes_resolved": 7,
+          "known_no_entry": 2,
+          "unknown_or_ambiguous": 7,
+          "status_counts": {
+            "NO_SESSION_ENTRY": 2,
+            "SESSION_END": 2,
+            "STOP": 3,
+            "TIMEOUT": 2,
+            "UNKNOWN_ENTRY_BAR": 2,
+            "UNKNOWN_PATH_GAP": 5
+          },
+          "conditional_target_rate": 0.0,
+          "target_rate_identification_bounds_not_ci": [
+            0.0,
+            0.4375
+          ],
+          "conditional_gross_return_proxy_pct": -0.8085888823765137,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": -1.3085888823765137
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": -1.8085888823765137
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": -2.8085888823765135
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        }
+      },
+      {
+        "session": "2026-08-26",
+        "baseline": {
+          "signals": 28,
+          "bar_outcomes_resolved": 13,
+          "known_no_entry": 2,
+          "unknown_or_ambiguous": 13,
+          "status_counts": {
+            "NO_SESSION_ENTRY": 2,
+            "SESSION_END": 7,
+            "STOP": 4,
+            "TARGET": 1,
+            "TIMEOUT": 1,
+            "UNKNOWN_ENTRY_BAR": 2,
+            "UNKNOWN_PATH_GAP": 11
+          },
+          "conditional_target_rate": 0.06666666666666667,
+          "target_rate_identification_bounds_not_ci": [
+            0.03571428571428571,
+            0.5
+          ],
+          "conditional_gross_return_proxy_pct": -0.3241339258896495,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": -0.8241339258896495
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": -1.3241339258896496
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": -2.3241339258896496
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        },
+        "selected": {
+          "signals": 15,
+          "bar_outcomes_resolved": 6,
+          "known_no_entry": 2,
+          "unknown_or_ambiguous": 7,
+          "status_counts": {
+            "NO_SESSION_ENTRY": 2,
+            "SESSION_END": 3,
+            "STOP": 2,
+            "TIMEOUT": 1,
+            "UNKNOWN_PATH_GAP": 7
+          },
+          "conditional_target_rate": 0.0,
+          "target_rate_identification_bounds_not_ci": [
+            0.0,
+            0.4666666666666667
+          ],
+          "conditional_gross_return_proxy_pct": -1.4863028070231359,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": -1.9863028070231359
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": -2.4863028070231357
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": -3.4863028070231357
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        }
+      },
+      {
+        "session": "2026-08-27",
+        "baseline": {
+          "signals": 29,
+          "bar_outcomes_resolved": 9,
+          "known_no_entry": 4,
+          "unknown_or_ambiguous": 16,
+          "status_counts": {
+            "NO_SESSION_ENTRY": 4,
+            "SESSION_END": 3,
+            "STOP": 3,
+            "TARGET": 1,
+            "TIMEOUT": 2,
+            "UNKNOWN_ENTRY_BAR": 4,
+            "UNKNOWN_PATH_GAP": 12
+          },
+          "conditional_target_rate": 0.07692307692307693,
+          "target_rate_identification_bounds_not_ci": [
+            0.034482758620689655,
+            0.5862068965517241
+          ],
+          "conditional_gross_return_proxy_pct": 0.03261638982313439,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": -0.4673836101768656
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": -0.9673836101768656
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": -1.9673836101768656
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        },
+        "selected": {
+          "signals": 17,
+          "bar_outcomes_resolved": 5,
+          "known_no_entry": 3,
+          "unknown_or_ambiguous": 9,
+          "status_counts": {
+            "NO_SESSION_ENTRY": 3,
+            "SESSION_END": 1,
+            "STOP": 3,
+            "TIMEOUT": 1,
+            "UNKNOWN_ENTRY_BAR": 3,
+            "UNKNOWN_PATH_GAP": 6
+          },
+          "conditional_target_rate": 0.0,
+          "target_rate_identification_bounds_not_ci": [
+            0.0,
+            0.5294117647058824
+          ],
+          "conditional_gross_return_proxy_pct": -1.9936384754477077,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": -2.4936384754477077
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": -2.9936384754477077
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": -3.9936384754477077
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        }
+      },
+      {
+        "session": "2026-08-28",
+        "baseline": {
+          "signals": 28,
+          "bar_outcomes_resolved": 13,
+          "known_no_entry": 3,
+          "unknown_or_ambiguous": 12,
+          "status_counts": {
+            "NO_SESSION_ENTRY": 3,
+            "SESSION_END": 5,
+            "STOP": 5,
+            "TARGET": 1,
+            "TIMEOUT": 2,
+            "UNKNOWN_ENTRY_BAR": 3,
+            "UNKNOWN_PATH_GAP": 9
+          },
+          "conditional_target_rate": 0.0625,
+          "target_rate_identification_bounds_not_ci": [
+            0.03571428571428571,
+            0.4642857142857143
+          ],
+          "conditional_gross_return_proxy_pct": 0.14575075197276188,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": -0.3542492480272381
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": -0.8542492480272381
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": -1.8542492480272381
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        },
+        "selected": {
+          "signals": 13,
+          "bar_outcomes_resolved": 5,
+          "known_no_entry": 3,
+          "unknown_or_ambiguous": 5,
+          "status_counts": {
+            "NO_SESSION_ENTRY": 3,
+            "SESSION_END": 2,
+            "STOP": 2,
+            "TIMEOUT": 1,
+            "UNKNOWN_ENTRY_BAR": 2,
+            "UNKNOWN_PATH_GAP": 3
+          },
+          "conditional_target_rate": 0.0,
+          "target_rate_identification_bounds_not_ci": [
+            0.0,
+            0.38461538461538464
+          ],
+          "conditional_gross_return_proxy_pct": 0.07693644706760372,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": -0.4230635529323963
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": -0.9230635529323963
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": -1.9230635529323963
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        }
+      },
+      {
+        "session": "2026-08-31",
+        "baseline": {
+          "signals": 26,
+          "bar_outcomes_resolved": 14,
+          "known_no_entry": 2,
+          "unknown_or_ambiguous": 10,
+          "status_counts": {
+            "NO_SESSION_ENTRY": 2,
+            "SESSION_END": 5,
+            "STOP": 6,
+            "TARGET": 1,
+            "TIMEOUT": 2,
+            "UNKNOWN_ENTRY_BAR": 2,
+            "UNKNOWN_PATH_GAP": 8
+          },
+          "conditional_target_rate": 0.0625,
+          "target_rate_identification_bounds_not_ci": [
+            0.038461538461538464,
+            0.4230769230769231
+          ],
+          "conditional_gross_return_proxy_pct": -0.4546050769071743,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": -0.9546050769071743
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": -1.4546050769071743
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": -2.4546050769071743
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        },
+        "selected": {
+          "signals": 9,
+          "bar_outcomes_resolved": 6,
+          "known_no_entry": 0,
+          "unknown_or_ambiguous": 3,
+          "status_counts": {
+            "SESSION_END": 3,
+            "STOP": 2,
+            "TIMEOUT": 1,
+            "UNKNOWN_PATH_GAP": 3
+          },
+          "conditional_target_rate": 0.0,
+          "target_rate_identification_bounds_not_ci": [
+            0.0,
+            0.3333333333333333
+          ],
+          "conditional_gross_return_proxy_pct": -1.0085052726747978,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": -1.5085052726747978
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": -2.008505272674798
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": -3.008505272674798
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        }
+      },
+      {
+        "session": "2026-09-01",
+        "baseline": {
+          "signals": 33,
+          "bar_outcomes_resolved": 15,
+          "known_no_entry": 3,
+          "unknown_or_ambiguous": 15,
+          "status_counts": {
+            "NO_SESSION_ENTRY": 3,
+            "SESSION_END": 4,
+            "STOP": 5,
+            "TARGET": 2,
+            "TIMEOUT": 4,
+            "UNKNOWN_ENTRY_BAR": 3,
+            "UNKNOWN_PATH_GAP": 12
+          },
+          "conditional_target_rate": 0.1111111111111111,
+          "target_rate_identification_bounds_not_ci": [
+            0.06060606060606061,
+            0.5151515151515151
+          ],
+          "conditional_gross_return_proxy_pct": 0.7078796384391358,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": 0.20787963843913582
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": -0.2921203615608642
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": -1.292120361560864
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        },
+        "selected": {
+          "signals": 15,
+          "bar_outcomes_resolved": 8,
+          "known_no_entry": 1,
+          "unknown_or_ambiguous": 6,
+          "status_counts": {
+            "NO_SESSION_ENTRY": 1,
+            "SESSION_END": 2,
+            "STOP": 2,
+            "TARGET": 1,
+            "TIMEOUT": 3,
+            "UNKNOWN_ENTRY_BAR": 3,
+            "UNKNOWN_PATH_GAP": 3
+          },
+          "conditional_target_rate": 0.1111111111111111,
+          "target_rate_identification_bounds_not_ci": [
+            0.06666666666666667,
+            0.4666666666666667
+          ],
+          "conditional_gross_return_proxy_pct": 0.7455885514005598,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": 0.2455885514005598
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": -0.2544114485994402
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": -1.2544114485994402
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        }
+      },
+      {
+        "session": "2026-09-02",
+        "baseline": {
+          "signals": 37,
+          "bar_outcomes_resolved": 9,
+          "known_no_entry": 2,
+          "unknown_or_ambiguous": 26,
+          "status_counts": {
+            "NO_SESSION_ENTRY": 2,
+            "SESSION_END": 1,
+            "STOP": 4,
+            "TARGET": 2,
+            "TIMEOUT": 2,
+            "UNKNOWN_ENTRY_BAR": 5,
+            "UNKNOWN_PATH_GAP": 21
+          },
+          "conditional_target_rate": 0.18181818181818182,
+          "target_rate_identification_bounds_not_ci": [
+            0.05405405405405406,
+            0.7567567567567568
+          ],
+          "conditional_gross_return_proxy_pct": 0.7895147933432057,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": 0.28951479334320573
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": -0.21048520665679427
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": -1.2104852066567942
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        },
+        "selected": {
+          "signals": 18,
+          "bar_outcomes_resolved": 5,
+          "known_no_entry": 0,
+          "unknown_or_ambiguous": 13,
+          "status_counts": {
+            "SESSION_END": 1,
+            "STOP": 2,
+            "TARGET": 1,
+            "TIMEOUT": 1,
+            "UNKNOWN_ENTRY_BAR": 2,
+            "UNKNOWN_PATH_GAP": 11
+          },
+          "conditional_target_rate": 0.2,
+          "target_rate_identification_bounds_not_ci": [
+            0.05555555555555555,
+            0.7777777777777778
+          ],
+          "conditional_gross_return_proxy_pct": 0.9394581318596984,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": 0.4394581318596984
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": -0.0605418681403016
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": -1.0605418681403016
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        }
+      },
+      {
+        "session": "2026-09-03",
+        "baseline": {
+          "signals": 31,
+          "bar_outcomes_resolved": 13,
+          "known_no_entry": 0,
+          "unknown_or_ambiguous": 18,
+          "status_counts": {
+            "SESSION_END": 7,
+            "STOP": 3,
+            "TIMEOUT": 3,
+            "UNKNOWN_ENTRY_BAR": 3,
+            "UNKNOWN_PATH_GAP": 15
+          },
+          "conditional_target_rate": 0.0,
+          "target_rate_identification_bounds_not_ci": [
+            0.0,
+            0.5806451612903226
+          ],
+          "conditional_gross_return_proxy_pct": -0.5265750961107502,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": -1.0265750961107503
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": -1.5265750961107503
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": -2.5265750961107503
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        },
+        "selected": {
+          "signals": 10,
+          "bar_outcomes_resolved": 4,
+          "known_no_entry": 0,
+          "unknown_or_ambiguous": 6,
+          "status_counts": {
+            "SESSION_END": 1,
+            "STOP": 1,
+            "TIMEOUT": 2,
+            "UNKNOWN_ENTRY_BAR": 1,
+            "UNKNOWN_PATH_GAP": 5
+          },
+          "conditional_target_rate": 0.0,
+          "target_rate_identification_bounds_not_ci": [
+            0.0,
+            0.6
+          ],
+          "conditional_gross_return_proxy_pct": 0.011712163053834157,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": -0.48828783694616584
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": -0.9882878369461658
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": -1.9882878369461658
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        }
+      },
+      {
+        "session": "2026-09-04",
+        "baseline": {
+          "signals": 40,
+          "bar_outcomes_resolved": 12,
+          "known_no_entry": 2,
+          "unknown_or_ambiguous": 26,
+          "status_counts": {
+            "NO_SESSION_ENTRY": 2,
+            "SESSION_END": 4,
+            "STOP": 2,
+            "TARGET": 3,
+            "TIMEOUT": 3,
+            "UNKNOWN_ENTRY_BAR": 7,
+            "UNKNOWN_PATH_GAP": 19
+          },
+          "conditional_target_rate": 0.21428571428571427,
+          "target_rate_identification_bounds_not_ci": [
+            0.075,
+            0.725
+          ],
+          "conditional_gross_return_proxy_pct": 2.30214124354819,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": 1.8021412435481898
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": 1.3021412435481898
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": 0.30214124354818983
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        },
+        "selected": {
+          "signals": 20,
+          "bar_outcomes_resolved": 6,
+          "known_no_entry": 1,
+          "unknown_or_ambiguous": 13,
+          "status_counts": {
+            "NO_SESSION_ENTRY": 1,
+            "SESSION_END": 3,
+            "STOP": 1,
+            "TARGET": 1,
+            "TIMEOUT": 1,
+            "UNKNOWN_ENTRY_BAR": 3,
+            "UNKNOWN_PATH_GAP": 10
+          },
+          "conditional_target_rate": 0.14285714285714285,
+          "target_rate_identification_bounds_not_ci": [
+            0.05,
+            0.7
+          ],
+          "conditional_gross_return_proxy_pct": 1.735406003012102,
+          "cost_scenarios": [
+            {
+              "assumed_round_trip_cost_pp": 0.5,
+              "conditional_mean_return_proxy_pct": 1.235406003012102
+            },
+            {
+              "assumed_round_trip_cost_pp": 1.0,
+              "conditional_mean_return_proxy_pct": 0.7354060030121019
+            },
+            {
+              "assumed_round_trip_cost_pp": 2.0,
+              "conditional_mean_return_proxy_pct": -0.2645939969878981
+            }
+          ],
+          "executable_expectancy_pct": null,
+          "profitability_claim_allowed": false
+        }
+      }
+    ]
+  },
+  "legacy_missing_now_bar_resolved": 47,
+  "legacy_scorable_now_unknown": 13,
+  "phase1_complete": false,
+  "holdout_opens": 0,
+  "new_market_requests": 0,
+  "live_rules_changed": false,
+  "profitability_claim_allowed": false,
+  "calibrated_probabilities": null,
+  "limits": [
+    "All 322 frozen discovery-audit events; no winners-only selection or exclusions by old scorability. This 96-symbol sample is NOT a qualified historical NASDAQ under-100M universe.",
+    "Explicit FINAL_BARS_AVAILABLE_AT_MINUTE_END_SCENARIO; source receipt/revision times absent. Feature reader must respect available_at when supplied and ignore unfinished/future bars.",
+    "Fixed stress scenarios only. Spreads, impact and executable quantity are not observed. Bar-proxy results cannot establish net executable expectancy; that field must remain null.",
+    "Different entry delay, horizon and barriers from old baseline; coverage change is not accuracy improvement",
+    "Only sampled detector events; target retention is not market-wide recall or top-30 capture",
+    "Threshold/open/close fills are OHLC proxies with unknown quotes, impact, halts and capacity",
+    "Ten exposed sessions, overlapping signals and outcome-dependent missingness; no independent model evaluation",
+    "Bootstrap is exploratory; no multiplicity-adjusted efficacy claim across past experiments"
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "id": "continuation-order-development-20260924",
+  "registered_at": "2026-09-24",
+  "base_commit": "8f02f78655bf37bac089c80f16a4f3c785b6e710",
+  "status": "EXPOSED_DEVELOPMENT_ONLY",
+  "selection": "All 322 frozen discovery-audit events; no winners-only selection or exclusions by old scorability. This 96-symbol sample is NOT a qualified historical NASDAQ under-100M universe.",
+  "period": {
+    "start": "2026-08-24",
+    "end": "2026-09-04",
+    "role": "ALREADY_EXPOSED_DEVELOPMENT"
+  },
+  "source_sha256": {
+    "data/discovery-audit.json": "bf6ae9b3e6d3f5cbbfc2e53a03204823fa135059245a6960393ef41af42add4a",
+    "data/study-manifest.json": "6ce841265eb4ac91447908c3dddb3b145e3abdf90080ad5094c94074f4d445df",
+    "data/capabilities/calendar-20260824-20260904.json": "a03dde28c90c30def25c382888e8f19ba7140fba28a99dbde3af6a62790f7993"
+  },
+  "entry": {
+    "latency_seconds": 1,
+    "method": "First minute open at or after signal + latency, ceil to minute boundary. No fill assumed within the already-started minute. Exact entry minute required; missing/zero-volume/invalid data stays unknown. BAR_PROXY_NOT_EXECUTABLE."
+  },
+  "barriers": {
+    "target_gross_pct": 10,
+    "stop_gross_pct": 3,
+    "horizon_minutes": 60,
+    "session_close": "Truncate holding horizon at the exchange close; report SESSION_END separately, with effective horizon. A signal at/after close has NO_SESSION_ENTRY.",
+    "ordering": "Check each contiguous positive-volume OHLC bar in chronological order. A boundary-crossing OPEN precedes its high/low. Otherwise simultaneous target and stop is AMBIGUOUS_BOTH, never a win or forced stop. A gap before resolution is UNKNOWN_PATH_GAP; later bars cannot repair it. Resolution before a later gap remains known. Target intrabar exit proxy is threshold; stop gaps use opening price. Outcome times are intervals, not exact ticks."
+  },
+  "hypothesis": {
+    "id": "three_rising_closes",
+    "rule": "The last three contiguous completed regular-session minute closes are strictly increasing (c1<c2<c3). No threshold search, fitting, feature combinations or live-rule change.",
+    "rationale": "Test whether persistence before detection separates continuation from reversal. This bar feature is not order-flow imbalance or buying pressure."
+  },
+  "availability": "Explicit FINAL_BARS_AVAILABLE_AT_MINUTE_END_SCENARIO; source receipt/revision times absent. Feature reader must respect available_at when supplied and ignore unfinished/future bars.",
+  "cost_sensitivity_round_trip_percentage_points": [
+    0.5,
+    1.0,
+    2.0
+  ],
+  "cost_warning": "Fixed stress scenarios only. Spreads, impact and executable quantity are not observed. Bar-proxy results cannot establish net executable expectancy; that field must remain null.",
+  "statistics": {
+    "bootstrap_unit": "session",
+    "iterations": 5000,
+    "seed": 20260924,
+    "family_size": 1,
+    "minimum_complete_bootstrap_fraction": 0.99,
+    "inference": "Exploratory conditional paired session-block differences only. Publish all missingness and daily outcomes. No confirmatory p-value or independence claim."
+  },
+  "missingness": "Every original event retained. Unknown feature is separate. Compare selected with the same feature-observable baseline. Report target-rate identification bounds (unknowns all failures vs all successes); these are NOT confidence intervals.",
+  "stop_rule": "Run once, preserve failed result and all unknowns, no tuning on these dates. Independent qualification plus >=500 final evaluable signals still required before any efficacy claim.",
+  "holdout_opens": 0,
+  "deployment_allowed": false,
+  "profitability_claim_allowed": false,
+  "new_market_requests": 0,
+  "next_quote_sample": "After labels, choose at most six unresolved rows deterministically by SHA256 of signal ID, stratified only by missingness reason, never returns; save manifest before provider calls. This is measurement repair of development evidence, not independent validation."
+}

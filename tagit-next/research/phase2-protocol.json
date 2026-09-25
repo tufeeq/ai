@@ -1,0 +1,29 @@
+{
+  "id": "phase2-development-ablation-20260924",
+  "registered_at": "2026-09-24",
+  "base_commit": "0698ede9434fff8adc3bde4eaacde074d893275d",
+  "status": "DEVELOPMENT_DIAGNOSTIC_ONLY",
+  "scope": "Current discovery-1 bar-detector baseline; no changes to live detection or plans",
+  "selection": "Every event in the frozen 322-event discovery-audit ledger, without sampling, return ranking or outcome exclusions",
+  "source_sha256": {
+    "data/discovery-audit.json": "bf6ae9b3e6d3f5cbbfc2e53a03204823fa135059245a6960393ef41af42add4a",
+    "data/study-manifest.json": "6ce841265eb4ac91447908c3dddb3b145e3abdf90080ad5094c94074f4d445df",
+    "quote-service/src/scanner.mjs": "6d04ed6155eb7ea39e247414d21975ebf2015a21cb91c3eb67fd37caec9c5d05"
+  },
+  "period": {"start": "2026-08-24", "end": "2026-09-04", "role": "ALREADY_EXPOSED_DEVELOPMENT"},
+  "label": "Unchanged legacy next-minute open to 30-minute close less 0.5 percentage points; missing labels retained. Not a triple-barrier or executable quote result.",
+  "availability": "Historical final bars under explicit zero-latency-at-minute-end scenario. No historical receipt times or revisions available. Features must ignore incomplete bars and future receipts when supplied.",
+  "hypotheses": [
+    {"id": "core_session", "feature": "minutes_from_open", "rule": "Keep signals at least 30 minutes after open and strictly before 30 minutes prior to close", "first_minutes_excluded": 30, "last_minutes_excluded": 30, "rationale": "User-requested separation of first and last 30 minutes; no threshold search"},
+    {"id": "momentum_atr", "feature": "move_3m_over_atr14", "rule": "Keep three-completed-minute price rise of at least one pre-window ATR", "atr_period": 14, "minimum_ratio": 1.0, "rationale": "One volatility unit is a fixed diagnostic scale, not a fitted profitable cutoff. ATR is the simple mean of 14 true ranges ending before the three-minute expansion, with an additional prior close."}
+  ],
+  "missing_features": "UNKNOWN, never treated as zero or a negative signal. Compare selected rows with the baseline on the same feature-observable population; also publish full baseline and all excluded/missing cases.",
+  "comparison": "One feature at a time; no combined filter or optimizer. Frozen signal ledger means this is a post-detection ablation, not re-running cooldown or shortlist after rejection.",
+  "statistics": {"bootstrap_unit": "session", "iterations": 5000, "seed": 20260924, "confidence": 0.95, "family_size": 2, "family_adjustment": "Bonferroni percentile interval: 1 - 0.05/2 per comparison, same resampled sessions for subset and comparator", "minimum_complete_bootstrap_fraction": 0.99, "p_values": null, "p_value_reason": "No confirmatory inference from exposed selected symbols, small session count and outcome-dependent missingness"},
+  "cost_sensitivity_round_trip_percentage_points": [0.5, 1.0, 2.0],
+  "calendar_request": {"operation": "get_calendar", "start": "2026-08-24", "end": "2026-09-04", "reason": "Exchange-local session boundaries including early closes; metadata only"},
+  "new_price_quote_trade_requests": 0,
+  "deployment_allowed": false,
+  "holdout": {"status": "LOCKED_NOT_SELECTED", "opens": 0},
+  "stop_rule": "Publish every diagnostic and missing result; do not retune thresholds on these data. Advance any hypothesis only after source-qualified independent evaluation. No profitability or accuracy claim."
+}

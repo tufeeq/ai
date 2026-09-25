@@ -1,0 +1,18 @@
+PRAGMA journal_mode=WAL;
+PRAGMA busy_timeout=10000;
+PRAGMA foreign_keys=ON;
+CREATE TABLE IF NOT EXISTS schema_versions(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
+INSERT OR IGNORE INTO schema_versions VALUES(1,datetime('now'));
+CREATE TABLE IF NOT EXISTS runs(id TEXT PRIMARY KEY, created_at TEXT NOT NULL, config TEXT NOT NULL, mode TEXT NOT NULL, source_hash TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS inputs(id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id), kind TEXT NOT NULL, symbol TEXT, event_at TEXT NOT NULL, received_at TEXT NOT NULL, payload TEXT NOT NULL, revision_of TEXT);
+CREATE INDEX IF NOT EXISTS inputs_clock ON inputs(run_id, received_at);
+CREATE TABLE IF NOT EXISTS opportunities(id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id), symbol TEXT NOT NULL, session TEXT NOT NULL, detected_at TEXT NOT NULL, first_price REAL NOT NULL, methodology TEXT NOT NULL, first_payload TEXT NOT NULL);
+CREATE TRIGGER IF NOT EXISTS preserve_first_signal BEFORE UPDATE ON opportunities BEGIN SELECT RAISE(ABORT,'FIRST_SIGNAL_IMMUTABLE'); END;
+CREATE TRIGGER IF NOT EXISTS preserve_first_signal_delete BEFORE DELETE ON opportunities BEGIN SELECT RAISE(ABORT,'FIRST_SIGNAL_IMMUTABLE'); END;
+CREATE TABLE IF NOT EXISTS transitions(id TEXT PRIMARY KEY, opportunity_id TEXT NOT NULL REFERENCES opportunities(id), at TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS transitions_opportunity ON transitions(opportunity_id,at);
+CREATE TRIGGER IF NOT EXISTS transitions_immutable BEFORE UPDATE ON transitions BEGIN SELECT RAISE(ABORT,'TRANSITION_IMMUTABLE'); END;
+CREATE TABLE IF NOT EXISTS checkpoints(run_id TEXT NOT NULL REFERENCES runs(id), symbol_session TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(run_id,symbol_session));
+CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, kind TEXT NOT NULL, cursor TEXT, status TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL, error_code TEXT);
+CREATE TABLE IF NOT EXISTS experiments(id TEXT PRIMARY KEY, registered_at TEXT NOT NULL, config TEXT NOT NULL, data_hash TEXT NOT NULL, partition TEXT NOT NULL, result TEXT);
+CREATE TRIGGER IF NOT EXISTS input_no_update BEFORE UPDATE ON inputs BEGIN SELECT RAISE(ABORT,'INPUT_IMMUTABLE'); END;

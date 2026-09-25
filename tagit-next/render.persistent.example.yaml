@@ -1,0 +1,35 @@
+# REVIEW ONLY. Do not apply without approval of the paid service and disk.
+# Separate service: native Node runtime cannot be changed in place to Docker.
+services:
+  - type: web
+    name: tagit-next-observer
+    runtime: docker
+    plan: starter
+    region: virginia
+    repo: https://github.com/tufeeq/ai
+    branch: tagit-next-independent-20260914
+    dockerContext: ./tagit-next
+    dockerfilePath: ./tagit-next/quote-service/Dockerfile
+    autoDeployTrigger: "off"
+    healthCheckPath: /api/health
+    disk:
+      name: observations
+      mountPath: /var/lib/tagit
+      sizeGB: 10
+    envVars:
+      - key: TAGIT_JOURNAL_PATH
+        value: /var/lib/tagit/observations.sqlite
+      - key: TAGIT_BACKGROUND
+        value: "1"
+      - key: TAGIT_STREAM
+        value: "1"
+      - key: TAGIT_STREAM_SYMBOL_LIMIT
+        value: "30"
+      - key: TAGIT_DATA_FEED
+        value: iex
+      - key: TAGIT_ALLOWED_ORIGIN
+        value: https://tufeeq.github.io
+      - key: ALPACA_API_KEY_ID
+        sync: false
+      - key: ALPACA_API_SECRET_KEY
+        sync: false

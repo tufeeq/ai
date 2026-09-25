@@ -1,0 +1,33 @@
+{
+  "id": "SIP_SHARE_CAPACITY_AUDIT_20260924",
+  "status": "EXPOSED_DEVELOPMENT_MEASUREMENT_AUDIT",
+  "base_commit": "e3aa74ef2e4a99058f8420e68f9ae59bcfd19c43",
+  "sample": "All six already-frozen continuation cases; no reselection by capacity or return. Anchors and observed stop prices were already inspected.",
+  "question": "Does correctly interpreting post-transition Alpaca SIP sizes as shares supply sufficient displayed quantity and lagged-volume evidence at the frozen entry/exit price observations? This is not a new entry rule or an execution backtest.",
+  "quantities_shares": [
+    1,
+    100,
+    1000
+  ],
+  "max_participation": 0.01,
+  "max_completed_bar_age_seconds": 90,
+  "availability": "END_OF_MINUTE_ASSUMPTION_ONLY; historical receipt/revision timing is not available. Use only the most recent completed bar at or before each quote, never forward volume.",
+  "same_time_policy": "Keep every distinct valid observation at the timestamp. Require every quoted size to cover quantity; do not infer order or add displayed quantities across quotes. Any invalid observation makes snapshot evidence unknown.",
+  "checkpoints": [
+    "Existing first-ask anchor",
+    "Existing observed target/stop/timeout timestamp when present; missing exits remain unknown"
+  ],
+  "scope": "Displayed-size and volume-cap diagnostics only; no receipt-latency, resting-book, order queue, fill probability, execution-cost or P&L claim.",
+  "unit_source": "https://docs.alpaca.markets/us/v1.1/changelog/marketdata-bid-and-ask-size-display-change",
+  "unit_effective_market_date": "2025-11-03",
+  "unit_rule": "Alpaca US SIP post-transition size is shares with multiplier 1; older/other source encodings are unknown.",
+  "new_market_requests": 0,
+  "holdout_opens": 0,
+  "deployment_allowed": false,
+  "source_sha256": {
+    "research/continuation-path-inputs.json": "cba1957e955b579c5a928209f550d934b71cb3742126a9f29981d2d80c4d877b",
+    "data/continuation-path-report.json": "67f80b32fdf27c2ea435c6ed177d433d5bb1b58611a441806e19623b0bc86b94",
+    "research/continuation-quote-sample.json": "aa75b557d8b044e2de0f4ce01086e74a6b1f38b68d4ff9f805d3545fee3e8f07",
+    "data/study-manifest.json": "6ce841265eb4ac91447908c3dddb3b145e3abdf90080ad5094c94074f4d445df"
+  }
+}
