@@ -5,11 +5,11 @@ import {openJournal,recordingFetch} from './journal.mjs';
 import {createStream} from './stream.mjs';
 import {execFile} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-export function createRuntime({env=process.env,fetcher=fetch,now=Date.now,journalFactory=openJournal,streamFactory=createStream}={}){
+export function createRuntime({env=process.env,fetcher=fetch,now=Date.now,journalFactory=openJournal,streamFactory=createStream,onEvidence=null}={}){
  const enabled=env.TAGIT_BACKGROUND==='1',streamEnabled=env.TAGIT_STREAM==='1';
  if((enabled||streamEnabled)&&(!env.TAGIT_JOURNAL_PATH||env.TAGIT_JOURNAL_PATH===':memory:'))throw Error('PERSISTENT_JOURNAL_PATH_REQUIRED');
  const journal=env.TAGIT_JOURNAL_PATH?journalFactory(env.TAGIT_JOURNAL_PATH,{now}):null;
- const scanner=journal?tracedScanner({env,fetcher:recordingFetch(journal,{fetcher,now}),now,record:e=>journal.recordEvent('SCANNER_TRACE',null,e)}):createScanner({env,fetcher,now});
+ const scanner=journal?tracedScanner({env,fetcher:recordingFetch(journal,{fetcher,now}),now,record:e=>journal.recordEvent('SCANNER_TRACE',null,e),onEvidence}):createScanner({env,fetcher,now,onEvidence});
  const clients=new Set();let loop=null,busy=false,reads=0,stopped=false,lastScan=null,lastError=null,paperRunning=false,paperStatus='DISABLED';
  function broadcast(type,payload){const frame=`event: ${type}\ndata: ${JSON.stringify(payload)}\n\n`;
   for(const client of clients){if(client.destroyed||!client.write(frame)){client.end();clients.delete(client);}}

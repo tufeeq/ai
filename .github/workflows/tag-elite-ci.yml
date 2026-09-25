@@ -1,0 +1,25 @@
+name: TAG elite acceptance
+on:
+  push:
+    paths:
+      - 'tagit-next/elite/**'
+      - 'tagit-next/quote-service/**'
+      - 'tagit-next/research/scanner-trace.mjs'
+      - '.github/workflows/tag-elite-ci.yml'
+  pull_request:
+    paths:
+      - 'tagit-next/elite/**'
+      - 'tagit-next/quote-service/**'
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test tagit-next/elite/tests/*.test.mjs
+      - run: node --test tagit-next/quote-service/test/*.test.mjs
+      - run: node --check tagit-next/elite/web/app.mjs

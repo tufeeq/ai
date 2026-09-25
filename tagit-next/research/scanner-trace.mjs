@@ -1,14 +1,14 @@
 // Deterministic replay of actual scanner clock reads and async response ordering.
 // No source rewrite, no network during replay, no replacement of receipt by event time.
 import {createScanner} from '../quote-service/src/scanner.mjs';
-export function tracedScanner({env,fetcher=fetch,now=Date.now,record=()=>{}}){
+export function tracedScanner({env,fetcher=fetch,now=Date.now,record=()=>{},onEvidence=null}){
  let requestId=0,loading=null;
  const clock=()=>{const value=now();record({kind:'CLOCK',value});return value;};
  const transport=async(url,options)=>{const id=++requestId;record({kind:'REQUEST',id,url});
   try{const r=await fetcher(url,options),body=await r.json();record({kind:'RESPONSE',id,status:r.status,body});return {ok:r.ok,status:r.status,json:async()=>structuredClone(body)};}
   catch(e){record({kind:'RESPONSE',id,error:'TRANSPORT_FAILED'});throw e;}
  };
- const scanner=createScanner({env,fetcher:transport,now:clock});
+ const scanner=createScanner({env,fetcher:transport,now:clock,onEvidence});
  return {get(){if(loading)return loading;record({kind:'GET',feed:env.TAGIT_DATA_FEED||'iex'});
   loading=scanner.get().then(r=>{record({kind:'RESULT'});return r;},e=>{record({kind:'FAILURE'});throw e;}).finally(()=>{loading=null;});return loading;
  }};
