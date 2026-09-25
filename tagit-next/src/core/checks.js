@@ -12,6 +12,9 @@ export const RULES = Object.freeze({
   maxConcentration: 0.7,
   tradeMaxAgeMs: 15_000,
   quoteMaxAgeMs: 10_000,
+  // Consolidated (Nasdaq.com) trades carry minute resolution and quotes their fetch time.
+  consolidatedTradeMaxAgeMs: 120_000,
+  consolidatedQuoteMaxAgeMs: 30_000,
   maxSpreadPct: 0.8,
   maxDayChange: 25,
   maxReturn3m: 8,
@@ -68,12 +71,14 @@ function buildChecks(row, now) {
       pass: positive(s?.vwap_window) && row.price >= s.vwap_window, value: s?.vwap_window, unit: '$',
     },
     {
-      key: 'trade', group: 'freshness', name: 'آخر صفقة خلال ١٥ ثانية',
-      pass: within(row.price_at, now, RULES.tradeMaxAgeMs), value: row.price_at, time: true,
+      key: 'trade', group: 'freshness', name: 'صفقة حديثة (IEX ‏١٥ ث · مجمّعة دقيقتان)',
+      pass: within(row.price_at, now, row.price_source === 'CONSOLIDATED' ? RULES.consolidatedTradeMaxAgeMs : RULES.tradeMaxAgeMs),
+      value: row.price_at, time: true,
     },
     {
-      key: 'quote', group: 'freshness', name: 'عرض شراء وبيع خلال ١٠ ثوانٍ',
-      pass: within(row.quote_at, now, RULES.quoteMaxAgeMs) && positive(row.bid) && positive(row.ask) && row.bid <= row.ask,
+      key: 'quote', group: 'freshness', name: 'عرض شراء وبيع حديث (IEX ‏١٠ ث · مجمّع ٣٠ ث)',
+      pass: within(row.quote_at, now, row.quote_source === 'CONSOLIDATED' ? RULES.consolidatedQuoteMaxAgeMs : RULES.quoteMaxAgeMs) &&
+        positive(row.bid) && positive(row.ask) && row.bid <= row.ask,
       value: row.quote_at, time: true,
     },
     {
@@ -109,14 +114,16 @@ export function assess(row, { now = Date.now(), serverTime, connected = true, fe
   const recentScan = connected && within(serverTime, now, RULES.scanMaxAgeMs);
   const planGood = validPlanShape(plan);
   const chasing = planGood && row.price > plan.entry * RULES.chaseTolerance;
+  const halted = Boolean(row.halt);
   const livePlan = Boolean(
-    recentScan && feed !== 'delayed_sip' && checks.every((c) => c.pass) && row.actionable === true &&
+    !halted && recentScan && feed !== 'delayed_sip' && checks.every((c) => c.pass) && row.actionable === true &&
     planGood && row.price > plan.stop && !chasing,
   );
   const tradeFresh = checks.find((c) => c.key === 'trade').pass;
 
   let state = 'WATCH';
-  if (livePlan) state = 'READY';
+  if (halted) state = 'HALTED';
+  else if (livePlan) state = 'READY';
   else if (isExtended(row)) state = 'EXTENDED';
   else if (!recentScan || !tradeFresh) state = 'STALE';
   else if (row.signal?.expansion) state = 'CONFIRM';
@@ -125,6 +132,7 @@ export function assess(row, { now = Date.now(), serverTime, connected = true, fe
   if (!recentScan) blockers.unshift('الاتصال أو المسح غير حديث');
   if (feed === 'delayed_sip') blockers.unshift('المصدر متأخر');
   if (chasing) blockers.unshift('السعر تجاوز منطقة التفعيل');
+  if (halted) blockers.unshift('التداول موقوف مؤقتًا');
 
   const passed = checks.filter((c) => c.pass).length;
   return { state, checks, blockers, passed, total: checks.length, plan: livePlan ? plan : null };
@@ -147,7 +155,7 @@ export function splitPriority(rows, options) {
     const timely = a.checks.find((c) => c.key === 'trade').pass &&
       within(row.scan_at ?? options.serverTime, now, RULES.scanMaxAgeMs) && options.connected !== false;
     const required = a.checks.filter((c) => PRIORITY_REQUIRED.includes(c.key)).every((c) => c.pass);
-    const priority = a.passed >= RULES.priorityMinPassed && timely && options.feed !== 'delayed_sip' && required;
+    const priority = a.state !== 'HALTED' && a.passed >= RULES.priorityMinPassed && timely && options.feed !== 'delayed_sip' && required;
     (priority ? upper : lower).push(row);
   }
   return { upper, lower };

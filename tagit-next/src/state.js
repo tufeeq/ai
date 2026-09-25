@@ -16,7 +16,9 @@ export function createState({ journal = [], watched = new Set(), settings = { ca
     endpoint: '',
     connection: { phase: 'boot', error: null, lastScanAt: null, attempts: 0 },
     quoteError: false,
-    scan: null, // { server_time, feed, status, coverage, order, gainers }
+    scan: null, // { server_time, feed, status, coverage, order, gainers, complements }
+    enrichment: null, // data/enrichment.json: SEC, Nasdaq listing status, FINRA short interest
+    evidence: { relabel: null, forward: null }, // data/outcome-relabel.json, data/forward-outcomes.json
     stocks: new Map(),
     pressure: new Map(),
     journal,
@@ -65,6 +67,7 @@ export function applyScan(state, payload, now) {
     coverage: payload.coverage,
     order: payload.rows.map((r) => r.symbol),
     gainers: payload.gainers,
+    complements: payload.complements ?? null,
   };
   state.connection = { phase: payload.status === 'PARTIAL' ? 'partial' : 'live', error: null, lastScanAt: payload.server_time, attempts: 0 };
   for (const incoming of payload.rows) {

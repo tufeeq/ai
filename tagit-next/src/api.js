@@ -80,7 +80,25 @@ export function normalizeQuote(r) {
     bid: r.quote?.bid,
     ask: r.quote?.ask,
     quote_at: r.quote?.timestamp,
+    consolidated: r.consolidated ?? null,
+    halt: r.halt ?? null,
+    halt_status: r.halt_status,
   };
+}
+
+/**
+ * Static data published by the GitHub Actions jobs next to the page. A missing or malformed
+ * file is reported as null; the page works without it.
+ */
+export async function loadStatic(path, fetcher = fetch) {
+  try {
+    const r = await fetcher(path, { cache: 'no-cache' });
+    if (!r.ok) return null;
+    const body = await r.json();
+    return body && typeof body === 'object' ? body : null;
+  } catch {
+    return null;
+  }
 }
 
 export function createClient(endpoint, fetcher = fetch) {

@@ -1,6 +1,6 @@
 // TAGit NEXT workspace controller: wires the data service, state and views.
 import { morph, html } from './src/html.js';
-import { loadEndpoint, createClient, errorMessage } from './src/api.js';
+import { loadEndpoint, createClient, errorMessage, loadStatic } from './src/api.js';
 import * as storage from './src/storage.js';
 import {
   createState, applyScan, scanFailed, applyQuotes, nextQuoteSymbols, toggleWatch, removeEvent, visibleRows,
@@ -9,11 +9,13 @@ import { renderList, LIST_NOTES } from './src/views/list.js';
 import { renderJournal, JOURNAL_NOTE } from './src/views/journal.js';
 import { renderDossier } from './src/views/dossier.js';
 import { renderStatus, renderMetrics, renderNotices, coverageText } from './src/views/status.js';
+import { renderEvidence } from './src/views/evidence.js';
 
 const SCAN_INTERVAL_MS = 30_000;
 const QUOTE_INTERVAL_MS = 5_000;
 const SAVE_THROTTLE_MS = 5_000;
 const SHEET_BREAKPOINT = 1080;
+const STATIC_REFRESH_MS = 30 * 60_000;
 
 const $ = (id) => document.getElementById(id);
 const clock = () => Date.now();
@@ -125,6 +127,19 @@ async function quotes() {
     quoting = false;
     scheduleRender();
   }
+}
+
+/** Data published by the GitHub Actions jobs: disclosures, the corrected study and the live record. */
+async function loadPublished() {
+  const [enrichment, relabel, forward] = await Promise.all([
+    loadStatic('data/enrichment.json'),
+    loadStatic('data/outcome-relabel.json'),
+    loadStatic('data/forward-outcomes.json'),
+  ]);
+  if (enrichment?.symbols) state.enrichment = enrichment;
+  state.evidence = { relabel: relabel?.corrected ? relabel : null, forward: forward?.days ? forward : null };
+  morph($('evidence'), renderEvidence(state.evidence));
+  scheduleRender();
 }
 
 // ---- interactions -------------------------------------------------------------------
@@ -292,6 +307,8 @@ window.addEventListener('resize', () => {
 
 applyTheme(storage.loadTheme());
 render();
+loadPublished();
+setInterval(loadPublished, STATIC_REFRESH_MS);
 try {
   client = createClient(await loadEndpoint());
   await scan();

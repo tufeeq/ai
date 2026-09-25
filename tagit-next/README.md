@@ -33,6 +33,39 @@ tests/
 lab/, performance.*   TAGit Lab and the evidence page (unchanged)
 ```
 
+## Data sources
+
+| Need | Source | How it reaches the page |
+|---|---|---|
+| Minute bars, precise trades and quotes | Alpaca IEX (one exchange) | quote service `/api/scanner`, `/api/quotes` |
+| Real-time consolidated last sale, bid/ask, day volume | Nasdaq.com quote API (unofficial, minute resolution) | quote service overlay (`consolidated`) |
+| Previous close | Alpaca SIP daily bars (older than 15 min, free) | quote service overlay |
+| Trading halts | Nasdaq Trader halts RSS | quote service (`halt`), 30 s cache |
+| Filings: offerings, listing notices, late filings, shares outstanding | SEC EDGAR | `data/enrichment.json`, 4× per weekday |
+| Listing status (deficient, delinquent, bankrupt) | Nasdaq Trader symbol directory | `data/enrichment.json` |
+| Dated short interest | FINRA consolidated short interest | `data/enrichment.json` |
+| Live alert outcomes | scanner alerts + Nasdaq.com minute prices | `data/forward-outcomes.json`, daily |
+
+The freshness checks follow the source: an IEX trade must be at most 15 s old and an IEX quote 10 s;
+a consolidated trade (minute resolution) at most 2 minutes and a consolidated quote 30 s. Every price
+shows its source. A live halt blocks any plan. Filing and listing risks are warnings, not gates.
+
+## Methodology correction (outcome-relabel-1)
+
+The frozen study scored only 84 of 322 signals because it required 30 contiguous minute bars; a
+minute without a bar had no trade, not missing data. `research/outcome-relabel.mjs` reproduces the
+frozen events and mean exactly, then carries the last trade forward: 295 of 322 signals resolve
+(27 had no trade within 2 minutes, 0 unknown), with a mean 30-minute return of −0.58% after the
+assumed 0.5 pp cost (−1.43% on the biased 84). The strategy still shows no positive expectancy.
+The forward job applies the same protocol to every live alert.
+
+## Jobs
+
+- `.github/workflows/tagit-next-enrichment.yml` → `pipeline/enrich.py`
+- `.github/workflows/tagit-next-forward.yml` → `pipeline/forward.py` (records every ~10 minutes,
+  which also keeps the free Render instance awake; evaluates after 20:00 New York)
+- `.github/workflows/tagit-next-source-probe.yml` → `pipeline/probe_sources.py` (manual check)
+
 ## Behaviour
 
 - **Lists.** Early moves (priority tier: ≥ 8/12 checks with fresh minutes, liquidity and no extension), top gainers,
@@ -48,7 +81,8 @@ lab/, performance.*   TAGit Lab and the evidence page (unchanged)
 ## Checks
 
 ```
-node --test tagit-next/tests/opportunity.test.mjs tagit-next/tests/app.test.mjs tagit-next/phase2-view.test.mjs
+node --test tagit-next/tests/*.test.mjs tagit-next/phase2-view.test.mjs
+python -m unittest discover -s tagit-next/pipeline -p 'test_*.py'
 python tagit-next/verify-evidence-release.py --local
 ```
 

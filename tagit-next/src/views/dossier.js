@@ -6,8 +6,9 @@ import { CHECK_GROUPS, isExtended } from '../core/checks.js';
 import { sizePosition } from '../core/sizing.js';
 import { outcome } from '../core/journal.js';
 import { shariaStatus } from '../core/sharia.js';
+import { companyFacts } from '../core/risk.js';
 import { assessRow, flowOf, selectedRow } from '../state.js';
-import { STATE_HINTS, stateBadge, shariaBadge, meter, stat } from './common.js';
+import { STATE_HINTS, stateBadge, shariaBadge, meter, stat, riskFor } from './common.js';
 import { samplesChart, planLadder } from './charts.js';
 
 export const TABS = [
@@ -34,8 +35,26 @@ function checkValue(c) {
   return typeof c.value === 'string' ? c.value : f.DASH;
 }
 
+const RISK_TEXT = { HIGH: 'مخاطر هيكلية ظاهرة', WATCH: 'إفصاحات تستحق الانتباه', NONE: 'لا إفصاحات خطرة في آخر ١٢٠ يومًا', UNKNOWN: 'لا بيانات إفصاح لهذا السهم' };
+
+function riskSection(state, r, now) {
+  const risk = riskFor(state, r, now);
+  const e = state.enrichment;
+  return html`<section class="risk-box rb-${risk.level}" data-key="risk-${r.symbol}">
+    <h3>المخاطر والإفصاحات الرسمية <small>${RISK_TEXT[risk.level]}</small></h3>
+    ${risk.items.length ? html`<ul class="risk-list">${risk.items.map((i) => html`<li class="ri-${i.level}">
+      <b>${i.label}</b><span>${i.detail}${i.date ? html` · <span dir="ltr">${i.date}</span>` : ''}</span>
+      ${i.url ? html`<a href="${safeUrl(i.url)}" target="_blank" rel="noopener noreferrer">المستند</a>` : ''}</li>`)}</ul>` : ''}
+    <p class="note">${e
+      ? html`المصادر: SEC EDGAR ودليل رموز ناسداك وFINRA · آخر تحديث ${f.dateTime(e.generated_at)}${risk.stale ? ' · البيانات أقدم من ٣٦ ساعة' : ''}. الإفصاح يصف ما قُدِّم رسميًا، ولا يثبت أثرًا على السعر.`
+      : 'بيانات الإفصاحات غير محمّلة بعد.'}</p>
+  </section>`;
+}
+
 function overview(state, r, a, now) {
   const s = r.signal;
+  const facts = companyFacts(state.enrichment?.symbols?.[r.symbol], r);
+  const cons = r.consolidated;
   const flow = flowOf(state, r.symbol, now);
   const sh = shariaStatus(r.sharia, now);
   const groups = Object.entries(CHECK_GROUPS).map(([key, title]) => {
@@ -57,6 +76,7 @@ function overview(state, r, a, now) {
     </div>
     <h3>لماذا ظهر السهم؟</h3>
     <p class="why">${why}${isExtended(r) ? ' الحركة ممتدة؛ لا تُصنّف بداية مبكرة.' : ''}</p>
+    ${riskSection(state, r, now)}
     <div class="checks">${groups}</div>
     <h3>السيولة التقديرية <small class="flow fl-${flow.status}">${flow.label}</small></h3>
     <div class="pressure" role="img" aria-label="ضغط شراء ${upShare}٪ مقابل ضغط بيع ${100 - upShare}٪">
@@ -66,10 +86,13 @@ function overview(state, r, a, now) {
     <p class="note">تقدير من الحجم الإضافي بين المسوحات وفق اتجاه السعر؛ يلزم ٣ عينات. تغطية IEX جزئية، ولا يثبت تدفق أموال فعليًا.</p>
     <h3>بيانات الشركة</h3>
     <div class="stats">
-      ${stat('القيمة السوقية', positive(r.market_cap) ? f.compactUsd(r.market_cap) : f.DASH)}
+      ${stat('القيمة السوقية', facts.secMarketCap ? f.compactUsd(facts.secMarketCap) : positive(r.market_cap) ? f.compactUsd(r.market_cap) : f.DASH,
+        facts.secMarketCap ? html`أسهم SEC × السعر · <span dir="ltr">${facts.sharesAsOf}</span>` : 'مرجع خارجي')}
+      ${stat('الأسهم القائمة', facts.sharesOutstanding ? f.compact(facts.sharesOutstanding) : f.DASH, facts.sharesAsOf ? html`SEC · <span dir="ltr">${facts.sharesAsOf}</span>` : 'غير متاح')}
       ${stat('الأسهم الحرة', positive(r.float_shares) ? f.compact(r.float_shares) : f.DASH)}
-      ${stat('حجم اليوم', f.compact(r.day_volume), 'IEX · جزئي')}
-      ${stat('البيع المكشوف', finite(r.short_float_pct) ? f.num(r.short_float_pct) + '%' : f.DASH, 'تاريخ القياس غير متاح')}
+      ${stat('حجم اليوم', cons?.volume ? f.compact(cons.volume) : f.compact(r.day_volume), cons?.volume ? 'مجمّع · كل البورصات' : 'IEX · جزئي')}
+      ${stat('البيع المكشوف', facts.shortShares !== null ? f.compact(facts.shortShares) + (facts.shortOfFloat !== null ? ` · ${f.num(facts.shortOfFloat, 1)}%` : '') : finite(r.short_float_pct) ? f.num(r.short_float_pct) + '%' : f.DASH,
+        facts.shortSettlement ? html`FINRA · تسوية <span dir="ltr">${facts.shortSettlement}</span>${facts.daysToCover !== null ? ` · ${f.num(facts.daysToCover, 1)} يوم تغطية` : ''}` : 'تاريخ القياس غير متاح')}
       ${stat('صفقات ٣ دقائق', f.num(s?.trades_3m, 0))}
       ${stat('متوسط النافذة المرجّح', f.usd(s?.vwap_window), 'ليس متوسط الجلسة')}
     </div>
@@ -136,7 +159,14 @@ function plan(state, r, a) {
     <p class="note">الأهداف مضاعفات للمخاطرة وليست توقعات. لا يوجد وقت وصول مثبت للهدف.</p>`;
 }
 
-function news(r) {
+function filingsList(state, r) {
+  const filings = state.enrichment?.symbols?.[r.symbol]?.filings ?? [];
+  if (!filings.length) return '';
+  return html`<h3>آخر الإفصاحات لدى SEC</h3><ul class="filings">${filings.map((x) => html`<li>
+    <span class="topic" dir="ltr">${x.form}</span><a href="${safeUrl(x.url)}" target="_blank" rel="noopener noreferrer" dir="ltr">${x.date}${x.items ? ` · items ${x.items}` : ''}</a></li>`)}</ul>`;
+}
+
+function news(state, r) {
   const items = r.news ?? [];
   return html`
     <p class="note">التصنيف حسب موضوع العنوان فقط، ولا يثبت إيجابية الخبر أو أنه سبب الحركة.</p>
@@ -147,11 +177,11 @@ function news(r) {
           <small>${n.source} · نُشر ${f.dateTime(n.published_at)} · أول جلب ${f.dateTime(n.first_seen_at)}</small>
         </li>`)}</ul>`
       : html`<div class="empty-card"><strong>${r.catalyst_status === 'UNAVAILABLE' ? 'تعذر تحميل الأخبار' : 'لا خبر ضمن النتائج المسترجعة'}</strong><p>لا يعني ذلك غياب محفز، ولا يثبت العكس.</p></div>`}
+    ${filingsList(state, r)}
     <h3>غير متحقق بعد</h3>
     <ul class="unknowns">
-      <li>الإفصاحات الأصلية ونتائج التجارب<span>غير مدمجة</span></li>
+      <li>محتوى الإفصاحات ونتائج التجارب<span>عناوين النماذج فقط</span></li>
       <li>التقييم المالي والقيمة العادلة<span>غير محسوب</span></li>
-      <li>مراكز البيع المكشوف بتاريخ موثق<span>غير متاح</span></li>
     </ul>`;
 }
 
@@ -190,7 +220,7 @@ export function renderDossier(state, now) {
   const body = r.placeholder
     ? html`<div class="empty-card"><strong>بانتظار بيانات هذا السهم</strong><p>يُطلب سعره تلقائيًا كل بضع ثوانٍ. إن لم يصل فقد يكون خارج نطاق الأسهم المؤهلة لدى الخادم.</p></div>`
     : tab === 'plan' ? plan(state, r, a)
-    : tab === 'news' ? news(r)
+    : tab === 'news' ? news(state, r)
     : tab === 'history' ? history(state, r)
     : overview(state, r, a, now);
   const watching = state.watched.has(r.symbol);
@@ -208,7 +238,7 @@ export function renderDossier(state, now) {
     </header>
     <div class="dossier-meta">
       ${r.placeholder ? '' : stateBadge(a.state)}
-      <span class="meta-age" data-age="${r.price_at ?? ''}"><i class="dot ${f.freshness(r.price_at, now)}"></i>آخر صفقة ${f.time(r.price_at)} · <span class="age-text">${f.age(r.price_at, now)}</span></span>
+      <span class="meta-age" data-age="${r.price_at ?? ''}"><i class="dot ${f.freshness(r.price_at, now, r.price_source)}"></i>آخر صفقة ${f.time(r.price_at)} · <span class="age-text">${f.age(r.price_at, now)}</span>${r.price_source ? html` · <span class="src">${r.price_source === 'CONSOLIDATED' ? 'مجمّع (ناسداك)' : 'IEX'}</span>` : ''}</span>
       <button class="btn ${watching ? 'btn-on' : ''}" data-watch="${r.symbol}" aria-pressed="${watching}">${watching ? '★ في المتابعة' : '☆ أضف للمتابعة'}</button>
     </div>
     <nav class="seg" role="tablist" aria-label="أقسام ملف السهم">${TABS.map(([id, label]) =>

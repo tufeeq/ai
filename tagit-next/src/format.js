@@ -45,8 +45,9 @@ export function age(at, now) {
 }
 
 /** Freshness bucket for a colored dot: live ≤ 15s, aging ≤ 60s, stale otherwise. */
-export function freshness(at, now) {
+export function freshness(at, now, source = 'IEX') {
   const ms = elapsed(at, now);
   if (!Number.isFinite(ms) || ms < 0) return 'none';
-  return ms <= 15_000 ? 'live' : ms <= 60_000 ? 'aging' : 'stale';
+  const live = source === 'CONSOLIDATED' ? 120_000 : 15_000; // consolidated times are minute starts
+  return ms <= live ? 'live' : ms <= live + 60_000 ? 'aging' : 'stale';
 }

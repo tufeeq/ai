@@ -1,4 +1,5 @@
 import datetime as dt
+import json
 import unittest
 from unittest import mock
 
@@ -57,6 +58,28 @@ class Directory(unittest.TestCase):
         self.assertEqual(listing['AAA']['status'], 'DEFICIENT')
         self.assertEqual(listing['AAA']['tier'], 'CAPITAL_MARKET')
         self.assertEqual(file_time, '0925202612:00')
+
+
+class Finra(unittest.TestCase):
+    def test_uses_newest_partition_and_filters_by_equal_settlement(self):
+        calls = []
+        def fake(url, headers=None, data=None, **k):
+            calls.append((url, data))
+            if 'partitions' in url:
+                return json.dumps({'availablePartitions': [{'partitions': ['2026-08-31']}, {'partitions': ['2026-09-15']}]}).encode()
+            return json.dumps([
+                {'symbolCode': 'AAA', 'settlementDate': '2026-09-15', 'currentShortPositionQuantity': 300,
+                 'previousShortPositionQuantity': 200, 'averageDailyVolumeQuantity': 100},
+                {'symbolCode': 'ZZZ', 'settlementDate': '2026-09-15', 'currentShortPositionQuantity': 1},
+            ]).encode()
+        with mock.patch.object(enrich, 'fetch', side_effect=fake):
+            out, settlement = enrich.finra_short_interest({'AAA'})
+        self.assertEqual(settlement, '2026-09-15')
+        self.assertEqual(calls[1][1]['compareFilters'][0]['fieldValue'], '2026-09-15')
+        self.assertNotIn('sortFields', calls[1][1])
+        self.assertEqual(list(out), ['AAA'])
+        self.assertAlmostEqual(out['AAA']['days_to_cover'], 3.0)
+        self.assertAlmostEqual(out['AAA']['change_pct'], 50.0)
 
 
 if __name__ == '__main__':

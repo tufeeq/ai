@@ -117,7 +117,6 @@ def nasdaq_directory():
             'status_code': code or None,
             'status': FINANCIAL_STATUS.get(code, 'NOT_REPORTED' if not code else 'UNKNOWN'),
             'tier': MARKET_TIER.get(row.get('Market Category')),
-            'name': row.get('Security Name'),
         }
     return listing, file_time
 
@@ -136,7 +135,6 @@ def sec_company(cik, limiter, since):
         filings.append({
             'form': form,
             'date': date,
-            'accepted_at': recent.get('acceptanceDateTime', [None] * (i + 1))[i],
             'items': recent.get('items', [''] * (i + 1))[i] or None,
             'url': f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession.replace('-', '')}/{recent['primaryDocument'][i]}",
         })
@@ -185,10 +183,14 @@ def filing_flags(filings, today):
 
 
 def finra_short_interest(symbols):
-    url = 'https://api.finra.org/data/group/otcMarket/name/consolidatedShortInterest'
+    """Latest FINRA settlement for our symbols. The newest settlement date comes from the
+    dataset's partitions; FINRA only sorts or filters efficiently on that partition key."""
+    base = 'https://api.finra.org'
     headers = {'Accept': 'application/json', 'User-Agent': BROWSER_UA}
-    latest = json.loads(fetch(url, headers, {'limit': 1, 'sortFields': ['-settlementDate'], 'fields': ['settlementDate']}))
-    settlement = latest[0]['settlementDate']
+    partitions = json.loads(fetch(f'{base}/partitions/group/otcMarket/name/consolidatedShortInterest', headers))
+    dates = [p for block in partitions.get('availablePartitions', []) for p in block.get('partitions', [])]
+    settlement = max(dates)
+    url = f'{base}/data/group/otcMarket/name/consolidatedShortInterest'
     out, offset = {}, 0
     while True:
         page = json.loads(fetch(url, headers, {
@@ -197,15 +199,19 @@ def finra_short_interest(symbols):
         }))
         for r in page:
             sym = r.get('symbolCode')
-            if sym in symbols:
-                out[sym] = {
-                    'settlement_date': r.get('settlementDate'),
-                    'shares_short': r.get('currentShortPositionQuantity'),
-                    'previous_shares_short': r.get('previousShortPositionQuantity'),
-                    'change_pct': r.get('changePercent'),
-                    'days_to_cover': r.get('daysToCoverQuantity'),
-                    'avg_daily_volume': r.get('averageDailyVolumeQuantity'),
-                }
+            if sym not in symbols:
+                continue
+            short, prev, adv = r.get('currentShortPositionQuantity'), r.get('previousShortPositionQuantity'), r.get('averageDailyVolumeQuantity')
+            out[sym] = {
+                'settlement_date': r.get('settlementDate'),
+                'shares_short': short,
+                'previous_shares_short': prev,
+                'change_pct': r.get('changePercent') if r.get('changePercent') is not None else (
+                    (short / prev - 1) * 100 if isinstance(short, (int, float)) and isinstance(prev, (int, float)) and prev > 0 else None),
+                'days_to_cover': r.get('daysToCoverQuantity') if r.get('daysToCoverQuantity') is not None else (
+                    short / adv if isinstance(short, (int, float)) and isinstance(adv, (int, float)) and adv > 0 else None),
+                'avg_daily_volume': adv,
+            }
         if len(page) < 5000:
             break
         offset += 5000
@@ -257,7 +263,7 @@ def build(limit=None):
                 sec = job.result()
                 result[s].update(sec)
                 result[s]['flags'] = filing_flags(sec['filings'], today)
-                sec['filings'][:] = sec['filings'][:8]
+                sec['filings'][:] = sec['filings'][:5]  # the page shows the latest five
             except Exception as e:  # one company's failure never fails the build
                 errors += 1
                 result[s]['sec_error'] = str(e)[:120]

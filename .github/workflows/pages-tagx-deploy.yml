@@ -51,7 +51,8 @@ jobs:
           node --check tagit-next/performance.js
           node --test tagit-next/phase2-view.test.mjs
           python tagit-next/verify-evidence-release.py --local
-          node --test tagit-next/tests/opportunity.test.mjs tagit-next/tests/app.test.mjs
+          node --test tagit-next/tests/opportunity.test.mjs tagit-next/tests/app.test.mjs tagit-next/tests/sources.test.mjs tagit-next/tests/research.test.mjs
+          python -m unittest discover -s tagit-next/pipeline -p 'test_*.py'
           for f in tagit-next/src/*.js tagit-next/src/core/*.js tagit-next/src/views/*.js; do node --check "$f"; done
           python -m json.tool tagit-next/execution-latency.json > /dev/null
           python -m json.tool tagit-next/live-config.json > /dev/null
@@ -96,6 +97,7 @@ jobs:
           mkdir -p _site/tagit _site/tagit10 _site/marginos _site/operon _site/tagit-next
           cp tagit-next/opportunity.mjs tagit-next/index.html tagit-next/app.js tagit-next/style.css tagit-next/snapshot.json tagit-next/live-config.json tagit-next/execution-latency.json _site/tagit-next/
           cp -R tagit-next/src _site/tagit-next/src
+          cp -R tagit-next/data _site/tagit-next/data
           test -s _site/tagit-next/src/state.js
           cp tagit-next/workspace-tabs.mjs _site/tagit-next/
           cp -R tagit-next/lab _site/tagit-next/lab

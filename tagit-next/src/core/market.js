@@ -48,11 +48,33 @@ const validTrade = (r, now) => positive(r?.price) && stamp(r.price_at) > -Infini
 const validQuote = (r, now) =>
   positive(r?.bid) && positive(r?.ask) && r.bid <= r.ask && stamp(r.quote_at) > -Infinity && stamp(r.quote_at) <= now;
 
-function newest(current, incoming, isValid, timeKey, now) {
-  const inOk = isValid(incoming, now);
-  const curOk = isValid(current, now);
-  if (inOk && (!curOk || stamp(incoming[timeKey]) >= stamp(current[timeKey]))) return incoming;
-  return curOk ? current : null;
+/** The valid candidate with the latest timestamp; earlier candidates win ties. */
+function newest(candidates, isValid, timeKey, now) {
+  let best = null;
+  for (const c of candidates) {
+    if (isValid(c, now) && (!best || stamp(c[timeKey]) > stamp(best[timeKey]))) best = c;
+  }
+  return best;
+}
+
+/** The more recently fetched consolidated overlay of the two rows. */
+function latestOverlay(current, incoming) {
+  const a = current?.consolidated, b = incoming?.consolidated;
+  if (!a) return b ?? null;
+  if (!b) return a;
+  return stamp(b.fetched_at) >= stamp(a.fetched_at) ? b : a;
+}
+
+/**
+ * Nasdaq.com consolidated overlay as trade and quote candidates. The trade time is the start of
+ * its minute (the source only reports minutes), so it wins only when a later minute traded.
+ */
+function overlayCandidates(overlay) {
+  if (!overlay || overlay.real_time === false) return [null, null];
+  return [
+    { price: overlay.price, price_at: overlay.trade_minute_at, price_source: 'CONSOLIDATED' },
+    { bid: overlay.bid, ask: overlay.ask, quote_at: overlay.fetched_at, quote_source: 'CONSOLIDATED' },
+  ];
 }
 
 /**
@@ -62,11 +84,21 @@ function newest(current, incoming, isValid, timeKey, now) {
  */
 export function mergeMarketRow(current, incoming, { scan = false, now = Date.now() } = {}) {
   const result = scan ? { ...incoming } : { ...current };
-  const trade = newest(current, incoming, validTrade, 'price_at', now);
-  const quote = newest(current, incoming, validQuote, 'quote_at', now);
+  const overlay = latestOverlay(current, incoming);
+  const [overlayTrade, overlayQuote] = overlayCandidates(overlay);
+  // IEX rows carry no source field; the incoming row is listed first so it wins exact ties.
+  const trade = newest([incoming, current, overlayTrade], validTrade, 'price_at', now);
+  const quote = newest([incoming, current, overlayQuote], validQuote, 'quote_at', now);
 
+  result.consolidated = overlay;
+  if (incoming && 'halt' in incoming) {
+    result.halt = incoming.halt;
+    result.halt_status = incoming.halt_status;
+  }
   result.price = trade?.price ?? null;
   result.price_at = trade?.price_at ?? null;
+  result.price_source = trade ? trade.price_source ?? 'IEX' : null;
+  result.quote_source = quote ? quote.quote_source ?? 'IEX' : null;
   result.quote_at = quote?.quote_at ?? null;
   result.bid = quote?.bid ?? null;
   result.ask = quote?.ask ?? null;
