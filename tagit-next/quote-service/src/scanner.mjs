@@ -30,7 +30,7 @@ export function rankSnapshot(symbol,snapshot,metadata,now){
  const t=snapshot?.latestTrade,d=snapshot?.dailyBar,p=snapshot?.prevDailyBar,q=snapshot?.latestQuote;
  const price=positive(t?.p)?t.p:null,age=now-Date.parse(t?.t),qa=now-Date.parse(q?.t);
  const spread=positive(q?.ap)&&positive(q?.bp)&&q.ap>=q.bp?(q.ap-q.bp)/q.ap*100:null;
- return {symbol,...metadata,price,price_at:t?.t??null,age_ms:Number.isFinite(age)?age:null,previous_close:p?.c??null,day_change:pct(price,p?.c),day_volume:d?.v??null,day_dollars:positive(d?.c)?d.c*d.v:null,day_high:d?.h??null,minute_change:pct(snapshot?.minuteBar?.c,snapshot?.minuteBar?.o),minute_dollars:(snapshot?.minuteBar?.v??0)*(snapshot?.minuteBar?.c??0),spread_pct:spread,quote_at:q?.t??null,quote_fresh:qa>=0&&qa<=10000,bid:q?.bp??null,ask:q?.ap??null,status:age>=0&&age<=15000?'FRESH':'STALE'};
+ return {symbol,...metadata,price,price_at:t?.t??null,age_ms:Number.isFinite(age)?age:null,previous_close:p?.c??null,day_change:pct(price,p?.c),day_volume:d?.v??null,day_dollars:positive(d?.c)?d.c*d.v:null,day_high:d?.h??null,minute_at:snapshot?.minuteBar?.t??null,minute_change:pct(snapshot?.minuteBar?.c,snapshot?.minuteBar?.o),minute_dollars:(snapshot?.minuteBar?.v??0)*(snapshot?.minuteBar?.c??0),spread_pct:spread,quote_at:q?.t??null,quote_fresh:qa>=0&&qa<=10000,bid:q?.bp??null,ask:q?.ap??null,status:age>=0&&age<=15000?'FRESH':'STALE'};
 }
 export function createScanner({env=process.env,fetcher=fetch,now=Date.now}={}){
  let cached=null,loading=null,universe=null,universeAt=0,newsCache=null,newsAt=0,closesAt=0,closes=new Map();const ledger=[],lastSignals=new Map();

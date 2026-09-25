@@ -7,6 +7,7 @@ import {createCalendar,nyParts} from './calendar.mjs';
 import {normalizeBar} from './data.mjs';
 import {createEngine} from './engine.mjs';
 import {entryProposal} from './proposals.mjs';
+import {learningPool} from './learning.mjs';
 import {settings} from '../../quote-service/src/market.mjs';
 import {restoreDecisionSnapshot} from './recovery.mjs';
 export function createElite({env=process.env,fetcher=fetch,now=Date.now}={}) {
@@ -19,6 +20,7 @@ export function createElite({env=process.env,fetcher=fetch,now=Date.now}={}) {
    storage:path===':memory:'?'MEMORY':path.startsWith(tmpdir()+'/')?'EPHEMERAL_SQLITE':'PERSISTENT_PATH_UNVERIFIED',
    lastObservedAt:null,lastError:null,busy:false,processedBars:0,duplicateBars:0,invalidBars:0,computeMs:null,calendarSource:'PROVIDER',approvedForLive:false,recoveredDecisions};
  let engine=null,calendar=null,calendarDay=null,chain=Promise.resolve(),lastScan=null,followupAt=0,stopped=false;
+ let learning=null;
  const newsSeen=new Set();
  for(const o of store.snapshots(runId)){
    if(o.eligibility?.record)metadata.push(o.eligibility.record);
@@ -37,6 +39,7 @@ export function createElite({env=process.env,fetcher=fetch,now=Date.now}={}) {
  async function consume({scan,histories}) {
   if(stopped||lastScan&&Date.parse(scan.server_time)<=Date.parse(lastScan))return;status.busy=true;status.lastError=null;const started=now();
   try{
+   if(scan.coverage?.version==='breadth-1')learning=learningPool(scan);
    const day=nyParts(scan.server_time).date;await calendarFor(day);if(!calendar.session(day))return;
    const receivedAt=new Date(now()).toISOString(),rows=new Map(scan.rows.map(r=>[r.symbol,r]));
    for(const row of scan.rows){
@@ -81,6 +84,6 @@ export function createElite({env=process.env,fetcher=fetch,now=Date.now}={}) {
  }
  return {observe(e){if(stopped)return chain;chain=chain.then(()=>consume(e)).catch(()=>{status.lastError='STORAGE_FAILED';});return chain;},
   status:()=>({...status,...store.summary(),storage:status.storage}),
-  snapshot(){const rows=store.snapshots(runId);return {name:'TAG elite',status:this.status(),mode:'SHADOW',serverTime:new Date(now()).toISOString(),opportunities:rows.map(o=>({...o,bars:store.series(runId,o),lastTrade:livePrices.get(o.symbol)??null,timeline:store.timeline(o.id),proposal:entryProposal(o,store.timeline(o.id),liveQuotes.get(o.symbol),now())})),rulesPromoted:false};},
+  snapshot(){const rows=store.snapshots(runId);return {name:'TAG elite',status:this.status(),mode:'SHADOW',serverTime:new Date(now()).toISOString(),learning,opportunities:rows.map(o=>({...o,bars:store.series(runId,o),lastTrade:livePrices.get(o.symbol)??null,timeline:store.timeline(o.id),proposal:entryProposal(o,store.timeline(o.id),liveQuotes.get(o.symbol),now())})),rulesPromoted:false};},
   timeline:id=>store.timeline(id),async close(){stopped=true;await chain;store.close();},drain:()=>chain};
 }
