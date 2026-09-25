@@ -1,96 +1,310 @@
-import {isExtended,mergeMarketRow,marketDate,assess,splitPriority,updatePressure,pressureSummary,shariaStatus,sizePosition,recordObservation,outcome,restoreJournal,positive,finite,elapsed} from './opportunity.mjs?v=desk-6';
-const formatters=new Map();const numberFormat=d=>{if(!formatters.has(d))formatters.set(d,new Intl.NumberFormat('en-US',{maximumFractionDigits:d,minimumFractionDigits:d}));return formatters.get(d);};
-const $=id=>document.getElementById(id),N=(v,d=2)=>finite(v)?numberFormat(d).format(v):'—',E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const stateNames={READY:'خطة مشروطة',CONFIRM:'تحتاج تأكيدًا',EXTENDED:'حركة ممتدة',STALE:'سعر غير حديث',WATCH:'للمتابعة'};
-const subjects={FINANCING_OR_LISTING_RISK:'تمويل / مخاطرة إدراج',CLINICAL_OR_REGULATORY:'سريري / تنظيمي',EARNINGS:'نتائج مالية',DEAL:'صفقة / اتفاق',OTHER:'خبر مرتبط'};
-const key='tagit-next-journal-v1';let data=null,endpoint='',view='early',selected=null,detailView='overview',busy=false,quoteBusy=false,connected=false,offset=0,journal=[],watched=new Set(),storeOK=true,toastTimer,lastSave=0,tierSignature='',stateSignature='';
-const stocks=new Map(),riskDraft=new Map(),pressure=new Map();const now=()=>Date.now()+offset;
-const timeFormat=new Intl.DateTimeFormat('ar-SA',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',second:'2-digit'}),dateFormat=new Intl.DateTimeFormat('ar-SA',{timeZone:'America/New_York',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-const T=t=>Number.isFinite(Date.parse(t))?timeFormat.format(new Date(t)):'—';
-const D=t=>Number.isFinite(Date.parse(t))?dateFormat.format(new Date(t)):'—';
-const age=r=>elapsed(r?.price_at,now())/1000,ageLabel=r=>!finite(age(r))?'غير متاح':age(r)<0?'وقت غير صالح':age(r)<60?Math.floor(age(r))+' ث':age(r)<3600?Math.floor(age(r)/60)+' د':Math.floor(age(r)/3600)+' س';
-let assessmentTick=-1;const assessmentCache=new Map();
-const A=r=>{const tick=Math.floor(now()/1000);if(tick!==assessmentTick){assessmentCache.clear();assessmentTick=tick;}if(!assessmentCache.has(r))assessmentCache.set(r,assess(r,{now:now(),serverTime:r.scan_at??data?.server_time,connected,feed:data?.feed}));return assessmentCache.get(r);};
-// Preserve live DOM nodes, keyboard focus, entered values, disclosures and scroll positions.
-function patch(parent,html){const template=document.createElement('template');template.innerHTML=html;sync(parent,template.content);}
-const nodeKey=n=>n.nodeType===1?(n.getAttribute('data-key')||n.id||n.getAttribute('data-symbol')||n.getAttribute('data-detail')||''):'';
-function sync(parent,source){
- const keyed=new Map([...parent.childNodes].map(n=>[nodeKey(n),n]).filter(([k])=>k));let cursor=parent.firstChild;
- for(const fresh of [...source.childNodes]){const key=nodeKey(fresh);let old=key?keyed.get(key):cursor;
-  if(!old||old.nodeType!==fresh.nodeType||old.nodeName!==fresh.nodeName||nodeKey(old)!==key){old=fresh.cloneNode(true);parent.insertBefore(old,cursor);}
-  else{if(old!==cursor)parent.insertBefore(old,cursor);if(old.nodeType===3){if(old.nodeValue!==fresh.nodeValue)old.nodeValue=fresh.nodeValue;}else if(old.nodeType===1){
-   for(const a of [...old.attributes])if(!fresh.hasAttribute(a.name)&&!(old.tagName==='DETAILS'&&a.name==='open'))old.removeAttribute(a.name);
-   for(const a of [...fresh.attributes])if(old.getAttribute(a.name)!==a.value&&!(old===document.activeElement&&a.name==='value'))old.setAttribute(a.name,a.value);
-   if(old.tagName==='INPUT'&&old!==document.activeElement&&old.value!==fresh.value)old.value=fresh.value;
-   sync(old,fresh);
-  }}cursor=old.nextSibling;
- }while(cursor){const next=cursor.nextSibling;cursor.remove();cursor=next;}
-}
-function riskText(plan,draft){const result=sizePosition(plan,Number(draft.risk),Number(draft.capital));return result&&result.shares<1?'حد الخسارة أو رأس المال لا يكفي لسهم واحد وفق هذه الخطة.':result?`${N(result.shares,0)} سهمًا · قيمة تقريبية $${N(result.notional)} · مخاطرة مخططة $${N(result.plannedRisk)} قبل الرسوم والانزلاق.`:'أدخل مبلغين موجبين وتأكد من بقاء الخطة مستوفية وحديثة.';}
+// TAGit NEXT workspace controller: wires the data service, state and views.
+import { morph, html } from './src/html.js';
+import { loadEndpoint, createClient, errorMessage } from './src/api.js';
+import * as storage from './src/storage.js';
+import {
+  createState, applyScan, scanFailed, applyQuotes, nextQuoteSymbols, toggleWatch, removeEvent, visibleRows,
+} from './src/state.js';
+import { renderList, LIST_NOTES } from './src/views/list.js';
+import { renderJournal, JOURNAL_NOTE } from './src/views/journal.js';
+import { renderDossier } from './src/views/dossier.js';
+import { renderStatus, renderMetrics, renderNotices, coverageText } from './src/views/status.js';
 
-const S=r=>shariaStatus(r?.sharia,now());
-const badge=r=>{const s=S(r);return `<span class="sharia ${s.status}" role="img" aria-label="${E(s.label)}" title="${E(s.label)}">${s.icon}</span>`;};
-const flow=r=>pressureSummary(pressure.get(r.symbol),now());
-const changeClass=n=>finite(n)?n>=0?'up':'down':'';
-const pct=n=>finite(n)?N(n)+'%':'—';
-const price=n=>N(n,positive(n)&&n<1?4:2);
-const link=u=>{try{const url=new URL(u);return ['http:','https:'].includes(url.protocol)?E(url.href):'#';}catch{return '#';}};
-const mini=(label,value,hint='')=>`<div class="mini"><span>${label}</span><strong>${value}</strong>${hint?`<small>${hint}</small>`:''}</div>`;
-function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4000);}
-try{const saved=JSON.parse(localStorage.getItem(key)||'null');journal=restoreJournal(saved);watched=new Set((saved?.watch??[]).filter(s=>/^[A-Z][A-Z0-9.-]{0,9}$/.test(s)).slice(0,50));if(localStorage.getItem('tagit-theme')==='dark')document.body.classList.add('dark');}catch{storeOK=false;}
-function save(force=false){if(!force&&Date.now()-lastSave<5000)return;try{localStorage.setItem(key,JSON.stringify({schema:1,updated_at:new Date(now()).toISOString(),watch:[...watched],events:journal.slice(-250)}));lastSave=Date.now();storeOK=true;}catch{storeOK=false;}}
-function addEvent(row,kind='WATCH',at=new Date(now()).toISOString()){
- if(!positive(row.price)||elapsed(row.price_at,now())<0||elapsed(row.price_at,now())>15000)return false;
- const id=kind+':'+row.symbol+':'+at;if(journal.some(e=>e.id===id))return false;
- journal.push({id,symbol:row.symbol,name:row.name,kind,started_at:at,observed_from:new Date(now()).toISOString(),start_price:row.price,source_price_at:row.price_at,feed:data?.feed,plan:A(row).plan,points:[],min:row.price,max:row.price,last_price:row.price,last_at:row.price_at});journal=journal.slice(-250);save(true);return true;
+const SCAN_INTERVAL_MS = 30_000;
+const QUOTE_INTERVAL_MS = 5_000;
+const SAVE_THROTTLE_MS = 5_000;
+const SHEET_BREAKPOINT = 1080;
+
+const $ = (id) => document.getElementById(id);
+const clock = () => Date.now();
+
+const saved = storage.loadJournal();
+const state = createState({ journal: saved.events, watched: saved.watched, settings: storage.loadSettings() });
+let client = null;
+let scanning = false;
+let quoting = false;
+let lastSave = 0;
+let toastTimer = 0;
+
+// ---- persistence -----------------------------------------------------------------
+
+function persist(force = false) {
+  if (!force && (!state.dirty || clock() - lastSave < SAVE_THROTTLE_MS)) return;
+  state.dirty = false;
+  state.storageOk = storage.saveJournal(state.journal, state.watched, clock());
+  lastSave = clock();
 }
-function observe(){let changed=false;journal=journal.map(e=>{const next=recordObservation(e,stocks.get(e.symbol));if(next!==e)changed=true;return next;});if(changed)save();}
-const signalCount=()=>(data?.rows??[]).filter(r=>r.signal?.expansion&&!isExtended(r)&&A(r).checks.find(c=>c.key==='history').pass).length;
-function filteredRows(){let rows=view==='watch'?[...watched].map(s=>stocks.get(s)??{symbol:s,name:'بانتظار تحديث السعر'}):[...(data?.rows??[])];if(view!=='watch')rows=rows.filter(r=>positive(r.market_cap)&&r.market_cap<100000000);if(view==='early')rows=rows.filter(r=>!isExtended(r));if(view==='early'||view==='watch')rows.sort((a,b)=>A(b).passed-A(a).passed||(b.score??0)-(a.score??0));if(view==='gainers')rows.sort((a,b)=>(b.day_change??-Infinity)-(a.day_change??-Infinity));const query=$('search').value.trim().toUpperCase(),status=$('status-filter').value;return rows.filter(r=>(r.symbol.includes(query)||(r.name??'').toUpperCase().includes(query))&&(!r.price||r.price<=Number($('max-price').value))&&(status==='all'||status==='fresh'&&age(r)>=0&&age(r)<=15||status==='news'&&r.news?.length||A(r).state===status)).slice(0,80);}
-function signature(){return [...new Set([...(data?.rows??[]),...([...watched,selected].map(s=>stocks.get(s)).filter(Boolean))])].map(r=>{const a=A(r);return r.symbol+':'+a.state+':'+a.passed+':'+Boolean(a.plan)+':'+flow(r).status;}).join('|');}
-function render(){
- stateSignature=signature();$('max-price').disabled=view==='journal';$('status-filter').disabled=view==='journal';
- $('watch-count').textContent=watched.size;
- if(view==='journal'){renderJournal();return;}
- patch($('table-head'),'<th>السهم</th><th>السعر / اليوم</th><th>حجم ٣د</th><th>الحالة / السيولة</th><th>عمر الصفقة</th>');
- const rows=filteredRows();const rowHTML=r=>{const a=A(r),f=flow(r);return `<tr data-key="${E(r.symbol)}" class="${selected===r.symbol?'selected':''}"><td><button data-symbol="${E(r.symbol)}">${watched.has(r.symbol)?'★ ':''}${E(r.symbol)}</button> ${badge(r)}<small>${E(r.name)}</small></td><td><span class="price">${price(r.price)}</span><small class="${changeClass(r.day_change)}">${pct(r.day_change)}</small></td><td>${N(r.signal?.volume_ratio,1)}×<small>${finite(r.signal?.dollars_3m)?'$'+N(r.signal.dollars_3m,0):'بيانات غير كافية'}</small></td><td><span class="badge ${a.state}">${stateNames[a.state]}</span><small>${a.passed}/${a.total} شروط</small><small class="flow ${f.status}">${f.label}</small></td><td data-age="${E(r.price_at)}">${ageLabel(r)}</td></tr>`;};
- const grouped=view==='early'||view==='watch';const groups=splitPriority(rows,{now:now(),serverTime:data?.server_time,connected,feed:data?.feed,assessment:A});
- tierSignature=groups.upper.map(r=>r.symbol).join(',');
- patch($('rows'),grouped?`<tr data-key="tier-upper" class="tier priority"><th colspan="5">↑ الأعلى استيفاءً <b>${groups.upper.length}</b><small>٨/١٢ فأكثر · دقائق وسيولة حديثة · ليست ضمان دخول</small></th></tr>${groups.upper.length?groups.upper.map(rowHTML).join(''):'<tr><td colspan="5" class="tier-empty">لا توجد فرصة مستوفية لحد القسم الأعلى الآن.</td></tr>'}<tr data-key="tier-lower" class="tier monitor"><th colspan="5">◉ الجديرة بالمتابعة <b>${groups.lower.length}</b><small>مرتبة حسب الشروط · تنتقل للأعلى تلقائيًا عند الاستيفاء</small></th></tr>${groups.lower.map(rowHTML).join('')}`:rows.map(rowHTML).join(''));
- $('empty').hidden=rows.length>0;$('empty').textContent=view==='watch'?'أضف سهمًا للمتابعة من ملف الفرصة. تُحفظ القائمة في متصفحك.':data?'لا توجد أسهم تطابق هذه الفلاتر. جرّب عرض كل الحالات.':'بانتظار بيانات السوق…';$('row-count').textContent=`${rows.length} سهمًا معروضًا`;
- $('list-note').textContent=view==='early'?'الأعلى: ٨/١٢ فأكثر، مع دقائق حديثة وحد أدنى للسيولة والصفقات ودون امتداد. الأسفل: استيفاء أقل أو بيانات تحتاج تحديثًا. ضغط السيولة تقدير من عينات IEX، وليس تدفقًا نقديًا مؤكدًا.':view==='gainers'?'نسب مقارنة بإغلاق معدّل للتجزئات؛ ارتفاع اليوم وحده ليس فرصة دخول.':`قائمة محفوظة في هذا المتصفح. ${storeOK?'':'تعذر الحفظ المحلي؛ صدّر سجلّك.'}`;
- if(selected)renderDetail();
+
+// ---- rendering --------------------------------------------------------------------
+
+const LIST_HEAD = html`<span>السهم</span><span>السعر / اليوم</span><span>الشروط</span><span>حجم ٣ د</span><span>الحالة</span><span>عمر الصفقة</span>`;
+const JOURNAL_HEAD = html`<span>السهم / بداية الرصد</span><span>الرصد ← آخر عينة</span><span>التغير</span><span>أعلى / أدنى</span>`;
+
+function render() {
+  const now = clock();
+  const journal = state.ui.view === 'journal';
+  morph($('status'), renderStatus(state, now, { scanning }));
+  morph($('kpis'), renderMetrics(state, now));
+  morph($('notices'), renderNotices(state));
+
+  const list = journal ? renderJournal(state) : renderList(state, now);
+  $('list').classList.toggle('is-journal', journal);
+  $('list-head').classList.toggle('is-journal', journal);
+  morph($('list-head'), journal ? JOURNAL_HEAD : LIST_HEAD);
+  morph($('list'), list.markup);
+  $('empty').hidden = !list.empty;
+  $('empty').textContent = list.empty;
+  $('row-count').textContent = journal ? `${list.count} سجلًا` : `${list.count} سهمًا معروضًا`;
+  $('list-note').textContent = journal ? JOURNAL_NOTE : LIST_NOTES[state.ui.view];
+  $('watch-count').textContent = state.watched.size;
+  $('journal-count').textContent = state.journal.length;
+  $('max-price').disabled = journal;
+  document.querySelectorAll('[data-filter]').forEach((b) => { b.disabled = journal; });
+
+  morph($('dossier'), renderDossier(state, now));
+  $('dossier').classList.toggle('is-open', state.ui.sheet);
+  document.body.classList.toggle('sheet-open', state.ui.sheet && innerWidth < SHEET_BREAKPOINT);
+
+  const coverage = coverageText(state);
+  if (coverage) {
+    $('coverage-line').textContent = coverage;
+    $('coverage').textContent = coverage;
+  }
 }
-function renderJournal(){const q=$('search').value.trim().toUpperCase();const rows=[...journal].sort((a,b)=>Date.parse(b.started_at)-Date.parse(a.started_at)).filter(e=>e.symbol.includes(q));patch($('table-head'),'<th>السهم / بداية الرصد</th><th>عند الرصد / آخر عينة</th><th>التغير المرصود</th><th>أعلى / أدنى امتداد</th><th>آخر عينة</th>');patch($('rows'),rows.map(e=>{const o=outcome(e);return `<tr data-key="${E(e.id)}"><td><button data-symbol="${E(e.symbol)}" data-event="${E(e.id)}">${E(e.symbol)}</button><small>${D(e.started_at)}</small></td><td>${price(e.start_price)} / ${price(e.last_price)}<small>${e.kind==='SIGNAL'?'تنبيه آلي':'متابعة يدوية'}</small></td><td class="${changeClass(o.change)}">${pct(o.change)}</td><td><span class="up">${pct(o.maximum)}</span><small class="down">${pct(o.drawdown)}</small></td><td>${D(e.last_at)}</td></tr>`;}).join(''));$('empty').hidden=rows.length>0;$('empty').textContent='لم يبدأ سجل المتابعة بعد. أضف سهمًا بسعر حديث أو انتظر تنبيهًا آليًا.';$('row-count').textContent=rows.length+' سجلًا';$('list-note').textContent='نتائج أسعار مرصودة منذ بدء المتابعة، وليست أرباح صفقات منفذة. لا توجد متابعة أثناء إغلاق الصفحة. تصدير السجل يحفظ نسخة مستقلة.';if(selected)renderDetail();}
-function chart(event){const points=event.points??[];if(points.length<2)return '<p>يظهر الرسم بعد وصول عينتين جديدتين بعد بدء المتابعة. لا نملأ الفترة السابقة ببيانات مصطنعة.</p>';const min=Math.min(...points.map(p=>p.price)),max=Math.max(...points.map(p=>p.price)),start=Date.parse(points[0].at),end=Date.parse(points.at(-1).at);const path=points.map((p,i)=>`${i?'L':'M'}${10+(Date.parse(p.at)-start)/Math.max(1,end-start)*380},${110-(p.price-min)/Math.max(.000001,max-min)*90}`).join(' ');return `<svg class="spark" viewBox="0 0 400 125" role="img" aria-label="عينات السعر المرصودة بعد بدء المتابعة"><path d="M10 110H390" stroke="currentColor" opacity=".15"/><path d="${path}" stroke="currentColor" stroke-width="2" fill="none"/><text x="10" y="14" fill="currentColor" font-size="10">${price(max)}</text><text x="10" y="124" fill="currentColor" font-size="10">${price(min)}</text></svg><div class="chart-label"><span>${T(points[0].at)}</span><span>${T(points.at(-1).at)}</span></div><p>عينات منفصلة؛ الخط الواصل لا يعني معرفة مسار السعر بين العينات.</p>`;}
-function renderDetail(){
- const live=stocks.get(selected),event=[...journal].reverse().find(e=>e.symbol===selected);const r=live??(event?{symbol:event.symbol,name:event.name,price:event.last_price,price_at:event.last_at}:selected?{symbol:selected,name:'بانتظار تحديث السعر'}:null);if(!r)return;
- const a=A(r),s=r.signal,p=a.plan,f=flow(r),sh=S(r),draft=riskDraft.get(selected)??{};
- let body='';
- if(detailView==='overview'){
-  body=`<div class="decision"><strong>${stateNames[a.state]}${p?' · الشروط مكتملة الآن':''}</strong><p>${a.blockers.length?'ينقص حاليًا: '+E(a.blockers.slice(0,3).join('، '))+'.':'تحققت شروط الرصد؛ يلزم استمرارها وقت التفعيل.'}</p></div><details data-key="flow-${E(r.symbol)}" class="flow-panel ${f.status}"><summary>السيولة · ${f.label}</summary><div class="mini-grid">${mini('ضغط شراء تقديري',finite(f.up)?'$'+N(f.up,0):'—')}${mini('ضغط بيع تقديري',finite(f.down)?'$'+N(f.down,0):'—')}${mini('الصافي التقديري',finite(f.net)?'$'+N(f.net,0):'—')}${mini('حجم بقيمة غير مصنفة',finite(f.flat)?'$'+N(f.flat,0):'—')}</div><p>نقدّر اتجاه الحجم الإضافي من حركة السعر بين المسوحات. يلزم ٣ عينات حجم على الأقل؛ السعر الثابت غير مصنف. تغطية IEX جزئية، ولا يكشف ذلك جانب كل صفقة أو تدفق أموال فعليًا.</p></details><details data-key="sharia-${E(r.symbol)}" class="sharia-info"><summary>${badge(r)} ${sh.label}</summary><p>${sh.status==='UNKNOWN'?'لا تتوفر حاليًا نتيجة فحص شرعي موثقة لهذا السهم. لا يُستنتج الامتثال من اسم الشركة أو قطاعها.':`الجهة: ${E(sh.source)} · المنهج: ${E(sh.methodology)} · المراجعة: ${D(sh.reviewed_at)} <a href="${link(sh.source_url)}" target="_blank" rel="noopener noreferrer">مصدر الفحص</a>`}</p></details><h3>لماذا ظهر السهم؟</h3><p>${s?.ready?`تحرك ${pct(s.return_3m)} في ٣ دقائق مكتملة، مع حجم ${N(s.volume_ratio,1)}× وقيمة تداول $${N(s.dollars_3m,0)}.`:'ظهر ضمن قائمة السوق، لكن بيانات الدقائق لا تكفي لتأكيد نمط انطلاق.'} ${isExtended(r)?'الحركة ممتدة؛ لا تُصنّف بداية مبكرة.':''}</p><div class="mini-grid">${mini('رسملة الشركة',positive(r.market_cap)?'$'+N(r.market_cap/1e6,1)+'m':'—')}${mini('الأسهم الحرة',positive(r.float_shares)?N(r.float_shares/1e6,2)+'m':'—')}${mini('حجم اليوم · IEX',N(r.day_volume,0),'حجم جزئي من بورصة واحدة')}${mini('البيع المكشوف في المرجع',pct(r.short_float_pct),'تاريخ القياس الأصلي غير متاح')}${mini('عدد صفقات ٣ دقائق',N(s?.trades_3m,0))}${mini('متوسط السعر المرجّح للنافذة',price(s?.vwap_window),'ليس متوسط كامل الجلسة')}</div><h3>قائمة التحقق · ${a.passed}/${a.total}</h3><ul class="checks">${a.checks.map(c=>`<li class="${c.pass?'pass':'fail'}"><span><i>${c.pass?'✓':'○'}</i>${c.name}</span><span>${c.key==='trade'||c.key==='quote'?T(c.value):finite(c.value)?N(c.value,c.key==='prints'?0:2)+(c.unit??''):typeof c.value==='string'?E(c.value):'—'}</span></li>`).join('')}</ul><p>تاريخ مرجع الشركة: ${D(r.metadata_at)}. درجة اكتمال الشروط ليست احتمال ربح. تقييم القيمة العادلة ونتائج مالية منظمة غير متصلين.</p>`;
- }else if(detailView==='plan'){
- body=`<div class="decision"><strong>${p?'خطة مشروطة متاحة الآن':'انتظار تحقق الشروط'}</strong><p>${p?'التفعيل عند تجاوز المستوى مع استمرار السيولة؛ تُلغى الخطة عند كسر الإبطال أو تقادم البيانات.':'لا توجد خطة مستوفية. المستويات أدناه للمراقبة الفنية فقط، ولا تُعد توصية دخول.'}</p></div><div class="mini-grid">${mini(p?'مستوى التفعيل':'مستوى اختراق للمراقبة',N(p?.entry??s?.trigger,4))}${mini('مستوى الإبطال',N(p?.stop??s?.stop,4))}${mini('هدف حسابي ١R',p?N(p.targets[0],4):'—')}${mini('هدف حسابي ٢R',p?N(p.targets[1],4):'—')}${mini('الطلب / العرض',N(r.bid,4)+' / '+N(r.ask,4),'IEX فقط · لا يمثل عمق السوق')}${mini('فارق العرض والطلب',pct(r.spread_pct))}</div><p>الأفق: رصد لحظي داخل الجلسة. لا يوجد وقت وصول للهدف مثبت. الأهداف مضاعفات مخاطرة وليست توقعات؛ يمكن أن يتجاوز التنفيذ مستوى الإبطال عند فجوة السعر.</p><h3>حاسبة كمية وفق حدودك</h3><div class="risk-form"><label>رأس المال المتاح بالدولار<input id="capital" type="number" min="0" step="1" inputmode="decimal" value="${E(draft.capital??'')}" placeholder="أدخل المبلغ"></label><label>الخسارة المخططة القصوى بالدولار<input id="risk" type="number" min="0" step="0.1" inputmode="decimal" value="${E(draft.risk??'')}" placeholder="حد تختاره أنت"></label><button id="calculate" ${p?'':'disabled'}>احسب الكمية</button></div><div id="risk-result" role="status" ${draft.calculated&&p?'':'hidden'}>${draft.calculated&&p?riskText(p,draft):''}</div><p>${p?'لا تشمل الحسبة الرسوم أو الانزلاق، ولا تضمن إمكان تنفيذ الكمية بهذا السعر.':'تُفعّل الحاسبة عند وجود خطة مستوفية فقط.'}</p>`;
- }else if(detailView==='news'){
- body=`<h3>الأخبار المرتبطة · ${r.news?.length??0}</h3><p>المصدر والوقت جزء من تقييم الخبر. التصنيف حسب موضوع العنوان، ولا يثبت إيجابية الخبر أو أنه سبب الحركة.</p>${r.news?.length?r.news.map(n=>`<article class="news-item"><span class="badge">${subjects[n.category]??'خبر مرتبط'}</span><a href="${link(n.url)}" target="_blank" rel="noopener noreferrer">${E(n.headline)}</a><small>${E(n.source)} · نُشر ${D(n.published_at)} نيويورك<br>أول جلب في الخدمة: ${D(n.first_seen_at)}</small></article>`).join(''):`<div class="decision"><strong>${r.catalyst_status==='UNAVAILABLE'?'تعذر تحميل الأخبار':'لا خبر ضمن النتائج المسترجعة'}</strong><p>لا يعني ذلك عدم وجود محفز، ولا يثبت ضخًا وتصريفًا.</p></div>`}<h3 style="margin-top:20px">ما يزال غير متحقق</h3><ul class="checks"><li>الإفصاحات الأصلية ونتائج التجارب الكاملة<span>غير مدمجة</span></li><li>التقييم المالي والقيمة العادلة<span>غير محسوب</span></li><li>مراكز البيع المكشوف بتاريخ موثق<span>غير متاح</span></li><li>خبر يثبت سبب الحركة<span>يحتاج مراجعة المصدر</span></li></ul>`;
- }else{const events=[...journal].sort((a,b)=>Date.parse(b.started_at)-Date.parse(a.started_at)).filter(e=>e.symbol===selected);body=`<h3>منذ بدء المتابعة</h3><p>محفوظ في هذا المتصفح ${storeOK?'':'· تعذر آخر حفظ'}. المتابعة تعمل أثناء فتح الصفحة فقط؛ النتائج عينات سعر وليست تنفيذًا أو سجل جلسة كاملًا.</p>${events.length?events.slice(0,5).map(e=>{const o=outcome(e);return `<article class="event-card"><strong>${e.kind==='SIGNAL'?'تنبيه آلي':'متابعة يدوية'} · ${D(e.started_at)}</strong><p>بدأ جمع العينات في هذا المتصفح: ${D(e.observed_from??e.points?.[0]?.at??e.started_at)}. الفترة التي لا تحتوي عينات لا تدخل حساب أقصى الصعود والهبوط.</p><p>السعر عند الرصد $${price(e.start_price)} · آخر عينة $${price(e.last_price)} عند ${T(e.last_at)}</p>${chart(e)}<div class="mini-grid">${mini('التغير منذ الرصد',pct(o.change))}${mini('أقصى صعود مرصود',pct(o.maximum))}${mini('أقصى هبوط مرصود',pct(o.drawdown))}${mini('المتبقي من أقصى مكسب',pct(o.retention),'قد يصبح سالبًا عند هبوط دون البداية')}</div></article>`;}).join(''):'<p>لا سجل لهذا السهم. اضغط «أضف للمتابعة» لبدء الرصد عندما يصل سعر حديث.</p>'}`;}
- patch($('detail'),`<div class="dossier-head"><div class="stock-top"><div><h2>${badge(r)} ${E(r.symbol)}</h2><p>${E(r.name)}</p></div><div class="stock-price">$${price(r.price)}<small class="${changeClass(r.day_change)}">${pct(r.day_change)} اليوم</small></div></div><p class="meta">NASDAQ · ${data?.feed?.toUpperCase()??'—'} · آخر صفقة ${T(r.price_at)} نيويورك · <span data-age="${E(r.price_at)}">${ageLabel(r)}</span></p><div class="stock-actions"><span class="badge ${a.state}">${stateNames[a.state]}</span><button id="watch-toggle">${watched.has(r.symbol)?'★ إزالة من المتابعة':'☆ أضف للمتابعة'}</button></div></div><nav class="tabs detail-tabs" aria-label="أقسام ملف الفرصة">${[['overview','التحليل'],['plan','خطة المتابعة'],['news','الأخبار'],['history','النتيجة']].map(([id,label])=>`<button data-detail="${id}" aria-pressed="${detailView===id}" class="${detailView===id?'active':''}">${label}</button>`).join('')}</nav><div data-key="body-${E(selected)}-${detailView}" class="dossier-body">${body}</div>`);
+
+let frame = 0;
+const scheduleRender = () => {
+  if (!frame) frame = requestAnimationFrame(() => { frame = 0; render(); });
+};
+
+function toast(message) {
+  const el = $('toast');
+  el.textContent = message;
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, 3500);
 }
-async function get(path,timeout=90000){const response=await fetch(endpoint+path,{cache:'no-store',signal:AbortSignal.timeout(timeout)});const d=await response.json();if(!response.ok)throw Error(d.status??'REQUEST_FAILED');return d;}
-async function scan(){if(busy||document.hidden||!endpoint)return;busy=true;$('refresh').disabled=true;$('connection').textContent='جارٍ المسح…';try{
- const response=await get('/api/scanner');if(response.schema_version!==1||!Array.isArray(response.rows)||!response.coverage||!Number.isFinite(Date.parse(response.server_time)))throw Error('INVALID_RESPONSE');data=response;offset=0;connected=true;assessmentCache.clear();
- data.rows=data.rows.map(incoming=>{incoming.scan_at=data.server_time;pressure.set(incoming.symbol,updatePressure(pressure.get(incoming.symbol),incoming,data.server_time));const row=mergeMarketRow(stocks.get(incoming.symbol),incoming,{scan:true,now:now()});stocks.set(row.symbol,row);return row;});
- let alertsAdded=false;for(const e of data.alerts??[]){const live=stocks.get(e.symbol);if(live&&Date.parse(e.detected_at)<=now()&&positive(e.price)&&elapsed(e.price_at,Date.parse(e.detected_at))>=0&&elapsed(e.price_at,Date.parse(e.detected_at))<=15000&&!journal.some(x=>x.id==='SIGNAL:'+e.symbol+':'+e.detected_at)){alertsAdded=true;journal.push({id:'SIGNAL:'+e.symbol+':'+e.detected_at,symbol:e.symbol,name:live.name,kind:'SIGNAL',started_at:e.detected_at,observed_from:new Date(now()).toISOString(),start_price:e.price,source_price_at:e.price_at,feed:data.feed,plan:e.plan,points:[],min:e.price,max:e.price,last_price:e.price,last_at:e.price_at});}}
- journal=journal.slice(-250);observe();if(alertsAdded)save(true);const c=data.coverage;$('scanned').textContent=N(c.eligible_small_caps,0);$('priced').textContent=N(c.with_prices,0);$('fresh').textContent=N(c.fresh_prices,0);$('signals').textContent=signalCount();$('plans').textContent=data.rows.filter(r=>A(r).plan).length;$('scan-time').textContent='آخر مسح '+T(data.server_time)+' نيويورك';$('connection').textContent=data.status==='PARTIAL'?'تغطية جزئية':'متصل بالسوق';$('connection').classList.remove('off');$('data-note').textContent=`${data.feed.toUpperCase()} · ${c.with_prices} سعرًا ضمن ${c.eligible_small_caps} سهمًا مؤهلًا؛ ${c.detailed_symbols} رمزًا بفحص دقائق متعمق. ${c.history_error?'تعذر اكتمال بعض الدقائق. ':''}${c.news_error?'الأخبار غير مكتملة. ':''}السعر القديم ظاهر بعمره. السجل محفوظ على جهازك${storeOK?'':' — تعذر الحفظ؛ استخدم التصدير'}.`;$('coverage').textContent=`قائمة ناسداك لدى المزود: ${c.nasdaq_assets} رمزًا؛ النطاق أقل من ١٠٠ مليون دولار حسب آخر مرجع متاح؛ تُستبعد القيمة المجهولة أو البالغة ١٠٠ مليون فأكثر. تاريخ المرجع: ${D(c.metadata_at)}. فشل جلب ${c.failed_symbols} رمزًا في آخر مسح.`;
- if(!selected&&filteredRows().length)selected=filteredRows()[0].symbol;render();
- }catch(e){connected=false;assessmentCache.clear();$('connection').textContent='تعذر التحديث';$('connection').classList.add('off');$('data-note').textContent=({CURRENT_UNIVERSE_REQUIRED:'مرجع الشركات يحتاج تحديثًا.',PROVIDER_AUTH_FAILED:'رفض مصدر الأسعار الاتصال.',RATE_LIMITED:'بلغ المصدر حد الطلبات.'}[e.message]??'لم تصل بيانات جديدة.')+' ستتم إعادة المحاولة تلقائيًا. لا تُفعّل خطة من بيانات قديمة.';render();}finally{busy=false;$('refresh').disabled=false;}}
-let cursor=0;
-async function quotes(){if(quoteBusy||document.hidden||!endpoint||!data)return;let rotating=[...new Set([...watched,...filteredRows().map(r=>r.symbol)])];if(cursor>=rotating.length)cursor=0;let slice=rotating.slice(cursor,cursor+19);cursor=rotating.length?(cursor+19)%rotating.length:0;const symbols=[...new Set([selected,...slice].filter(Boolean))].slice(0,20);if(!symbols.length)return;quoteBusy=true;try{const q=await get('/api/quotes?symbols='+encodeURIComponent(symbols.join(',')),12000);if(!Array.isArray(q.rows))throw Error('INVALID_QUOTES');assessmentCache.clear();$('quote-note').hidden=true;for(const r of q.rows){let row=stocks.get(r.symbol);if(!row){row={symbol:r.symbol,name:r.name,market_cap:r.market_cap,metadata_at:r.metadata_at,signal:null,extended:false};stocks.set(r.symbol,row);}if(positive(r.market_cap)){row.market_cap=r.market_cap;row.metadata_at=r.metadata_at;}const incoming={price:r.trade?.price,price_at:r.trade?.timestamp,quote_at:r.quote?.timestamp,bid:r.quote?.bid,ask:r.quote?.ask};Object.assign(row,mergeMarketRow(row,incoming,{now:now()}));}observe();for(const symbol of watched){const r=stocks.get(symbol);if(r&&!journal.some(e=>e.symbol===symbol&&e.kind==='WATCH'&&marketDate(e.started_at)===marketDate(new Date(now()).toISOString())))addEvent(r);}render();}catch{$('quote-note').hidden=false;$('quote-note').textContent='تعذر تحديث الأسعار السريع؛ نعيد المحاولة تلقائيًا. راقب عمر آخر صفقة.';}finally{quoteBusy=false;}}
-$('rows').addEventListener('click',e=>{const b=e.target.closest('[data-symbol]');if(!b)return;selected=b.dataset.symbol;if(b.dataset.event)detailView='history';render();if(innerWidth<1050)$('detail').scrollIntoView({behavior:'smooth',block:'start'});});
-$('detail').addEventListener('input',e=>{if(['capital','risk'].includes(e.target.id))riskDraft.set(selected,{...(riskDraft.get(selected)??{}),[e.target.id]:e.target.value,calculated:false});if($('risk-result'))$('risk-result').hidden=true;});
-$('detail').addEventListener('click',e=>{const tab=e.target.closest('[data-detail]');if(tab){detailView=tab.dataset.detail;renderDetail();return;}if(e.target.closest('#watch-toggle')){if(watched.has(selected)){watched.delete(selected);toast('أزيل من القائمة؛ سجلّه السابق محفوظ.');}else{if(watched.size>=50){toast('حد قائمة المتابعة ٥٠ سهمًا.');return;}watched.add(selected);const r=stocks.get(selected);const added=r&&addEvent(r);toast(added?'بدأ سجل الرصد من السعر الحالي.':'أضيف للقائمة؛ يبدأ سجل السعر عند وصول صفقة حديثة.');}save(true);render();return;}if(e.target.closest('#calculate')){const row=stocks.get(selected),p=row?A(row).plan:null,draft={...(riskDraft.get(selected)??{}),calculated:true};riskDraft.set(selected,draft);$('risk-result').hidden=false;$('risk-result').textContent=riskText(p,draft);}});
-document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{view=b.dataset.view;document.querySelectorAll('[data-view]').forEach(x=>{x.classList.toggle('active',x===b);x.setAttribute('aria-pressed',String(x===b));});render();}));$('reset-filters').addEventListener('click',()=>{$('search').value='';$('max-price').value='100000';$('status-filter').value='all';render();});['search','max-price','status-filter'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',render));$('refresh').addEventListener('click',scan);$('theme').addEventListener('click',()=>{document.body.classList.toggle('dark');try{localStorage.setItem('tagit-theme',document.body.classList.contains('dark')?'dark':'light');}catch{}});
-$('export').addEventListener('click',()=>{const blob=new Blob([JSON.stringify({schema:1,exported_at:new Date(now()).toISOString(),description:'Observed prices only. Not executed trades; gaps while page closed.',watch:[...watched],events:journal},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='TAGit-observations-'+new Date(now()).toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('تم تجهيز سجل المتابعة للتنزيل.');});
-document.addEventListener('visibilitychange',()=>{if(document.hidden)save(true);else scan();});window.addEventListener('pagehide',()=>save(true));render();
-try{const config=await fetch('live-config.json',{cache:'no-store'}).then(r=>r.json());const u=new URL(config.endpoint);if(u.protocol!=='https:'||u.username||u.password||u.search||u.hash)throw Error('INVALID_ENDPOINT');endpoint=u.origin;await scan();}catch{$('connection').textContent='تعذر تحميل إعدادات الاتصال';}
-setInterval(scan,30000);setInterval(quotes,5000);setInterval(()=>{if(document.hidden)return;if(data){if(signature()!==stateSignature)render();$('plans').textContent=data.rows.filter(r=>A(r).plan).length;$('signals').textContent=signalCount();}document.querySelectorAll('[data-age]').forEach(el=>{const value=ageLabel({price_at:el.dataset.age});if(el.textContent!==value)el.textContent=value;});},1000);
+
+// ---- data -------------------------------------------------------------------------
+
+async function scan({ manual = false } = {}) {
+  if (scanning || !client || (document.hidden && !manual)) return;
+  scanning = true;
+  $('refresh').disabled = true;
+  scheduleRender();
+  try {
+    // A cold free-tier server can take close to a minute on the first request.
+    const payload = await client.scanner(state.scan ? 30_000 : 90_000);
+    const added = applyScan(state, payload, clock());
+    persist(added);
+    if (!state.ui.selected && innerWidth >= SHEET_BREAKPOINT) {
+      state.ui.selected = visibleRows(state, clock()).find((r) => !r.placeholder)?.symbol ?? null;
+    }
+  } catch (e) {
+    scanFailed(state, e.code ?? 'NETWORK');
+    if (manual) toast(errorMessage(e.code));
+  } finally {
+    scanning = false;
+    $('refresh').disabled = false;
+    scheduleRender();
+  }
+}
+
+async function quotes() {
+  if (quoting || !client || !state.scan || document.hidden) return;
+  const symbols = nextQuoteSymbols(state, clock());
+  if (!symbols.length) return;
+  quoting = true;
+  try {
+    const result = await client.quotes(symbols);
+    const added = applyQuotes(state, result, clock());
+    persist(added);
+  } catch {
+    state.quoteError = true;
+  } finally {
+    quoting = false;
+    scheduleRender();
+  }
+}
+
+// ---- interactions -------------------------------------------------------------------
+
+function select(symbol, { tab } = {}) {
+  state.ui.selected = symbol;
+  if (tab) state.ui.tab = tab;
+  state.ui.sheet = innerWidth < SHEET_BREAKPOINT;
+  render();
+  if (!state.ui.sheet) return;
+  $('dossier').scrollTop = 0;
+  $('dossier').querySelector('.sheet-close')?.focus({ preventScroll: true });
+}
+
+function closeSheet() {
+  const symbol = state.ui.selected;
+  state.ui.sheet = false;
+  render();
+  document.querySelector(`#list [data-symbol="${CSS.escape(symbol ?? '')}"]`)?.focus({ preventScroll: true });
+}
+
+function setView(view) {
+  state.ui.view = view;
+  document.querySelectorAll('[data-view]').forEach((b) => {
+    const active = b.dataset.view === view;
+    b.classList.toggle('is-active', active);
+    b.setAttribute('aria-selected', String(active));
+  });
+  render();
+}
+
+function setFilter(filter) {
+  state.ui.filter = filter;
+  document.querySelectorAll('[data-filter]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.filter === filter)));
+  render();
+}
+
+$('list').addEventListener('click', (e) => {
+  const row = e.target.closest('[data-symbol]');
+  if (row) select(row.dataset.symbol, row.dataset.event ? { tab: 'history' } : {});
+});
+
+// Arrow keys move through the list; the dossier follows the focused row.
+$('list').addEventListener('keydown', (e) => {
+  if (!['ArrowDown', 'ArrowUp'].includes(e.key)) return;
+  const rows = [...$('list').querySelectorAll('[data-symbol]')];
+  const index = rows.indexOf(document.activeElement);
+  const next = rows[Math.max(0, Math.min(rows.length - 1, index + (e.key === 'ArrowDown' ? 1 : -1)))];
+  if (!next) return;
+  e.preventDefault();
+  next.focus();
+  if (innerWidth >= SHEET_BREAKPOINT) select(next.dataset.symbol);
+});
+
+$('dossier').addEventListener('click', (e) => {
+  const tab = e.target.closest('[data-tab]');
+  if (tab) {
+    state.ui.tab = tab.dataset.tab;
+    render();
+    return;
+  }
+  if (e.target.closest('[data-close-sheet]')) {
+    closeSheet();
+    return;
+  }
+  const watch = e.target.closest('[data-watch]');
+  if (watch) {
+    const result = toggleWatch(state, watch.dataset.watch, clock());
+    toast({
+      removed: 'أزيل من المتابعة؛ سجله السابق محفوظ.',
+      full: 'حد قائمة المتابعة ٥٠ سهمًا.',
+      recording: 'أضيف للمتابعة وبدأ الرصد من السعر الحالي.',
+      added: 'أضيف للمتابعة؛ يبدأ الرصد عند وصول صفقة حديثة.',
+    }[result]);
+    persist(true);
+    render();
+    return;
+  }
+  const remove = e.target.closest('[data-remove-event]');
+  if (remove && removeEvent(state, remove.dataset.removeEvent)) {
+    persist(true);
+    toast('حُذف السجل.');
+    render();
+  }
+});
+
+$('dossier').addEventListener('input', (e) => {
+  if (!['calc-capital', 'calc-risk'].includes(e.target.id)) return;
+  const clean = e.target.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
+  if (clean !== e.target.value) e.target.value = clean;
+  state.settings = { ...state.settings, [e.target.name]: clean };
+  storage.saveSettings(state.settings);
+  render();
+});
+$('dossier').addEventListener('submit', (e) => e.preventDefault());
+
+document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+document.querySelectorAll('[data-filter]').forEach((b) => b.addEventListener('click', () => setFilter(b.dataset.filter)));
+$('search').addEventListener('input', (e) => { state.ui.search = e.target.value; render(); });
+$('max-price').addEventListener('change', (e) => {
+  const v = Number(e.target.value);
+  state.ui.maxPrice = e.target.value && v > 0 ? v : Infinity;
+  render();
+});
+$('refresh').addEventListener('click', () => scan({ manual: true }));
+
+document.addEventListener('keydown', (e) => {
+  const typing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement?.tagName);
+  if (e.key === '/' && !typing) {
+    e.preventDefault();
+    $('search').focus();
+  } else if (e.key === 'Escape') {
+    if (state.ui.sheet) closeSheet();
+    else if (document.activeElement === $('search') && $('search').value) {
+      $('search').value = '';
+      state.ui.search = '';
+      render();
+    }
+  }
+});
+
+function applyTheme(theme) {
+  document.body.classList.toggle('dark', theme === 'dark');
+  document.documentElement.dataset.theme = theme;
+}
+$('theme').addEventListener('click', () => {
+  const next = document.body.classList.contains('dark') ? 'light' : 'dark';
+  applyTheme(next);
+  storage.saveTheme(next);
+});
+
+$('export').addEventListener('click', () => {
+  const now = clock();
+  const blob = new Blob([JSON.stringify({
+    schema: 1,
+    exported_at: new Date(now).toISOString(),
+    description: 'Observed prices only. Not executed trades; gaps while the page was closed.',
+    watch: [...state.watched],
+    events: state.journal,
+  }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `TAGit-observations-${new Date(now).toISOString().slice(0, 10)}.json`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast('جُهّز سجل المتابعة للتنزيل.');
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) persist(true);
+  else scan();
+});
+window.addEventListener('pagehide', () => persist(true));
+window.addEventListener('resize', () => {
+  if (state.ui.sheet && innerWidth >= SHEET_BREAKPOINT) {
+    state.ui.sheet = false;
+    scheduleRender();
+  }
+});
+
+// ---- start ----------------------------------------------------------------------------
+
+applyTheme(storage.loadTheme());
+render();
+try {
+  client = createClient(await loadEndpoint());
+  await scan();
+} catch (e) {
+  scanFailed(state, e.code ?? 'CONFIG_UNAVAILABLE');
+  render();
+}
+setInterval(scan, SCAN_INTERVAL_MS);
+setInterval(quotes, QUOTE_INTERVAL_MS);
+// Checks age with time: re-render every second so freshness and plans expire on screen.
+setInterval(() => {
+  if (document.hidden) return;
+  render();
+  persist();
+}, 1000);
+
