@@ -49,9 +49,28 @@ function forwardCard(fw) {
   </div>`;
 }
 
+function sipStudyCard(st) {
+  if (!st?.totals) return '';
+  const row = (label, x) => html`<tr><th>${label}</th><td dir="ltr">${n(x.signals)}</td><td dir="ltr">${n(x.resolved)}</td><td>${pctCell(x.mean_return_pct)}</td>
+    <td dir="ltr">${x.win_rate === null ? '—' : f.num(x.win_rate * 100, 0) + '%'}</td><td dir="ltr">${n(x.plan_traded)} · ${f.num(x.plan_mean_r, 2)}R</td></tr>`;
+  return html`<div class="evidence-card wide">
+    <h4>الدراسة المجمّعة الموسّعة <small>${n(st.sessions)} جلسة (${st.first_session} → ${st.last_session}) · كل الأسهم المؤهلة · دقائق SIP · آخر تحديث ${f.dateTime(st.updated_at)}</small></h4>
+    <table class="evidence-table">
+      <thead><tr><th></th><th>إشارات</th><th>لها نتيجة</th><th>متوسط بعد التكلفة</th><th>نسبة الربح</th><th>الخطة</th></tr></thead>
+      <tbody>
+        ${row(`التطوير · عند الرصد (${n(st.split.development_sessions)} جلسة)`, st.development.at_detection)}
+        ${row(`الاختبار اللاحق · عند الرصد (من ${st.split.holdout_from ?? '—'})`, st.holdout.at_detection)}
+        ${row('الاختبار اللاحق · بعد تأخير ١٧ دقيقة', st.holdout.delayed)}
+        ${row('الكل · عند الرصد', st.totals.at_detection)}
+      </tbody>
+    </table>
+    <p class="note">"عند الرصد" يقيس الحركة بعد الإشارة مباشرة؛ "بعد التأخير" يدخل حين تصبح الإشارة المجانية مرئية. الاختبار اللاحق هو آخر ثلث الجلسات ولم يُستخدم لضبط أي شيء. الكون الحالي للأسهم يعني انحياز بقاء للجلسات السابقة، والتكلفة ٠٫٥ نقطة مفترضة.</p>
+  </div>`;
+}
+
 export function renderEvidence(evidence) {
-  if (!evidence.relabel && !evidence.forward) {
+  if (!evidence.relabel && !evidence.forward && !evidence.sip) {
     return html`<p class="note">تعذر تحميل سجلات التحقق.</p>`;
   }
-  return html`${evidence.relabel ? relabelTable(evidence.relabel) : ''}${forwardCard(evidence.forward)}`;
+  return html`${sipStudyCard(evidence.sip)}${evidence.relabel ? relabelTable(evidence.relabel) : ''}${forwardCard(evidence.forward)}`;
 }

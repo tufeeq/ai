@@ -10,6 +10,8 @@ import { companyFacts } from '../core/risk.js';
 import { assessRow, flowOf, selectedRow } from '../state.js';
 import { STATE_HINTS, stateBadge, shariaBadge, meter, stat, riskFor } from './common.js';
 import { samplesChart, planLadder } from './charts.js';
+import { sipCard } from './sip.js';
+import { sipSignalFor } from '../state.js';
 
 export const TABS = [
   ['overview', 'التحليل'],
@@ -76,6 +78,7 @@ function overview(state, r, a, now) {
     </div>
     <h3>لماذا ظهر السهم؟</h3>
     <p class="why">${why}${isExtended(r) ? ' الحركة ممتدة؛ لا تُصنّف بداية مبكرة.' : ''}</p>
+    ${sipCard(sipSignalFor(state, r.symbol), r, now)}
     ${riskSection(state, r, now)}
     <div class="checks">${groups}</div>
     <h3>السيولة التقديرية <small class="flow fl-${flow.status}">${flow.label}</small></h3>

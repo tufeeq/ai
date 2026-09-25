@@ -410,6 +410,7 @@ h1 { font-size: clamp(22px, 2.6vw, 30px); line-height: 1.3; letter-spacing: -.01
 
 .evidence { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; margin-top: 14px; }
 .evidence-card { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; display: grid; gap: 10px; align-content: start; }
+.evidence-card.wide { grid-column: 1 / -1; }
 .evidence-card h4 { margin: 0; font-size: 14px; display: grid; gap: 2px; }
 .evidence-card h4 small { color: var(--muted); font-weight: 400; font-size: 12px; }
 .evidence-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -417,6 +418,18 @@ h1 { font-size: clamp(22px, 2.6vw, 30px); line-height: 1.3; letter-spacing: -.01
 .evidence-table thead th { color: var(--muted); font-size: 12px; font-weight: 600; }
 .evidence-table tbody th { font-weight: 500; color: var(--text-2); }
 .evidence-table td { font-family: var(--mono); }
+
+/* consolidated signals ---------------------------------------------------------- */
+.list-head.is-sip, .list.is-sip .row { grid-template-columns: 1.4fr 1.3fr 1.1fr 1.3fr; }
+.list.is-sip .row-vol { display: flex; }
+.p-NEAR { background: var(--up-soft); color: var(--up); }
+.p-EXTENDED { background: var(--warn-soft); color: var(--warn); }
+.p-BROKEN { background: var(--down-soft); color: var(--down); }
+.p-UNKNOWN { background: var(--surface-3); color: var(--muted); }
+.sip-card { border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); border-radius: var(--radius-sm); padding: 12px 14px; display: grid; gap: 8px; background: color-mix(in srgb, var(--accent-soft) 45%, transparent); }
+.sip-card h3 { margin: 0; display: grid; gap: 2px; }
+.sip-card h3 small { color: var(--muted); font-weight: 400; font-size: 12px; }
+.sip-position { font-size: 13px; padding: 6px 10px; border-radius: 8px; justify-self: start; }
 
 /* ---- methodology, lab, footer ---------------------------------------------------- */
 
@@ -492,6 +505,9 @@ h1 { font-size: clamp(22px, 2.6vw, 30px); line-height: 1.3; letter-spacing: -.01
   .row-state { grid-area: state; align-items: flex-end; }
   .row-age { grid-area: age; }
   .list.is-journal .row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'id change' 'price range'; }
+  .list.is-sip .row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'id vol' 'price state'; }
+  .list.is-sip .row-vol { grid-area: vol; align-items: flex-end; }
+  .list.is-sip .row-price { grid-area: price; align-items: flex-start; }
   .list.is-journal .row-change { grid-area: change; text-align: end; }
   .list.is-journal .row-range { grid-area: range; align-items: flex-end; }
   .list.is-journal .row-price { align-items: flex-start; }

@@ -110,6 +110,12 @@ export function createClient(endpoint, fetcher = fetch) {
       if (!valid) throw new ApiError('INVALID_RESPONSE');
       return valid;
     },
+    /** Provider payload from the service's read-only historical relay (consolidated SIP bars). */
+    async relay(url, timeoutMs = 60_000) {
+      const { ok, body } = await getJson(fetcher, url, timeoutMs);
+      if (!ok) throw new ApiError(body?.status ?? 'PROVIDER_UNAVAILABLE');
+      return body;
+    },
     async quotes(symbols, timeoutMs = 12_000) {
       const query = encodeURIComponent(symbols.join(','));
       const { ok, body } = await getJson(fetcher, `${endpoint}/api/quotes?symbols=${query}`, timeoutMs);
