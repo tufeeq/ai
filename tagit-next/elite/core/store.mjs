@@ -14,6 +14,7 @@ export function openStore(path=':memory:') {
     restore(run,key){const r=db.prepare('SELECT payload FROM checkpoints WHERE run_id=? AND symbol_session=?').get(run,key);return r?JSON.parse(r.payload):null;},
     timeline(id){return db.prepare('SELECT payload FROM transitions WHERE opportunity_id=? ORDER BY at,rowid').all(id).map(r=>JSON.parse(r.payload));},
     snapshots(run){return db.prepare('SELECT payload FROM checkpoints WHERE run_id=?').all(run).map(r=>JSON.parse(r.payload)).filter(x=>x.opportunity).map(x=>x.opportunity);},
+    series(run,o){const checkpoint=this.restore(run,`${o.symbol}|${o.feed}|${o.session}`);return (checkpoint?.bars||[]).map(b=>[Date.parse(b.t),b.o,b.h,b.l,b.c,b.v,Date.parse(b.received_at)]);},
     summary(){const count=t=>db.prepare('SELECT count(*) n FROM '+t).get().n;return {inputs:count('inputs'),opportunities:count('opportunities'),transitions:count('transitions'),storage:path===':memory:'?'SQLITE_MEMORY':'SQLITE_FILE',durabilityVerified:false};},
     registerExperiment(id,config,dataHash,partition){db.prepare('INSERT OR IGNORE INTO experiments VALUES(?,?,?,?,?,NULL)').run(id,new Date().toISOString(),JSON.stringify(config),dataHash,partition);const r=db.prepare('SELECT * FROM experiments WHERE id=?').get(id);if(r.config!==JSON.stringify(config)||r.data_hash!==dataHash||r.partition!==partition)throw Error('EXPERIMENT_ID_CONFLICT');},
     experimentResult(id,result){db.prepare('UPDATE experiments SET result=? WHERE id=? AND result IS NULL').run(JSON.stringify(result),id);},

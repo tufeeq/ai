@@ -11,3 +11,9 @@
 - Browser QA on the deployed Render interface: Arabic RTL layout loaded, archived data loaded, the live-mode button switched to shadow observation, and the connection displayed IEX 05:09 NY with temporary storage explicitly disclosed.
 - No change to infrastructure plan, continuous worker, order execution, storage durability, or promotion of experimental rules. Historical research constraints remain unchanged.
 - Rollback target: previous Render service commit `8f02f78655bf37bac089c80f16a4f3c785b6e710`.
+
+## Corrective release 0.1.1
+
+The user-reported mobile screen exposed actual integration defects: the API omitted stored chart bars, the UI ignored a newer trade, generic DETECTED text hid a quality-paused state, and archive copy appeared in live mode. Corrective work changes evidence delivery/presentation and stale tracked-symbol fetching. Detection thresholds and historical results remain unchanged.
+
+Before deployment, `recovery/2026-09-25-pre-fix.json` preserves the public decision snapshot and original discovery/transition evidence. The full raw-input journal was not accessible through the existing API. On restart, older provider bars refill context at their new receipt time, without retroactively evaluating them or replacing original discoveries. This partial recovery does not satisfy the durable-storage gate. An independently persisted store remains required.

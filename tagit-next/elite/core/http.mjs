@@ -1,6 +1,6 @@
 import {readFile} from 'node:fs/promises';
 const publicRoot=new URL('../web/',import.meta.url);
-const files=new Set(['index.html','app.mjs','style.css','favicon.svg','data/summary.json',...['2026-08-24','2026-08-25','2026-08-26','2026-08-27','2026-08-28','2026-08-31','2026-09-01','2026-09-02','2026-09-03','2026-09-04'].map(d=>'data/'+d+'.json.gz')]);
+const files=new Set(['index.html','app.mjs','presentation.mjs','style.css','favicon.svg','data/summary.json',...['2026-08-24','2026-08-25','2026-08-26','2026-08-27','2026-08-28','2026-08-31','2026-09-01','2026-09-02','2026-09-03','2026-09-04'].map(d=>'data/'+d+'.json.gz')]);
 export async function eliteHttp(req,res,elite) {
  const url=new URL(req.url,'http://localhost');
  if(!url.pathname.startsWith('/elite')&&!url.pathname.startsWith('/api/elite/'))return false;

@@ -15,12 +15,19 @@ export function createEngine({store,calendar,config={},runId='shadow-1',sourceHa
       const input={kind:'BAR',symbol:bar.symbol,event_at:bar.t,received_at:bar.received_at,bar};
       if(!store.input(runId,input))return state.opportunity;
       const equal=state.bars.find(x=>x.t===bar.t);
+      // After a public decision snapshot restore, refill indicator context at its actual new receipt time.
+      // Never evaluate those older bars as new decisions or rewrite the restored first signal.
+      if(state.contextRehydration&&barTime<=state.lastTime){
+        if(!equal){state.bars.push(bar);state.bars.sort((a,b)=>Date.parse(a.t)-Date.parse(b.t));store.checkpoint(runId,key,state);}
+        return state.opportunity;
+      }
       if(equal&&['o','h','l','c','v','n','vw'].every(k=>equal[k]===bar[k]))return state.opportunity;
       if(equal||state.lastTime!==null&&barTime<state.lastTime) {
         if(state.opportunity){const correction={kind:equal?'CORRECTION_OR_DUPLICATE':'LATE_BAR',at:bar.received_at,bar_at:bar.t,reason:'Original decision retained; use a new run for corrected replay',revision:hash(bar)};store.event(state.opportunity,correction);}
         return state.opportunity;
       }
       if(!session.valid)return null;
+      state.contextRehydration=false;
       const action=corporateActions.find(a=>a.symbol===bar.symbol&&Date.parse(a.received_at)<=now&&Date.parse(a.effective_at)<=barTime&&(!state.actionIds?.includes(a.id)));
       if(action){state.actionIds=[...(state.actionIds||[]),action.id];state.corporateActionHold=true;
         if(state.opportunity)store.event(state.opportunity,{kind:'CORPORATE_ACTION_BOUNDARY',at:bar.received_at,action,reason:'Raw price comparison paused; original discovery preserved. Resume in a separately versioned adjusted replay or next session.'});}
