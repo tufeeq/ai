@@ -40,6 +40,16 @@ jobs:
           TAGIT_STATE_PATH: /tmp/tagit10-audit-state.json
           FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
         run: python tagit10/post_session.py
+      - name: Verify benchmark schema
+        if: steps.gate.outputs.run == 'yes'
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('tag/data/tagit10-post-session.json'))
+          assert p['status']=='FINAL' and p['top50Count']==50
+          assert len(p['cases'])==50 and p['rootCauseCounts'] is not None
+          print('benchmark verified', p['sessionDateET'], p['earlyRecallPct'])
+          PY
       - name: Persist audit
         if: steps.gate.outputs.run == 'yes'
         run: |
