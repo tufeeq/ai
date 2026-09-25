@@ -30,7 +30,9 @@ export function assess(row,{now=Date.now(),serverTime,connected=true,feed='iex'}
 }
 export function sizePosition(plan,riskBudget,capital){
  if(!positive(plan?.entry)||!positive(plan?.stop)||plan.stop>=plan.entry||!positive(riskBudget)||!positive(capital))return null;
- const perShare=plan.entry-plan.stop;const shares=Math.floor(Math.min(riskBudget/perShare,capital/plan.entry));
+ const perShare=plan.entry-plan.stop;
+ // Tolerance absorbs binary rounding (2.02-1.98 is 0.04000000000000004) without exceeding either limit materially.
+ const shares=Math.floor(Math.min(riskBudget/perShare,capital/plan.entry)*(1+1e-9));
  return {shares,notional:shares*plan.entry,plannedRisk:shares*perShare,perShare};
 }
 export function recordObservation(event,row){
@@ -65,7 +67,7 @@ export function updatePressure(previous,row,at){
  if(!Number.isFinite(ts)||!Number.isFinite(event)||!positive(row.price)||!finite(volume)||volume<0||ts-event<0||ts-event>60000)return previous??null;
  if(previous&&ts<=previous.at)return previous;
  const sample={at:ts,price:row.price,volume};
- if(!previous||ts-previous.at>90000||volume<previous.volume||new Date(ts).toISOString().slice(0,10)!==new Date(previous.at).toISOString().slice(0,10))return {...sample,segments:[]};
+ if(!previous||ts-previous.at>90000||volume<previous.volume||marketDate(ts)!==marketDate(previous.at))return {...sample,segments:[]};
  const delta=volume-previous.volume,dollars=delta*(row.price+previous.price)/2;
  const side=row.price>previous.price?'up':row.price<previous.price?'down':'flat';
  const segments=[...(previous.segments??[]).filter(x=>ts-x.at<=300000),...(delta>0?[{at:ts,dollars,side}]:[])];
@@ -87,7 +89,7 @@ export function shariaStatus(record,now=Date.now()){
 
 // Trade and quote clocks advance independently. A slow scan cannot roll either back.
 const nyDate=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'});
-export const marketDate=at=>Number.isFinite(Date.parse(at))?nyDate.format(new Date(at)):null;
+export const marketDate=at=>{const t=typeof at==='number'?at:Date.parse(at);return Number.isFinite(t)?nyDate.format(new Date(t)):null;};
 const stamp=at=>Number.isFinite(Date.parse(at))?Date.parse(at):-Infinity;
 export function mergeMarketRow(current,incoming,{scan=false,now=Date.now()}={}){
  const result=scan?{...incoming}:{...current};

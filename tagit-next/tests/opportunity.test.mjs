@@ -39,3 +39,17 @@ test('rejects future and malformed prices and avoids previous-session percentage
  const tomorrow=new Date(now+86400000).toISOString();assert.equal(mergeMarketRow(current,{price:3,price_at:tomorrow},{now:now+86400000}).day_change,null);
  assert.equal(marketDate('2026-09-17T01:00:00Z'),marketDate(at));
 });
+test('sizing is not shortened by binary rounding of the per-share risk',()=>{
+ assert.equal(sizePosition({entry:2.02,stop:1.98},4,1000).shares,100);
+ assert.equal(sizePosition({entry:1.1,stop:1},10,1000).shares,100);
+ assert.equal(sizePosition({entry:10,stop:9},0.5,100).shares,0);
+});
+test('pressure keeps its samples across UTC midnight inside one New York session',()=>{
+ const t0='2026-12-01T23:59:00Z',t1='2026-12-01T23:59:30Z',t2='2026-12-02T00:00:00Z';
+ let s=updatePressure(null,{price:1,day_volume:10,price_at:t0},t0);
+ s=updatePressure(s,{price:1.1,day_volume:200,price_at:t1},t1);
+ s=updatePressure(s,{price:1.2,day_volume:400,price_at:t2},t2);
+ assert.equal(s.segments.length,2);
+ const next='2026-12-02T09:30:00Z';
+ assert.equal(updatePressure(s,{price:1.3,day_volume:10,price_at:next},next).segments.length,0);
+});
