@@ -123,6 +123,16 @@ probe(f'Nasdaq.com quote {sym}', f'https://api.nasdaq.com/api/quote/{sym}/info?a
 probe(f'Nasdaq.com intraday chart {sym}', f'https://api.nasdaq.com/api/quote/{sym}/chart?assetclass=stocks',
       {'User-Agent': BROWSER_UA, 'Accept': 'application/json'},
       lambda b: f"points={len(((j(b).get('data') or {}).get('chart') or []))}")
+status, body = fetch(f'https://api.nasdaq.com/api/quote/{sym}/chart?assetclass=stocks', {'User-Agent': BROWSER_UA, 'Accept': 'application/json'})[:2]
+if status == 200:
+    data = j(body).get('data') or {}
+    chart = data.get('chart') or []
+    print('NASDAQ CHART RAW', json.dumps({k: v for k, v in data.items() if k != 'chart'})[:600], flush=True)
+    print('NASDAQ CHART POINTS', json.dumps(chart[:3] + chart[-2:])[:900], flush=True)
+status, body = fetch('https://tagit-next-quotes.onrender.com/api/scanner', None, 90)[:2]
+print('TAGIT SCANNER', status, (json.dumps({k: (v if not isinstance(v, list) else len(v)) for k, v in j(body).items()}) if status == 200 else body[:200])[:700], flush=True)
+if status == 200 and j(body).get('alerts'):
+    print('TAGIT ALERT SAMPLE', json.dumps(j(body)['alerts'][:2])[:700], flush=True)
 probe('Stooq daily CSV', f'https://stooq.com/q/d/l/?s={sym.lower()}.us&i=d', {'User-Agent': BROWSER_UA},
       lambda b: b.decode().splitlines()[-1][:120])
 
