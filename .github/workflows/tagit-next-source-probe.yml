@@ -1,0 +1,36 @@
+name: TAGit NEXT source probe
+
+# Checks which free data sources answer from a GitHub runner. Read-only.
+on:
+  workflow_dispatch:
+    inputs:
+      symbols:
+        description: Space-separated symbols to probe
+        default: SENS NUAI BTCT
+  push:
+    branches: ['claude/**']
+    paths: ['tagit-next/pipeline/probe_sources.py', '.github/workflows/tagit-next-source-probe.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Probe sources
+        env:
+          APCA_API_KEY_ID: ${{ secrets.ALPACA_API_KEY_ID || secrets.ALPACA_KEY_ID || secrets.APCA_API_KEY_ID }}
+          APCA_API_SECRET_KEY: ${{ secrets.ALPACA_API_SECRET_KEY || secrets.ALPACA_SECRET_KEY || secrets.APCA_API_SECRET_KEY }}
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT || 'TAGit NEXT research tufeeq11@gmail.com' }}
+          MASSIVE_API_KEY: ${{ secrets.MASSIVE_API_KEY }}
+          PROBE_OUT: probe.json
+        run: python3 tagit-next/pipeline/probe_sources.py ${{ github.event.inputs.symbols || 'SENS NUAI BTCT' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: source-probe
+          path: probe.json

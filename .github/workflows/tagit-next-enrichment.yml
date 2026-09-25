@@ -1,0 +1,59 @@
+name: TAGit NEXT data enrichment
+
+# SEC filings and share counts, Nasdaq listing status, FINRA short interest and current halts
+# for Nasdaq stocks below $1B. Publishes tagit-next/data/enrichment.json on main.
+on:
+  schedule:
+    - cron: '15 11 * * 1-5'  # 07:15 New York (EDT), before the open
+    - cron: '45 20 * * 1-5'  # 16:45 New York (EDT), after the close
+  workflow_dispatch:
+  push:
+    branches: ['claude/**']
+    paths: ['tagit-next/pipeline/enrich.py', '.github/workflows/tagit-next-enrichment.yml']
+
+permissions:
+  contents: write
+  actions: write  # request a Pages deploy after publishing (GITHUB_TOKEN pushes trigger no workflows)
+
+concurrency:
+  group: tagit-next-enrichment-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Unit tests
+        run: python3 -m unittest discover -s tagit-next/pipeline -p 'test_*.py'
+      - name: Build enrichment
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT || 'TAGit NEXT research tufeeq11@gmail.com' }}
+        run: python3 tagit-next/pipeline/enrich.py
+      - name: Upload for review (branches)
+        if: github.ref != 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: enrichment
+          path: tagit-next/data/enrichment.json
+      - name: Publish (main)
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name 'github-actions'
+          git config user.email 'github-actions@github.com'
+          git add tagit-next/data/enrichment.json
+          git diff --cached --quiet && { echo 'No change'; exit 0; }
+          git commit -m 'data: refresh TAGit NEXT enrichment'
+          for attempt in 1 2 3 4; do
+            if git pull --rebase --autostash origin main && git push origin HEAD:main; then
+              gh workflow run pages-tagx-deploy.yml --ref main
+              exit 0
+            fi
+            sleep $((attempt * 5))
+          done
+          exit 1

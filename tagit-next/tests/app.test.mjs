@@ -68,6 +68,7 @@ test('scanner validation rejects malformed payloads and drops bad symbols', () =
 test('quote rows map onto market fields; ineligible symbols are not an error', async () => {
   assert.deepEqual(normalizeQuote({ symbol: 'ABC', trade: { price: 1, timestamp: at() }, quote: { bid: 0.9, ask: 1, timestamp: at() } }), {
     symbol: 'ABC', name: undefined, market_cap: undefined, metadata_at: undefined, price: 1, price_at: at(), bid: 0.9, ask: 1, quote_at: at(),
+    consolidated: null, halt: null, halt_status: undefined,
   });
   const fetcher = async () => ({ ok: false, json: async () => ({ status: 'INELIGIBLE_SYMBOLS', rejected: ['ZZZ'] }) });
   assert.deepEqual(await createClient('https://x.test', fetcher).quotes(['ZZZ']), { rows: [], rejected: ['ZZZ'] });

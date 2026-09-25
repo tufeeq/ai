@@ -1,0 +1,93 @@
+name: TAGit NEXT forward record
+
+# Records live scanner alerts every ~10 minutes during the extended session (the request also
+# keeps the free Render instance awake) and evaluates the day after 20:00 New York.
+on:
+  schedule:
+    - cron: '*/10 8-23 * * 1-5'   # record: 04:00-19:59 EDT / 03:00-18:59 EST
+    - cron: '*/10 0 * * 2-6'      # record: 20:00-20:59 EDT / 19:00-19:59 EST
+    - cron: '20 0 * * 2-6'        # evaluate: 20:20 EDT
+    - cron: '20 1 * * 2-6'        # evaluate: 20:20 EST (and a second pass in EDT)
+  workflow_dispatch:
+    inputs:
+      command:
+        type: choice
+        options: [record, evaluate]
+        default: record
+  push:
+    branches: ['claude/**']
+    paths: ['tagit-next/pipeline/forward.py', '.github/workflows/tagit-next-forward.yml']
+
+permissions:
+  contents: write
+  actions: write  # request a Pages deploy after publishing (GITHUB_TOKEN pushes trigger no workflows)
+
+concurrency:
+  group: tagit-next-forward-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  forward:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Decide command and New York date
+        id: plan
+        run: |
+          echo "day=$(TZ=America/New_York date +%F)" >> "$GITHUB_OUTPUT"
+          case "${{ github.event_name }}:${{ github.event.schedule }}" in
+            schedule:20\ 0*|schedule:20\ 1*) echo "command=evaluate" >> "$GITHUB_OUTPUT" ;;
+            workflow_dispatch:*) echo "command=${{ github.event.inputs.command }}" >> "$GITHUB_OUTPUT" ;;
+            push:*) echo "command=both" >> "$GITHUB_OUTPUT" ;;
+            *) echo "command=record" >> "$GITHUB_OUTPUT" ;;
+          esac
+      - name: Unit tests
+        run: python3 -m unittest discover -s tagit-next/pipeline -p 'test_forward.py'
+      - name: Restore today's ledger
+        uses: actions/cache/restore@v4
+        with:
+          path: forward-ledger.json
+          key: tagit-forward-${{ steps.plan.outputs.day }}-${{ github.run_id }}
+          restore-keys: tagit-forward-${{ steps.plan.outputs.day }}-
+      - name: Record
+        if: steps.plan.outputs.command != 'evaluate'
+        run: python3 tagit-next/pipeline/forward.py record --ledger forward-ledger.json
+      - name: Save ledger
+        if: steps.plan.outputs.command != 'evaluate'
+        uses: actions/cache/save@v4
+        with:
+          path: forward-ledger.json
+          key: tagit-forward-${{ steps.plan.outputs.day }}-${{ github.run_id }}
+      - name: Evaluate
+        if: steps.plan.outputs.command != 'record'
+        run: python3 tagit-next/pipeline/forward.py evaluate --ledger forward-ledger.json --day ${{ steps.plan.outputs.day }}
+      - name: Keep the raw ledger
+        if: steps.plan.outputs.command != 'record'
+        uses: actions/upload-artifact@v4
+        with:
+          name: forward-ledger-${{ steps.plan.outputs.day }}-${{ github.run_id }}
+          path: |
+            forward-ledger.json
+            tagit-next/data/forward-outcomes.json
+          retention-days: 90
+      - name: Publish (main)
+        if: steps.plan.outputs.command == 'evaluate' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name 'github-actions'
+          git config user.email 'github-actions@github.com'
+          git add tagit-next/data/forward-outcomes.json
+          git diff --cached --quiet && { echo 'No change'; exit 0; }
+          git commit -m 'data: TAGit NEXT forward outcomes ${{ steps.plan.outputs.day }}'
+          for attempt in 1 2 3 4; do
+            if git pull --rebase --autostash origin main && git push origin HEAD:main; then
+              gh workflow run pages-tagx-deploy.yml --ref main
+              exit 0
+            fi
+            sleep $((attempt * 5))
+          done
+          exit 1

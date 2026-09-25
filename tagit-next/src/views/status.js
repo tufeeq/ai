@@ -52,6 +52,11 @@ export function renderNotices(state) {
     if (parts.length) notes.push(['warn', `${parts.join('، ')}.`]);
   }
   if (state.quoteError) notes.push(['warn', 'تعذر تحديث الأسعار السريع؛ نعيد المحاولة. راقب عمر آخر صفقة.']);
+  const comp = state.scan?.complements;
+  if (comp?.consolidated && ['BACKING_OFF', 'FAILING'].includes(comp.consolidated.status)) {
+    notes.push(['info', 'الأسعار المجمّعة من ناسداك غير متاحة مؤقتًا؛ نعرض أسعار IEX وحدها مع عمرها.']);
+  }
+  if (comp?.halts?.status === 'UNAVAILABLE') notes.push(['info', 'تعذر التحقق من إيقافات التداول الآن؛ لا يعني ذلك أن التداول مستمر.']);
   if (!state.storageOk) notes.push(['warn', 'تعذر الحفظ في هذا المتصفح؛ صدّر السجل للاحتفاظ به.']);
   return html`${notes.map(([kind, text], i) => html`<p class="notice n-${kind}" data-key="notice-${i}-${kind}" role="status">${text}</p>`)}`;
 }
