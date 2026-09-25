@@ -1,5 +1,20 @@
 # TAGit NEXT market-data service
 
+## Complementary free sources (2026-09-25, long-lived server only)
+
+`server.mjs` decorates `/api/scanner` and `/api/quotes` rows with three additive fields; the frozen
+scanner and detector are unchanged, and stateless worker deployments pass payloads through as before.
+
+- `halt` / `halt_status`: current trading halts from the Nasdaq Trader RSS feed (30 s cache).
+  A failed feed reports `UNKNOWN`, never "not halted".
+- `consolidated`: real-time last sale (minute resolution), bid/ask and consolidated day volume from
+  Nasdaq.com's public quote API (unofficial) for the top 20 candidates and every requested quote symbol.
+  Fetched in the background (20 s TTL, 3 concurrent); 403/429 responses back off for five minutes.
+- `previous_close` / `day_change`: replaced by the prior-session close from Alpaca SIP daily bars
+  (`change_basis: SIP_PREVIOUS_CLOSE`), which free plans may read because the bars are over 15 minutes old.
+
+`/api/health` → `complements` reports each source's status, last success and last error.
+
 ## New observer runtime (2026-09-24, opt-in)
 
 See [implementation status](../IMPLEMENTATION_STATUS.md) before activation.
