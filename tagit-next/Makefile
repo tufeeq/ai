@@ -12,6 +12,7 @@ verify:
 	python -m research.continuation_paths --check
 	python -m research.share_capacity --check
 	python -m research.signal_clock --check
+	python -m research.quote_anchored --check
 
 # Python 3.12+, Node 24. Offline, no account secrets needed.
 phase1:
@@ -57,3 +58,8 @@ share-capacity:
 signal-clock:
 	python -m unittest discover -s tests -p 'test_signal_clock.py' -v
 	python -m research.signal_clock --check
+
+.PHONY: quote-anchored
+quote-anchored:
+	python -m unittest discover -s tests -p 'test_quote_anchored.py' -v
+	python -m research.quote_anchored --check
