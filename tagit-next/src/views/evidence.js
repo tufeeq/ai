@@ -93,9 +93,44 @@ function exitCard(x) {
   </div>`;
 }
 
+const COND_NAMES = {
+  news_24h: 'خبر خلال ٢٤ ساعة', news_none_24h: 'بلا خبر خلال ٢٤ ساعة', news_1h: 'خبر خلال ساعة',
+  offering_30d: 'طرح أسهم خلال ٣٠ يومًا', no_offering_90d: 'بلا طرح خلال ٩٠ يومًا',
+  gap_up_10: 'فجوة افتتاح ≥ ١٠٪', gap_small: 'فجوة افتتاح < ٣٪',
+  day_lt10: 'صعود اليوم < ١٠٪', day_10_30: 'صعود اليوم ١٠–٣٠٪', day_gt30: 'صعود اليوم ≥ ٣٠٪',
+  runup_lt2: 'صعود ٣٠ د قبلها < ٢٪', runup_gt8: 'صعود ٣٠ د قبلها > ٨٪',
+  first_today: 'أول إشارة اليوم', repeat_today: 'إشارة متكررة', price_lt1: 'سعر < $1', price_1_5: 'سعر $1–5', price_ge5: 'سعر ≥ $5',
+  liq_lt1m: 'تداول الأمس < $1M', liq_gt10m: 'تداول الأمس > $10M', dtc_ge3: 'أيام تغطية ≥ ٣',
+  morning: 'قبل 11:00', afternoon: 'بعد 14:00', breakout: 'اختراق', vr_ge6: 'حجم ≥ ٦×', usd3_lt50k: 'قيمة ٣ د < $50K', usd3_ge250k: 'قيمة ٣ د ≥ $250K',
+};
+const condName = (name) => name.split(' + ').map((x) => COND_NAMES[x] ?? x).join(' + ');
+
+function filterCard(x) {
+  if (!x?.baseline) return '';
+  const ci = (s) => (s?.ci95 ? html`<small dir="ltr">[${f.num(s.ci95[0], 2)}, ${f.num(s.ci95[1], 2)}]</small>` : '');
+  const row = (label, d, h, extra = '') => html`<tr class="${extra}"><th>${label}</th><td dir="ltr">${n(d.trades)}</td><td>${pctCell(d.mean_pct)} ${ci(d)}</td><td dir="ltr">${n(h.trades)}</td><td>${pctCell(h.mean_pct)} ${ci(h)}</td></tr>`;
+  const singles = Object.entries(x.singles).sort((a, b) => (b[1].development.mean_pct ?? -99) - (a[1].development.mean_pct ?? -99));
+  return html`<div class="evidence-card wide">
+    <h4>دراسة المرشحات <small>${n(x.signals)} إشارة · ${n(x.combinations_tested)} مرشحًا ومزيجًا · الدخول بعد ١٧ د والخروج بعد ١٠ د · بروتوكول ${x.protocol}</small></h4>
+    <p class="${x.any_candidate_holds ? 'up' : 'down'}"><b>${x.any_candidate_holds ? 'مرشح واحد على الأقل صمد في فترة الاختبار' : 'لم يصمد أي مرشح في فترة الاختبار'}</b></p>
+    <table class="evidence-table">
+      <thead><tr><th></th><th>صفقات (تطوير)</th><th>التطوير</th><th>صفقات (اختبار)</th><th>الاختبار (هامش ٩٥٪)</th></tr></thead>
+      <tbody>
+        ${row('كل الإشارات', x.baseline.development, x.baseline.holdout)}
+        ${x.candidates.map((c, i) => row(`المرشح ${i + 1}: ${condName(c.name)}`, c.development, c.holdout, c.holds ? 'is-picked' : ''))}
+      </tbody>
+    </table>
+    <details><summary>كل الشروط المفردة</summary>
+      <table class="evidence-table"><thead><tr><th></th><th>صفقات (تطوير)</th><th>التطوير</th><th>صفقات (اختبار)</th><th>الاختبار</th></tr></thead>
+      <tbody>${singles.map(([k, s]) => row(COND_NAMES[k] ?? k, s.development, s.holdout))}</tbody></table>
+    </details>
+    <p class="note">المرشحات الثلاثة اختيرت بأعلى حد أدنى لهامش الثقة في فترة التطوير من بين كل الشروط وأزواجها، ثم اختُبرت مرة واحدة. "صمد" يعني أن هامش الاختبار كله فوق الصفر. كل الخصائص من معلومات متاحة قبل الإشارة.</p>
+  </div>`;
+}
+
 export function renderEvidence(evidence) {
-  if (!evidence.relabel && !evidence.forward && !evidence.sip && !evidence.exits) {
+  if (!evidence.relabel && !evidence.forward && !evidence.sip && !evidence.exits && !evidence.filters) {
     return html`<p class="note">تعذر تحميل سجلات التحقق.</p>`;
   }
-  return html`${exitCard(evidence.exits)}${sipStudyCard(evidence.sip)}${evidence.relabel ? relabelTable(evidence.relabel) : ''}${forwardCard(evidence.forward)}`;
+  return html`${filterCard(evidence.filters)}${exitCard(evidence.exits)}${sipStudyCard(evidence.sip)}${evidence.relabel ? relabelTable(evidence.relabel) : ''}${forwardCard(evidence.forward)}`;
 }
