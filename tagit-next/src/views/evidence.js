@@ -128,9 +128,34 @@ function filterCard(x) {
   </div>`;
 }
 
+const HYP_NAMES = {
+  baseline: 'كل الأيام المؤهلة', strong_close: 'إغلاق قوي (≥ ٢٠٪ قرب القمة)', gap_hold: 'فجوة صاعدة صامدة',
+  flush_rebound: 'ارتداد بعد انهيار (≤ −٢٠٪)', quiet_breakout: 'اختراق هادئ لقمة ٢٠ يومًا', spike_pullback: 'ارتداد بعد تراجع من قفزة', momentum_5d: 'زخم ٥ أيام (≥ ٣٠٪)',
+};
+
+function dailyCard(x) {
+  if (!x?.table) return '';
+  const ci = (s) => (s?.ci95 ? html`<small dir="ltr">[${f.num(s.ci95[0], 2)}, ${f.num(s.ci95[1], 2)}]</small>` : '');
+  const sel = x.selected;
+  const rows = Object.entries(x.table).flatMap(([name, byH]) => Object.entries(byH).map(([h, s]) => {
+    const picked = sel && sel.hypothesis === name && String(sel.horizon_days) === h;
+    return html`<tr class="${picked ? 'is-picked' : ''}"><th>${HYP_NAMES[name] ?? name} · ${h} ي</th><td dir="ltr">${n(s.development.trades)}</td><td>${pctCell(s.development.mean_pct)} ${ci(s.development)}</td><td dir="ltr">${n(s.holdout.trades)}</td><td>${pctCell(s.holdout.mean_pct)} ${ci(s.holdout)}</td></tr>`;
+  }));
+  const verdict = !sel ? 'لم تكن أي فرضية رابحة في فترة التطوير' : x.holds ? `صمدت: ${HYP_NAMES[sel.hypothesis]} · ${sel.horizon_days} يوم` : `لم تصمد: ${HYP_NAMES[sel.hypothesis]} · ${sel.horizon_days} يوم`;
+  return html`<div class="evidence-card wide">
+    <h4>دراسة الإشارات اليومية <small>${n(x.universe?.symbols)} سهمًا (${n(x.universe?.inactive)} مشطوب) · ${n(x.sessions)} جلسة ${x.first_session ?? ''} ← ${x.last_session ?? ''} · بروتوكول ${x.protocol}</small></h4>
+    <p class="${x.holds ? 'up' : 'down'}"><b>${verdict}</b></p>
+    <details><summary>كل الفرضيات والآفاق</summary>
+      <table class="evidence-table"><thead><tr><th></th><th>صفقات (تطوير)</th><th>التطوير</th><th>صفقات (اختبار)</th><th>الاختبار (هامش ٩٥٪)</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    </details>
+    <p class="note">إشارة عند إغلاق اليوم، دخول عند افتتاح اليوم التالي، خروج عند إغلاق اليوم ١ أو ٣ أو ٥، بتكلفة ٠٫٥ نقطة. الفرضية المختارة هي الأعلى حدًا أدنى لهامش الثقة بين الرابحة في التطوير، و"صمدت" تعني أن هامش الاختبار كله فوق الصفر وفوق متوسط كل الأيام المؤهلة. تشمل الأسهم المشطوبة لتقليل انحياز البقاء.</p>
+  </div>`;
+}
+
 export function renderEvidence(evidence) {
-  if (!evidence.relabel && !evidence.forward && !evidence.sip && !evidence.exits && !evidence.filters) {
+  if (!evidence.relabel && !evidence.forward && !evidence.sip && !evidence.exits && !evidence.filters && !evidence.daily) {
     return html`<p class="note">تعذر تحميل سجلات التحقق.</p>`;
   }
-  return html`${filterCard(evidence.filters)}${exitCard(evidence.exits)}${sipStudyCard(evidence.sip)}${evidence.relabel ? relabelTable(evidence.relabel) : ''}${forwardCard(evidence.forward)}`;
+  return html`${dailyCard(evidence.daily)}${filterCard(evidence.filters)}${exitCard(evidence.exits)}${sipStudyCard(evidence.sip)}${evidence.relabel ? relabelTable(evidence.relabel) : ''}${forwardCard(evidence.forward)}`;
 }
