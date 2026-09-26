@@ -1,0 +1,58 @@
+{
+  "id": "QUOTE_ANCHORED_DECISION_20260926",
+  "base_commit": "66d01013238c4ca81ba605ece2e2564e581994e7",
+  "status": "EXPOSED_DEVELOPMENT_ONLY",
+  "selection": "The first 12 chronological BASE training signals from August 24 already frozen before their quote retrieval; retain all cases, including the two without old eligible exits.",
+  "cases": [
+    "NUAI:2026-08-24T13:39:00+00:00",
+    "SENS:2026-08-24T13:53:00+00:00",
+    "TRT:2026-08-24T13:58:00+00:00",
+    "BTCT:2026-08-24T14:03:00+00:00",
+    "SGLY:2026-08-24T14:06:00+00:00",
+    "METC:2026-08-24T14:08:00+00:00",
+    "JELD:2026-08-24T14:09:00+00:00",
+    "VUZI:2026-08-24T14:16:00+00:00",
+    "MIST:2026-08-24T14:21:00+00:00",
+    "SENS:2026-08-24T14:27:00+00:00",
+    "NUAI:2026-08-24T14:36:00+00:00",
+    "INMB:2026-08-24T14:38:00+00:00"
+  ],
+  "question": "When the decision clock starts at the first actually observed, source-qualified SIP quote rather than a candle close or future minute open, how many 100-share entries remain executable and how much +10%/-3% movement remains over 45 minutes?",
+  "decision_quote": "First post-signal Alpaca SIP quote with valid positive share sizes, uncrossed prices and midpoint spread <=0.8%. Its ask and event timestamp are frozen as the observable decision anchor. Historical receipt time is not asserted.",
+  "entry": {
+    "quantity_shares": 100,
+    "latency_seconds": [1, 3],
+    "window_seconds_after_decision": 30,
+    "minimum_impact_adjusted_ask_multiplier": 0.995,
+    "maximum_impact_adjusted_ask_multiplier": 1.005,
+    "maximum_midpoint_spread_pct": 0.8,
+    "maximum_participation_of_lagged_minute_volume": 0.01,
+    "maximum_completed_bar_age_seconds": 90
+  },
+  "barriers": {
+    "stop_bid_multiplier_of_decision_ask": 0.97,
+    "target_bid_multiplier_of_decision_ask": 1.10,
+    "horizon_minutes_after_entry": 45,
+    "fresh_timeout_allowance_seconds": 3
+  },
+  "cost_scenarios": [
+    {"id": "BASE", "fee_bps_per_side": 1, "impact_bps_at_full_participation": 20},
+    {"id": "STRESS", "fee_bps_per_side": 2, "impact_bps_at_full_participation": 40}
+  ],
+  "coverage": "Merge the uncapped two-minute entry windows with the saved 45-minute exit windows. Stop at the first uncovered interval, capped prefix, provider error or conflicting same-microsecond book. Do not sum duplicate sizes or carry stale timeout quotes beyond 3 seconds.",
+  "missingness": "A potentially eligible quote with unknown causal lagged volume makes entry unknown; later evidence cannot erase it. Cases that could enter but lack a complete exit path remain UNKNOWN_EXIT_COVERAGE, not losses, wins or zero returns.",
+  "inverse_diagnostic": "Report, without fitting, whether each no-entry case had a later +10% bid indication before a -3% bid indication in the saved path. This measures whether gates excluded later movers; it is not a counterfactual fill, trading return or promotion rule.",
+  "comparison": "Show all 12 cases under every scenario. Do not compute a resolved-only mean as strategy expectancy. Do not select latency/cost settings by their outcome and do not compare the result as if it used the same clock as the close-anchored audit.",
+  "new_market_request_budget": 0,
+  "new_market_requests": 0,
+  "holdout_opens": 0,
+  "deployment_allowed": false,
+  "live_rule_changes_allowed": false,
+  "source_sha256": {
+    "data/quote-windows.json.gz": "d1693f3c9417736279a60a1b4c7f16641d02ab5be0cef29fa5ad6be723b57de0",
+    "data/exit-windows.json.gz": "cf1b8ace9d3f2c8f1435d799227c4b6716146b74b2dd5e4233d1699ffca9f1d3",
+    "data/study-manifest.json": "6ce841265eb4ac91447908c3dddb3b145e3abdf90080ad5094c94074f4d445df",
+    "research/quote_units.py": "1277c493c24e296ec5ab28db7c89e8674448edd1b3cdbb19e64bf46d48a23a3e",
+    "research/execution.py": "2280dc046e983d0fec4e935c023f8e3604cc54f8c342f658e47709f4d7e19154"
+  }
+}
