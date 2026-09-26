@@ -1,0 +1,37 @@
+{
+  "id": "QUOTE_ANCHORED_SAME_TIME_ORDER_REPAIR_20260926",
+  "base_commit": "3686d5e8d5bd4f36778005f54c952ec2e87c4c52",
+  "status": "EXPOSED_DEVELOPMENT_MEASUREMENT_REPAIR",
+  "reason_selected": "The frozen primary audit left eight of twelve cases with unknown exits because it truncated at the first conflicting provider record sharing the same event timestamp. The repair is selected from missingness mechanics, not from case returns, and retains every case and scenario.",
+  "cases": [
+    "NUAI:2026-08-24T13:39:00+00:00",
+    "SENS:2026-08-24T13:53:00+00:00",
+    "TRT:2026-08-24T13:58:00+00:00",
+    "BTCT:2026-08-24T14:03:00+00:00",
+    "SGLY:2026-08-24T14:06:00+00:00",
+    "METC:2026-08-24T14:08:00+00:00",
+    "JELD:2026-08-24T14:09:00+00:00",
+    "VUZI:2026-08-24T14:16:00+00:00",
+    "MIST:2026-08-24T14:21:00+00:00",
+    "SENS:2026-08-24T14:27:00+00:00",
+    "NUAI:2026-08-24T14:36:00+00:00",
+    "INMB:2026-08-24T14:38:00+00:00"
+  ],
+  "normalization": "Group records by event timestamp after exact-duplicate removal. Use minimum bid, maximum ask and minimum displayed sizes without summing sizes. The envelope is order-invariant and adverse to a long fill. If any record is invalid, stop coverage before the group.",
+  "entry_rule": "A group may fill only when every possible impact-adjusted ask in its ask range is inside the frozen entry band and its conservative size and causal-volume limits pass. Mixed in-band/out-of-band eligibility is UNKNOWN_SAME_TIME_ENTRY_ORDER, not a fill or rejection.",
+  "barrier_rule": "A stop is indicated when any bid in a group touches the stop; a target is indicated only when every bid in a group touches the target. If the bid range spans both barriers, classify UNKNOWN_SAME_TIME_BARRIER_ORDER. Never select a favorable record order.",
+  "comparison": "Apply the same frozen decision, entry, barrier, latency, cost and timeout settings as the primary audit. Preserve the primary report. Report all twelve cases; do not calculate resolved-only mean as strategy expectancy.",
+  "new_market_request_budget": 0,
+  "new_market_requests": 0,
+  "holdout_opens": 0,
+  "deployment_allowed": false,
+  "live_rule_changes_allowed": false,
+  "source_sha256": {
+    "data/quote-anchored-report.json": "9d1fa0b80510fd4b9ad174aec9da99bfa7ce1f62e28fb30dba2f12db7c6e660a",
+    "research/quote_anchored.py": "a7b1097b81075b1be039b0a39319f0004575a3b28d1a20327ec305704f6b1c5a",
+    "research/quote-anchored-protocol.json": "4f04fb390fdbcb55265c03134bdd007926fe34bf140df81b2cc91073259fe7fd",
+    "data/quote-windows.json.gz": "d1693f3c9417736279a60a1b4c7f16641d02ab5be0cef29fa5ad6be723b57de0",
+    "data/exit-windows.json.gz": "cf1b8ace9d3f2c8f1435d799227c4b6716146b74b2dd5e4233d1699ffca9f1d3",
+    "data/study-manifest.json": "6ce841265eb4ac91447908c3dddb3b145e3abdf90080ad5094c94074f4d445df"
+  }
+}
