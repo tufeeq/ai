@@ -64,7 +64,7 @@ test('live: one tick fills every source; rows carry source, time, verification a
 test('live: a price from an earlier session gets no day change from today\'s reference close',async()=>{
  const sunday=Date.parse('2026-09-27T15:00:00Z');
  const closes={peek:()=>new Map([['BBB',{close:1,session:'2026-09-25'}]]),status:()=>({})};
- const board=createLiveBoard({env,fetcher:fakeProvider([],'2026-09-27T12:00:00Z'),now:()=>sunday,closes,timers:noTimers});
+ const board=createLiveBoard({env,fetcher:fakeProvider([],'2026-09-25T20:00:00Z'),now:()=>sunday,closes,timers:noTimers});
  await board.get();await board.tick();
  const bbb=(await board.get(['BBB'])).rows[0];
  assert.equal(bbb.price,1.1);assert.equal(bbb.change_pct,null);assert.equal(bbb.change_basis,'UNAVAILABLE');
@@ -77,8 +77,8 @@ test('live: viewed symbols are refreshed first and a block backs off',async()=>{
  const fetcher=async url=>url.includes('nasdaq.com')&&block?{ok:false,status:403}:base(url);
  const board=createLiveBoard({env,fetcher,now:()=>clock,options:{nasdaqBatch:1},timers:noTimers});
  await board.get();await board.tick();
- await board.get(['CCC']);calls.length=0;await board.tick();
- assert.match(calls.find(u=>u.includes('nasdaq.com')),/symbol=ccc%7Cstocks/);
+ await board.get(['CCC']);calls.length=0;await board.tick();clock+=1000;await board.tick();
+ assert.ok(calls.filter(u=>u.includes('nasdaq.com')).some(u=>/symbol=ccc%7Cstocks/.test(u)));
  block=true;clock+=3000;await board.tick();
  assert.equal(board.status().consolidated.status,'BACKING_OFF');
  calls.length=0;clock+=3000;await board.tick();

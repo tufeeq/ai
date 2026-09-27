@@ -102,7 +102,7 @@ export function pickPrice({ nasdaq, iex, sip }) {
 export function createLiveBoard({ env = process.env, fetcher = fetch, now = Date.now, closes = null, options = {}, timers = { setTimeout, clearTimeout } } = {}) {
   const o = { ...DEFAULTS, ...options };
   const nasdaq = new Map(), iex = new Map(), sip = new Map(), hot = new Map();
-  let universe = [], universeAt = 0, universeLoading = null, cursor = 0, lastAsked = 0, timer = null, running = false;
+  let hotTurn = false, universe = [], universeAt = 0, universeLoading = null, cursor = 0, lastAsked = 0, timer = null, running = false;
   const stat = {
     nasdaq: { status: 'IDLE', ok: 0, failed: 0, blocked_until: 0, last_ok_at: null, last_error: null, cycle_ms: null, cycle_started: 0 },
     iex: { status: 'IDLE', at: 0, last_error: null },
@@ -122,7 +122,11 @@ export function createLiveBoard({ env = process.env, fetcher = fetch, now = Date
       s.configured ? alpaca('https://paper-api.alpaca.markets/v2/assets?status=active&asset_class=us_equity&exchange=NASDAQ') : Promise.resolve(null),
       fetcher(REFERENCE_URL, { signal: AbortSignal.timeout(15_000) }).then((r) => (r.ok ? r.json() : Promise.reject(Error('REFERENCE_' + r.status)))),
     ]);
-    const ref = normalizeReference(raw, now());
+    // The board only needs the symbol list: a reference up to five days old (weekends, holidays)
+    // is read as of its own timestamp; eligibility claims stay with the scanner's 24-hour rule.
+    const refAt = Date.parse(raw?.updatedAt);
+    if (!(now() - refAt <= 5 * 86_400_000)) throw Error('REFERENCE_TOO_OLD');
+    const ref = normalizeReference(raw, refAt + 1000);
     const listed = Array.isArray(assets) ? new Set(assets.filter((a) => a.exchange === 'NASDAQ' && a.status === 'active').map((a) => a.symbol)) : null;
     universe = [...ref.rows.keys()].filter((x) => SYMBOL.test(x) && (!listed || listed.has(x))).sort();
     universeAt = now();
@@ -137,10 +141,12 @@ export function createLiveBoard({ env = process.env, fetcher = fetch, now = Date
   /** Next Nasdaq batch: stale viewed symbols first, then the rotation over the universe. */
   function nextBatch() {
     const t = now(), batch = [];
+    // Viewed symbols get every other request, so the rotation over the universe never stalls.
+    hotTurn = !hotTurn;
     for (const [s, until] of hot) {
       if (until < t) { hot.delete(s); continue; }
       const q = nasdaq.get(s);
-      if (!q || t - Date.parse(q.fetched_at) > o.hotMaxAgeMs) batch.push(s);
+      if (hotTurn && (!q || t - Date.parse(q.fetched_at) > o.hotMaxAgeMs)) batch.push(s);
       if (batch.length >= o.nasdaqBatch) return batch;
     }
     const all = [...new Set([...universe, ...hot.keys()])];
