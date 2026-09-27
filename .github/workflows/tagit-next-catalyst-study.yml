@@ -1,0 +1,90 @@
+name: TAGit NEXT catalyst study
+
+# Pre-registered SEC-filing catalyst hypotheses (catalyst-study-1): see the header of
+# tagit-next/pipeline/catalyst_study.py. EDGAR + relay data are cached as an artifact so later
+# runs (bug fixes only) do not refetch.
+on:
+  workflow_dispatch:
+    inputs:
+      cache_run_id:
+        description: Run id whose catalyst-cache artifact to reuse (empty = fetch everything)
+        default: ''
+      args:
+        description: Extra arguments (e.g. --diagnostics-only)
+        default: ''
+  push:
+    branches: ['claude/**']
+    paths: ['tagit-next/pipeline/catalyst_study.py', '.github/workflows/tagit-next-catalyst-study.yml']
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: tagit-next-catalyst-study-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Set after the first full data fetch so bug-fix reruns reuse the cache.
+  CACHE_RUN_ID: ''
+  STUDY_ARGS: '--diagnostics-only'
+  SEC_USER_AGENT: 'TAGit NEXT research tufeeq11@gmail.com'
+
+jobs:
+  catalyst:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Tests
+        working-directory: tagit-next/pipeline
+        run: python -m unittest test_catalyst_study test_enrich
+      - name: Restore cache
+        if: ${{ github.event.inputs.cache_run_id != '' || env.CACHE_RUN_ID != '' }}
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: catalyst-cache
+          path: catalyst-cache
+          run-id: ${{ github.event.inputs.cache_run_id || env.CACHE_RUN_ID }}
+          github-token: ${{ github.token }}
+      - name: Study
+        run: |
+          ls -la catalyst-cache || true
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then ARGS="${{ github.event.inputs.args }}"; else ARGS="$STUDY_ARGS"; fi
+          python tagit-next/pipeline/catalyst_study.py --cache catalyst-cache $ARGS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: catalyst-cache
+          path: catalyst-cache
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: catalyst-study
+          path: tagit-next/data/catalyst-study.json
+          if-no-files-found: ignore
+      - name: Publish (main)
+        if: github.ref == 'refs/heads/main' && env.STUDY_ARGS == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name 'github-actions'
+          git config user.email 'github-actions@github.com'
+          git add tagit-next/data/catalyst-study.json
+          git diff --cached --quiet && { echo 'No change'; exit 0; }
+          git commit -m 'data: TAGit NEXT catalyst study'
+          for attempt in 1 2 3 4; do
+            if git pull --rebase --autostash origin main && git push origin HEAD:main; then
+              gh workflow run pages-tagx-deploy.yml --ref main
+              exit 0
+            fi
+            sleep $((attempt * 5))
+          done
+          exit 1
