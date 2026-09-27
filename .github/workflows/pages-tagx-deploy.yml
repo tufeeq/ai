@@ -99,11 +99,12 @@ jobs:
           cp -R tagit-next/src _site/tagit-next/src
           cp -R tagit-next/data _site/tagit-next/data
           test -s _site/tagit-next/src/state.js
-          cp tagit-next/workspace-tabs.mjs _site/tagit-next/
+          cp tagit-next/workspace-tabs.mjs tagit-next/insights.mjs _site/tagit-next/
           cp -R tagit-next/lab _site/tagit-next/lab
           test -s _site/tagit-next/lab/index.html
           test -s _site/tagit-next/index.html
           cp tagit-next/phase1.js tagit-next/phase1-evidence.json tagit-next/performance.html tagit-next/performance.js tagit-next/phase2-view.mjs tagit-next/phase2-evidence.json tagit-next/evidence-release.json _site/tagit-next/
+          python3 -c "import json,pathlib,sys; m=json.load(open('tagit-next/evidence-release.json')); miss=[k for k in m['files'] if not pathlib.Path('_site/tagit-next',k).is_file()]; sys.exit('Release files missing from _site: '+', '.join(miss) if miss else 0)"
           cp tagit/index.html tagit/post-session.html tagit/post-session.js tagit/post-session.css tagit/live-v6.js tagit/early-v9.js tagit/live-v6-price-overlay.js tagit/technical-v7.js tagit/feed-recovery-v7.js tagit/live-v6.css _site/tagit/
           cp tagit10/index.html tagit10/app.js tagit10/trader.js tagit10/trade_math.js tagit10/explosive-ui.js tagit10/session-ui.js tagit10/execution-ui.js tagit10/style.css _site/tagit10/
           mkdir -p _site/tagit10/reports
