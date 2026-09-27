@@ -3,14 +3,17 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '2,17,32,47 8-23 * * 1-5'
+    # The quote service rejects a reference older than 24 h, so weekends need refreshes too.
+    - cron: '7 */6 * * 0,6'
   push:
-    branches: [ main ]
+    branches: [ main, 'claude/**' ]
     paths:
       - '.github/workflows/tagx-broad-universe.yml'
+      - 'tagit-next/pipeline/universe.py'
 permissions:
   contents: write
 concurrency:
-  group: tagx-broad-us-universe
+  group: tagx-broad-us-universe-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   build:
@@ -19,10 +22,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
           fetch-depth: 0
-      - run: git pull --rebase origin main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Fetch broad Finviz Elite universe
+        id: finviz
+        continue-on-error: true
         env:
           FINVIZ_TOKEN: ${{ secrets.FINVIZ_TOKEN }}
         run: |
@@ -35,6 +41,9 @@ jobs:
           test -s /tmp/broad-overview.csv
           test -s /tmp/broad-ownership.csv
       - name: Build uncapped de-duplicated universe
+        id: finviz_build
+        if: steps.finviz.outcome == 'success'
+        continue-on-error: true
         run: |
           python - <<'PY'
           import csv,json,datetime,pathlib,re
@@ -62,7 +71,16 @@ jobs:
           print('broad universe rows',len(rows))
           if len(rows)<2000: raise SystemExit('Broad universe unexpectedly below 2000 symbols; fail closed')
           PY
+      - name: Free fallback (Nasdaq.com screener + SEC + FINRA) when Finviz fails
+        if: steps.finviz_build.outcome != 'success'
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT || 'TAGit NEXT research tufeeq11@gmail.com' }}
+        run: |
+          echo '::warning::Finviz Elite export failed; publishing the free reference instead'
+          (cd tagit-next/pipeline && python -m unittest -q test_universe)
+          python tagit-next/pipeline/universe.py
       - name: Commit broad universe
+        if: github.ref == 'refs/heads/main'
         run: |
           git config user.name 'TAGX Broad Universe Bot'
           git config user.email 'actions@users.noreply.github.com'
