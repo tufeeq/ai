@@ -57,6 +57,7 @@ import { tmpdir } from 'node:os';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { getJson } from './sip_study.mjs';
 import { HYPOTHESES as DAILY, eligible } from './daily_study.mjs';
+import { extensionEvents, FADE_WINDOW_SESSIONS } from '../src/core/fade.js';
 
 const SERVICE = process.env.TAGIT_SERVICE || 'https://tagit-next-quotes.onrender.com';
 const PACE_MS = Number(process.env.TAGIT_RELAY_PACE_MS || 3200);
@@ -398,7 +399,53 @@ async function groupBars(dir, group, offline) {
   return out;
 }
 
+/** Daily flag list for the site: extension events on the last FADE_WINDOW_SESSIONS completed sessions. */
+export function flagList(barsBySymbol, now = new Date()) {
+  const nyNow = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
+  const part = (t) => nyNow.find((x) => x.type === t).value;
+  const today = `${part('year')}-${part('month')}-${part('day')}`;
+  const closed = Number(part('hour')) * 60 + Number(part('minute')) >= 16 * 60 + 20;
+  const all = new Set();
+  for (const bars of barsBySymbol.values()) for (const b of bars) if (b.d < today || (b.d === today && closed)) all.add(b.d);
+  const sessions = [...all].sort().reverse().slice(0, FADE_WINDOW_SESSIONS);
+  const symbols = {};
+  for (const [s, raw] of barsBySymbol) {
+    const bars = raw.filter((b) => b.d <= (sessions[0] ?? ''));
+    for (let i = bars.length - 1; i >= 21 && sessions.includes(bars[i].d); i--) {
+      const events = extensionEvents(bars, i);
+      if (events.length) { symbols[s] = { d: bars[i].d, events, c: bars[i].c }; break; }
+    }
+  }
+  return { schema: 1, protocol: 'fade-study-1', updated_at: now.toISOString(), as_of: sessions[0] ?? null, window_sessions: FADE_WINDOW_SESSIONS, sessions, symbols };
+}
+
+async function flagsMain() {
+  const dir = `${tmpdir()}/tagit-fade-flags-${Date.now()}`;
+  mkdirSync(dir, { recursive: true });
+  const u = await universe(dir);
+  const symbols = Object.keys(u).filter((s) => u[s].status === 'active').sort();
+  const start = new Date(Date.now() - 60 * 86_400_000).toISOString().slice(0, 10);
+  const end = new Date().toISOString().slice(0, 10);
+  const barsBySymbol = new Map();
+  for (let i = 0; i < symbols.length; i += 100) {
+    const group = symbols.slice(i, i + 100);
+    for (const body of await relayPages({ resource: 'bars', symbols: group.join(','), timeframe: '1Day', start: `${start}T00:00:00Z`, end: `${end}T23:59:00Z`, feed: 'sip', adjustment: 'split', limit: '10000', sort: 'asc' })) {
+      for (const [s, list] of Object.entries(body?.bars ?? {})) {
+        const arr = barsBySymbol.get(s) ?? [];
+        for (const b of list) arr.push({ d: nyDate.format(new Date(b.t)), o: b.o, h: b.h, l: b.l, c: b.c, v: b.v });
+        barsBySymbol.set(s, arr);
+      }
+    }
+  }
+  for (const arr of barsBySymbol.values()) arr.sort((a, b) => a.d.localeCompare(b.d));
+  const out = flagList(barsBySymbol);
+  out.relay_requests = requests;
+  writeFileSync(new URL('../data/fade-flags.json', import.meta.url), JSON.stringify(out) + '\n');
+  console.log(`flags as of ${out.as_of}: ${Object.keys(out.symbols).length} symbols · ${requests} requests`);
+}
+
 async function main() {
+  if (process.argv.includes('--flags')) return flagsMain();
   const arg = (n) => { const i = process.argv.indexOf(n); return i >= 0 ? process.argv[i + 1] : null; };
   const limit = Number(arg('--limit-symbols') ?? Infinity);
   const offline = process.argv.includes('--offline');

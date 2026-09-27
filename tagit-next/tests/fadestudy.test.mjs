@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { EVENTS, shortTrade, longTrade, shortNet, scanSymbol, analyze, STOP_SLIP } from '../pipeline/fade_study.mjs';
+import { EVENTS, shortTrade, longTrade, shortNet, scanSymbol, analyze, STOP_SLIP, flagList } from '../pipeline/fade_study.mjs';
+import { extensionEvents, fadeWarning } from '../src/core/fade.js';
 import { eligible } from '../pipeline/daily_study.mjs';
 
 const addDays = (start, i) => new Date(Date.parse(`${start}T12:00:00Z`) + i * 86_400_000).toISOString().slice(0, 10);
@@ -99,4 +100,39 @@ test('selection happens on development and the untouched holdout decides', () =>
   assert.equal(none.short.selected, null, 'nothing is selected when no short is positive in development');
   assert.equal(none.short.holds, false);
   assert.equal(none.short.reference.event, 'extended_any');
+});
+
+test('the site rules are identical to the tested pipeline rules', () => {
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+  let hits = 0;
+  for (let k = 0; k < 40; k++) {
+    const b = series(120);
+    let p = 2;
+    for (let i = 1; i < b.length; i++) {
+      const jump = rnd() < 0.08 ? 1 + rnd() * 0.8 : 1 + (rnd() - 0.5) * 0.12;
+      const o = p * (rnd() < 0.1 ? 1 + rnd() * 0.3 : 1), c = p * jump;
+      b[i] = { d: b[i].d, o, h: Math.max(o, c) * (1 + rnd() * 0.05), l: Math.min(o, c) * (1 - rnd() * 0.05), c, v: 400_000 * (1 + rnd() * 6) };
+      p = c > 15 ? 2 : c;
+    }
+    for (let i = 21; i < b.length; i++) {
+      const ctx = eligible(b, i);
+      const pipe = ctx ? Object.keys(EVENTS).filter((e) => EVENTS[e](b, i, ctx)) : [];
+      assert.deepEqual(extensionEvents(b, i), pipe);
+      hits += pipe.length;
+    }
+  }
+  assert.ok(hits > 20, 'the random walk produced events');
+});
+
+test('flag list keeps events of the last five completed sessions; the warning expires after them', () => {
+  const b = series(40, '2026-08-01');
+  b[35] = { ...b[35], o: 2, h: 3.2, l: 1.98, c: 3.15, v: 3_000_000 };
+  const out = flagList(new Map([['AAA', b]]), new Date('2026-09-15T12:00:00Z'));
+  assert.equal(out.as_of, b[39].d);
+  assert.deepEqual(out.symbols.AAA.events, ['strong_close', 'momentum_5d', 'spike_50']);
+  assert.equal(fadeWarning(out, 'AAA').sessions_since, 4);
+  assert.equal(fadeWarning(out, 'ZZZ'), null);
+  const later = flagList(new Map([['AAA', series(41, '2026-08-01').map((x, i) => (i < 40 ? b[i] : x))]]), new Date('2026-09-15T12:00:00Z'));
+  assert.equal(fadeWarning(later, 'AAA'), null, 'six sessions later the warning is gone');
 });

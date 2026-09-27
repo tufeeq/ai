@@ -3,7 +3,10 @@ name: TAGit NEXT fade study
 # Pre-registered fade study (fade-study-1): short / avoid after extended moves on Nasdaq listings.
 # Development 2023-01 → 2026-09 (already seen), untouched holdout 2018-01 → 2022-12.
 # Daily bars are cached as the `fade-bars` artifact so reruns do not refetch through the relay.
+# A weekday schedule (main only) refreshes data/fade-flags.json, the site's "extended move" warning list.
 on:
+  schedule:
+    - cron: '41 21 * * 1-5'
   workflow_dispatch:
     inputs:
       limit_symbols:
@@ -11,7 +14,7 @@ on:
         default: ''
   push:
     branches: ['claude/**']
-    paths: ['tagit-next/pipeline/fade_study.mjs', 'tagit-next/tests/fadestudy.test.mjs', '.github/workflows/tagit-next-fade-study.yml']
+    paths: ['tagit-next/pipeline/fade_study.mjs', 'tagit-next/tests/fadestudy.test.mjs', 'tagit-next/src/core/fade.js', '.github/workflows/tagit-next-fade-study.yml']
 
 permissions:
   contents: write
@@ -35,6 +38,7 @@ jobs:
       - name: Tests
         run: node --test tagit-next/tests/fadestudy.test.mjs tagit-next/tests/dailystudy.test.mjs
       - name: Restore bar cache
+        if: github.event_name != 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -46,11 +50,12 @@ jobs:
           fi
           echo "cached files: $(ls "$RUNNER_TEMP/fade-bars" | wc -l) (from run ${id:-none})"
       - name: Study
+        if: github.event_name != 'schedule'
         run: |
           limit="${{ github.event.inputs.limit_symbols }}"
           node tagit-next/pipeline/fade_study.mjs --cache "$RUNNER_TEMP/fade-bars" ${limit:+--limit-symbols $limit}
       - name: Save bar cache
-        if: always()
+        if: always() && github.event_name != 'schedule'
         uses: actions/upload-artifact@v4
         with:
           name: fade-bars
@@ -58,23 +63,30 @@ jobs:
           retention-days: 30
           compression-level: 0
           if-no-files-found: ignore
+      - name: Extension flags (last 5 sessions)
+        run: node tagit-next/pipeline/fade_study.mjs --flags
       - uses: actions/upload-artifact@v4
         with:
           name: fade-study
-          path: tagit-next/data/fade-study.json
-      - name: Publish (main)
-        if: github.ref == 'refs/heads/main'
+          path: |
+            tagit-next/data/fade-study.json
+            tagit-next/data/fade-flags.json
+          if-no-files-found: ignore
+      - name: Publish (main, or back to the claude/** branch that ran it)
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/claude/')
         env:
           GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
         run: |
           git config user.name 'github-actions'
           git config user.email 'github-actions@github.com'
-          git add tagit-next/data/fade-study.json
+          git add tagit-next/data/fade-flags.json
+          if [ -f tagit-next/data/fade-study.json ]; then git add tagit-next/data/fade-study.json; fi
           git diff --cached --quiet && { echo 'No change'; exit 0; }
           git commit -m 'data: TAGit NEXT fade study'
           for attempt in 1 2 3 4; do
-            if git pull --rebase --autostash origin main && git push origin HEAD:main; then
-              gh workflow run pages-tagx-deploy.yml --ref main
+            if git pull --rebase --autostash origin "$BRANCH" && git push origin "HEAD:$BRANCH"; then
+              if [ "$BRANCH" = main ]; then gh workflow run pages-tagx-deploy.yml --ref main; fi
               exit 0
             fi
             sleep $((attempt * 5))
