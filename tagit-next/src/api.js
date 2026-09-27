@@ -86,6 +86,32 @@ export function normalizeQuote(r) {
   };
 }
 
+const LIVE_SOURCES = new Set(['CONSOLIDATED', 'IEX', 'SIP_DELAYED']);
+const iso = (t) => (typeof t === 'string' && Number.isFinite(Date.parse(t)) ? t : null);
+
+/** Map a /api/live board row onto merge candidates; unknown sources and bad times are dropped. */
+export function normalizeLive(r) {
+  if (!isSymbol(r?.symbol)) return null;
+  const delayed = positive(r.sip_delayed?.price) && iso(r.sip_delayed?.price_at)
+    ? { price: r.sip_delayed.price, price_at: r.sip_delayed.price_at } : null;
+  const sourced = LIVE_SOURCES.has(r.price_source) && r.price_source !== 'SIP_DELAYED' && positive(r.price) && iso(r.price_at);
+  return {
+    symbol: r.symbol,
+    price: sourced ? r.price : undefined,
+    price_at: sourced ? r.price_at : undefined,
+    price_source: sourced ? r.price_source : undefined,
+    verified_at: sourced ? iso(r.verified_at) : null,
+    bid: r.bid,
+    ask: r.ask,
+    quote_at: iso(r.quote_at),
+    quote_source: r.quote_source === 'CONSOLIDATED' ? 'CONSOLIDATED' : 'IEX',
+    sip_delayed: delayed,
+    server_close: r.change_basis === 'SIP_SPLIT_ADJUSTED' && positive(r.previous_close) && typeof r.change_session === 'string'
+      ? { previous_close: r.previous_close, previous_close_session: r.previous_close_session ?? null, change_session: r.change_session }
+      : null,
+  };
+}
+
 /**
  * Static data published by the GitHub Actions jobs next to the page. A missing or malformed
  * file is reported as null; the page works without it.
@@ -115,6 +141,18 @@ export function createClient(endpoint, fetcher = fetch) {
       const { ok, body } = await getJson(fetcher, url, timeoutMs);
       if (!ok) throw new ApiError(body?.status ?? 'PROVIDER_UNAVAILABLE');
       return body;
+    },
+    /**
+     * Consolidated live board (optional endpoint). A service without it answers 404, reported as
+     * NOT_SUPPORTED so the page keeps its older sources.
+     */
+    async live(symbols, timeoutMs = 15_000) {
+      const query = symbols?.length ? `?symbols=${encodeURIComponent(symbols.join(','))}` : '';
+      const { ok, body } = await getJson(fetcher, `${endpoint}/api/live${query}`, timeoutMs);
+      if (body?.status === 'NOT_FOUND') throw new ApiError('NOT_SUPPORTED');
+      if (!ok) throw new ApiError(body?.status ?? 'PROVIDER_UNAVAILABLE');
+      if (body?.schema_version !== 1 || !Array.isArray(body.rows)) throw new ApiError('INVALID_RESPONSE');
+      return { ...body, rows: body.rows.map(normalizeLive).filter(Boolean) };
     },
     async quotes(symbols, timeoutMs = 12_000) {
       const query = encodeURIComponent(symbols.join(','));

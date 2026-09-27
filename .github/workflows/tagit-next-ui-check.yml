@@ -1,0 +1,49 @@
+name: TAGit NEXT UI data check
+
+# Renders the workspace in Chromium and checks that every price shows its source and that prices
+# which are not current are marked: the published page, this branch against the real service, and
+# this branch against a canned service (deterministic).
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/**']
+    paths: ['tagit-next/pipeline/ui_check.mjs', 'tagit-next/src/**', 'tagit-next/app.js', 'tagit-next/style.css', '.github/workflows/tagit-next-ui-check.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install Playwright Chromium
+        run: |
+          npm init -y >/dev/null
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Published page
+        continue-on-error: true
+        run: cp tagit-next/pipeline/ui_check.mjs . && node ui_check.mjs --site https://tufeeq.github.io/ai/tagit-next/
+        env:
+          TAGIT_ROOT: ${{ github.workspace }}/tagit-next/
+      - name: This branch against the real service
+        continue-on-error: true
+        run: node ui_check.mjs --local --wait 90000
+        env:
+          TAGIT_ROOT: ${{ github.workspace }}/tagit-next/
+      - name: This branch against a canned service
+        run: node ui_check.mjs --local --mock
+        env:
+          TAGIT_ROOT: ${{ github.workspace }}/tagit-next/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-check
+          path: ui-check-*

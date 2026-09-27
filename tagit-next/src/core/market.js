@@ -68,29 +68,43 @@ function latestOverlay(current, incoming) {
 /**
  * Nasdaq.com consolidated overlay as trade and quote candidates. The trade time is the start of
  * its minute (the source only reports minutes), so it wins only when a later minute traded.
+ * `verified_at` is when the source last confirmed this was the last sale.
  */
 function overlayCandidates(overlay) {
   if (!overlay || overlay.real_time === false) return [null, null];
   return [
-    { price: overlay.price, price_at: overlay.trade_minute_at, price_source: 'CONSOLIDATED' },
+    { price: overlay.price, price_at: overlay.trade_minute_at, price_source: 'CONSOLIDATED', verified_at: overlay.fetched_at },
     { bid: overlay.bid, ask: overlay.ask, quote_at: overlay.fetched_at, quote_source: 'CONSOLIDATED' },
   ];
 }
+
+/** Last delayed consolidated (SIP) minute close known for the row, kept across scans. */
+const delayedOf = (current, incoming) => {
+  const a = current?.sip_delayed, b = incoming?.sip_delayed;
+  if (!a) return b ?? null;
+  if (!b) return a;
+  return stamp(b.price_at) >= stamp(a.price_at) ? b : a;
+};
 
 /**
  * Merge a scanner row (`scan: true`, carries metadata and signals) or a quote
  * update into the current row. Future or malformed prices are rejected, and
  * the day change is only computed when the trade belongs to the scanned session.
+ * Candidates: the incoming row, the current row, the consolidated overlay and the delayed SIP
+ * close; the newest valid trade wins and keeps its source.
  */
 export function mergeMarketRow(current, incoming, { scan = false, now = Date.now() } = {}) {
   const result = scan ? { ...incoming } : { ...current };
   const overlay = latestOverlay(current, incoming);
   const [overlayTrade, overlayQuote] = overlayCandidates(overlay);
+  const delayed = delayedOf(current, incoming);
+  const delayedTrade = delayed ? { price: delayed.price, price_at: delayed.price_at, price_source: 'SIP_DELAYED' } : null;
   // IEX rows carry no source field; the incoming row is listed first so it wins exact ties.
-  const trade = newest([incoming, current, overlayTrade], validTrade, 'price_at', now);
+  const trade = newest([incoming, current, overlayTrade, delayedTrade], validTrade, 'price_at', now);
   const quote = newest([incoming, current, overlayQuote], validQuote, 'quote_at', now);
 
   result.consolidated = overlay;
+  result.sip_delayed = delayed;
   if (incoming && 'halt' in incoming) {
     result.halt = incoming.halt;
     result.halt_status = incoming.halt_status;
@@ -98,6 +112,7 @@ export function mergeMarketRow(current, incoming, { scan = false, now = Date.now
   result.price = trade?.price ?? null;
   result.price_at = trade?.price_at ?? null;
   result.price_source = trade ? trade.price_source ?? 'IEX' : null;
+  result.verified_at = trade?.verified_at ?? null;
   result.quote_source = quote ? quote.quote_source ?? 'IEX' : null;
   result.quote_at = quote?.quote_at ?? null;
   result.bid = quote?.bid ?? null;

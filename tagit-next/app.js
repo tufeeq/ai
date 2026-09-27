@@ -12,7 +12,9 @@ import { renderStatus, renderMetrics, renderNotices, coverageText } from './src/
 import { renderEvidence } from './src/views/evidence.js';
 import { renderSipList, SIP_NOTE } from './src/views/sip.js';
 import { sipScan } from './src/core/sipscan.js';
-import { sipUniverse } from './src/state.js';
+import { sipUniverse, applyCloses, applyLive, applySipDelayed, liveSymbols } from './src/state.js';
+import { fetchCloses } from './src/core/closes.js';
+import { marketDate } from './src/core/market.js';
 
 const SCAN_INTERVAL_MS = 30_000;
 const QUOTE_INTERVAL_MS = 5_000;
@@ -20,6 +22,9 @@ const SAVE_THROTTLE_MS = 5_000;
 const SHEET_BREAKPOINT = 1080;
 const STATIC_REFRESH_MS = 30 * 60_000;
 const SIP_INTERVAL_MS = 5 * 60_000; // relay windows move in 5-minute buckets
+const LIVE_INTERVAL_MS = 10_000; // consolidated live board, when the service has it
+const LIVE_RETRY_MS = 10 * 60_000; // re-probe a service without /api/live (manual redeploys)
+const CLOSES_INTERVAL_MS = 30 * 60_000;
 
 const $ = (id) => document.getElementById(id);
 const clock = () => Date.now();
@@ -134,10 +139,58 @@ async function runSip() {
     const result = await sipScan({ getJson: (url) => client.relay(url), service: state.endpoint, symbols, now: clock() });
     if (!result.with_bars && result.failed) throw new Error('تعذر الوصول إلى بيانات SIP');
     state.sip = { phase: 'ok', result, error: null };
+    applySipDelayed(state, result.last, clock());
   } catch (e) {
     state.sip = { ...state.sip, phase: 'error', error: e.message };
   } finally {
     sipBusy = false;
+    scheduleRender();
+  }
+}
+
+let closesBusy = false;
+/** Consolidated split-adjusted previous closes for every symbol the page can show (once per day). */
+async function loadCloses() {
+  if (closesBusy || !client || document.hidden) return;
+  const symbols = [...new Set([...sipUniverse(state), ...(state.scan?.order ?? []), ...state.watched])];
+  if (!symbols.length) return;
+  const today = marketDate(clock());
+  if (!state.closes) {
+    const saved = storage.loadCloses(today);
+    if (saved) applyCloses(state, saved);
+  }
+  const fresh = state.closes && state.closes.day === today && state.closes.symbols >= symbols.length && !state.closes.failed;
+  if (fresh) return;
+  closesBusy = true;
+  try {
+    const closes = await fetchCloses({ getJson: (url) => client.relay(url), service: state.endpoint, symbols, now: clock() });
+    if (closes.map.size) {
+      applyCloses(state, closes);
+      if (!closes.failed) storage.saveCloses(closes);
+    }
+  } catch {
+    // Rows keep the service's own reference close and are marked as not consolidated.
+  } finally {
+    closesBusy = false;
+    scheduleRender();
+  }
+}
+
+let liveBusy = false;
+/** Consolidated live board. Absent on an older service (404): retried every ten minutes. */
+async function live() {
+  if (liveBusy || !client || !state.scan || document.hidden) return;
+  if (state.live.supported === false && clock() - (state.live.checkedAt ?? 0) < LIVE_RETRY_MS) return;
+  liveBusy = true;
+  try {
+    const result = await client.live(liveSymbols(state, clock()));
+    applyLive(state, result, clock());
+  } catch (e) {
+    state.live = e.code === 'NOT_SUPPORTED'
+      ? { ...state.live, supported: false, checkedAt: clock(), error: null }
+      : { ...state.live, error: e.code ?? 'NETWORK' };
+  } finally {
+    liveBusy = false;
     scheduleRender();
   }
 }
@@ -174,6 +227,7 @@ async function loadPublished() {
   state.evidence = { relabel: relabel?.corrected ? relabel : null, forward: forward?.days ? forward : null, sip: sip?.totals ? sip : null, exits: exits?.development ? exits : null, filters: filters?.baseline ? filters : null, daily: daily?.table ? daily : null };
   // The first consolidated scan may have used only the scanner rows; widen it to the full universe.
   if (client && (state.sip.result?.symbols ?? 0) < sipUniverse(state).length) runSip();
+  if (client) loadCloses();
   morph($('evidence'), renderEvidence(state.evidence));
   scheduleRender();
 }
@@ -350,6 +404,8 @@ try {
   client = createClient(state.endpoint);
   await scan();
   runSip();
+  loadCloses();
+  live();
 } catch (e) {
   scanFailed(state, e.code ?? 'CONFIG_UNAVAILABLE');
   render();
@@ -357,6 +413,8 @@ try {
 setInterval(scan, SCAN_INTERVAL_MS);
 setInterval(quotes, QUOTE_INTERVAL_MS);
 setInterval(runSip, SIP_INTERVAL_MS);
+setInterval(live, LIVE_INTERVAL_MS);
+setInterval(loadCloses, CLOSES_INTERVAL_MS);
 // Checks age with time: re-render every second so freshness and plans expire on screen.
 setInterval(() => {
   if (document.hidden) return;

@@ -119,6 +119,8 @@ export async function sipScan({ getJson, service, symbols, now, concurrency = 3 
   const from = window.endMs - SIGNAL_WINDOW_MS;
   const groups = batches(symbols);
   const signals = [];
+  // Last consolidated minute per symbol: a delayed price (bar start time, so its age is never understated).
+  const last = {};
   let withBars = 0, failed = 0, bars = 0, next = 0;
   async function worker() {
     while (next < groups.length) {
@@ -128,6 +130,8 @@ export async function sipScan({ getJson, service, symbols, now, concurrency = 3 
         for (const [symbol, list] of Object.entries(data)) {
           withBars++;
           bars += list.length;
+          const end = list.reduce((m, b) => (Date.parse(b.t) > Date.parse(m?.t ?? 0) && b.c > 0 ? b : m), null);
+          if (end) last[symbol] = { price: end.c, price_at: end.t };
           signals.push(...detectSymbol(symbol, list, { from, to: window.endMs }));
         }
       } catch {
@@ -139,6 +143,6 @@ export async function sipScan({ getJson, service, symbols, now, concurrency = 3 
   signals.sort((a, b) => Date.parse(b.detected_at) - Date.parse(a.detected_at) || b.volume_ratio - a.volume_ratio);
   return {
     window_start: window.start, window_end: window.end, scanned_at: new Date(now).toISOString(),
-    symbols: groups.flat().length, with_bars: withBars, failed, bars, signals,
+    symbols: groups.flat().length, with_bars: withBars, failed, bars, signals, last,
   };
 }

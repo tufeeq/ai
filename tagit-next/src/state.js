@@ -6,6 +6,8 @@ import { assess, isExtended, splitPriority } from './core/checks.js';
 import { createWatchEvent, createSignalEvent, recordObservation, JOURNAL_LIMIT } from './core/journal.js';
 import { updatePressure, pressureSummary } from './core/pressure.js';
 import { WATCH_LIMIT } from './storage.js';
+import { dayChange } from './core/closes.js';
+import { priceQuality } from './core/quality.js';
 
 export const UNIVERSE_CAP = 100_000_000;
 export const LIST_LIMIT = 80;
@@ -20,6 +22,8 @@ export function createState({ journal = [], watched = new Set(), settings = { ca
     enrichment: null, // data/enrichment.json: SEC, Nasdaq listing status, FINRA short interest
     evidence: { relabel: null, forward: null, sip: null }, // published research files
     sip: { phase: 'idle', result: null, error: null }, // consolidated (delayed) signal scan
+    closes: null, // { day, map: symbol → [{day, close}] } consolidated split-adjusted daily closes
+    live: { supported: null, at: null, coverage: null, error: null }, // /api/live board (optional endpoint)
     stocks: new Map(),
     pressure: new Map(),
     journal,
@@ -59,6 +63,17 @@ export const flowOf = (state, symbol, now) => pressureSummary(state.pressure.get
 
 // ---- transitions --------------------------------------------------------------
 
+/** Re-measure a row's day change against the consolidated close before its price's session. */
+export function rebase(state, row) {
+  const change = row ? dayChange(row, state.closes?.map?.get(row.symbol)) : null;
+  return change ? Object.assign(row, change) : row;
+}
+
+/** Store a mergeMarketRow result with its consolidated day change. */
+function put(state, row) {
+  state.stocks.set(row.symbol, rebase(state, row));
+}
+
 /** Apply a validated scanner payload. Returns true when new journal records were created. */
 export function applyScan(state, payload, now) {
   state.scan = {
@@ -74,7 +89,7 @@ export function applyScan(state, payload, now) {
   for (const incoming of payload.rows) {
     const scanned = { ...incoming, scan_at: payload.server_time };
     state.pressure.set(scanned.symbol, updatePressure(state.pressure.get(scanned.symbol), scanned, payload.server_time));
-    state.stocks.set(scanned.symbol, mergeMarketRow(state.stocks.get(scanned.symbol), scanned, { scan: true, now }));
+    put(state, mergeMarketRow(state.stocks.get(scanned.symbol), scanned, { scan: true, now }));
   }
   let added = false;
   for (const alert of payload.alerts) {
@@ -111,12 +126,75 @@ export function applyQuotes(state, result, now) {
       merged.market_cap = q.market_cap;
       merged.metadata_at = q.metadata_at;
     }
-    state.stocks.set(q.symbol, merged);
+    put(state, merged);
   }
   state.quoteError = false;
   invalidate(state);
   observe(state);
   return startWatchEvents(state, now);
+}
+
+/** Apply consolidated daily closes (fetched through the relay) to every known row. */
+export function applyCloses(state, closes) {
+  state.closes = closes;
+  for (const row of state.stocks.values()) rebase(state, row);
+  invalidate(state);
+}
+
+/**
+ * Rows from the service's /api/live board (consolidated real-time where available, IEX, delayed
+ * SIP). Only symbols already known or watched are merged, so the board does not widen the lists.
+ */
+export function applyLive(state, result, now) {
+  for (const q of result.rows) {
+    const known = state.stocks.get(q.symbol);
+    if (!known && !state.watched.has(q.symbol)) continue;
+    const base = known ?? { symbol: q.symbol, name: q.symbol, signal: null, extended: false };
+    const merged = mergeMarketRow(base, q, { now });
+    // The server's consolidated close is used only when the page has none of its own for the
+    // symbol and it belongs to the merged price's session.
+    const c = q.server_close;
+    if (c && !state.closes?.map?.has(q.symbol) && c.change_session === marketDate(merged.price_at) && positive(merged.price)) {
+      Object.assign(merged, c, { day_change: (merged.price / c.previous_close - 1) * 100, change_basis: 'SIP_SPLIT_ADJUSTED' });
+    }
+    put(state, merged);
+  }
+  state.live = { supported: true, at: result.server_time ?? new Date(now).toISOString(), coverage: result.coverage ?? null, error: null };
+  invalidate(state);
+  observe(state);
+}
+
+/** Last delayed consolidated minute close per symbol from the SIP scan (context, never current). */
+export function applySipDelayed(state, last, now) {
+  for (const [symbol, bar] of Object.entries(last ?? {})) {
+    const row = state.stocks.get(symbol);
+    if (!row) continue;
+    put(state, mergeMarketRow(row, { symbol, sip_delayed: bar }, { now }));
+  }
+  invalidate(state);
+}
+
+/** Price provenance counts over the rows the page knows (for the coverage line). */
+export function priceCoverage(state, now) {
+  const counts = { live: 0, quiet: 0, aging: 0, stale: 0, delayed: 0, none: 0, CONSOLIDATED: 0, IEX: 0, SIP_DELAYED: 0, sip_basis: 0 };
+  for (const row of state.stocks.values()) {
+    const q = priceQuality(row, now);
+    counts[q.level]++;
+    if (q.current) counts[q.source]++;
+    if (row.change_basis === 'SIP_SPLIT_ADJUSTED' || row.change_basis === 'SIP_PREVIOUS_CLOSE') counts.sip_basis++;
+  }
+  return { total: state.stocks.size, ...counts };
+}
+
+export const LIVE_BATCH = 200;
+
+/**
+ * Symbols for the live board: selected, watched and visible (at most 200). The service refreshes
+ * these first, so the request is limited to what is on screen or followed.
+ */
+export function liveSymbols(state, now) {
+  const list = [state.ui.selected, ...state.watched, ...visibleRows(state, now).map((r) => r.symbol)];
+  return [...new Set(list.filter(isSymbol))].slice(0, LIVE_BATCH);
 }
 
 /** Symbols for the next quote request: the selected one first, then a rotation. */
