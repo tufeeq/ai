@@ -373,9 +373,22 @@ export function trends({ etf, sectors, industries, all, small }) {
 
 /**
  * Alpaca news → contract rows. Linking (news-link-1): a news item's symbols are matched to the universe;
- * move_pct is the day change of the most-moved matched symbol ONLY when the item was published inside the
- * session window (previous close → session close) and names ≤ 4 companies. Nothing more is inferred.
+ * move_pct is the day change of the matched symbol the headline names first (by ticker or company name),
+ * else the most-moved matched symbol, ONLY when the item was published inside the session window
+ * (previous close → session close) and names ≤ 4 companies. Nothing more is inferred.
  */
+const NAME_NOISE = /\b(inc|corp|corporation|co|company|ltd|plc|holdings?|group|the|class [a-z]|common stock|n\.?v\.?|s\.?a\.?)\b\.?/gi;
+export function headlineSymbol(headline, syms, bySymbol) {
+  const text = String(headline ?? '');
+  let best = null, bestAt = Infinity;
+  for (const s of syms) {
+    const name = String(bySymbol.get(s)?.company ?? '').replace(NAME_NOISE, ' ').replace(/[^\p{L}\p{N}& ]/gu, ' ').trim().split(/\s+/)[0];
+    const hits = [new RegExp(`\\b${s}\\b`).exec(text)];
+    if (name && name.length >= 3) hits.push(new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').exec(text));
+    for (const h of hits) if (h && h.index < bestAt) { best = s; bestAt = h.index; }
+  }
+  return best;
+}
 export function linkNews(raw, bySymbol, win) {
   const seen = new Set(), out = [];
   for (const n of raw ?? []) {
@@ -387,7 +400,7 @@ export function linkNews(raw, bySymbol, win) {
     const syms = (n.symbols ?? []).filter((s) => bySymbol.has(s));
     const industries = [...new Set(syms.map((s) => bySymbol.get(s).industry).filter(Boolean))];
     const sectors = [...new Set(syms.map((s) => bySymbol.get(s).sector).filter(Boolean))];
-    const top = [...syms].sort((a, b) => Math.abs(bySymbol.get(b).chg) - Math.abs(bySymbol.get(a).chg))[0];
+    const top = headlineSymbol(n.headline, syms, bySymbol) ?? [...syms].sort((a, b) => Math.abs(bySymbol.get(b).chg) - Math.abs(bySymbol.get(a).chg))[0];
     const phase = !win ? null : t < win.prevClose ? 'BEFORE' : t < win.open ? 'PRE' : t < win.close ? 'SESSION' : 'AFTER';
     const broad = (n.symbols ?? []).length > 4;
     let move = null, note;

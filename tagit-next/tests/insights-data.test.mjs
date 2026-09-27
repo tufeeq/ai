@@ -184,3 +184,11 @@ test('built document matches the contract (and the UI fixture when present)', ()
   const fixture = new URL('./fixtures/insights.sample.json', import.meta.url);
   if (existsSync(fixture)) assert.deepEqual(shapeErrors(JSON.parse(readFileSync(fixture, 'utf8')), doc), []);
 });
+
+test('news links the company the headline names, not the most-moved one', async () => {
+  const { headlineSymbol } = await import('../pipeline/insights.mjs');
+  const by = new Map([['AKAM', { company: 'Akamai Technologies Inc', chg: 3.2 }], ['CRWD', { company: 'CrowdStrike Holdings Inc', chg: -1.1 }]]);
+  assert.equal(headlineSymbol("CrowdStrike Stock Slides Amid Akamai's $11.6 Billion Deal", ['AKAM', 'CRWD'], by), 'CRWD');
+  assert.equal(headlineSymbol('AKAM jumps after deal', ['CRWD', 'AKAM'], by), 'AKAM');
+  assert.equal(headlineSymbol('Tech stocks rally', ['AKAM', 'CRWD'], by), null);
+});
