@@ -1,0 +1,83 @@
+name: TAGit NEXT paper ledger
+
+# Forward paper-trade ledger (protocol paper-ledger-1, pipeline/paper_ledger.mjs): after each
+# session, every signal the page would have shown is traded on paper with SIP minute bars and the
+# calculator's cost model. Runs after the consolidated study (16:40) and the forward evaluation
+# (20:20) have published the day's inputs. Branch pushes replay recent sessions (not forward,
+# not published) as a smoke test.
+on:
+  schedule:
+    - cron: '45 0 * * 2-6'   # 20:45 EDT
+    - cron: '45 1 * * 2-6'   # 20:45 EST (second, idempotent pass in EDT)
+  workflow_dispatch:
+    inputs:
+      replay_from:
+        description: Replay from (YYYY-MM-DD), not published; empty = forward ledger
+        default: ''
+  push:
+    branches: ['claude/**']
+    paths:
+      - 'tagit-next/pipeline/paper_ledger.mjs'
+      - 'tagit-next/src/core/costs.js'
+      - 'tagit-next/src/core/tradeability.js'
+      - '.github/workflows/tagit-next-paper-ledger.yml'
+
+permissions:
+  contents: write
+  actions: write  # request a Pages deploy after publishing
+
+concurrency:
+  group: tagit-next-paper-ledger-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Tests
+        run: node --test tagit-next/tests/*.test.mjs
+      - name: Ledger
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            node tagit-next/pipeline/paper_ledger.mjs --replay --from "$(date -u -d '-8 days' +%F)" --to "$(date -u -d '-1 day' +%F)" --max-days 5 --out paper-replay.json
+          elif [ -n "${{ github.event.inputs.replay_from }}" ]; then
+            node tagit-next/pipeline/paper_ledger.mjs --replay --from "${{ github.event.inputs.replay_from }}" --max-days 10 --out paper-replay.json
+          else
+            node tagit-next/pipeline/paper_ledger.mjs
+          fi
+      - name: Upload for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-ledger-${{ github.run_id }}
+          if-no-files-found: ignore
+          path: |
+            paper-replay.json
+            paper-replay.raw.json
+            tagit-next/data/paper-ledger.json
+            tagit-next/data/paper-ledger.raw.json
+          retention-days: 90
+      - name: Publish (main)
+        if: github.ref == 'refs/heads/main' && github.event_name != 'push' && github.event.inputs.replay_from == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name 'github-actions'
+          git config user.email 'github-actions@github.com'
+          git add tagit-next/data/paper-ledger.json tagit-next/data/paper-ledger.raw.json
+          git diff --cached --quiet && { echo 'No change'; exit 0; }
+          git commit -m 'data: TAGit NEXT paper ledger'
+          for attempt in 1 2 3 4; do
+            if git pull --rebase --autostash origin main && git push origin HEAD:main; then
+              gh workflow run pages-tagx-deploy.yml --ref main
+              exit 0
+            fi
+            sleep $((attempt * 5))
+          done
+          exit 1

@@ -158,14 +158,18 @@ test('views render every tab without throwing and escape server text', () => {
   assert.equal(groupRows(state, visibleRows(state, now), now).upper.length, 1);
 });
 
-test('plan tab sizes from saved limits and explains a zero-share result', () => {
+test('plan tab sizes from saved limits after costs and explains a zero-share result', () => {
   const state = createState({ settings: { capital: '1000', risk: '4' } });
   applyScan(state, payload([row('AAA')]), now);
   state.ui.selected = 'AAA';
   state.ui.tab = 'plan';
-  assert.match(String(renderDossier(state, now)), /<strong dir="ltr">100<\/strong>/);
+  // $4 at $0.04 per share was 100 shares before costs; the 0.5% floor and stop slippage leave 78.
+  const out = String(renderDossier(state, now));
+  assert.match(out, /<strong dir="ltr">78<\/strong>/);
+  assert.match(out, /التكلفة المتوقعة/);
+  assert.match(out, /قابل للتنفيذ بحذر/);
   state.settings = { capital: '1000', risk: '0.01' };
-  assert.match(String(renderDossier(state, now)), /لا يكفي لسهم واحد/);
+  assert.match(String(renderDossier(state, now)), /لا يغطي سهمًا واحدًا/);
 });
 
 test('journal view lists records and a record can be removed', () => {

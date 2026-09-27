@@ -42,7 +42,7 @@ export function saveJournal(events, watched, now) {
 export function loadSettings() {
   const s = read(SETTINGS_KEY) ?? {};
   const amount = (v) => (typeof v === 'string' && /^\d*\.?\d*$/.test(v) ? v : '');
-  return { capital: amount(s.capital), risk: amount(s.risk) };
+  return { capital: amount(s.capital), risk: amount(s.risk), commission: amount(s.commission) };
 }
 export const saveSettings = (settings) => write(SETTINGS_KEY, settings);
 

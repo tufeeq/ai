@@ -3,7 +3,8 @@ import { html, safeUrl } from '../html.js';
 import * as f from '../format.js';
 import { finite, positive } from '../core/util.js';
 import { CHECK_GROUPS, isExtended } from '../core/checks.js';
-import { sizePosition } from '../core/sizing.js';
+import { sizeWithCosts } from '../core/costs.js';
+import { tradeability, GATE_NOTE } from '../core/tradeability.js';
 import { outcome } from '../core/journal.js';
 import { shariaStatus } from '../core/sharia.js';
 import { companyFacts } from '../core/risk.js';
@@ -39,6 +40,41 @@ function checkValue(c) {
 }
 
 const RISK_TEXT = { HIGH: 'مخاطر هيكلية ظاهرة', WATCH: 'إفصاحات تستحق الانتباه', NONE: 'لا إفصاحات خطرة في آخر ١٢٠ يومًا', UNKNOWN: 'لا بيانات إفصاح لهذا السهم' };
+
+/** Plan levels shown to the user: the live plan, else the watch-only breakout levels. */
+function levelsOf(r, a) {
+  const p = a.plan;
+  const s = r.signal;
+  const entry = p?.entry ?? s?.trigger;
+  const stop = p?.stop ?? s?.stop;
+  return positive(entry) && positive(stop) && entry > stop ? { entry, stop } : null;
+}
+
+export function gateFor(state, r, a, now) {
+  return tradeability(r, {
+    now,
+    feed: state.scan?.feed,
+    plan: levelsOf(r, a),
+    risk: riskFor(state, r, now),
+    connected: state.connection.phase === 'live' || state.connection.phase === 'partial',
+  });
+}
+
+const LEVEL_ICON = { BLOCK: '⛔', WARN: '⚠', INFO: 'ℹ' };
+
+function gateSection(g) {
+  return html`<section class="gate g-${g.verdict}" data-key="gate" aria-live="polite">
+    <h3>قابلية التنفيذ الآن <strong>${g.label}</strong></h3>
+    ${g.reasons.length ? html`<ul class="gate-list">${g.reasons.map((x) => html`<li class="gl-${x.level}"><i aria-hidden="true">${LEVEL_ICON[x.level]}</i>${x.text}</li>`)}</ul>` : ''}
+    <div class="stats">
+      ${stat('الفارق', finite(g.spread) ? f.num(g.spread) + '%' : f.DASH)}
+      ${stat('سيولة الدقيقة', f.compactUsd(g.liquidity.minuteDollars), g.liquidity.source === 'IEX_3M' ? 'IEX · ٣ دقائق' : g.liquidity.source === 'DAY_AVERAGE' ? 'متوسط اليوم المجمّع' : 'غير متاحة')}
+      ${stat('تكلفة الذهاب والعودة', finite(g.costR) ? html`<span dir="ltr">${f.num(g.costR, 2)}R</span>` : f.DASH, 'لسهم واحد وفق مستويات الخطة')}
+      ${stat('قيد Rule 201', g.ssr === 'ACTIVE' ? 'مفعّل' : 'غير معروف', g.ssr === 'ACTIVE' ? 'يقيّد البيع على المكشوف' : 'يلزم أدنى سعر اليوم وحالة أمس')}
+    </div>
+    <p class="note">${GATE_NOTE}</p>
+  </section>`;
+}
 
 function riskSection(state, r, now) {
   const risk = riskFor(state, r, now);
@@ -77,6 +113,7 @@ function overview(state, r, a, now) {
       <p>${STATE_HINTS[a.state]}</p>
       ${a.blockers.length ? html`<p class="blockers"><b>ينقص الآن:</b> ${a.blockers.slice(0, 3).join('، ')}${a.blockers.length > 3 ? ` و${a.blockers.length - 3} غيرها` : ''}.</p>` : ''}
     </div>
+    ${gateSection(gateFor(state, r, a, now))}
     <h3>لماذا ظهر السهم؟</h3>
     <p class="why">${why}${isExtended(r) ? ' الحركة ممتدة؛ لا تُصنّف بداية مبكرة.' : ''}</p>
     ${sipCard(sipSignalFor(state, r.symbol), r, now)}
@@ -109,8 +146,10 @@ function overview(state, r, a, now) {
     <p class="note">مرجع الشركة: ${f.dateTime(r.metadata_at)}. اكتمال الشروط ليس احتمال ربح؛ التقييم المالي والإفصاحات الأصلية غير متصلة.</p>`;
 }
 
-function plan(state, r, a) {
-  const p = a.plan;
+function plan(state, r, a, now) {
+  const g = gateFor(state, r, a, now);
+  // A plan is only offered when the execution gate does not block it.
+  const p = g.verdict === 'NO' ? null : a.plan;
   const s = r.signal;
   const entry = p?.entry ?? s?.trigger;
   const stop = p?.stop ?? s?.stop;
@@ -122,22 +161,30 @@ function plan(state, r, a) {
     { kind: 'stop', value: stop, label: 'الإبطال' },
   ];
   const riskPct = positive(entry) && positive(stop) && entry > stop ? ((entry - stop) / entry) * 100 : null;
-  const { capital, risk } = state.settings;
-  const size = p ? sizePosition(p, Number(risk), Number(capital)) : null;
+  const { capital, risk, commission } = state.settings;
+  const size = p ? sizeWithCosts(p, {
+    riskBudget: Number(risk), capital: Number(capital), commission: Number(commission) || 0,
+    spread: g.spread, minuteDollars: g.liquidity.minuteDollars, dayDollars: g.liquidity.dayDollars,
+  }) : null;
+  const LIMITS = { RISK: 'حد الخسارة شاملًا التكاليف', CAPITAL: 'رأس المال', LIQUIDITY: 'سيولة السهم (١٠٪ من دقيقة · ١٪ من اليوم)' };
   let result;
-  if (!p) result = html`<p class="calc-off">تعمل الحاسبة عند وجود خطة مستوفية فقط.</p>`;
+  if (!p) result = html`<p class="calc-off">${a.plan && g.verdict === 'NO' ? 'الخطة موقوفة لأن السهم غير قابل للتداول الآن (انظر الأسباب أعلاه).' : 'تعمل الحاسبة عند وجود خطة مستوفية فقط.'}</p>`;
   else if (!size) result = html`<p class="calc-off">أدخل رأس المال والخسارة القصوى بمبالغ موجبة.</p>`;
-  else if (size.shares < 1) result = html`<p class="calc-off">حد الخسارة أو رأس المال لا يكفي لسهم واحد وفق هذه الخطة.</p>`;
+  else if (size.shares < 1) result = html`<p class="calc-off">حد الخسارة لا يغطي سهمًا واحدًا بعد احتساب التكاليف والانزلاق، أو السيولة لا تسمح.</p>`;
   else {
+    const c = size.cost;
     result = html`<div class="calc-result" role="status">
-      <div class="calc-main"><strong dir="ltr">${f.num(size.shares, 0)}</strong><span>سهمًا · المحدِّد: ${size.limitedBy === 'RISK' ? 'حد الخسارة' : 'رأس المال'}</span></div>
+      <div class="calc-main"><strong dir="ltr">${f.num(size.shares, 0)}</strong><span>سهمًا · المحدِّد: ${LIMITS[size.limitedBy]}</span></div>
       <div class="stats">
         ${stat('القيمة التقريبية', f.usd(size.notional))}
-        ${stat('الخسارة المخططة', f.usd(size.plannedRisk))}
-        ${stat('عند هدف ١R', size.rewards[0] !== undefined ? '+' + f.usd(size.rewards[0]) : f.DASH)}
-        ${stat('عند هدف ٢R', size.rewards[1] !== undefined ? '+' + f.usd(size.rewards[1]) : f.DASH)}
+        ${stat('التكلفة المتوقعة (ذهاب وعودة)', html`<span dir="ltr">${f.usd(size.costUsd)} · ${f.num(size.costR, 2)}R</span>`,
+          html`فارق <span dir="ltr">${f.num(c.spreadPct)}%</span>${c.spreadSource === 'ASSUMED' ? ' (مفترض)' : ''} + أثر <span dir="ltr">${f.num(2 * c.impactPctPerSide)}%</span> + رسوم${c.floored ? ' · الحد الأدنى ٠٫٥٪' : ''}`)}
+        ${stat('الخسارة عند الإبطال', html`<span class="down" dir="ltr">−${f.usd(size.lossAtStopUsd)} · ${f.num(size.lossAtStopR, 2)}R</span>`, 'شاملة التكلفة وانزلاق أمر الوقف')}
+        ${stat('صافي عند هدف ١R', size.netRewards[0] !== undefined ? html`<span dir="ltr" class="${f.tone(size.netRewards[0])}">${f.usd(size.netRewards[0])} · ${f.num(size.netRewardsR[0], 2)}R</span>` : f.DASH)}
+        ${stat('صافي عند هدف ٢R', size.netRewards[1] !== undefined ? html`<span dir="ltr" class="${f.tone(size.netRewards[1])}">${f.usd(size.netRewards[1])} · ${f.num(size.netRewardsR[1], 2)}R</span>` : f.DASH)}
+        ${stat('التعادل يحتاج صعودًا', html`<span dir="ltr">${f.num(size.breakEvenPct)}%</span>`)}
       </div>
-      <p class="note">قبل الرسوم والانزلاق. لا تضمن إمكان تنفيذ الكمية بهذا السعر، وقد يتجاوز التنفيذ الإبطال عند فجوة سعرية.</p>
+      <p class="note">التكلفة تقدير: فارق العرض والطلب كاملًا، وأثر سعري ١٪ × الجذر التربيعي لنسبة الأمر من سيولة دقيقة لكل جهة، ورسوم SEC وFINRA، وفارق إضافي عند الوقف. قد يتجاوز التنفيذ الإبطال عند فجوة أو إيقاف تداول، ولا ضمان لتنفيذ الكمية.</p>
     </div>`;
   }
   return html`
@@ -147,6 +194,7 @@ function plan(state, r, a) {
         ? 'التفعيل عند تجاوز المستوى مع استمرار السيولة. تُلغى الخطة عند كسر الإبطال أو تقادم البيانات.'
         : 'المستويات أدناه للمراقبة الفنية فقط، وليست توصية دخول.'}</p>
     </div>
+    ${gateSection(g)}
     ${planLadder(levels, r.price)}
     <div class="stats">
       ${stat(p ? 'التفعيل' : 'اختراق للمراقبة', f.num(entry, 4))}
@@ -158,6 +206,7 @@ function plan(state, r, a) {
     <form class="calc" data-key="calc" novalidate>
       <label>رأس المال المتاح ($)<input id="calc-capital" name="capital" type="text" inputmode="decimal" autocomplete="off" value="${capital}" placeholder="مثال: 5000" ${p ? '' : 'disabled'}></label>
       <label>أقصى خسارة مخططة ($)<input id="calc-risk" name="risk" type="text" inputmode="decimal" autocomplete="off" value="${risk}" placeholder="مثال: 50" ${p ? '' : 'disabled'}></label>
+      <label>عمولة الأمر الواحد ($)<input id="calc-commission" name="commission" type="text" inputmode="decimal" autocomplete="off" value="${commission ?? ''}" placeholder="0" ${p ? '' : 'disabled'}></label>
     </form>
     ${result}
     <p class="note">الأهداف مضاعفات للمخاطرة وليست توقعات. لا يوجد وقت وصول مثبت للهدف.</p>`;
@@ -242,7 +291,7 @@ export function renderDossier(state, now) {
   const tab = state.ui.tab;
   const body = r.placeholder
     ? html`<div class="empty-card"><strong>بانتظار بيانات هذا السهم</strong><p>يُطلب سعره تلقائيًا كل بضع ثوانٍ. إن لم يصل فقد يكون خارج نطاق الأسهم المؤهلة لدى الخادم.</p></div>`
-    : tab === 'plan' ? plan(state, r, a)
+    : tab === 'plan' ? plan(state, r, a, now)
     : tab === 'news' ? news(state, r)
     : tab === 'history' ? history(state, r)
     : overview(state, r, a, now);

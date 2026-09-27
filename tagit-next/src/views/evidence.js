@@ -153,9 +153,68 @@ function dailyCard(x) {
   </div>`;
 }
 
+
+// ---- forward paper-trade ledger (pipeline/paper_ledger.mjs) ------------------------------------
+
+const BOOK_NAMES = { SIP_DELAYED: 'قائمة SIP المتأخرة', LIVE_ALERTS: 'تنبيهات القائمة الحية' };
+const VERDICT_TEXT = {
+  INSUFFICIENT_SAMPLE: 'لا حكم قبل ٢٠ جلسة و١٠٠ صفقة',
+  NEGATIVE: 'سالب: هامش الثقة كله تحت الصفر',
+  INCONCLUSIVE: 'غير حاسم: الهامش يشمل الصفر',
+  EDGE_EVIDENCE: 'هامش الثقة كله فوق الصفر (يحتاج تأكيدًا)',
+};
+const signedUsd = (v) => (Number.isFinite(v) ? `${v < 0 ? '-' : v > 0 ? '+' : ''}$${f.num(Math.abs(v), 2)}` : '—');
+const rCell = (v) => html`<span class="${f.tone(v)}" dir="ltr">${Number.isFinite(v) ? f.num(v, 2) + 'R' : '—'}</span>`;
+const ciCell = (ci, pct = false) => (ci ? html`<small dir="ltr">[${pct ? f.num(ci[0] * 100, 0) : f.num(ci[0], 2)}, ${pct ? f.num(ci[1] * 100, 0) : f.num(ci[1], 2)}]</small>` : '');
+
+function curve(points) {
+  if (points.length < 2) return '';
+  const ys = points.map((p) => p.cum_net_usd);
+  const lo = Math.min(0, ...ys), hi = Math.max(0, ...ys), span = hi - lo || 1;
+  const x = (i) => (i / (points.length - 1)) * 100, y = (v) => 100 - ((v - lo) / span) * 100;
+  const d = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(2)},${y(p.cum_net_usd).toFixed(2)}`).join(' ');
+  return html`<svg class="ledger-curve" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="صافي تراكمي ${signedUsd(ys.at(-1))}">
+    <line x1="0" x2="100" y1="${y(0).toFixed(2)}" y2="${y(0).toFixed(2)}"></line><path d="${d}"></path></svg>`;
+}
+
+function paperCard(p) {
+  if (!p?.books) return '';
+  if (!p.sessions) {
+    return html`<div class="evidence-card wide"><h4>سجل التداول الورقي الأمامي <small>بروتوكول ${p.protocol}</small></h4>
+      <p class="note">لم تُسجَّل جلسة بعد. يبدأ السجل في <span dir="ltr">${p.forward_start}</span>: كل إشارة كانت الأداة ستعرضها تُتداول ورقيًا بعد الجلسة على دقائق SIP بنفس نموذج التكلفة في الحاسبة. القواعد مسجلة مسبقًا ولا تُعدّل بعد رؤية النتائج.</p></div>`;
+  }
+  const rows = Object.entries(p.books).flatMap(([name, b]) => [['all', 'كل الصفقات'], ['gate_passed', 'اجتازت بوابة التنفيذ']].map(([k, label]) => {
+    const s = b[k];
+    return html`<tr><th>${BOOK_NAMES[name] ?? name} · ${label}</th><td dir="ltr">${f.num(s.trades, 0)}</td>
+      <td><span class="${f.tone(s.net_usd)}" dir="ltr">${signedUsd(s.net_usd)}</span></td>
+      <td>${rCell(s.mean_net_r)} ${ciCell(s.mean_net_r_ci95)}</td>
+      <td dir="ltr">${s.trades ? html`${rCell(s.mean_gross_r)} − ${f.num(s.mean_cost_r, 2)}R` : '—'}</td>
+      <td dir="ltr">${s.hit_rate === null ? '—' : f.num(s.hit_rate * 100, 0) + '%'} ${ciCell(s.hit_rate_ci95, true)}</td>
+      <td>${VERDICT_TEXT[s.verdict] ?? s.verdict}</td></tr>`;
+  }));
+  const main = p.books.SIP_DELAYED?.all;
+  const recent = [...(p.recent_trades ?? [])].reverse().slice(0, 12);
+  return html`<div class="evidence-card wide">
+    <h4>سجل التداول الورقي الأمامي <small>${f.num(p.sessions, 0)} جلسة (${p.first_session} → ${p.last_session}) · حساب مرجعي ${f.compactUsd(p.account?.capital)} وخسارة قصوى ${f.compactUsd(p.account?.riskBudget)} للصفقة · آخر تحديث ${f.dateTime(p.updated_at)}</small></h4>
+    ${main ? curve(main.curve) : ''}
+    <table class="evidence-table">
+      <thead><tr><th></th><th>صفقات</th><th>الصافي</th><th>متوسط R الصافي (هامش ٩٥٪)</th><th>الإجمالي − التكلفة</th><th>نسبة الربح (هامش ٩٥٪)</th><th>الحكم</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    ${recent.length ? html`<details><summary>آخر الصفقات الورقية</summary><table class="evidence-table">
+      <thead><tr><th>السهم</th><th>الدخول</th><th>الخروج</th><th>الفارق</th><th>الصافي</th></tr></thead>
+      <tbody>${recent.map((t) => html`<tr><th dir="ltr">${t.symbol}</th><td>${f.dateTime(t.entry_at)}</td><td>${EXIT_NAMES[t.exit_kind] ?? t.exit_kind}</td>
+        <td dir="ltr">${f.num(t.spread_pct, 2)}%${t.spread_source === 'ASSUMED' ? '*' : ''}</td><td><span class="${f.tone(t.net_usd)}" dir="ltr">${signedUsd(t.net_usd)} · ${f.num(t.net_r, 2)}R</span></td></tr>`)}</tbody>
+    </table></details>` : ''}
+    <p class="note">سجل أمامي خارج العينة: قواعده سُجلت قبل أول جلسة (${p.protocol}). الدخول بسعر افتتاح أول دقيقة بعد ظهور الإشارة (SIP بعد ١٧ دقيقة، الحية فورًا)، الوقف أولًا ثم هدف ٢R ثم الخروج بعد ٣٠ دقيقة، والفجوة تحت الوقف تُنفّذ بسعر الافتتاح. التكلفة من نموذج الحاسبة (فارق مقاس من عروض SIP، أثر سعري، رسوم، حد أدنى ٠٫٥٪). محاكاة على الدقائق وليست تنفيذًا؛ لا يُدّعى ربح قبل أن يكون هامش الثقة كله فوق الصفر.</p>
+  </div>`;
+}
+
+const EXIT_NAMES = { TARGET_2R: 'هدف ٢R', STOP: 'وقف', STOP_GAP: 'فجوة تحت الوقف', TIME_30M: '٣٠ دقيقة', SESSION_END: 'الإغلاق' };
+
 export function renderEvidence(evidence) {
-  if (!evidence.relabel && !evidence.forward && !evidence.sip && !evidence.exits && !evidence.filters && !evidence.daily) {
+  if (!evidence.relabel && !evidence.forward && !evidence.sip && !evidence.exits && !evidence.filters && !evidence.daily && !evidence.paper) {
     return html`<p class="note">تعذر تحميل سجلات التحقق.</p>`;
   }
-  return html`${dailyCard(evidence.daily)}${filterCard(evidence.filters)}${exitCard(evidence.exits)}${sipStudyCard(evidence.sip)}${evidence.relabel ? relabelTable(evidence.relabel) : ''}${forwardCard(evidence.forward)}`;
+  return html`${paperCard(evidence.paper)}${dailyCard(evidence.daily)}${filterCard(evidence.filters)}${exitCard(evidence.exits)}${sipStudyCard(evidence.sip)}${evidence.relabel ? relabelTable(evidence.relabel) : ''}${forwardCard(evidence.forward)}`;
 }

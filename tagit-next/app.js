@@ -214,7 +214,7 @@ async function quotes() {
 
 /** Data published by the GitHub Actions jobs: disclosures, the corrected study and the live record. */
 async function loadPublished() {
-  const [enrichment, relabel, forward, sip, exits, filters, daily] = await Promise.all([
+  const [enrichment, relabel, forward, sip, exits, filters, daily, paper] = await Promise.all([
     loadStatic('data/enrichment.json'),
     loadStatic('data/outcome-relabel.json'),
     loadStatic('data/forward-outcomes.json'),
@@ -222,9 +222,10 @@ async function loadPublished() {
     loadStatic('data/exit-study.json'),
     loadStatic('data/filter-study.json'),
     loadStatic('data/daily-study.json'),
+    loadStatic('data/paper-ledger.json'),
   ]);
   if (enrichment?.symbols) state.enrichment = enrichment;
-  state.evidence = { relabel: relabel?.corrected ? relabel : null, forward: forward?.days ? forward : null, sip: sip?.totals ? sip : null, exits: exits?.development ? exits : null, filters: filters?.baseline ? filters : null, daily: daily?.table ? daily : null };
+  state.evidence = { relabel: relabel?.corrected ? relabel : null, forward: forward?.days ? forward : null, sip: sip?.totals ? sip : null, exits: exits?.development ? exits : null, filters: filters?.baseline ? filters : null, daily: daily?.table ? daily : null, paper: paper?.books ? paper : null };
   // The first consolidated scan may have used only the scanner rows; widen it to the full universe.
   if (client && (state.sip.result?.symbols ?? 0) < sipUniverse(state).length) runSip();
   if (client) loadCloses();
@@ -317,7 +318,7 @@ $('dossier').addEventListener('click', (e) => {
 });
 
 $('dossier').addEventListener('input', (e) => {
-  if (!['calc-capital', 'calc-risk'].includes(e.target.id)) return;
+  if (!['calc-capital', 'calc-risk', 'calc-commission'].includes(e.target.id)) return;
   const clean = e.target.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
   if (clean !== e.target.value) e.target.value = clean;
   state.settings = { ...state.settings, [e.target.name]: clean };
