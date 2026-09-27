@@ -48,8 +48,12 @@ export const HYPOTHESES = {
 const ret = (b, i) => (b[i].c / b[i - 1].c - 1) * 100;
 const rangePos = (x) => (x.h > x.l ? (x.c - x.l) / (x.h - x.l) : 0.5);
 
+// The price band uses the unadjusted close (`rc`, what the stock actually traded at that day).
+// Split-adjusted closes embed FUTURE reverse splits (a $0.30 stock that later splits 1:20 shows $6),
+// which would make eligibility depend on information not available on day t (audit finding A3).
 export function eligible(b, i) {
-  if (i < 21 || !(b[i].c >= 0.5 && b[i].c <= 20)) return null;
+  const px = b[i]?.rc ?? b[i]?.c;
+  if (i < 21 || !(px >= 0.5 && px <= 20)) return null;
   const avg = b.slice(i - 20, i).reduce((a, x) => a + x.c * x.v, 0) / 20;
   if (!(avg >= 300_000)) return null;
   return { dvolRatio: (b[i].c * b[i].v) / avg };
@@ -71,6 +75,10 @@ export function outcome(b, i, cost) {
 export function scanSymbol(bars, acc) {
   for (let i = 21; i < bars.length - 1; i++) {
     const ctx = eligible(bars, i);
+    if (bars[i].rc > 0) { // audit diagnostic: how often the adjusted-price band disagrees with the raw one
+      const adjIn = bars[i].c >= 0.5 && bars[i].c <= 20, rawIn = bars[i].rc >= 0.5 && bars[i].rc <= 20;
+      if (adjIn !== rawIn) acc.band_changed = (acc.band_changed ?? 0) + 1;
+    }
     if (!ctx) continue;
     const day = bars[i].d;
     const base = outcome(bars, i, 0);
@@ -88,11 +96,11 @@ export function scanSymbol(bars, acc) {
 
 function add(acc, name, day, gross) {
   const byDay = (acc.days[name] ??= new Map());
-  const cell = byDay.get(day) ?? Object.fromEntries(HORIZONS.map((h) => [h, [0, 0, 0]]));
+  const cell = byDay.get(day) ?? Object.fromEntries(HORIZONS.map((h) => [h, [0, 0, 0, 0]]));
   for (const h of HORIZONS) {
     const g = gross[h];
     if (!Number.isFinite(g)) continue;
-    cell[h][0] += g; cell[h][1] += 1; if (g > COSTS[0]) cell[h][2] += 1;
+    cell[h][0] += g; cell[h][1] += 1; if (g > COSTS[0]) cell[h][2] += 1; if (g > COSTS[1]) cell[h][3] += 1;
   }
   byDay.set(day, cell);
 }
@@ -117,7 +125,8 @@ export function stats(cells, h, cost, draws = 800) {
   }
   means.sort((a, b) => a - b);
   return {
-    trades: n, days: days.length, mean_pct: r3(mean), win_rate: r3(days.reduce((a, d) => a + d[2], 0) / n),
+    // Wins are net of the cost used here (index 2: > 0.5 pp gross, index 3: > 1.0 pp gross).
+    trades: n, days: days.length, mean_pct: r3(mean), win_rate: r3(days.reduce((a, d) => a + (cost >= COSTS[1] ? d[3] ?? 0 : d[2]), 0) / n),
     ci95: [r3(means[Math.floor(0.025 * means.length)]), r3(means[Math.ceil(0.975 * means.length) - 1])],
   };
 }
@@ -125,7 +134,7 @@ export function stats(cells, h, cost, draws = 800) {
 export function analyze(acc, sessions) {
   const cut = Math.floor(sessions.length * 2 / 3);
   const devDays = sessions.slice(0, cut), holdDays = sessions.slice(cut);
-  const empty = () => Object.fromEntries(HORIZONS.map((h) => [h, [0, 0, 0]]));
+  const empty = () => Object.fromEntries(HORIZONS.map((h) => [h, [0, 0, 0, 0]]));
   const cellsFor = (name, days) => days.map((d) => acc.days[name]?.get(d) ?? empty());
   const table = {};
   for (const name of ['baseline', ...Object.keys(HYPOTHESES)]) {
@@ -203,6 +212,7 @@ async function main() {
   for (let i = 0; i < symbols.length; i += 100) {
     const group = symbols.slice(i, i + 100);
     const bars = new Map();
+    const rawClose = new Map(); // symbol|date → unadjusted close, for point-in-time eligibility
     for (const [start, end] of WINDOWS) {
       for (const body of await relayPages({ resource: 'bars', symbols: group.join(','), timeframe: '1Day', start, end, feed: 'sip', adjustment: 'split', limit: '10000', sort: 'asc' })) {
         for (const [s, list] of Object.entries(body?.bars ?? {})) {
@@ -211,8 +221,12 @@ async function main() {
           bars.set(s, arr);
         }
       }
+      for (const body of await relayPages({ resource: 'bars', symbols: group.join(','), timeframe: '1Day', start, end, feed: 'sip', adjustment: 'raw', limit: '10000', sort: 'asc' })) {
+        for (const [s, list] of Object.entries(body?.bars ?? {})) for (const b of list) rawClose.set(`${s}|${nyDate.format(new Date(b.t))}`, b.c);
+      }
     }
     for (const [s, arr] of bars) {
+      for (const b of arr) { const rc = rawClose.get(`${s}|${b.d}`); if (rc > 0) b.rc = rc; else acc.missing_raw = (acc.missing_raw ?? 0) + 1; if (rc > 0 && Math.abs(rc / b.c - 1) > 0.01) acc.adjusted_days = (acc.adjusted_days ?? 0) + 1; }
       const inRange = arr.filter((b) => b.d <= to).sort((a, b) => a.d.localeCompare(b.d));
       inRange.symbol = s;
       for (const b of inRange) if (b.d >= from) sessions.add(b.d);
@@ -224,10 +238,12 @@ async function main() {
   }
   const days = [...sessions].sort();
   const report = analyze(acc, days);
+  report.protocol_amendment = 'audit-1: price band on unadjusted close (point in time); win rate net of the cost of each column';
+  report.data_checks = { symbol_days_without_raw_close: acc.missing_raw ?? 0, symbol_days_split_adjusted: acc.adjusted_days ?? 0, symbol_days_price_band_changed: acc.band_changed ?? 0 };
   report.examples = Object.fromEntries(Object.entries(acc.examples).map(([k, v]) => [k, v.filter((x) => x.d >= from).slice(-40)]));
   writeFileSync(new URL('../data/daily-study.json', import.meta.url), JSON.stringify(report, null, 1) + '\n');
   const brief = Object.fromEntries(Object.entries(report.table).map(([k, v]) => [k, Object.fromEntries(Object.entries(v).map(([h, s]) => [h, [s.development.trades, s.development.mean_pct, s.holdout.trades, s.holdout.mean_pct, s.holdout.ci95]]))]));
-  console.log(JSON.stringify({ selected: report.selected, holds: report.holds, table: brief }, null, 1));
+  console.log(JSON.stringify({ selected: report.selected, holds: report.holds, data_checks: report.data_checks, table: brief }, null, 1));
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) await main();

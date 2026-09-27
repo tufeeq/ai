@@ -13,7 +13,7 @@
 // The universe is today's eligible list (Nasdaq-listed, reference cap < $100M): survivorship bias
 // remains for past sessions and is reported.
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { batches, fetchBatch, detectSymbol } from '../src/core/sipscan.js';
+import { batches, fetchBatch, detectSymbol, regularSession } from '../src/core/sipscan.js';
 
 const SERVICE = process.env.TAGIT_SERVICE || 'https://tagit-next-quotes.onrender.com';
 const ROOT = new URL('../', import.meta.url);
@@ -29,11 +29,13 @@ const MAX_CAP_MILLIONS = 100;
 const arg = (name) => { const i = process.argv.indexOf(name); return i >= 0 ? process.argv[i + 1] : null; };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// The relay allows 40 provider requests per minute shared with viewers' live scans; use about 25.
+// The relay allows 40 provider requests per minute shared with viewers' live scans and every
+// research job; pace at least 3 s per request (about 20 per minute).
+const PACE_MS = Math.max(3000, Number(process.env.RELAY_PACE_MS ?? 3000));
 let lastCall = 0;
 export async function getJson(url) {
   for (let attempt = 0; attempt < 6; attempt++) {
-    const wait = lastCall + 2400 - Date.now();
+    const wait = lastCall + PACE_MS - Date.now();
     if (wait > 0) await sleep(wait);
     lastCall = Date.now();
     try {
@@ -57,13 +59,10 @@ export function eligibleSymbols() {
     .map(([s]) => s);
 }
 
-/** Regular session bounds for a New York date, handling EDT/EST. */
+/** Regular session bounds for a New York date, handling EDT/EST and 13:00 early closes. */
 export function session(day) {
-  const probe = new Date(`${day}T16:00:00Z`);
-  const nyHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hourCycle: 'h23' }).format(probe));
-  const offset = 16 - nyHour; // 4 in EDT, 5 in EST
-  const open = Date.parse(`${day}T${String(9 + offset).padStart(2, '0')}:30:00Z`);
-  return { open, close: open + 390 * 60_000 };
+  const { open, close } = regularSession(Date.parse(`${day}T16:00:00Z`));
+  return { open, close };
 }
 
 /** outcome-relabel-1 on minute bars from `entryFrom`. */

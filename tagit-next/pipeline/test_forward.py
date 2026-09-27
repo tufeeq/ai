@@ -77,7 +77,7 @@ class RecordAndEvaluate(unittest.TestCase):
 
     def test_evaluate_writes_day_summary_with_denominators(self):
         ledger = {'alerts': {
-            'AAA|1': {'symbol': 'AAA', 'detected_at': '2026-09-25T14:00:00Z', 'plan': None},
+            'AAA|1': {'symbol': 'AAA', 'detected_at': '2026-09-25T14:00:00Z', 'plan': {'entry': 2.0, 'stop': 1.9, 'targets': [2.1, 2.2]}},
             'BBB|1': {'symbol': 'BBB', 'detected_at': '2026-09-25T14:00:00Z', 'plan': None},
         }, 'health': [{'at': '2026-09-25T14:00:00+00:00', 'status': 'OK', 'seconds': 3.0}]}
         charts = {'AAA': [point('10:00', 2.0), point('10:20', 2.2)], 'BBB': [point('11:00', 5.0)]}
@@ -93,6 +93,10 @@ class RecordAndEvaluate(unittest.TestCase):
         self.assertAlmostEqual(s['mean_return_after_cost_pct'], 9.5)
         self.assertEqual(report['totals']['resolved'], 1)
         self.assertFalse(report['profitability_claim_allowed'])
+        # Plan levels travel with the event for the paper ledger; a missing plan stays None.
+        events = {e['symbol']: e for e in report['days'][0]['events']}
+        self.assertEqual(events['AAA']['plan_levels']['stop'], 1.9)
+        self.assertIsNone(events['BBB']['plan_levels'])
 
 
 if __name__ == '__main__':

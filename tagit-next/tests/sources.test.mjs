@@ -77,6 +77,23 @@ test('risk: recent offering and listing notice are HIGH, older filings WATCH, mi
   assert.equal(riskOf({ listing: { status: 'NORMAL' } }, {}, now, '2026-09-23T00:00:00Z').stale, true);
 });
 
+test('dilution: shelf with low cash is a HIGH risk item, facts expose cash and share growth', () => {
+  const now = Date.parse('2026-09-25T12:00:00Z');
+  const entry = { listing: { status: 'NORMAL' }, flags: [], dilution: { level: 'HIGH', reasons: ['SHELF_LOW_CASH'], registration: { form: 'S-3', date: '2026-03-01' },
+    cash: { value: 4_200_000, as_of: '2026-06-30' }, cash_stale: false, shares_change_1y_pct: 80.5 } };
+  const r = riskOf(entry, {}, now);
+  assert.equal(r.level, 'HIGH');
+  const item = r.items.find((i) => i.kind === 'DILUTION');
+  assert.equal(item.date, '2026-03-01');
+  assert.match(item.detail, /\$4\.2M/);
+  assert.match(item.detail, /\+80\.5%/);
+  assert.equal(riskOf({ ...entry, dilution: { level: 'WATCH', reasons: ['SHELF'] } }, {}, now).level, 'WATCH');
+  assert.equal(riskOf({ ...entry, dilution: { level: 'NONE', reasons: [] } }, {}, now).level, 'NONE');
+  const facts = companyFacts(entry, {});
+  assert.equal(facts.cash, 4_200_000);
+  assert.equal(facts.sharesChange1y, 80.5);
+});
+
 test('company facts: SEC shares × price and FINRA short interest with its settlement date', () => {
   const facts = companyFacts({ shares_outstanding: { value: 10_000_000, as_of: '2026-07-31' }, short_interest: { shares_short: 500_000, days_to_cover: 1.5, settlement_date: '2026-09-15' } }, { price: 2, float_shares: 5_000_000 });
   assert.equal(facts.secMarketCap, 20_000_000);

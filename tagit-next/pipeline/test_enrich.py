@@ -29,6 +29,35 @@ class FilingFlags(unittest.TestCase):
         self.assertEqual(enrich.filing_flags([{'form': '10-Q', 'date': '2026-09-01', 'items': None}], dt.date(2026, 9, 25)), [])
 
 
+class Dilution(unittest.TestCase):
+    TODAY = dt.date(2026, 9, 25)
+
+    def test_shelf_with_low_cash_is_high(self):
+        d = enrich.dilution_summary([{'form': 'S-3', 'date': '2026-03-01'}, {'form': '424B5', 'date': '2026-05-01'}],
+                                    {'value': 4e6, 'as_of': '2026-06-30'}, [], self.TODAY)
+        self.assertEqual(d['level'], 'HIGH')
+        self.assertEqual(d['registration']['form'], 'S-3')
+        self.assertEqual(d['priced_offerings_12m'], 1)
+
+    def test_shelf_with_cash_or_unknown_cash_is_watch(self):
+        rich = enrich.dilution_summary([{'form': 'S-3', 'date': '2026-03-01'}], {'value': 4e7, 'as_of': '2026-06-30'}, [], self.TODAY)
+        self.assertEqual((rich['level'], rich['reasons']), ('WATCH', ['SHELF']))
+        stale = enrich.dilution_summary([{'form': 'S-3', 'date': '2026-03-01'}], {'value': 1e6, 'as_of': '2024-06-30'}, [], self.TODAY)
+        self.assertEqual(stale['level'], 'WATCH')
+        self.assertTrue(stale['cash_stale'])
+
+    def test_old_shelf_is_ignored_and_share_growth_is_measured_over_a_year(self):
+        d = enrich.dilution_summary([{'form': 'S-3', 'date': '2025-06-01'}], {'value': 1e6, 'as_of': '2026-06-30'},
+                                    [('2025-06-30', 10e6), ('2026-06-30', 25e6), ('2026-03-31', 20e6)], self.TODAY)
+        self.assertIsNone(d['registration'])
+        self.assertEqual(d['shares_change_1y_pct'], 150.0)
+        self.assertEqual((d['level'], d['reasons']), ('WATCH', ['SHARE_GROWTH']))
+
+    def test_nothing_filed_is_none(self):
+        d = enrich.dilution_summary([{'form': '10-Q', 'date': '2026-08-01'}], None, [], self.TODAY)
+        self.assertEqual((d['level'], d['reasons']), ('NONE', []))
+
+
 class Halts(unittest.TestCase):
     RSS = b'''<?xml version="1.0"?><rss xmlns:ndaq="http://www.nasdaqtrader.com/"><channel>
       <item><ndaq:IssueSymbol>AAA</ndaq:IssueSymbol><ndaq:HaltDate>09/25/2026</ndaq:HaltDate><ndaq:HaltTime>10:01:02</ndaq:HaltTime>

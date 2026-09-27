@@ -85,8 +85,15 @@ export function features(signal, ctx) {
   const todayIdx = daily.findIndex((d) => d.date === date);
   const prev = todayIdx > 0 ? daily[todayIdx - 1] : todayIdx === -1 ? daily.filter((d) => d.date < date).at(-1) : null;
   const today = todayIdx >= 0 ? daily[todayIdx] : null;
-  const gap = prev?.c > 0 && today?.o > 0 ? (today.o / prev.c - 1) * 100 : null;
-  const day = prev?.c > 0 ? (signal.price / prev.c - 1) * 100 : null;
+  // Split-consistent comparisons (audit finding A5): raw daily bars jump by the split ratio on a
+  // (reverse) split day, which faked +900% gaps. With split-adjusted closes (ac/ao) both days are in
+  // the same terms; the intraday signal price is raw, so the previous close is converted to today's
+  // raw terms with today's raw/adjusted ratio taken from the open (splits take effect before it).
+  const adj = (x, k) => x?.[`a${k}`] ?? x?.[k];
+  const gap = adj(prev, 'c') > 0 && adj(today, 'o') > 0 ? (adj(today, 'o') / adj(prev, 'c') - 1) * 100 : null;
+  const factor = today?.o > 0 && today?.ao > 0 ? today.o / today.ao : prev?.ac > 0 && prev?.c > 0 ? prev.c / prev.ac : 1;
+  const prevClose = prev?.ac > 0 ? prev.ac * factor : prev?.c;
+  const day = prevClose > 0 ? (signal.price / prevClose - 1) * 100 : null;
   const filings = ctx.offerings.get(signal.symbol) ?? [];
   const earlier = (days) => filings.some((d) => d < date && Date.parse(d) >= Date.parse(date) - days * DAY);
   const si = (ctx.short.get(signal.symbol) ?? []).filter((x) => Date.parse(x.date) <= at - 14 * DAY).at(-1);
@@ -209,6 +216,11 @@ async function loadDaily(symbols, start, end) {
         map.set(s, list);
       }
     }
+    const adjusted = new Map();
+    for (const body of await relayPages({ resource: 'bars', symbols: group.join(','), timeframe: '1Day', start, end, feed: 'sip', adjustment: 'split', limit: '10000', sort: 'asc' })) {
+      for (const [s, bars] of Object.entries(body?.bars ?? {})) for (const b of bars) adjusted.set(`${s}|${nyDate.format(new Date(b.t))}`, b);
+    }
+    for (const s of group) for (const d of map.get(s) ?? []) { const a = adjusted.get(`${s}|${d.date}`); if (a) { d.ao = a.o; d.ac = a.c; } }
   }
   for (const list of map.values()) list.sort((a, b) => a.date.localeCompare(b.date));
   return map;

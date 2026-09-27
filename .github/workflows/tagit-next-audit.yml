@@ -1,0 +1,41 @@
+name: TAGit NEXT audit checks
+
+# Independent methodology checks (audit-1): daily-bar semantics, baseline by two methods and a
+# survivorship probe for the intraday studies. Read-only; never publishes.
+on:
+  workflow_dispatch:
+    inputs:
+      parts:
+        description: Comma-separated checks (c1 = daily-bar semantics + c2, c3 = survivorship, c4 = live vs study)
+        default: 'c1,c3,c4'
+  push:
+    branches: ['claude/**']
+    paths: ['tagit-next/pipeline/audit_check.mjs', '.github/workflows/tagit-next-audit.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tagit-next-audit-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Tests
+        run: node --test tagit-next/tests/*.test.mjs
+      - name: Checks
+        run: node tagit-next/pipeline/audit_check.mjs "${{ github.event.inputs.parts || 'c4' }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audit-check
+          path: audit-check.json

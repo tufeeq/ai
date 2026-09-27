@@ -1,0 +1,39 @@
+name: TAGit NEXT live data audit
+
+# Read-only audit of the live data path from a runner (the dev sandbox cannot reach Render or
+# Nasdaq.com): service coverage and freshness, Nasdaq.com batch quotes, correctness against
+# consolidated (SIP) bars, and IEX-vs-SIP freshness bounds. Re-run during market hours for
+# in-session numbers.
+on:
+  workflow_dispatch:
+    inputs:
+      parts:
+        description: Parts to run (A service, B Nasdaq.com, C correctness, D freshness)
+        default: A,B,C,D
+  push:
+    branches: ['claude/**']
+    paths: ['tagit-next/pipeline/live_audit.mjs', 'tagit-next/pipeline/nasdaq.mjs', '.github/workflows/tagit-next-live-audit.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Tests
+        run: node --test tagit-next/tests/nasdaq.test.mjs
+      - name: Audit
+        run: node tagit-next/pipeline/live_audit.mjs --parts "${{ github.event.inputs.parts || 'A,B,C,D' }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-audit
+          path: live-audit.json

@@ -42,9 +42,30 @@ export function saveJournal(events, watched, now) {
 export function loadSettings() {
   const s = read(SETTINGS_KEY) ?? {};
   const amount = (v) => (typeof v === 'string' && /^\d*\.?\d*$/.test(v) ? v : '');
-  return { capital: amount(s.capital), risk: amount(s.risk) };
+  return { capital: amount(s.capital), risk: amount(s.risk), commission: amount(s.commission) };
 }
 export const saveSettings = (settings) => write(SETTINGS_KEY, settings);
+
+const CLOSES_KEY = 'tagit-next-closes-v1';
+
+/** Consolidated closes fetched today, so a reload does not refetch them through the shared relay. */
+export function loadCloses(day) {
+  const saved = read(CLOSES_KEY);
+  if (saved?.day !== day || !saved.closes || typeof saved.closes !== 'object') return null;
+  const map = new Map();
+  for (const [s, list] of Object.entries(saved.closes)) {
+    if (!isSymbol(s) || !Array.isArray(list)) continue;
+    const clean = list.filter((x) => typeof x?.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x.day) && x.close > 0);
+    if (clean.length) map.set(s, clean);
+  }
+  return map.size ? { day, fetched_at: saved.fetched_at, map, symbols: saved.symbols ?? map.size, failed: 0 } : null;
+}
+
+export function saveCloses(closes) {
+  const out = {};
+  for (const [s, list] of closes.map) out[s] = list.slice(-3);
+  return write(CLOSES_KEY, { day: closes.day, fetched_at: closes.fetched_at, symbols: closes.symbols, closes: out });
+}
 
 export function loadTheme() {
   try {
