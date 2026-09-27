@@ -63,3 +63,18 @@ Unknown values are null, never 0. Every section carries its own as_of when it di
 - `themes[]` carries exactly one of `industry` or `sector`.
 - `news[].time` is ISO UTC; order newest first (UI re-sorts anyway). `summary` may be null. `url` must be http(s).
 - `movers.*[].news_ids` reference `news[].id`; the UI links a mover to its dossier via `#market/SYMBOL`.
+
+## Notes from insights-data (additive only; produced by pipeline/insights.mjs)
+- Honors the insights-ui clarifications (section as_of fields, earnings time values, themes carry only `industry`,
+  news.url http(s) or null). Extra fields the UI may use or ignore:
+  `pulse.bars_as_of`; `pulse.indices[].last_bar_date|chg_3m_pct|dist_50dma_pct`;
+  `breadth.scope|count|median_chg_pct` (`universe` is the stock count); `regime.key` (RISK_ON|LEAN_POSITIVE|MIXED|
+  DEFENSIVE|RISK_OFF|UNKNOWN), `regime.score`, `regime.max_score`, `regime.rules`; `sectors[].etf_above_50dma`;
+  `industries.min_stocks|rank_by` (ranked by median change); `news[].linked_symbol` (set only when move_pct is);
+  `news_window` {session, from, to}; `calendar.date` (the trading day the calendar covers), earnings `market_cap_m`;
+  `run.relay_requests`.
+- Stock universe = Finviz snapshot (avg volume > 50K) minus ETFs, closed-end funds and shells. Small caps: cap < $300M.
+  Movers: price ≥ $1, cap ≥ $50M, ≥ $1M traded; unusual volume: RVOL ≥ 3 and ≥ 300K shares. new_high_20d is null
+  (not in the snapshot).
+- News linking (news-link-1): move_pct is set only when the item names ≤ 4 companies and was published between the
+  previous session close and this session close; impact_note_ar states it is a symbol+time link, not causation.
