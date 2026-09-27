@@ -1,0 +1,82 @@
+name: TAGit NEXT fade study
+
+# Pre-registered fade study (fade-study-1): short / avoid after extended moves on Nasdaq listings.
+# Development 2023-01 → 2026-09 (already seen), untouched holdout 2018-01 → 2022-12.
+# Daily bars are cached as the `fade-bars` artifact so reruns do not refetch through the relay.
+on:
+  workflow_dispatch:
+    inputs:
+      limit_symbols:
+        description: Optional symbol limit for a smoke run (empty = full universe)
+        default: ''
+  push:
+    branches: ['claude/**']
+    paths: ['tagit-next/pipeline/fade_study.mjs', 'tagit-next/tests/fadestudy.test.mjs', '.github/workflows/tagit-next-fade-study.yml']
+
+permissions:
+  contents: write
+  actions: write  # read earlier cache artifacts; request a Pages deploy after publishing
+
+concurrency:
+  group: tagit-next-fade-study  # one fetcher at a time: the relay budget is shared
+  cancel-in-progress: false
+
+jobs:
+  fade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Tests
+        run: node --test tagit-next/tests/fadestudy.test.mjs tagit-next/tests/dailystudy.test.mjs
+      - name: Restore bar cache
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/fade-bars"
+          id=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=fade-bars&per_page=30" \
+            --jq '[.artifacts[] | select(.expired == false)] | sort_by(.created_at) | reverse | .[0].workflow_run.id // empty' || true)
+          if [ -n "$id" ]; then
+            gh run download "$id" -n fade-bars -D "$RUNNER_TEMP/fade-bars" -R "${{ github.repository }}" || echo 'cache download failed; fetching'
+          fi
+          echo "cached files: $(ls "$RUNNER_TEMP/fade-bars" | wc -l) (from run ${id:-none})"
+      - name: Study
+        run: |
+          limit="${{ github.event.inputs.limit_symbols }}"
+          node tagit-next/pipeline/fade_study.mjs --cache "$RUNNER_TEMP/fade-bars" ${limit:+--limit-symbols $limit}
+      - name: Save bar cache
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fade-bars
+          path: ${{ runner.temp }}/fade-bars
+          retention-days: 30
+          compression-level: 0
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fade-study
+          path: tagit-next/data/fade-study.json
+      - name: Publish (main)
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name 'github-actions'
+          git config user.email 'github-actions@github.com'
+          git add tagit-next/data/fade-study.json
+          git diff --cached --quiet && { echo 'No change'; exit 0; }
+          git commit -m 'data: TAGit NEXT fade study'
+          for attempt in 1 2 3 4; do
+            if git pull --rebase --autostash origin main && git push origin HEAD:main; then
+              gh workflow run pages-tagx-deploy.yml --ref main
+              exit 0
+            fi
+            sleep $((attempt * 5))
+          done
+          exit 1
