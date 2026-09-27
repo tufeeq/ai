@@ -3,7 +3,7 @@ import { html } from '../html.js';
 import * as f from '../format.js';
 import { marketSession } from '../core/market.js';
 import { errorMessage } from '../api.js';
-import { metrics } from '../state.js';
+import { metrics, priceCoverage } from '../state.js';
 
 const PHASES = {
   boot: ['connecting', 'جارٍ الاتصال…'],
@@ -24,11 +24,13 @@ export function renderStatus(state, now, { scanning }) {
 export function renderMetrics(state, now) {
   const m = metrics(state, now);
   const c = state.scan?.coverage;
-  const item = (key, label, value, hint, accent = false) =>
+  const p = priceCoverage(state, now);
+  const item =(key, label, value, hint, accent = false) =>
     html`<div class="kpi${accent ? ' accent' : ''}" data-key="kpi-${key}"><span>${label}</span><strong dir="ltr">${value ?? f.DASH}</strong><small>${hint}</small></div>`;
   return html`
     ${item('scanned', 'أسهم ضمن المسح', m.scanned !== null ? f.num(m.scanned, 0) : null, 'ناسداك · أقل من ١٠٠ مليون دولار')}
-    ${item('priced', 'أسعار متاحة / حديثة', c ? `${f.num(c.with_prices, 0)} / ${f.num(c.fresh_prices, 0)}` : null, 'عند آخر مسح · حديثة = خلال ١٥ ث')}
+    ${item('priced', 'أسعار معروضة / حالية', p.total ? `${f.num(p.total, 0)} / ${f.num(p.live + p.quiet, 0)}` : c ? `${f.num(c.with_prices, 0)} / ${f.num(c.fresh_prices, 0)}` : null,
+    p.total ? `مجمّع ${f.num(p.CONSOLIDATED, 0)} · IEX ${f.num(p.IEX, 0)} · متأخر ${f.num(p.delayed, 0)} · قديم ${f.num(p.stale + p.aging, 0)}` : 'عند آخر مسح')}
     ${item('signals', 'تسارع مستوفٍ', state.scan ? m.signals : null, 'حجم وسعر ودقائق حديثة')}
     ${item('plans', 'خطط مشروطة الآن', state.scan ? m.plans : null, 'تتغير مع حداثة السعر', true)}`;
 }
@@ -56,6 +58,12 @@ export function renderNotices(state) {
   if (comp?.consolidated && ['BACKING_OFF', 'FAILING'].includes(comp.consolidated.status)) {
     notes.push(['info', 'الأسعار المجمّعة من ناسداك غير متاحة مؤقتًا؛ نعرض أسعار IEX وحدها مع عمرها.']);
   }
+  if (state.scan && state.live.supported === false) {
+    notes.push(['info', 'لوحة الأسعار المجمّعة غير مفعّلة في الخادم بعد؛ نعرض IEX ومجمّع ناسداك لأبرز الأسهم ومجمّعًا متأخرًا ١٦ دقيقة، وكل سعر بمصدره وعمره. السعر القديم أو المتأخر معلَّم ولا يُعد حاليًا.']);
+  } else if (state.live.supported && state.live.error) {
+    notes.push(['warn', 'تعذر تحديث لوحة الأسعار المجمّعة؛ راقب مصدر كل سعر وعمره.']);
+  }
+  if (state.scan && !state.closes) notes.push(['info', 'نسبة التغير تُحسب مؤقتًا من إغلاق الخادم؛ المعلَّمة بـ * ليست من إغلاق مجمّع.']);
   if (comp?.halts?.status === 'UNAVAILABLE') notes.push(['info', 'تعذر التحقق من إيقافات التداول الآن؛ لا يعني ذلك أن التداول مستمر.']);
   if (!state.storageOk) notes.push(['warn', 'تعذر الحفظ في هذا المتصفح؛ صدّر السجل للاحتفاظ به.']);
   return html`${notes.map(([kind, text], i) => html`<p class="notice n-${kind}" data-key="notice-${i}-${kind}" role="status">${text}</p>`)}`;

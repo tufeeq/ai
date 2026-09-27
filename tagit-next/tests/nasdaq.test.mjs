@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseWatchlist, parseInfo, nasdaqMinute, WATCHLIST_URL, normalizeItem } from '../pipeline/nasdaq.mjs';
+import { parseWatchlist, parseInfo, nasdaqMinute, nasdaqDateTime, WATCHLIST_URL, normalizeItem } from '../pipeline/nasdaq.mjs';
 
 test('nasdaq: watchlist URL carries one symbol|stocks pair per symbol', () => {
   assert.equal(WATCHLIST_URL(['SENS', 'BRK.B']), 'https://api.nasdaq.com/api/quote/watchlist?symbol=sens%7Cstocks&symbol=brk.b%7Cstocks');
@@ -33,4 +33,15 @@ test('nasdaq: info parse rejects a mismatched symbol; a bare date is not a trade
   assert.equal(q.trade_minute_at, null);
   assert.equal(nasdaqMinute('Jan 5, 2026 9:31 AM ET'), '2026-01-05T14:31:00.000Z');
   assert.equal(normalizeItem({ symbol: 'x y', lastSalePrice: '$1' }, 0), null);
+});
+
+test('nasdaq: the watchlist datetime field is New York wall time; midnight is a date only', () => {
+  // Real weekend shape (2026-09-27): date-only stamps and an explicit previous close.
+  const weekend = normalizeItem({ symbol: 'AACG', lastSalePrice: '$0.86', netChange: '+0.0344', lastTradeTimestamp: 'Sep 24, 2026', lastTradeTimestampDateTime: '2026-09-24T00:00:00', previousClosePrice: 0.8256 }, 0);
+  assert.equal(weekend.trade_minute_at, null);
+  assert.equal(weekend.previous_close, 0.8256);
+  assert.equal(nasdaqDateTime('2026-09-25T14:40:00'), '2026-09-25T18:40:00.000Z');
+  assert.equal(nasdaqDateTime('2026-01-05T09:31:00'), '2026-01-05T14:31:00.000Z');
+  assert.equal(nasdaqDateTime('2026-09-25T12:05:00'), '2026-09-25T16:05:00.000Z');
+  assert.equal(nasdaqDateTime('bad'), null);
 });

@@ -8,7 +8,8 @@ import { outcome } from '../core/journal.js';
 import { shariaStatus } from '../core/sharia.js';
 import { companyFacts } from '../core/risk.js';
 import { assessRow, flowOf, selectedRow } from '../state.js';
-import { STATE_HINTS, stateBadge, shariaBadge, meter, stat, riskFor } from './common.js';
+import { STATE_HINTS, stateBadge, shariaBadge, meter, stat, riskFor, changeNote, DOT } from './common.js';
+import { priceQuality, SOURCES } from '../core/quality.js';
 import { samplesChart, planLadder } from './charts.js';
 import { sipCard } from './sip.js';
 import { sipSignalFor } from '../state.js';
@@ -213,12 +214,31 @@ function history(state, r) {
   })}`;
 }
 
+/**
+ * Every other price known for the symbol with its own source and age, plus the reference close,
+ * so a stale or delayed headline price can be checked against the rest.
+ */
+function priceContext(r, now) {
+  if (r.placeholder) return '';
+  const parts = [];
+  const o = r.consolidated;
+  if (o?.price && r.price_source !== 'CONSOLIDATED') parts.push(`${SOURCES.CONSOLIDATED.label} ${f.usd(o.price)} (${f.age(o.trade_minute_at, now)})`);
+  const d = r.sip_delayed;
+  if (d?.price && r.price_source !== 'SIP_DELAYED') parts.push(`${SOURCES.SIP_DELAYED.label} ${f.usd(d.price)} (${f.age(d.price_at, now)})`);
+  if (positive(r.previous_close)) {
+    const basis = ['SIP_SPLIT_ADJUSTED', 'SIP_PREVIOUS_CLOSE'].includes(r.change_basis) ? 'مجمّع معدّل للتجزئة' : 'غير مجمّع';
+    parts.push(`الإغلاق المرجعي ${f.usd(r.previous_close)}${r.previous_close_session ? ` (${r.previous_close_session})` : ''} · ${basis}`);
+  }
+  return parts.length ? html`<small class="price-context" dir="auto">${parts.join(' · ')}</small>` : '';
+}
+
 export function renderDossier(state, now) {
   const r = selectedRow(state);
   if (!r) {
     return html`<div class="dossier-empty"><span aria-hidden="true">◎</span><h2>اختر سهمًا</h2><p>ستجد هنا سبب ظهوره، شروطه، خطته، أخباره، ونتيجة متابعته.</p></div>`;
   }
   const a = assessRow(state, r, now);
+  const q = priceQuality(r, now);
   const tab = state.ui.tab;
   const body = r.placeholder
     ? html`<div class="empty-card"><strong>بانتظار بيانات هذا السهم</strong><p>يُطلب سعره تلقائيًا كل بضع ثوانٍ. إن لم يصل فقد يكون خارج نطاق الأسهم المؤهلة لدى الخادم.</p></div>`
@@ -234,14 +254,15 @@ export function renderDossier(state, now) {
         <h2 dir="ltr">${r.symbol} ${shariaBadge(r, now)}</h2>
         <p>${r.name ?? ''}</p>
       </div>
-      <div class="dossier-price">
+      <div class="dossier-price${q.current ? '' : ' is-stale'}">
         <strong dir="ltr">${f.usd(r.price)}</strong>
-        <span class="chg ${f.tone(r.day_change)}" dir="ltr">${f.pct(r.day_change)}</span>
+        <span class="chg ${f.tone(r.day_change)}" dir="ltr">${f.pct(r.day_change)}${changeNote(r, now)}</span>
       </div>
     </header>
     <div class="dossier-meta">
       ${r.placeholder ? '' : stateBadge(a.state)}
-      <span class="meta-age" data-age="${r.price_at ?? ''}"><i class="dot ${f.freshness(r.price_at, now, r.price_source)}"></i>آخر صفقة ${f.time(r.price_at)} · <span class="age-text">${f.age(r.price_at, now)}</span>${r.price_source ? html` · <span class="src">${r.price_source === 'CONSOLIDATED' ? 'مجمّع (ناسداك)' : 'IEX'}</span>` : ''}</span>
+      <span class="meta-age" data-age="${r.price_at ?? ''}"><i class="dot ${DOT[q.level]}"></i>آخر صفقة ${f.time(r.price_at)} · <span class="age-text">${f.age(r.price_at, now)}</span>${q.sourceLabel ? html` · <span class="src">${q.sourceLabel}</span>` : ''}${q.current ? '' : html` · <b class="q-warn q-${q.level}">${q.label}</b>`}</span>
+      ${priceContext(r, now)}
       <button class="btn ${watching ? 'btn-on' : ''}" data-watch="${r.symbol}" aria-pressed="${watching}">${watching ? '★ في المتابعة' : '☆ أضف للمتابعة'}</button>
     </div>
     <nav class="seg" role="tablist" aria-label="أقسام ملف السهم">${TABS.map(([id, label]) =>

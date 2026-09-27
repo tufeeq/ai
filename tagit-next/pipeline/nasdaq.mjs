@@ -28,6 +28,18 @@ export function nasdaqMinute(text) {
   return null;
 }
 
+/**
+ * "2026-09-25T14:40:00" (New York wall time, as the watchlist reports it) → ISO UTC. Midnight means
+ * the source only knows the date, which is not a trade time.
+ */
+export function nasdaqDateTime(text) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?$/.exec(String(text ?? ''));
+  if (!m || (m[4] === '00' && m[5] === '00')) return null;
+  const month = Object.keys(MONTHS)[+m[2] - 1];
+  const h = +m[4], ampm = h >= 12 ? 'PM' : 'AM';
+  return month ? nasdaqMinute(`${month} ${+m[3]}, ${m[1]} ${h % 12 || 12}:${m[5]} ${ampm} ET`) : null;
+}
+
 /** One watchlist item (or info primaryData) → normalized quote; null without a positive price. */
 export function normalizeItem(item, fetchedAt) {
   const symbol = String(item?.symbol ?? '').toUpperCase();
@@ -36,16 +48,18 @@ export function normalizeItem(item, fetchedAt) {
   const change = signed(item?.netChange ?? item?.netchange);
   const changePct = signed(item?.percentageChange ?? item?.pctchange);
   const stamp = item?.lastTradeTimestamp ?? item?.lastTradeTime ?? null;
+  const listed = Number(item?.previousClosePrice);
   return {
     symbol,
     price,
     change,
     change_pct: changePct,
-    // Nasdaq.com's own previous close implied by its net change (price − change).
-    previous_close: change !== null && price - change > 0 ? Math.round((price - change) * 1e4) / 1e4 : null,
+    // Nasdaq.com's previous close: the explicit field, else implied by its net change (price − change).
+    previous_close: listed > 0 ? listed : change !== null && price - change > 0 ? Math.round((price - change) * 1e4) / 1e4 : null,
     volume: count(item?.volume ?? item?.shareVolume),
-    trade_minute_at: nasdaqMinute(stamp),
+    trade_minute_at: nasdaqMinute(stamp) ?? nasdaqDateTime(item?.lastTradeTimestampDateTime),
     stamp_text: stamp,
+    stamp_datetime: item?.lastTradeTimestampDateTime ?? null,
     real_time: item?.isRealTime === true ? true : item?.isRealTime === false ? false : null,
     fetched_at: new Date(fetchedAt).toISOString(),
   };

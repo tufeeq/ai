@@ -6,18 +6,19 @@
 //   C. correctness: Nasdaq.com last price / previous close and IEX closes versus consolidated
 //      (SIP, split-adjusted) daily bars from the relay;
 //   D. freshness upper bounds from a recent full session: per minute, how many universe symbols
-//      traded on IEX versus on the consolidated tape (SIP minute bars).
+//      traded on IEX versus on the consolidated tape (SIP minute bars);
+//   E. during a session: Nasdaq.com and IEX last prices versus the SIP tape 17 minutes later.
 // Output: JSON (AUDIT_OUT, default live-audit.json) plus a readable log.
 //
 // Usage: node live_audit.mjs [--parts A,B,C,D] [--session YYYY-MM-DD]
 import { writeFileSync } from 'node:fs';
 import { getJson as relayJson, eligibleSymbols, session } from './sip_study.mjs';
-import { parseWatchlist, parseInfo, nasdaqMinute, WATCHLIST_URL, INFO_URL, HEADERS } from './nasdaq.mjs';
+import { parseWatchlist, WATCHLIST_URL, HEADERS } from './nasdaq.mjs';
 
 const SERVICE = process.env.TAGIT_SERVICE || 'https://tagit-next-quotes.onrender.com';
 const OUT = process.env.AUDIT_OUT || 'live-audit.json';
 const arg = (n) => { const i = process.argv.indexOf(n); return i >= 0 ? process.argv[i + 1] : null; };
-const PARTS = new Set((arg('--parts') || 'A,B,C,D').split(','));
+const PARTS = new Set((arg('--parts') || 'A,B,E').split(','));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const report = { generated_at: new Date().toISOString(), service: SERVICE };
 const log = (...a) => console.log(...a);
@@ -45,7 +46,7 @@ async function partA() {
   const out = {};
   const health = await timed(`${SERVICE}/api/health`, { timeout: 90_000 });
   out.health = { status: health.status, ms: health.ms, body: health.body };
-  log('A health', health.status, health.ms + 'ms', JSON.stringify(health.body)?.slice(0, 600));
+  log('A health', health.status, health.ms + 'ms', JSON.stringify(health.body?.complements ?? health.body)?.slice(0, 1500));
   const scan = await timed(`${SERVICE}/api/scanner`, { timeout: 120_000 });
   const b = scan.body;
   if (b?.rows) {
@@ -72,64 +73,48 @@ async function partA() {
 }
 
 // ---- B. Nasdaq.com endpoints ----------------------------------------------------------------
+// Run 1 (2026-09-27) established: the watchlist endpoint answers at most 20 symbols per request
+// (100+ symbols → 404), the single-symbol info endpoint works, and 25 sequential requests/min for
+// 4 minutes drew no throttling. This part now measures a full pass at batch 20 and the parallelism
+// the endpoint tolerates.
+const BATCH = 20;
+async function pass(concurrency, seconds) {
+  const statuses = [], seen = new Map(), t0 = Date.now();
+  let next = 0, passes = 0, stop = false;
+  const groups = [];
+  for (let i = 0; i < universe.length; i += BATCH) groups.push(universe.slice(i, i + BATCH));
+  async function worker() {
+    while (!stop && Date.now() - t0 < seconds * 1000) {
+      const g = groups[next++ % groups.length];
+      if (next % groups.length === 0) passes++;
+      const r = await timed(WATCHLIST_URL(g), { headers: HEADERS, timeout: 30_000 });
+      statuses.push(r.status);
+      if (r.status !== 200) { stop = true; break; }
+      for (const row of parseWatchlist(r.body, Date.now())) seen.set(row.symbol, row);
+    }
+  }
+  await Promise.all(Array.from({ length: concurrency }, worker));
+  const secs = (Date.now() - t0) / 1000;
+  return { concurrency, seconds: round(secs, 1), requests: statuses.length, statuses: tally(statuses), requests_per_min: round(statuses.length / (secs / 60), 1),
+    full_pass_seconds: round(groups.length / (statuses.length / secs), 1), priced: seen.size, of: universe.length, seen };
+}
 async function partB() {
   const out = {};
-  const sample = universe.filter((_, i) => i % Math.max(1, Math.floor(universe.length / 60)) === 0).slice(0, 60);
-  // B1 single-symbol info endpoint, sequential pacing 250 ms.
-  const info = [];
-  for (const s of sample.slice(0, 30)) {
-    const r = await timed(INFO_URL(s), { headers: HEADERS });
-    const parsed = r.body ? parseInfo(s, r.body, Date.now()) : null;
-    info.push({ s, status: r.status, ms: r.ms, ok: Boolean(parsed?.price) });
-    await sleep(250);
-  }
-  out.info = { requests: info.length, ok: info.filter((x) => x.ok).length, statuses: tally(info.map((x) => x.status)), ms_p50: q(info.map((x) => x.ms), 0.5) };
-  log('B info', JSON.stringify(out.info));
-  const one = await timed(INFO_URL(sample[0]), { headers: HEADERS });
-  out.info_shape = JSON.stringify(one.body?.data ?? one.body)?.slice(0, 1500);
-  log('B info shape', out.info_shape);
-  // B2 watchlist batch endpoint at several batch sizes.
-  out.watchlist = [];
-  for (const size of [10, 25, 50, 100, 200]) {
-    const batch = universe.slice(0, size);
-    const r = await timed(WATCHLIST_URL(batch), { headers: HEADERS, timeout: 30_000 });
-    const rows = r.body ? parseWatchlist(r.body, Date.now()) : [];
-    const entry = { size, status: r.status, ms: r.ms, rows: rows.length, priced: rows.filter((x) => x.price).length, error: r.error ?? r.text ?? null };
-    out.watchlist.push(entry);
-    log('B watchlist', JSON.stringify(entry));
-    if (size === 10) { out.watchlist_shape = JSON.stringify(r.body)?.slice(0, 2500); log('B watchlist shape', out.watchlist_shape); }
-    await sleep(1000);
-  }
-  // B3 whole universe through the batch endpoint, then a throughput burst.
-  const best = out.watchlist.filter((w) => w.status === 200 && w.priced >= w.size * 0.5).map((w) => w.size).at(-1) ?? 0;
-  out.best_batch = best;
-  if (best) {
-    const seen = new Map();
-    const t0 = Date.now();
-    const statuses = [];
-    for (let i = 0; i < universe.length; i += best) {
-      const r = await timed(WATCHLIST_URL(universe.slice(i, i + best)), { headers: HEADERS, timeout: 30_000 });
-      statuses.push(r.status);
-      for (const row of r.body ? parseWatchlist(r.body, Date.now()) : []) if (row.price) seen.set(row.symbol, row);
-    }
-    out.universe_pass = { batch: best, requests: statuses.length, seconds: round((Date.now() - t0) / 1000, 1), statuses: tally(statuses), priced: seen.size, of: universe.length,
-      missing_sample: universe.filter((s) => !seen.has(s)).slice(0, 25) };
-    log('B universe pass', JSON.stringify(out.universe_pass));
-    report._nasdaq = seen;
-    // Burst: repeat full passes back to back for ~3 minutes to find throttling.
-    const burst = []; const tb = Date.now(); let passes = 0;
-    while (Date.now() - tb < 180_000) {
-      for (let i = 0; i < universe.length; i += best) {
-        const r = await timed(WATCHLIST_URL(universe.slice(i, i + best)), { headers: HEADERS, timeout: 30_000 });
-        burst.push(r.status);
-        if (r.status !== 200) break;
-      }
-      passes++;
-      if (burst.at(-1) !== 200) break;
-    }
-    out.burst = { seconds: round((Date.now() - tb) / 1000, 1), requests: burst.length, passes, statuses: tally(burst),
-      requests_per_min: round(burst.length / ((Date.now() - tb) / 60_000), 1) };
-    log('B burst', JSON.stringify(out.burst));
+  const first = await pass(1, 60);
+  report._nasdaq = first.seen;
+  const stamps = [...first.seen.values()];
+  out.stamps = { with_minute_time: stamps.filter((x) => x.trade_minute_at).length, date_only: stamps.filter((x) => !x.trade_minute_at).length,
+    sample: stamps.slice(0, 3).map((x) => ({ symbol: x.symbol, stamp: x.stamp_text, datetime: x.stamp_datetime })) };
+  delete first.seen;
+  out.sequential = first;
+  log('B sequential', JSON.stringify(first), JSON.stringify(out.stamps));
+  for (const c of [2, 3]) {
+    await sleep(10_000);
+    const r = await pass(c, 90);
+    delete r.seen;
+    out['parallel_' + c] = r;
+    log('B parallel', JSON.stringify(r));
+    if (Object.keys(r.statuses).some((k) => k !== '200')) break;
   }
   report.nasdaq = out;
 }
@@ -246,10 +231,68 @@ async function partD() {
   log('D freshness', JSON.stringify(report.freshness));
 }
 
+// ---- E. in-session truth check ----------------------------------------------------------------
+// At time T fetch Nasdaq.com consolidated quotes for the universe; 17 minutes later fetch SIP and
+// IEX minute bars up to T through the relay. The last SIP bar at or before T is the truth. Measures
+// how often each live source shows the true last price and how far behind its trade minute is.
+async function partE() {
+  const t = Date.now();
+  const sess = session(nyDay(t));
+  if (!(t > sess.open + 5 * 60_000 && t < sess.close)) { report.in_session = { skipped: 'market not in regular session', at: new Date(t).toISOString() }; log('E skipped (not in session)'); return; }
+  const snap = await pass(1, 150);
+  const quotes = snap.seen; delete snap.seen;
+  const T = Date.now();
+  log(`E fetched ${quotes.size} consolidated quotes; waiting 17 minutes for SIP bars`);
+  await sleep(Math.max(0, T + 17 * 60_000 - Date.now()));
+  const iso = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
+  const last = { sip: {}, iex: {} };
+  for (const feed of ['sip', 'iex']) {
+    for (let i = 0; i < universe.length; i += 100) {
+      const p = new URLSearchParams({ resource: 'bars', symbols: universe.slice(i, i + 100).join(','), timeframe: '1Min', start: iso(sess.open - 4 * 3600_000), end: iso(T), feed, adjustment: 'raw', limit: '10000', sort: 'asc' });
+      let token = null;
+      do {
+        if (token) p.set('page_token', token);
+        const body = await relayJson(`${SERVICE}/api/lab/provider?${p}`);
+        for (const [s, bars] of Object.entries(body?.bars ?? {})) for (const b of bars) if (Date.parse(b.t) <= T - 60_000 && (!last[feed][s] || Date.parse(b.t) > Date.parse(last[feed][s].t))) last[feed][s] = b;
+        token = body?.next_page_token;
+      } while (token);
+    }
+  }
+  const res = { at: new Date(T).toISOString(), consolidated_quotes: quotes.size, compared: 0, nasdaq_price_matches_sip_last: 0, nasdaq_minute_matches_sip_last: 0, nasdaq_minute_behind_min: [],
+    iex_price_matches_sip_last: 0, iex_minute_matches_sip_last: 0, iex_minute_behind_min: [], iex_missing: 0, sip_traded_last_2m: 0 };
+  for (const s of universe) {
+    const truth = last.sip[s];
+    if (!truth) continue;
+    const n = quotes.get(s), x = last.iex[s];
+    if (Date.parse(truth.t) >= T - 3 * 60_000) res.sip_traded_last_2m++;
+    if (n) {
+      res.compared++;
+      if (Math.abs(n.price / truth.c - 1) <= 0.005) res.nasdaq_price_matches_sip_last++;
+      if (n.trade_minute_at) {
+        const lag = (Date.parse(truth.t) - Date.parse(n.trade_minute_at)) / 60_000;
+        if (lag === 0) res.nasdaq_minute_matches_sip_last++;
+        res.nasdaq_minute_behind_min.push(lag);
+      }
+    }
+    if (!x) { res.iex_missing++; continue; }
+    if (Math.abs(x.c / truth.c - 1) <= 0.005) res.iex_price_matches_sip_last++;
+    const lag = (Date.parse(truth.t) - Date.parse(x.t)) / 60_000;
+    if (lag === 0) res.iex_minute_matches_sip_last++;
+    res.iex_minute_behind_min.push(lag);
+  }
+  const d = (xs) => ({ p50: q(xs, 0.5), p90: q(xs, 0.9), n: xs.length });
+  res.nasdaq_minute_behind_min = d(res.nasdaq_minute_behind_min);
+  res.iex_minute_behind_min = d(res.iex_minute_behind_min);
+  res.fetch = snap;
+  report.in_session = res;
+  log('E in-session', JSON.stringify(res));
+}
+
 try {
   if (PARTS.has('A')) await partA().catch((e) => { report.service_audit = { error: e.message }; log('A failed', e.message); });
   if (PARTS.has('B')) await partB().catch((e) => { report.nasdaq = { ...(report.nasdaq ?? {}), error: e.message }; log('B failed', e.message); });
   if (PARTS.has('C')) await partC().catch((e) => { report.correctness = { error: e.message }; log('C failed', e.message); });
+  if (PARTS.has('E')) await partE().catch((e) => { report.in_session = { error: e.message }; log('E failed', e.message); });
   if (PARTS.has('D')) await partD().catch((e) => { report.freshness = { error: e.message }; log('D failed', e.message); });
 } finally {
   delete report._nasdaq; delete report._sessions;

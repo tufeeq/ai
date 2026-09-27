@@ -2,7 +2,8 @@
 import { html } from '../html.js';
 import * as f from '../format.js';
 import { assessRow, flowOf, visibleRows, groupRows } from '../state.js';
-import { stateBadge, shariaBadge, meter, riskFor, riskBadge } from './common.js';
+import { stateBadge, shariaBadge, meter, riskFor, riskBadge, priceTag, changeNote, DOT } from './common.js';
+import { priceQuality } from '../core/quality.js';
 
 const EMPTY = {
   early: 'لا توجد أسهم تطابق هذه الفلاتر الآن.',
@@ -25,15 +26,16 @@ function row(state, r, now) {
       <span class="row-age"><i class="dot none"></i>—</span></button></li>`;
   }
   const a = assessRow(state, r, now);
+  const q = priceQuality(r, now);
   const flow = flowOf(state, r.symbol, now);
   const s = r.signal;
   return html`<li data-key="row-${r.symbol}"><button class="row${selected ? ' is-selected' : ''}" data-symbol="${r.symbol}" aria-current="${selected}">
     <span class="row-id"><span class="sym">${state.watched.has(r.symbol) ? '★ ' : ''}${r.symbol} ${shariaBadge(r, now)}${riskBadge(riskFor(state, r, now))}</span><span class="name">${r.name ?? ''}</span></span>
-    <span class="row-price"><span class="px" dir="ltr">${f.usd(r.price)}</span><span class="chg ${f.tone(r.day_change)}" dir="ltr">${f.pct(r.day_change)}</span></span>
+    <span class="row-price${q.current ? '' : ' is-stale'}" title="${q.sourceLabel ?? ''} · ${q.label}"><span class="px" dir="ltr">${f.usd(r.price)}</span><span class="chg ${f.tone(r.day_change)}" dir="ltr">${f.pct(r.day_change)}${changeNote(r, now)}</span><small class="px-src q-${q.level}">${priceTag(q)}</small></span>
     <span class="row-meter">${meter(a)}<span class="meter-label" dir="ltr">${a.passed}/${a.total}</span></span>
     <span class="row-vol"><span dir="ltr">${f.num(s?.volume_ratio, 1)}×</span><small dir="ltr">${f.compactUsd(s?.dollars_3m)}</small></span>
     <span class="row-state">${stateBadge(a.state)}<small class="flow fl-${flow.status}">${flow.label}</small></span>
-    <span class="row-age" data-age="${r.price_at ?? ''}"><i class="dot ${f.freshness(r.price_at, now, r.price_source)}"></i><span class="age-text">${f.age(r.price_at, now)}</span></span>
+    <span class="row-age" data-age="${r.price_at ?? ''}"><i class="dot ${DOT[q.level]}"></i><span class="age-text">${f.age(r.price_at, now)}</span></span>
   </button></li>`;
 }
 

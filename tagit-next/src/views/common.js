@@ -1,6 +1,7 @@
 import { html } from '../html.js';
 import { shariaStatus } from '../core/sharia.js';
 import { riskOf } from '../core/risk.js';
+import { marketDate } from '../core/market.js';
 
 export const STATE_NAMES = {
   READY: 'خطة مشروطة',
@@ -44,5 +45,25 @@ export function riskBadge(risk) {
   return html`<span class="risk r-${risk.level}" role="img" aria-label="${title}" title="${title}">⚠</span>`;
 }
 
-export const stat = (label, value, hint) =>
+/** Dot class per price-quality level. */
+export const DOT = { live: 'live', quiet: 'live', aging: 'aging', stale: 'stale', delayed: 'delayed', none: 'none' };
+
+const LEVEL_SHORT = { aging: 'يتقادم', stale: 'قديم', delayed: 'متأخر', quiet: 'بلا تداول جديد' };
+
+/** Source tag under a price: always the source, plus a warning when it is not current. */
+export function priceTag(q) {
+  if (q.level === 'none') return '';
+  return LEVEL_SHORT[q.level] ? `${q.sourceShort} · ${LEVEL_SHORT[q.level]}` : q.sourceShort;
+}
+
+/** Marks a day change measured for an earlier session, or one not based on a consolidated close. */
+export function changeNote(row, now) {
+  if (!Number.isFinite(row?.day_change)) return '';
+  const today = marketDate(now);
+  if (row.change_session && row.change_session !== today) return html`<small class="chg-note"> · ${row.change_session.slice(5)}</small>`;
+  if (!['SIP_SPLIT_ADJUSTED', 'SIP_PREVIOUS_CLOSE'].includes(row.change_basis)) return html`<small class="chg-note" title="إغلاق مرجعي غير مجمّع">*</small>`;
+  return '';
+}
+
+export const stat =(label, value, hint) =>
   html`<div class="stat"><span class="stat-label">${label}</span><strong class="stat-value">${value}</strong>${hint ? html`<small>${hint}</small>` : ''}</div>`;
