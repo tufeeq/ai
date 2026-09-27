@@ -1,5 +1,44 @@
 # Cumulative research progress
 
+## 2026-09-27 — quote-anchored decision and same-time order repair
+
+Recovered branch head `0985ee6f58b0b90ae5b4399d54f3090a1ae60835` from GitHub,
+reviewed the baseline/entry/exit findings and confirmed the prior successful CI
+head. The new primary protocol and all twelve August 24 development cases had been
+frozen before evaluation. Its raw parser retained conflicts as missingness and
+reported nine unknown cases in each of four fixed delay/cost scenarios.
+
+Completed the preregistered measurement repair without a market-data download.
+Same-timestamp provider records are now reduced to an order-invariant adverse
+envelope; sizes are never summed, every possible entry ask must qualify, any stop
+touch counts, and a target requires all same-time bids to qualify. Invalid groups
+still terminate coverage. Added a trigger-relative three-second exit-capacity limit
+so a stop cannot wait until the horizon and be priced after a later rebound.
+
+Across every scenario: 12 cases, 9 simulated entries, one modeled target, one
+modeled stop, seven unknown exits, two no-entry cases and one without a decision
+quote. The repair reduces unknowns from 9 to 8, resolving one extra case. It does
+not justify a resolved-only mean or any profitability claim. The inverse diagnostic
+found zero later target-first indications among the two no-entry cases, but this is
+far too small and exposed to measure market-wide rocket recall.
+
+Added deterministic reproduction, 11 focused order/ambiguity tests and CI coverage;
+all old raw data and reports remain. Alpaca market clock access was healthy on
+27 September; the market was closed and next open was 28 September 09:30 ET. This
+connectivity check is not a quote request or execution validation. Zero new market
+data requests, zero holdout access, zero live-rule changes, no order or merge.
+
+Full verification also exposed a pre-existing reproducibility failure: Phase 2
+hashed the mutable runtime scanner even though its calculations replay only the
+frozen discovery ledger. Later broad-observation changes therefore broke the old
+study check. The replay now verifies every computational input as before and reports
+the frozen/current scanner hashes explicitly as provenance-only drift; it neither
+imports the current scanner nor rewrites the frozen protocol or numeric findings.
+
+Next: freeze later development dates and repeat the same quote-anchored policy on
+a broader sample, retrieving only missing paths. Keep later-move discovery recall
+separate from execution classification and do not retune from this one session.
+
 ## 2026-09-25 — original-signal clock and execution eligibility
 
 Recovered fresh branch head `2a6c47b46a7a2cfa9d9da0c682ea7228f59fa9b0` from GitHub,

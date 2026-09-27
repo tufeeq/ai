@@ -120,7 +120,18 @@ def compare(rows, feature, protocol):
 def build():
     protocol = json.loads((ROOT / 'research/phase2-protocol.json').read_text())
     inputs = json.loads((ROOT / 'research/phase2-inputs.json').read_text())
-    for path, digest in {**protocol['source_sha256'], **inputs['sha256']}.items():
+    scanner_path = 'quote-service/src/scanner.mjs'
+    frozen_scanner_sha = protocol['source_sha256'][scanner_path]
+    frozen_scanner_path = ROOT / 'research/frozen/scanner-discovery-1.mjs'
+    if sha(frozen_scanner_path) != frozen_scanner_sha:
+        raise ValueError('Frozen discovery scanner copy changed')
+    # The numeric ablation replays the immutable discovery ledger and does not
+    # import the mutable live scanner. Keep scanner drift visible as provenance
+    # instead of making later observation-only scanner work corrupt old research.
+    frozen_inputs = {**protocol['source_sha256'], **inputs['sha256']}
+    for path, digest in frozen_inputs.items():
+        if path == scanner_path:
+            continue
         if sha(ROOT / path) != digest:
             raise ValueError(f'Frozen input changed: {path}')
     if (protocol['period']['role'] != 'ALREADY_EXPOSED_DEVELOPMENT' or protocol['deployment_allowed']

@@ -9,12 +9,18 @@ from .metrics import summarize
 from .splits import claim_blockers
 
 ROOT=Path(__file__).resolve().parents[1]
+FROZEN_MARKET_SHA256='48631ae222cb83dd3c49541662b58e671502250099e57bb46f28a8be01c31c73'
 
 
 def build():
     protocol=json.loads((ROOT/'research/protocol.json').read_text())
+    scanner_name='quote-service/src/scanner.mjs'
+    frozen_scanner=ROOT/'research/frozen/scanner-discovery-1.mjs'
+    if hashlib.sha256((ROOT/'research/frozen/market.mjs').read_bytes()).hexdigest()!=FROZEN_MARKET_SHA256:
+        raise ValueError('Frozen scanner dependency changed: market.mjs')
     for name,digest in protocol['frozen_sha256'].items():
-        if hashlib.sha256((ROOT/name).read_bytes()).hexdigest()!=digest:
+        source=frozen_scanner if name==scanner_name else ROOT/name
+        if hashlib.sha256(source.read_bytes()).hexdigest()!=digest:
             raise ValueError(f'Frozen evidence changed: {name}')
     manifest=json.loads((ROOT/'data/study-manifest.json').read_text())
     for entry in manifest['files']:
@@ -22,7 +28,7 @@ def build():
             raise ValueError(f"Source hash mismatch: {entry['path']}")
     with TemporaryDirectory() as tmp:
         out=Path(tmp)/'baseline.json'
-        subprocess.run(['node','quote-service/scripts/evaluate-discovery.mjs','--output',str(out)],
+        subprocess.run(['node','research/frozen/evaluate-discovery.mjs','--output',str(out)],
                        cwd=ROOT,check=True,capture_output=True,text=True)
         replayed=json.loads(out.read_text())
     expected=json.loads((ROOT/'data/discovery-audit.json').read_text())

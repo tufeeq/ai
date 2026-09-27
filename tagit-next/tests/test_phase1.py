@@ -1,4 +1,6 @@
 import unittest
+from pathlib import Path
+import hashlib
 from dataclasses import replace
 from research.events import Event,Universe,replay,time
 from research.execution import Policy,simulate
@@ -19,6 +21,16 @@ POLICY=Policy(horizon_seconds=20)
 
 
 class PhaseOne(unittest.TestCase):
+    def test_frozen_scanner_is_distinct_from_mutable_runtime(self):
+        root=Path(__file__).resolve().parents[1]
+        digest=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+        frozen=digest(root/'research/frozen/scanner-discovery-1.mjs')
+        runtime=digest(root/'quote-service/src/scanner.mjs')
+        self.assertEqual(frozen,'6d04ed6155eb7ea39e247414d21975ebf2015a21cb91c3eb67fd37caec9c5d05')
+        self.assertEqual(digest(root/'research/frozen/market.mjs'),
+                         '48631ae222cb83dd3c49541662b58e671502250099e57bb46f28a8be01c31c73')
+        self.assertNotEqual(frozen,runtime)
+
     def test_clock_never_exposes_future_or_delayed_event(self):
         events=[Event(time(ts(0)),time(ts(31)),0,'QUOTE','ID',{'value':1})]
         seen=[]

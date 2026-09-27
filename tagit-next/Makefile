@@ -13,6 +13,7 @@ verify:
 	python -m research.share_capacity --check
 	python -m research.signal_clock --check
 	python -m research.quote_anchored --check
+	python -m research.quote_anchored_order --check
 
 # Python 3.12+, Node 24. Offline, no account secrets needed.
 phase1:
@@ -62,4 +63,6 @@ signal-clock:
 .PHONY: quote-anchored
 quote-anchored:
 	python -m unittest discover -s tests -p 'test_quote_anchored.py' -v
+	python -m unittest discover -s tests -p 'test_quote_anchored_order.py' -v
 	python -m research.quote_anchored --check
+	python -m research.quote_anchored_order --check
