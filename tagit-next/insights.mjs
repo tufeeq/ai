@@ -44,6 +44,7 @@ panel.addEventListener('click', (e) => {
   if (t.hasAttribute('data-insights-refresh')) return load();
   if (t.dataset.sectorSort) ui.sectorSort = t.dataset.sectorSort;
   else if (t.dataset.movers) ui.movers = t.dataset.movers;
+  else if (t.hasAttribute('data-news-more')) ui.newsAll = !ui.newsAll;
   else if (t.hasAttribute('data-news-clear')) Object.assign(ui, { sector: '', industry: '', symbol: '' });
   else if (t.dataset.newsSymbol || t.dataset.newsIndustry || t.dataset.newsSector) {
     Object.assign(ui, { sector: t.dataset.newsSector ?? '', industry: t.dataset.newsIndustry ?? '', symbol: t.dataset.newsSymbol ?? '' });

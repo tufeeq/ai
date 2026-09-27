@@ -214,6 +214,8 @@ function trendsSection(data, now) {
   return section('trends', 'اتجاهات ملحوظة', data, now, body);
 }
 
+const NEWS_PAGE = 10;
+
 function newsSection(data, ui, now) {
   const news = list(data.news);
   const facets = newsFacets(news);
@@ -234,7 +236,8 @@ function newsSection(data, ui, now) {
     </li>`;
   const body = news.length
     ? html`${filters}<p class="notice n-info ins-honest">الربط بين الخبر والحركة قائم على تطابق الرمز أو الصناعة وقرب التوقيت فقط، ولا يعني أن الخبر سبب الحركة.</p>
-      ${shown.length ? html`<ol class="ins-news">${shown.map(item)}</ol>` : empty('لا أخبار تطابق التصفية الحالية.')}
+      ${shown.length ? html`<ol class="ins-news">${shown.slice(0, ui.newsAll ? shown.length : NEWS_PAGE).map(item)}</ol>` : empty('لا أخبار تطابق التصفية الحالية.')}
+      ${shown.length > NEWS_PAGE ? html`<button type="button" class="btn ins-more" data-news-more>${ui.newsAll ? 'عرض أقل' : html`عرض المزيد (${n(shown.length - NEWS_PAGE)})`}</button>` : ''}
       <p class="note">${n(shown.length)} من ${n(news.length)} خبرًا${data.news_window?.from ? html` · النافذة من ${f.dateTime(data.news_window.from)} إلى ${f.dateTime(data.news_window.to)}` : ''} · الأوقات بتوقيت نيويورك · النصوص كما نشرها المصدر.</p>`
     : empty('لا تتوفر أخبار في هذا الملف.');
   return section('news', 'الأخبار', data, now, body, { wide: true });

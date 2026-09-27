@@ -164,3 +164,13 @@ test('sparkline handles short or flat series', () => {
   assert.ok(String(sparkline([1], 'X')).includes('لا سلسلة'));
   assert.ok(String(sparkline([5, 5, 5], 'X')).includes('<path'));
 });
+
+test('long news lists show 10 items with a show-more button', () => {
+  const base = JSON.parse(readFileSync(new URL('./fixtures/insights.sample.json', import.meta.url), 'utf8'));
+  const news = Array.from({ length: 25 }, (_, i) => ({ ...base.news[0], id: `n${i}`, headline: `Headline ${i}` }));
+  const at = Date.parse(base.generated_at);
+  const out = (all) => String(renderInsights({ phase: 'ok', data: { ...base, news }, error: null, loadedAt: at }, { ...DEFAULT_INSIGHTS_UI, newsAll: all }, at));
+  assert.equal((out(false).match(/class="ins-news-item"/g) ?? []).length, 10);
+  assert.ok(out(false).includes('data-news-more'));
+  assert.equal((out(true).match(/class="ins-news-item"/g) ?? []).length, 25);
+});
