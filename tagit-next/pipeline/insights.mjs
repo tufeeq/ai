@@ -310,7 +310,7 @@ export function trends({ etf, sectors, industries, all, small }) {
       const prevRel = e?.chg_prev_5d_pct != null && spy.chg_prev_5d_pct != null ? e.chg_prev_5d_pct - spy.chg_prev_5d_pct : null;
       const streak = prevRel != null && (up ? prevRel > 0 : prevRel < 0);
       add(`sector-5d-${up ? 'lead' : 'lag'}-${s.etf}`, '5D',
-        `${s.name_ar} ${up ? 'يتصدر' : 'يتأخر عن'} القطاعات خلال أسبوع${streak ? ' للأسبوع الثاني على التوالي' : ''}`,
+        `${s.name_ar} (${s.etf}) ${up ? 'في صدارة' : 'في ذيل'} القطاعات ${streak ? 'للأسبوع الثاني على التوالي' : 'هذا الأسبوع'}`,
         `صندوق ${s.etf} ${signed(s.etf_chg_5d_pct)} خلال 5 جلسات مقابل ${signed(spy.chg_5d_pct)} لـ SPY (فارق ${signed(rel)}).${streak ? ` وفي الأسبوع السابق كان الفارق ${signed(prevRel)}.` : ''}`,
         [{ metric: `${s.etf} 5D`, value: s.etf_chg_5d_pct }, { metric: 'SPY 5D', value: spy.chg_5d_pct }, { metric: `${s.etf} vs SPY prev 5D`, value: r2(prevRel) }]);
     }
@@ -550,7 +550,8 @@ async function nasdaq(url) {
   return r.json();
 }
 const iso = (t) => new Date(t).toISOString().replace(/\.\d{3}Z$/, 'Z');
-const log = (...a) => console.error('[insights]', ...a);
+const diagnostics = [];
+const log = (...a) => { diagnostics.push(a.join(' ').slice(0, 400)); console.error('[insights]', ...a); };
 
 async function main() {
   const arg = (k) => { const i = process.argv.indexOf(k); return i >= 0 ? process.argv[i + 1] : null; };
@@ -598,7 +599,7 @@ async function main() {
     } catch (e) { log('economic failed', e.message); }
   }
   const out = buildInsights({ universe, bars, barsAsOf, newsRaw, newsOk, calendar, earnings, economic, calDay, now });
-  out.run = { relay_requests: requests };
+  out.run = { relay_requests: requests, diagnostics };
   writeFileSync(arg('--out') ?? OUT_DEFAULT, JSON.stringify(out, null, 1) + '\n');
   console.log(summary(out));
 }
