@@ -243,7 +243,7 @@ async function main() {
   report.examples = Object.fromEntries(Object.entries(acc.examples).map(([k, v]) => [k, v.filter((x) => x.d >= from).slice(-40)]));
   writeFileSync(new URL('../data/daily-study.json', import.meta.url), JSON.stringify(report, null, 1) + '\n');
   const brief = Object.fromEntries(Object.entries(report.table).map(([k, v]) => [k, Object.fromEntries(Object.entries(v).map(([h, s]) => [h, [s.development.trades, s.development.mean_pct, s.holdout.trades, s.holdout.mean_pct, s.holdout.ci95]]))]));
-  console.log(JSON.stringify({ selected: report.selected, holds: report.holds, table: brief }, null, 1));
+  console.log(JSON.stringify({ selected: report.selected, holds: report.holds, data_checks: report.data_checks, table: brief }, null, 1));
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) await main();
