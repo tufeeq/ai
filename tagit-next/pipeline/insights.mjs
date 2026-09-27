@@ -392,7 +392,7 @@ export function linkNews(raw, bySymbol, win) {
     const broad = (n.symbols ?? []).length > 4;
     let move = null, note;
     if (!syms.length) note = 'لا يطابق رمزًا في عيّنة الأسهم المتابَعة؛ خبر عام.';
-    else if (broad) note = `يذكر ${n.symbols.length} شركات؛ لا يُربط بحركة سهم بعينه.`;
+    else if (broad) note = `يذكر ${countAr(n.symbols.length, 'شركة', 'شركات')}؛ لا يُربط بحركة سهم بعينه.`;
     else if (phase === 'PRE' || phase === 'SESSION') {
       move = bySymbol.get(top).chg;
       note = `نُشر ${phase === 'PRE' ? 'قبل افتتاح' : 'خلال'} جلسة ${win.day}، وتغيّر ${top} ${signed(move, 2)} في الجلسة نفسها. الربط مبني على تطابق الرمز والتوقيت فقط ولا يثبت أن الخبر سبب الحركة.`;
@@ -410,15 +410,16 @@ export function linkNews(raw, bySymbol, win) {
 
 /** Keep ~limit items: every item linked to a mover first, then the most recent others. */
 export function selectNews(items, moverSymbols, limit = 40) {
-  const isMover = (n) => n.symbols.some((s) => moverSymbols.has(s));
-  const pick = [...items.filter(isMover), ...items.filter((n) => !isMover(n) && n.symbols.length)].slice(0, limit);
+  // Company-specific items (≤ 4 symbols) about movers first, then other company-specific items, then roundups.
+  const specific = (n) => n.symbols.length > 0 && n.symbols.length <= 4, isMover = (n) => n.symbols.some((s) => moverSymbols.has(s));
+  const pick = [...items.filter((n) => specific(n) && isMover(n)), ...items.filter((n) => specific(n) && !isMover(n)), ...items.filter((n) => n.symbols.length > 4)].slice(0, limit);
   return pick.sort((a, b) => b.time.localeCompare(a.time));
 }
 
-/** News clusters: ≥2 items naming ≥2 distinct companies in one industry. */
+/** News clusters: ≥2 company-specific items (≤ 4 symbols; roundups excluded) naming ≥2 distinct companies in one industry. */
 export function themes(news, bySymbol) {
   const m = new Map();
-  for (const n of news) for (const s of n.symbols) {
+  for (const n of news) if (n.symbols.length <= 4) for (const s of n.symbols) {
     const row = bySymbol.get(s);
     if (!row?.industry) continue;
     const g = m.get(row.industry) ?? m.set(row.industry, { ids: new Set(), syms: new Set(), sector: row.sector }).get(row.industry);
@@ -590,7 +591,11 @@ async function main() {
   const calDay = calendarDay(now, tradingDays(calendar, now));
   if (!offline && calDay) {
     try { earnings = parseEarnings(await nasdaq(`https://api.nasdaq.com/api/calendar/earnings?date=${calDay}`)); } catch (e) { log('earnings failed', e.message); }
-    try { economic = parseEconomic(await nasdaq(`https://api.nasdaq.com/api/calendar/economicevents?date=${calDay}`), calDay); } catch (e) { log('economic failed', e.message); }
+    try {
+      const body = await nasdaq(`https://api.nasdaq.com/api/calendar/economicevents?date=${calDay}`);
+      log('economic rows', body?.data?.rows?.length ?? 'none', JSON.stringify(body?.data?.rows?.[0] ?? body?.status ?? null).slice(0, 300));
+      economic = parseEconomic(body, calDay);
+    } catch (e) { log('economic failed', e.message); }
   }
   const out = buildInsights({ universe, bars, barsAsOf, newsRaw, newsOk, calendar, earnings, economic, calDay, now });
   out.run = { relay_requests: requests };
