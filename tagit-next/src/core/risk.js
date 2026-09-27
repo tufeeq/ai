@@ -37,6 +37,7 @@ export function dilutionOf(entry) {
   if (!d || !['HIGH', 'WATCH'].includes(d.level)) return null;
   const parts = (d.reasons ?? []).map((r) => DILUTION_REASONS[r]).filter(Boolean);
   if (finite(d.cash?.value)) parts.push(`النقد ${millions(d.cash.value)} بتاريخ ${d.cash.as_of}${d.cash_stale ? ' (قديم)' : ''}`);
+  if (d.level === 'HIGH') parts.push('دراسة catalyst-study-1: هذه الأسهم تأخرت عن غيرها بنحو ٢٫٦ نقطة خلال ١٠ جلسات في فترة الاختبار، ولم يظهر الفرق في فترة التطوير؛ تحذير، لا إشارة بيع');
   if (finite(d.shares_change_1y_pct)) parts.push(`تغير الأسهم خلال سنة ${d.shares_change_1y_pct > 0 ? '+' : ''}${d.shares_change_1y_pct}%`);
   return {
     level: d.level,
