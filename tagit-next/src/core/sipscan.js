@@ -51,12 +51,36 @@ export async function fetchBatch(getJson, service, symbols, window, feed = 'sip'
 
 const toBar = (b) => ({ t: b.t, o: b.o, h: b.h, l: b.l, c: b.c, v: b.v, n: b.n, vw: b.vw });
 
+// Nasdaq early closes (13:00 New York) inside the studied and live periods.
+export const EARLY_CLOSES = new Set(['2023-07-03', '2023-11-24', '2024-07-03', '2024-11-29', '2024-12-24',
+  '2025-07-03', '2025-11-28', '2025-12-24', '2026-11-27', '2026-12-24']);
+const nyDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' });
+const nyHour = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hourCycle: 'h23' });
+
+/** Regular-session bounds [open, close) in ms for the New York date containing `ms` (EDT/EST aware). */
+export function regularSession(ms) {
+  const day = nyDay.format(new Date(ms));
+  const offset = 16 - Number(nyHour.format(new Date(`${day}T16:00:00Z`))); // 4 in EDT, 5 in EST
+  const open = Date.parse(`${day}T${String(9 + offset).padStart(2, '0')}:30:00Z`);
+  return { day, open, close: open + (EARLY_CLOSES.has(day) ? 210 : 390) * 60_000 };
+}
+
+/** True for a minute bar that starts inside its date's regular session (09:30 ≤ t < close). */
+export function isRegularBar(t) {
+  const ms = typeof t === 'number' ? t : Date.parse(t);
+  const { open, close } = regularSession(ms);
+  return ms >= open && ms < close;
+}
+
 /**
  * Replay the detector over one symbol's bars exactly like the frozen study (minute by minute,
  * 90-bar lookback, cooldown) and return signals whose decision time is inside [from, to].
+ * Only regular-session bars are used (the studies fetched 09:30–16:00 only): pre-market bars must
+ * not seed the baseline and pre/after-market bursts (including the 16:00 closing-cross bar the
+ * provider returns for an inclusive end) must not become signals nobody studied.
  */
-export function detectSymbol(symbol, rawBars, { from = -Infinity, to = Infinity } = {}) {
-  const bars = rawBars.map(toBar).sort((a, b) => Date.parse(a.t) - Date.parse(b.t));
+export function detectSymbol(symbol, rawBars, { from = -Infinity, to = Infinity, regularOnly = true } = {}) {
+  const bars = rawBars.map(toBar).filter((b) => !regularOnly || isRegularBar(b.t)).sort((a, b) => Date.parse(a.t) - Date.parse(b.t));
   const signals = [];
   let last = -Infinity;
   for (let i = 0; i < bars.length; i++) {
