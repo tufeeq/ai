@@ -6,11 +6,12 @@ import {settings} from './market.mjs';
 
 const TTL_MS=10*60000;
 const BATCH=150;
+const MIN_GAP_MS=60000;
 const nyDate=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'});
 const sessionDate=t=>nyDate.format(new Date(t));
 
 export function createSipCloses({env=process.env,fetcher=fetch,now=Date.now}={}){
- let closes=new Map(),day=null,fetchedAt=0,loading=null,status='IDLE',error=null;
+ let closes=new Map(),day=null,fetchedAt=0,loading=null,status='IDLE',error=null;const wanted=new Set();
  async function refresh(symbols){
   const s=settings(env);
   if(!s.configured){status='NOT_CONFIGURED';return;}
@@ -33,8 +34,12 @@ export function createSipCloses({env=process.env,fetcher=fetch,now=Date.now}={})
  return {
   /** Cached closes for today's session; refreshes in the background when stale or a new day starts. */
   peek(symbols){
-   const today=sessionDate(now());
-   if((day!==today||now()-fetchedAt>TTL_MS)&&!loading&&symbols.length)loading=refresh([...new Set(symbols)]).finally(()=>loading=null);
+   // Callers ask for different sets (scanner rows, the live board's universe); refresh the union so
+   // one caller's refresh never drops another's closes. Unseen symbols trigger an early refresh.
+   const today=sessionDate(now());let unseen=false;
+   for(const s of symbols)if(!wanted.has(s)){wanted.add(s);unseen=true;}
+   const due=day!==today||now()-fetchedAt>TTL_MS||(unseen&&now()-fetchedAt>MIN_GAP_MS);
+   if(due&&!loading&&wanted.size)loading=refresh([...wanted]).finally(()=>loading=null);
    return day===today?closes:new Map();
   },
   settle:()=>loading,

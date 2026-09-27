@@ -4,6 +4,7 @@ import {createLabService} from './lab.mjs';
 import {createHaltWatcher} from './halts.mjs';
 import {createConsolidated} from './consolidated.mjs';
 import {applyClose} from './closes.mjs';
+import {parseBoardSymbols} from './live.mjs';
 
 const OVERLAY_TOP=20;
 /** Copy rows with current halt status and the cached consolidated quote (never mutates the scan). */
@@ -22,7 +23,7 @@ export function overlaySymbols(rows){
  const ranked=rows.filter(r=>!r.extended).sort((a,b)=>(b.score??0)-(a.score??0)).slice(0,OVERLAY_TOP).map(r=>r.symbol);
  return [...new Set([...ranked,...rows.filter(r=>r.signal?.expansion).map(r=>r.symbol)])];
 }
-export function createHandler({env=globalThis.process?.env??{},service=createMarketService({env}),runtime=null,sharia=null,halts=null,consolidated=null,closes=null}={}){
+export function createHandler({env=globalThis.process?.env??{},service=createMarketService({env}),runtime=null,sharia=null,halts=null,consolidated=null,closes=null,live=null}={}){
  // Halts and the consolidated overlay are enabled by the long-lived server; stateless workers pass payloads through.
  const complement=result=>halts&&consolidated?decorate(result,{halts,consolidated,closes,symbols:overlayFor(result)}):result;
  const scanner=runtime?.scanner??createScanner({env});
@@ -36,7 +37,7 @@ export function createHandler({env=globalThis.process?.env??{},service=createMar
   if(req.method!=='GET'){res.statusCode=405;return res.end(JSON.stringify({status:'METHOD_NOT_ALLOWED'}));}
   try{
    const url=new URL(req.url,'http://localhost');let result;
-   if(url.pathname==='/api/health')result={...service.health(),runtime:runtime?.status()??null,complements:halts&&consolidated?{halts:halts.status(),consolidated:consolidated.status(),closes:closes?.status()??null}:null};
+   if(url.pathname==='/api/health')result={...service.health(),runtime:runtime?.status()??null,complements:halts&&consolidated?{halts:halts.status(),consolidated:consolidated.status(),closes:closes?.status()??null}:null,live:live?.status()??null};
    else if(url.pathname==='/api/lab/connection')result=await lab.connection();
    else if(url.pathname==='/api/lab/provider')result=await lab.data(url.searchParams);
    else if(url.pathname==='/api/events'&&runtime)return runtime.events(req,res);
@@ -44,6 +45,7 @@ export function createHandler({env=globalThis.process?.env??{},service=createMar
    else if(url.pathname==='/api/sharia'&&sharia)result=await sharia.get(url.searchParams.get('symbol'));
    else if(url.pathname==='/api/quotes'){result=await complement(await service.quotes(url.searchParams.get('symbols')));}
    else if(url.pathname==='/api/scanner'){result=await complement(await scanner.get());}
+   else if(url.pathname==='/api/live'&&live)result=await live.get(parseBoardSymbols(url.searchParams.get('symbols')));
    else if(url.pathname==='/api/universe')result=await service.universe();
    else {res.statusCode=404;return res.end(JSON.stringify({status:'NOT_FOUND'}));}
    res.statusCode=result.status==='INELIGIBLE_SYMBOLS'?422:200;res.end(JSON.stringify(result));

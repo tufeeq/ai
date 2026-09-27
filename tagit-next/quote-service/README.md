@@ -15,6 +15,22 @@ scanner and detector are unchanged, and stateless worker deployments pass payloa
 
 `/api/health` → `complements` reports each source's status, last success and last error.
 
+## Live consolidated board (2026-09-27, long-lived server only)
+
+`GET /api/live[?symbols=A,B,…]` (≤ 200 symbols; without `symbols`, the whole eligible universe)
+returns, per symbol, the newest price with `price_source` (`CONSOLIDATED` Nasdaq.com watchlist,
+`IEX` Alpaca snapshot, or `SIP_DELAYED` Alpaca SIP minute bar ≥ 16 min old), `price_at`,
+`price_time_resolution` (`MINUTE_START` for Nasdaq.com), `verified_at` (when Nasdaq.com last
+confirmed that last sale), IEX bid/ask, the delayed SIP close as context, and the day change against
+the consolidated split-adjusted previous close (`change_basis: SIP_SPLIT_ADJUSTED`, only for prices
+from today's session). `coverage` counts how many symbols have each kind of price.
+
+Polling (all free): the Nasdaq.com watchlist answers ≤ 20 symbols per request; one request per
+~2–3 s rotates through ~820 symbols in about 1.5–2 minutes, and symbols named in `symbols` are
+refreshed first (≤ 15 s). IEX snapshots every 20 s, SIP bars every 60 s. Polling runs only while
+someone asked for the board in the last five minutes and only 04:00–20:00 New York on weekdays;
+403/429 from Nasdaq.com backs off five minutes. The frozen scanner is not touched.
+
 ## New observer runtime (2026-09-24, opt-in)
 
 See [implementation status](../IMPLEMENTATION_STATUS.md) before activation.
