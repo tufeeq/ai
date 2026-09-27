@@ -188,7 +188,7 @@ function paperCard(p) {
     return html`<tr><th>${BOOK_NAMES[name] ?? name} · ${label}</th><td dir="ltr">${f.num(s.trades, 0)}</td>
       <td><span class="${f.tone(s.net_usd)}" dir="ltr">${signedUsd(s.net_usd)}</span></td>
       <td>${rCell(s.mean_net_r)} ${ciCell(s.mean_net_r_ci95)}</td>
-      <td dir="ltr">${rCell(s.mean_gross_r)} − ${f.num(s.mean_cost_r, 2)}R</td>
+      <td dir="ltr">${s.trades ? html`${rCell(s.mean_gross_r)} − ${f.num(s.mean_cost_r, 2)}R` : '—'}</td>
       <td dir="ltr">${s.hit_rate === null ? '—' : f.num(s.hit_rate * 100, 0) + '%'} ${ciCell(s.hit_rate_ci95, true)}</td>
       <td>${VERDICT_TEXT[s.verdict] ?? s.verdict}</td></tr>`;
   }));
