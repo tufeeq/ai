@@ -130,6 +130,8 @@ function overview(state, r, a, now) {
       ${stat('القيمة السوقية', facts.secMarketCap ? f.compactUsd(facts.secMarketCap) : positive(r.market_cap) ? f.compactUsd(r.market_cap) : f.DASH,
         facts.secMarketCap ? html`أسهم SEC × السعر · <span dir="ltr">${facts.sharesAsOf}</span>` : 'مرجع خارجي')}
       ${stat('الأسهم القائمة', facts.sharesOutstanding ? f.compact(facts.sharesOutstanding) : f.DASH, facts.sharesAsOf ? html`SEC · <span dir="ltr">${facts.sharesAsOf}</span>` : 'غير متاح')}
+      ${stat('النقد المعلن', facts.cash !== null ? f.compactUsd(facts.cash) : f.DASH, facts.cashAsOf ? html`SEC XBRL · <span dir="ltr">${facts.cashAsOf}</span>` : 'غير متاح')}
+      ${stat('تغير الأسهم خلال سنة', facts.sharesChange1y !== null ? f.pct(facts.sharesChange1y, 1) : f.DASH, 'مؤشر تخفيف · SEC')}
       ${stat('الأسهم الحرة', positive(r.float_shares) ? f.compact(r.float_shares) : f.DASH)}
       ${stat('حجم اليوم', cons?.volume ? f.compact(cons.volume) : f.compact(r.day_volume), cons?.volume ? 'مجمّع · كل البورصات' : 'IEX · جزئي')}
       ${stat('البيع المكشوف', facts.shortShares !== null ? f.compact(facts.shortShares) + (facts.shortOfFloat !== null ? ` · ${f.num(facts.shortOfFloat, 1)}%` : '') : finite(r.short_float_pct) ? f.num(r.short_float_pct) + '%' : f.DASH,
