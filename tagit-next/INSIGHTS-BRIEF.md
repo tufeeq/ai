@@ -56,7 +56,7 @@ Unknown values are null, never 0. Every section carries its own as_of when it di
 - Section-level `as_of` is read from `pulse.as_of`, `industries.as_of`, `movers.as_of`, `calendar.as_of`,
   plus optional `sectors_as_of`, `trends_as_of`, `news_as_of`, `themes_as_of` (top-level, because those are arrays);
   missing → the UI falls back to `generated_at`. The UI marks a section stale when its as_of is older than 90 min
-  during 08:00–20:30 ET on weekdays, or older than 84 h otherwise.
+  during 08:00–20:30 ET on weekdays (calendar: 18 h), or older than 84 h otherwise.
 - `industries.*[].name_ar` may be null (UI shows the English name). Leaders sorted by |chg_pct| desc (UI keeps order).
 - `calendar.earnings_today[].time`: "pre-market" | "after-hours" | "during" | null; `eps_forecast` number|null.
   `calendar.economic[].time` is ISO UTC; `actual/forecast/previous` are display strings (e.g. "0.2%") or null.

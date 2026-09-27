@@ -397,10 +397,21 @@ window.addEventListener('resize', () => {
   }
 });
 
+// Links from other workspaces (e.g. رؤى السوق) open a stock's dossier: #market/SYMBOL.
+function openFromHash() {
+  const m = /^#market\/([A-Z][A-Z0-9.-]{0,9})$/.exec(location.hash);
+  if (!m) return;
+  history.replaceState(null, '', '#market');
+  scrollTo({ top: 0 });
+  select(m[1]);
+}
+window.addEventListener('hashchange', openFromHash);
+
 // ---- start ----------------------------------------------------------------------------
 
 applyTheme(storage.loadTheme());
 render();
+openFromHash();
 loadPublished();
 setInterval(loadPublished, STATIC_REFRESH_MS);
 try {
