@@ -41,6 +41,12 @@ MARKET_TIER = {'Q': 'GLOBAL_SELECT', 'G': 'GLOBAL_MARKET', 'S': 'CAPITAL_MARKET'
 OFFERING_FORMS = re.compile(r'^(S-1|S-1/A|S-1MEF|S-3|S-3/A|S-3ASR|F-1|F-1/A|F-3|F-3/A|424B[1-8])$')
 LATE_FORMS = {'NT 10-K', 'NT 10-Q', 'NT 20-F'}
 PERIODIC_FORMS = {'10-K', '10-Q', '20-F', '40-F', '10-K/A', '10-Q/A'}
+# Dilution risk (same definition as catalyst-study-1 hypothesis P6): a registration statement in the
+# last 365 days while the latest reported cash is below $10M.
+REGISTRATION_FORMS = {'S-1', 'S-3', 'F-1', 'F-3'}
+PRICED_OFFERING_FORMS = {'424B1', '424B4', '424B5'}
+LOW_CASH_USD = 10_000_000
+CASH_TAGS = ('CashAndCashEquivalentsAtCarryingValue', 'CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents')
 
 
 def now_iso():
@@ -121,16 +127,21 @@ def nasdaq_directory():
     return listing, file_time
 
 
-def sec_company(cik, limiter, since):
+def sec_company(cik, limiter, since, today=None):
     headers = {'User-Agent': SEC_UA}
+    today = today or dt.date.today()
+    year_ago = (today - dt.timedelta(days=365)).isoformat()
     limiter.wait()
     sub = json.loads(fetch(f'https://data.sec.gov/submissions/CIK{cik:010d}.json', headers))
     recent = sub.get('filings', {}).get('recent', {})
-    filings = []
+    filings, year = [], []
     for i, form in enumerate(recent.get('form', [])):
         date = recent['filingDate'][i]
-        if date < since:
+        if date < min(since, year_ago):
             break
+        year.append({'form': form, 'date': date})
+        if date < since:
+            continue
         accession = recent['accessionNumber'][i]
         filings.append({
             'form': form,
@@ -142,7 +153,7 @@ def sec_company(cik, limiter, since):
         {'form': f, 'date': recent['filingDate'][i]}
         for i, f in enumerate(recent.get('form', [])) if f in PERIODIC_FORMS), None)
 
-    shares = None
+    shares, share_points = None, []
     limiter.wait()
     try:
         concept = json.loads(fetch(
@@ -151,10 +162,71 @@ def sec_company(cik, limiter, since):
         if points:
             latest = max(points, key=lambda p: (p.get('end', ''), p.get('filed', '')))
             shares = {'value': latest['val'], 'as_of': latest.get('end'), 'form': latest.get('form'), 'filed': latest.get('filed')}
+            share_points = [(p['end'], p['val']) for p in points if p.get('end')]
     except urllib.error.HTTPError as e:
         if e.code != 404:  # 404: company files no dei shares tag
             raise
-    return {'filings': filings, 'latest_periodic': periodic, 'shares_outstanding': shares}
+    cash = None
+    for tag in CASH_TAGS:
+        limiter.wait()
+        try:
+            concept = json.loads(fetch(f'https://data.sec.gov/api/xbrl/companyconcept/CIK{cik:010d}/us-gaap/{tag}.json', headers))
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                continue
+            raise
+        points = [p for p in concept.get('units', {}).get('USD', []) if isinstance(p.get('val'), (int, float)) and p.get('end')]
+        if points:
+            latest = max(points, key=lambda p: (p['end'], p.get('filed', '')))
+            cash = {'value': latest['val'], 'as_of': latest['end'], 'form': latest.get('form'), 'filed': latest.get('filed')}
+            break
+    return {'filings': filings, 'latest_periodic': periodic, 'shares_outstanding': shares,
+            'dilution': dilution_summary(year, cash, share_points, today)}
+
+
+def dilution_summary(filings, cash, share_points, today):
+    """Dilution-risk facts from the last 365 days of filings, latest XBRL cash and share counts.
+    level: HIGH (registration in 12 months and cash < $10M), WATCH (registration with cash unknown
+    or larger, >= 2 priced offerings, or shares +50% in a year), NONE."""
+    year_ago = (today - dt.timedelta(days=365)).isoformat()
+    regs = sorted((f for f in filings if f['form'] in REGISTRATION_FORMS and f['date'] >= year_ago), key=lambda f: f['date'])
+    offers = sorted((f for f in filings if f['form'] in PRICED_OFFERING_FORMS and f['date'] >= year_ago), key=lambda f: f['date'])
+    stale_cash = cash is not None and cash['as_of'] < (today - dt.timedelta(days=400)).isoformat()
+    usable_cash = None if cash is None or stale_cash else cash['value']
+    growth = None
+    if share_points:
+        end, val = max(share_points)
+        target = (dt.date.fromisoformat(end) - dt.timedelta(days=365)).isoformat()
+        lo = (dt.date.fromisoformat(end) - dt.timedelta(days=430)).isoformat()
+        hi = (dt.date.fromisoformat(end) - dt.timedelta(days=300)).isoformat()
+        prior = [p for p in share_points if lo <= p[0] <= hi and p[1] > 0]
+        if prior:
+            base = min(prior, key=lambda p: abs(dt.date.fromisoformat(p[0]) - dt.date.fromisoformat(target)))
+            growth = round((val / base[1] - 1) * 100, 1)
+    reasons = []
+    if regs and usable_cash is not None and usable_cash < LOW_CASH_USD:
+        level = 'HIGH'
+        reasons.append('SHELF_LOW_CASH')
+    else:
+        level = 'NONE'
+        if regs:
+            reasons.append('SHELF')
+        if len(offers) >= 2:
+            reasons.append('REPEATED_OFFERINGS')
+        if growth is not None and growth >= 50:
+            reasons.append('SHARE_GROWTH')
+        if reasons:
+            level = 'WATCH'
+    return {
+        'level': level,
+        'reasons': reasons,
+        'registration': regs[-1] if regs else None,
+        'priced_offerings_12m': len(offers),
+        'last_priced_offering': offers[-1]['date'] if offers else None,
+        'cash': cash,
+        'cash_stale': stale_cash,
+        'shares_change_1y_pct': growth,
+    }
 
 
 def filing_flags(filings, today):
@@ -293,6 +365,9 @@ def build(limit=None):
             'Filing flags describe what was filed, not its effect on price.',
             'Halts are those current when this file was built; check the live halt status.',
             'Short interest is as of its settlement date, reported by FINRA with a delay.',
+            'Dilution level: HIGH = S-1/S-3/F-1/F-3 in the last 365 days and latest XBRL cash below $10M; '
+            'WATCH = registration with larger or unknown cash, 2+ priced offerings (424B1/4/5) in 12 months, or shares +50% in a year. '
+            'See data/catalyst-study.json for how such stocks performed afterwards.',
         ],
         'symbols': result,
     }
