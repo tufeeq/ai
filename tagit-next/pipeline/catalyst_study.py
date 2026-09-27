@@ -822,7 +822,9 @@ def main():
     mapped = {s for s in symbols if s in data['current']} | {p[0] for p in data['pairs']}
     diag['mapping'] = {'symbols_with_cik': len(mapped & set(symbols)),
                        'inactive_with_cik': sum(1 for s in mapped if s in uni and uni[s]['status'] == 'inactive'),
-                       'companies': len(data['filings']), 'symbols_with_bars': len(bars)}
+                       'companies': len(data['filings']), 'symbols_with_bars': len(bars),
+                       'inactive_with_bars': sum(1 for s in bars if uni[s]['status'] == 'inactive'),
+                       'inactive_with_bars_and_cik': sum(1 for s in bars if uni[s]['status'] == 'inactive' and s in mapped)}
     print(f"mapping: {diag['mapping']}", flush=True)
     report = run_study(data, bars, diag, args.diagnostics_only)
     report = {'schema': 1, 'protocol': 'catalyst-study-1', 'updated_at': dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds'),
@@ -836,6 +838,10 @@ def main():
         print(json.dumps(report, indent=1))
         return
     Path(args.out).write_text(json.dumps(report, separators=(',', ':')) + '\n')
+    for name, rows in report['grid'].items():
+        for spec, row in rows.items():
+            d, h = row['development'], row['holdout']
+            print(f"GRID {name:18s} {spec:9s} dev n={d['trades']:>7} mean={d['mean_pct']} ci={d['ci95']} | hold n={h['trades']:>7} mean={h['mean_pct']} ci={h['ci95']} | hold@hi-cost={row['holdout_high_cost']['mean_pct']}")
     brief = {k: {x: v[x] for x in ('development', 'holdout', 'baseline_holdout', 'holds', 'holds_bonferroni')} for k, v in report['primary'].items()}
     print(json.dumps({'primary': brief, 'any_primary_holds': report['any_primary_holds'],
                       'secondary_selected': report['secondary_selected'], 'dilution_avoid_filter': report['dilution_avoid_filter'],
