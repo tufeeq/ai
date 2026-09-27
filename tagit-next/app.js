@@ -214,7 +214,7 @@ async function quotes() {
 
 /** Data published by the GitHub Actions jobs: disclosures, the corrected study and the live record. */
 async function loadPublished() {
-  const [enrichment, relabel, forward, sip, exits, filters, daily, paper] = await Promise.all([
+  const [enrichment, relabel, forward, sip, exits, filters, daily, paper, fade, fadeFlags] = await Promise.all([
     loadStatic('data/enrichment.json'),
     loadStatic('data/outcome-relabel.json'),
     loadStatic('data/forward-outcomes.json'),
@@ -223,9 +223,12 @@ async function loadPublished() {
     loadStatic('data/filter-study.json'),
     loadStatic('data/daily-study.json'),
     loadStatic('data/paper-ledger.json'),
+    loadStatic('data/fade-study.json'),
+    loadStatic('data/fade-flags.json'),
   ]);
   if (enrichment?.symbols) state.enrichment = enrichment;
-  state.evidence = { relabel: relabel?.corrected ? relabel : null, forward: forward?.days ? forward : null, sip: sip?.totals ? sip : null, exits: exits?.development ? exits : null, filters: filters?.baseline ? filters : null, daily: daily?.table ? daily : null, paper: paper?.books ? paper : null };
+  if (fadeFlags?.symbols) state.fadeFlags = fadeFlags;
+  state.evidence = { relabel: relabel?.corrected ? relabel : null, forward: forward?.days ? forward : null, sip: sip?.totals ? sip : null, exits: exits?.development ? exits : null, filters: filters?.baseline ? filters : null, daily: daily?.table ? daily : null, paper: paper?.books ? paper : null, fade: fade?.short?.reference ? fade : null };
   // The first consolidated scan may have used only the scanner rows; widen it to the full universe.
   if (client && (state.sip.result?.symbols ?? 0) < sipUniverse(state).length) runSip();
   if (client) loadCloses();

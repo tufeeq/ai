@@ -8,6 +8,7 @@ import { tradeability, GATE_NOTE } from '../core/tradeability.js';
 import { outcome } from '../core/journal.js';
 import { shariaStatus } from '../core/sharia.js';
 import { companyFacts } from '../core/risk.js';
+import { fadeWarning, EVENT_LABELS } from '../core/fade.js';
 import { assessRow, flowOf, selectedRow } from '../state.js';
 import { STATE_HINTS, stateBadge, shariaBadge, meter, stat, riskFor, changeNote, DOT } from './common.js';
 import { priceQuality, SOURCES } from '../core/quality.js';
@@ -283,6 +284,16 @@ function priceContext(r, now) {
   return parts.length ? html`<small class="price-context" dir="auto">${parts.join(' · ')}</small>` : '';
 }
 
+/** fade-study-1 long-side warning: shown only for symbols on the published flag list. */
+export function fadeBanner(flags, symbol) {
+  const w = fadeWarning(flags, symbol);
+  if (!w) return '';
+  return html`<div class="fade-warning" role="note">
+    <b>⚠ تحذير امتداد</b> · ${w.events.map((e) => EVENT_LABELS[e] ?? e).join(' + ')} · <span dir="ltr">${w.day}</span>
+    <p>في اختبار ٢٠١٨–٢٠٢٢ الذي لم يُمس، الشراء خلال ٥ جلسات بعد امتداد كهذا كان أسوأ من بقية الأسهم المؤهلة بنحو ١ نقطة مئوية (هامش ٩٥٪: ٠٫٣ إلى ١٫٧). تحذير لتجنّب الشراء فقط: البيع على المكشوف على الأسهم نفسها لم يربح بعد التكلفة والاقتراض، وفي ٢٠٢٣–منتصف ٢٠٢٥ انعكست النتيجة.</p>
+  </div>`;
+}
+
 export function renderDossier(state, now) {
   const r = selectedRow(state);
   if (!r) {
@@ -316,6 +327,7 @@ export function renderDossier(state, now) {
       ${priceContext(r, now)}
       <button class="btn ${watching ? 'btn-on' : ''}" data-watch="${r.symbol}" aria-pressed="${watching}">${watching ? '★ في المتابعة' : '☆ أضف للمتابعة'}</button>
     </div>
+    ${fadeBanner(state.fadeFlags, r.symbol)}
     <nav class="seg" role="tablist" aria-label="أقسام ملف السهم">${TABS.map(([id, label]) =>
       html`<button role="tab" data-tab="${id}" aria-selected="${tab === id}" class="${tab === id ? 'is-active' : ''}">${label}</button>`)}</nav>
     <div class="dossier-body" data-key="body-${r.symbol}-${tab}" role="tabpanel">${body}</div>`;
