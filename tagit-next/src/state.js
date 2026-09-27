@@ -188,9 +188,12 @@ export function priceCoverage(state, now) {
 
 export const LIVE_BATCH = 200;
 
-/** Symbols for the live board: selected, watched, visible, then the scan order (at most 200). */
+/**
+ * Symbols for the live board: selected, watched and visible (at most 200). The service refreshes
+ * these first, so the request is limited to what is on screen or followed.
+ */
 export function liveSymbols(state, now) {
-  const list = [state.ui.selected, ...state.watched, ...visibleRows(state, now).map((r) => r.symbol), ...(state.scan?.order ?? [])];
+  const list = [state.ui.selected, ...state.watched, ...visibleRows(state, now).map((r) => r.symbol)];
   return [...new Set(list.filter(isSymbol))].slice(0, LIVE_BATCH);
 }
 

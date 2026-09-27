@@ -49,7 +49,7 @@ async function partA() {
   log('A health', health.status, health.ms + 'ms', JSON.stringify(health.body?.complements ?? health.body)?.slice(0, 1500));
   const scan = await timed(`${SERVICE}/api/scanner`, { timeout: 120_000 });
   const b = scan.body;
-  if (b?.rows) {
+  if (scan.status === 200 && b?.rows) {
     const now = Date.parse(b.server_time);
     const ages = b.rows.map((r) => (r.price_at ? now - Date.parse(r.price_at) : NaN));
     const overlay = b.rows.filter((r) => r.consolidated);
@@ -64,7 +64,7 @@ async function partA() {
       consolidated_overlay: overlay.length, overlay_age_p50_s: round(q(overlayAges, 0.5) / 1000, 0),
       complements: b.complements ?? null,
     };
-  } else out.scanner = { status: scan.status, ms: scan.ms, error: scan.error ?? scan.text ?? b?.status };
+  } else out.scanner = { status: scan.status, ms: scan.ms, error: scan.error ?? scan.text ?? b?.status ?? null };
   log('A scanner', JSON.stringify(out.scanner).slice(0, 1200));
   const live = await timed(`${SERVICE}/api/live`, { timeout: 60_000 });
   out.live = { status: live.status, ms: live.ms, summary: live.body?.coverage ?? live.body?.status ?? live.text ?? live.error };
