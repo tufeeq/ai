@@ -51,3 +51,15 @@ is "linked" to a move only by symbol/industry match and time proximity, and must
   "notes_ar": ["..."]  // data caveats shown in the UI
 }
 Unknown values are null, never 0. Every section carries its own as_of when it differs from generated_at.
+
+## Contract clarifications from insights-ui (fixture: tests/fixtures/insights.sample.json)
+- Section-level `as_of` is read from `pulse.as_of`, `industries.as_of`, `movers.as_of`, `calendar.as_of`,
+  plus optional `sectors_as_of`, `trends_as_of`, `news_as_of`, `themes_as_of` (top-level, because those are arrays);
+  missing → the UI falls back to `generated_at`. The UI marks a section stale when its as_of is older than 90 min
+  during 08:00–20:30 ET on weekdays, or older than 84 h otherwise.
+- `industries.*[].name_ar` may be null (UI shows the English name). Leaders sorted by |chg_pct| desc (UI keeps order).
+- `calendar.earnings_today[].time`: "pre-market" | "after-hours" | "during" | null; `eps_forecast` number|null.
+  `calendar.economic[].time` is ISO UTC; `actual/forecast/previous` are display strings (e.g. "0.2%") or null.
+- `themes[]` carries exactly one of `industry` or `sector`.
+- `news[].time` is ISO UTC; order newest first (UI re-sorts anyway). `summary` may be null. `url` must be http(s).
+- `movers.*[].news_ids` reference `news[].id`; the UI links a mover to its dossier via `#market/SYMBOL`.
