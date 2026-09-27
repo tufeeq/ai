@@ -104,3 +104,21 @@ test('exit rules: a stop gapped through fills at the open; cost is charged once,
   const expected = (0.5 * 0.05 + 0.5 * (Math.min(10.5, 10.6 * 0.97) / 10 - 1)) * 100 - 0.5;
   assert.ok(Math.abs(applyRule(RULES.HALF5_TRAIL3, half, 10, Infinity, null) - expected) < 1e-9);
 });
+
+test('A5 filter-study gap/day features are split consistent (a 1:10 reverse split is not a +900% gap)', async () => {
+  const { features } = await import('../pipeline/filter_study.mjs');
+  const at = Date.parse('2026-09-24T15:00:00Z');
+  const signal = { symbol: 'AAA', detected_at: new Date(at).toISOString(), price: 2.2, volume_ratio: 4, dollars_3m: 60000, breakout: true };
+  // Raw: $0.20 before the split, $2.00 after. Split-adjusted: $2.00 before and after.
+  const daily = [
+    { date: '2026-09-22', o: 0.2, c: 0.2, v: 1e7, ao: 2, ac: 2 },
+    { date: '2026-09-23', o: 0.2, c: 0.2, v: 1e7, ao: 2, ac: 2 },
+    { date: '2026-09-24', o: 2.0, c: 2.1, v: 1e6, ao: 2.0, ac: 2.1 },
+  ];
+  const ctx = { news: new Map(), daily: new Map([['AAA', daily]]), offerings: new Map(), short: new Map(), bars: [], nth: 1 };
+  const f = features(signal, ctx);
+  assert.ok(Math.abs(f.gap) < 1e-9, 'no gap across the split');
+  assert.ok(Math.abs(f.day - 10) < 1e-9, 'day change +10%, not +1000%');
+  const raw = daily.map(({ ao, ac, ...x }) => x);
+  assert.ok(features(signal, { ...ctx, daily: new Map([['AAA', raw]]) }).gap > 800, 'old raw-only behaviour');
+});

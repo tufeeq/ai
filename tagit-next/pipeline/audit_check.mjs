@@ -16,6 +16,11 @@
 //     close was $0.50–$20 with ≥ $300K average dollar volume. Same sessions as a slice of the study.
 //     If the complement's post-signal mean is also clearly negative, today's-universe selection is
 //     not what drives the negative result.
+//  C4 Live signal vs studied signal. The backend scanner (what the main list shows) runs the same
+//     detector on IEX minute bars (single exchange, default feed) with a 90-minute lookback that
+//     reaches into pre-market. For three recent sessions and the study universe: detect on (a) SIP
+//     regular-session bars (the study), (b) IEX regular-session bars and (c) IEX bars with
+//     pre-market lookback (live-like); report overlap with (a) and the SIP-labelled outcome of each.
 import { writeFileSync } from 'node:fs';
 import { batches, fetchBatch, detectSymbol, isRegularBar } from '../src/core/sipscan.js';
 import { getJson, eligibleSymbols, session, label, summarize } from './sip_study.mjs';
@@ -174,8 +179,62 @@ async function survivorship(from, to, sessionsList) {
   };
 }
 
+async function liveVsStudy(days) {
+  const symbols = eligibleSymbols();
+  const res = { sessions: days, sip: [], iex_regular: [], iex_live_like: [] };
+  for (const day of days) {
+    const { open, close } = session(day);
+    const regular = { start: new Date(open).toISOString().replace('.000Z', 'Z'), end: new Date(close).toISOString().replace('.000Z', 'Z') };
+    const early = { ...regular, start: new Date(open - 330 * 60_000).toISOString().replace('.000Z', 'Z') }; // from 04:00
+    for (const group of batches(symbols)) {
+      let sip, iex;
+      try {
+        sip = await fetchBatch(getJson, SERVICE, group, regular, 'sip');
+        iex = await fetchBatch(getJson, SERVICE, group, early, 'iex');
+      } catch (e) { console.error(`${day}: ${e.message}`); continue; }
+      const lab = (symbol, s) => {
+        const series = (sip[symbol] ?? []).map((b) => ({ t: b.t, o: b.o, h: b.h, l: b.l, c: b.c }));
+        const l = label(series, Date.parse(s.detected_at), close, s);
+        return { date: day, symbol, at: s.detected_at, now: l.status === 'RESOLVED' ? { s: 'R', ret: l.return_pct, up: l.max_up_pct, plan: l.plan.status, r: l.plan.r } : { s: l.status } };
+      };
+      for (const symbol of group) {
+        const inRegular = (s) => Date.parse(s.detected_at) > open && Date.parse(s.detected_at) <= close;
+        if (sip[symbol]) res.sip.push(...detectSymbol(symbol, sip[symbol]).map((s) => lab(symbol, s)));
+        if (iex[symbol]) {
+          res.iex_regular.push(...detectSymbol(symbol, iex[symbol]).map((s) => lab(symbol, s)));
+          res.iex_live_like.push(...detectSymbol(symbol, iex[symbol], { regularOnly: false }).filter(inRegular).map((s) => lab(symbol, s)));
+        }
+      }
+    }
+    console.log(`${day}: sip ${res.sip.length}, iex ${res.iex_regular.length}, iex live-like ${res.iex_live_like.length}`);
+  }
+  const key = (e) => `${e.symbol}|${e.at}`;
+  const near = (list) => { // same symbol within ±5 minutes of a SIP signal
+    const bySym = new Map();
+    for (const e of res.sip) (bySym.get(e.symbol) ?? bySym.set(e.symbol, []).get(e.symbol)).push(Date.parse(e.at));
+    return list.filter((e) => (bySym.get(e.symbol) ?? []).some((t) => Math.abs(t - Date.parse(e.at)) <= 5 * 60_000)).length;
+  };
+  const sipKeys = new Set(res.sip.map(key));
+  const first30 = (e) => Date.parse(e.at) - session(e.date).open < 45 * 60_000;
+  return {
+    sessions: days,
+    sip: summarize(res.sip, 'now'),
+    iex_regular: { ...summarize(res.iex_regular, 'now'), exact_match_with_sip: res.iex_regular.filter((e) => sipKeys.has(key(e))).length, within_5min_of_sip: near(res.iex_regular) },
+    iex_live_like: { ...summarize(res.iex_live_like, 'now'), exact_match_with_sip: res.iex_live_like.filter((e) => sipKeys.has(key(e))).length, within_5min_of_sip: near(res.iex_live_like),
+      before_10_15: res.iex_live_like.filter(first30).length, before_10_15_summary: summarize(res.iex_live_like.filter(first30), 'now') },
+  };
+}
+
 async function main() {
   const out = {};
+  const parts = (process.argv[2] || 'c1,c2,c3,c4').split(',');
+  if (parts.includes('c4')) {
+    out.c4_live_vs_study = await liveVsStudy(['2026-09-22', '2026-09-23', '2026-09-24']);
+    console.log(JSON.stringify(out.c4_live_vs_study, null, 1));
+    writeFileSync('audit-check.json', JSON.stringify(out, null, 1) + '\n');
+    if (parts.length === 1) return;
+  }
+  if (parts.includes('c1')) {
   // C1/C2: 12 names across liquidity levels, 20 recent sessions (1Min windows ≤ 32 days).
   const names = (process.env.AUDIT_SYMBOLS || 'AAPL,SIRI,PLUG,SOUN,MARA,OPEN,BYND,NVAX,GRPN,SNDL,AEHL,MULN').split(',');
   const c1 = await checkDaily(names, '2026-08-24', '2026-09-24');
@@ -183,12 +242,15 @@ async function main() {
   delete c1.daily; delete c1.minutes;
   out.c1_daily_bar_semantics = c1;
   console.log(JSON.stringify(out, null, 1));
+  }
+  if (parts.includes('c3')) {
   // C3: ten sessions early in the study (most exposed to today's-universe selection).
   const sessionsList = ['2026-02-02', '2026-02-03', '2026-02-04', '2026-02-05', '2026-02-06', '2026-02-09', '2026-02-10', '2026-02-11', '2026-02-12', '2026-02-13'];
   out.c3_survivorship = await survivorship('2026-01-02', '2026-01-30', sessionsList);
   out.updated_at = new Date().toISOString();
   writeFileSync('audit-check.json', JSON.stringify(out, null, 1) + '\n');
   console.log(JSON.stringify(out.c3_survivorship, null, 1));
+  }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) await main();

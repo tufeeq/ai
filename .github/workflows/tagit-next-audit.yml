@@ -4,6 +4,10 @@ name: TAGit NEXT audit checks
 # survivorship probe for the intraday studies. Read-only; never publishes.
 on:
   workflow_dispatch:
+    inputs:
+      parts:
+        description: Comma-separated checks (c1 = daily-bar semantics + c2, c3 = survivorship, c4 = live vs study)
+        default: 'c1,c3,c4'
   push:
     branches: ['claude/**']
     paths: ['tagit-next/pipeline/audit_check.mjs', '.github/workflows/tagit-next-audit.yml']
@@ -29,7 +33,7 @@ jobs:
       - name: Tests
         run: node --test tagit-next/tests/*.test.mjs
       - name: Checks
-        run: node tagit-next/pipeline/audit_check.mjs
+        run: node tagit-next/pipeline/audit_check.mjs "${{ github.event.inputs.parts || 'c4' }}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
