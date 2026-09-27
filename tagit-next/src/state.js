@@ -11,7 +11,7 @@ export const UNIVERSE_CAP = 100_000_000;
 export const LIST_LIMIT = 80;
 export const QUOTE_BATCH = 20;
 
-export function createState({ journal = [], watched = new Set(), settings = { capital: '', risk: '' } } = {}) {
+export function createState({ journal = [], watched = new Set(), settings = { capital: '', risk: '', commission: '' } } = {}) {
   return {
     endpoint: '',
     connection: { phase: 'boot', error: null, lastScanAt: null, attempts: 0 },

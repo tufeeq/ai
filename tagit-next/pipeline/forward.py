@@ -149,6 +149,8 @@ def evaluate(ledger_path, day=None):
         regular = open_ <= detected < close
         event = {k: alert.get(k) for k in ('symbol', 'detected_at', 'price', 'stage', 'score')}
         event['session'] = 'REGULAR' if regular else 'EXTENDED'
+        # Plan levels as shown at the alert, for the paper ledger (pipeline/paper_ledger.mjs).
+        event['plan_levels'] = alert.get('plan') if isinstance(alert.get('plan'), dict) else None
         try:
             if alert['symbol'] not in cache:
                 cache[alert['symbol']] = nasdaq_minutes(alert['symbol'], day)
