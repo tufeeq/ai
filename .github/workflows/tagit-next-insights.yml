@@ -1,0 +1,71 @@
+name: TAGit NEXT market insights
+
+# Builds tagit-next/data/insights.json (market pulse, sectors, industries, movers, trends, news, calendar).
+# ≤ ~12 relay requests per run (budget cap 40), paced ≥ 3.1 s. Cost: free runner minutes only.
+on:
+  schedule:
+    - cron: '11,41 12-23 * * 1-5'  # every 30 min, 08:11–19:41 ET (EDT; one hour earlier in winter)
+    - cron: '11 0 * * 2-6'         # after the close, ~20:11 ET
+    - cron: '23 15 * * 0,6'        # weekends, once a day
+  workflow_dispatch:
+  push:
+    branches: ['claude/**']
+    paths: ['tagit-next/pipeline/insights.mjs', 'tagit-next/tests/insights-data.test.mjs', '.github/workflows/tagit-next-insights.yml']
+
+permissions:
+  contents: write
+  actions: write  # request a Pages deploy after publishing
+
+concurrency:
+  group: tagit-next-insights-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  insights:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Tests
+        run: node --test tagit-next/tests/insights-data.test.mjs
+      - name: Latest universe snapshot (main)
+        run: |
+          git fetch --depth=1 origin main
+          git show origin/main:tag/data/universe-broad.json > "$RUNNER_TEMP/universe-broad.json"
+      - name: Build insights
+        run: node tagit-next/pipeline/insights.mjs --universe "$RUNNER_TEMP/universe-broad.json" --out tagit-next/data/insights.json
+      - name: Compact sample
+        run: |
+          node -e '
+            const d = JSON.parse(require("fs").readFileSync("tagit-next/data/insights.json", "utf8"));
+            const pick = { pulse: { regime: d.pulse.regime, breadth: d.pulse.breadth, small_caps: d.pulse.small_caps, indices: d.pulse.indices.map(({ spark, ...i }) => i) },
+              sectors: d.sectors.slice(0, 3), trends: d.trends.slice(0, 4), news: d.news.slice(0, 3), themes: d.themes.slice(0, 2),
+              calendar: { date: d.calendar.date, earnings: d.calendar.earnings_today?.slice(0, 3), economic: d.calendar.economic?.slice(0, 3) } };
+            console.log(JSON.stringify(pick, null, 1));'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: insights
+          path: tagit-next/data/insights.json
+      - name: Publish (main)
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name 'github-actions'
+          git config user.email 'github-actions@github.com'
+          git add tagit-next/data/insights.json
+          git diff --cached --quiet && { echo 'No change'; exit 0; }
+          git commit -m 'data: TAGit NEXT market insights'
+          for attempt in 1 2 3 4; do
+            if git pull --rebase --autostash origin main && git push origin HEAD:main; then
+              gh workflow run pages-tagx-deploy.yml --ref main
+              exit 0
+            fi
+            sleep $((attempt * 5))
+          done
+          exit 1
