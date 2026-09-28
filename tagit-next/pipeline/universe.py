@@ -127,7 +127,7 @@ def main():
         'floatAvailable': False, 'executionEligibility': 'SEPARATE_SHARIA_AND_DATA_GATES_REQUIRED',
         'trainingEligible': False, 'rows': rows,
     }
-    Path(args.out).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding='utf-8')
+    Path(args.out).write_text(json.dumps(payload, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
 
 
 if __name__ == '__main__':

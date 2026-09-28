@@ -67,7 +67,7 @@ jobs:
                   'Float':choose(b.get('Float'),b.get('Shares Float')),'Outstanding':choose(b.get('Outstanding'),b.get('Shares Outstanding')),'Short Float':choose(b.get('Short Float')),'_snapshotTimestampUTC':now,'_source':'Finviz Elite broad universe','_discoveryOnly':True
               })
           payload={'schemaVersion':1,'source':'Finviz Elite broad US equity universe','sourceType':'BROAD_RESEARCH_UNIVERSE','filter':['sh_avgvol_o50'],'views':[111,131],'updatedAt':now,'count':len(rows),'executionEligibility':'SEPARATE_SHARIA_AND_DATA_GATES_REQUIRED','trainingEligible':False,'rows':rows}
-          pathlib.Path('tag/data/universe-broad.json').write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8')
+          pathlib.Path('tag/data/universe-broad.json').write_text(json.dumps(payload,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
           print('broad universe rows',len(rows))
           if len(rows)<2000: raise SystemExit('Broad universe unexpectedly below 2000 symbols; fail closed')
           PY
