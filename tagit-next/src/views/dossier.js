@@ -137,7 +137,7 @@ function overview(state, r, a, now) {
       ${stat('حجم اليوم', cons?.volume ? f.compact(cons.volume) : f.compact(r.day_volume), cons?.volume ? 'مجمّع · كل البورصات' : 'IEX · جزئي')}
       ${stat('البيع المكشوف', facts.shortShares !== null ? f.compact(facts.shortShares) + (facts.shortOfFloat !== null ? ` · ${f.num(facts.shortOfFloat, 1)}%` : '') : finite(r.short_float_pct) ? f.num(r.short_float_pct) + '%' : f.DASH,
         facts.shortSettlement ? html`FINRA · تسوية <span dir="ltr">${facts.shortSettlement}</span>${facts.daysToCover !== null ? ` · ${f.num(facts.daysToCover, 1)} يوم تغطية` : ''}` : 'تاريخ القياس غير متاح')}
-      ${stat('صفقات ٣ دقائق', f.num(s?.trades_3m, 0))}
+      ${s?.source === 'CONSOLIDATED_NASDAQ' ? stat('مصدر الإشارة', 'مجمّع لحظي', 'دقائق ناسداك المجمّعة · discovery-1c') : stat('صفقات ٣ دقائق', f.num(s?.trades_3m, 0))}
       ${stat('متوسط النافذة المرجّح', f.usd(s?.vwap_window), 'ليس متوسط الجلسة')}
     </div>
     <details class="sharia-box" data-key="sharia-${r.symbol}">

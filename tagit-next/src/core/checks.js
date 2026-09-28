@@ -57,10 +57,14 @@ function buildChecks(row, now) {
       key: 'dollars', group: 'liquidity', name: 'قيمة تداول ٣ دقائق ≥ ٢٥ ألف دولار',
       pass: finite(s?.dollars_3m) && s.dollars_3m >= RULES.dollars3m, value: s?.dollars_3m, unit: '$',
     },
-    {
-      key: 'prints', group: 'liquidity', name: '٣٠ صفقة على الأقل',
-      pass: finite(s?.trades_3m) && s.trades_3m >= RULES.trades3m, value: s?.trades_3m,
-    },
+    // Consolidated real-time signals (discovery-1c) come from minute charts without trade counts;
+    // the rule is not evaluated for them and says so, instead of failing on data the source lacks.
+    s?.source === 'CONSOLIDATED_NASDAQ' && s.trades_3m === null
+      ? { key: 'prints', group: 'liquidity', name: 'عدد الصفقات (غير متاح في المصدر المجمّع)', pass: true, value: null, na: true }
+      : {
+        key: 'prints', group: 'liquidity', name: '٣٠ صفقة على الأقل',
+        pass: finite(s?.trades_3m) && s.trades_3m >= RULES.trades3m, value: s?.trades_3m,
+      },
     {
       key: 'balance', group: 'liquidity', name: 'لا تتركز أكثر من ٧٠٪ في دقيقة',
       pass: finite(s?.volume_concentration) && s.volume_concentration <= RULES.maxConcentration,
