@@ -35,3 +35,11 @@ test('failed refresh does not return cached prices as connected',async()=>{
  let clock=now,fail=false;const s=createMarketService({env,now:()=>clock,fetcher:async url=>url.includes('raw.githubusercontent')?{ok:true,json:async()=>ref}:fail?{ok:false,status:500}:{ok:true,json:async()=>({SENS:q})}});
  await s.quotes('SENS');clock+=1600;fail=true;await assert.rejects(s.quotes('SENS'),/PROVIDER_UNAVAILABLE/);
 });
+test('a failed or cut-off reference refresh keeps serving the last good reference',async()=>{
+  let t=now,refCalls=0;const ok=v=>({ok:true,status:200,json:async()=>v});
+  const fetcher=async url=>{if(url.includes('universe-broad')){refCalls++;if(refCalls===1)return ok(ref);return {ok:true,status:200,json:async()=>{throw new SyntaxError('aborted mid-body');}};}return ok({SENS:q});};
+  const s=createMarketService({env,fetcher,now:()=>t});
+  assert.equal((await s.quotes('SENS')).rows[0].symbol,'SENS');
+  t=now+301000;
+  const again=await s.quotes('SENS');assert.equal(again.rows[0].symbol,'SENS');assert.equal(refCalls,2);
+});

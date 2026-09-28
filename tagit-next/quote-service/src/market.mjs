@@ -2,6 +2,7 @@
 export const REFERENCE_URL='https://raw.githubusercontent.com/tufeeq/ai/main/tag/data/universe-broad.json';
 export const FRESH_QUOTE_MS=3000;
 export const MAX_REFERENCE_AGE_MS=86400000;
+export const REFERENCE_TIMEOUT_MS=30000;
 const isoPattern=/(?:Z|[+-]\d{2}:\d{2})$/;
 const finitePositive=n=>typeof n==='number'&&Number.isFinite(n)&&n>0;
 export function ageMs(at,now){if(typeof at!=='string'||!isoPattern.test(at))return null;const t=Date.parse(at);return Number.isFinite(t)?now-t:null;}
@@ -48,15 +49,18 @@ export function settings(env){
 export function createMarketService({env=process.env,fetcher=fetch,now=Date.now}={}){
   let reference=null,referenceFetched=0,referenceLoading=null;
   const cache=new Map(),inflight=new Map();let windowStart=0,requests=0;
-  async function fetchJSON(url,headers){
-    let r;try{r=await fetcher(url,{headers,signal:AbortSignal.timeout(4500)});}catch{throw new Error('PROVIDER_UNAVAILABLE');}
+  async function fetchJSON(url,headers,timeoutMs=4500){
+    let r;try{r=await fetcher(url,{headers,signal:AbortSignal.timeout(timeoutMs)});}catch{throw new Error('PROVIDER_UNAVAILABLE');}
     if(!r.ok){const code=r.status===401?'PROVIDER_AUTH_FAILED':r.status===403?'FEED_NOT_ENTITLED':r.status===429?'RATE_LIMITED':'PROVIDER_UNAVAILABLE';throw new Error(code);}
     try{return await r.json();}catch{throw new Error('INVALID_PROVIDER_RESPONSE');}
   }
   async function getReference(){
     if(reference&&now()-referenceFetched<300000)return normalizeReference(reference,now());
-    if(!referenceLoading)referenceLoading=(async()=>{const raw=await fetchJSON(REFERENCE_URL,{});normalizeReference(raw,now());reference=raw;referenceFetched=now();})().finally(()=>{referenceLoading=null;});
-    await referenceLoading;return normalizeReference(reference,now());
+    // The reference is a multi-megabyte file: give it longer than a quote call, and keep serving the last
+    // good copy (while it is still inside MAX_REFERENCE_AGE_MS) if a refresh fails or is cut off.
+    if(!referenceLoading)referenceLoading=(async()=>{const raw=await fetchJSON(REFERENCE_URL,{},REFERENCE_TIMEOUT_MS);normalizeReference(raw,now());reference=raw;referenceFetched=now();})().finally(()=>{referenceLoading=null;});
+    try{await referenceLoading;}catch(e){if(!reference)throw e;referenceFetched=now()-240000;}
+    return normalizeReference(reference,now());
   }
   async function quotes(value){
     const symbols=parseSymbols(value),s=settings(env);
