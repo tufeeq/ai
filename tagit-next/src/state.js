@@ -9,7 +9,7 @@ import { WATCH_LIMIT } from './storage.js';
 import { dayChange } from './core/closes.js';
 import { priceQuality } from './core/quality.js';
 
-export const UNIVERSE_CAP = 100_000_000;
+export const UNIVERSE_CAP = 300_000_000;
 export const LIST_LIMIT = 80;
 export const QUOTE_BATCH = 20;
 
@@ -256,9 +256,9 @@ export function removeEvent(state, id) {
 
 // ---- consolidated signals ---------------------------------------------------------
 
-export const SIP_UNIVERSE_CAP_MILLIONS = 100;
+export const SIP_UNIVERSE_CAP_MILLIONS = 300;
 
-/** Symbols to scan on consolidated bars: the enrichment universe below $100M, else the scanner rows. */
+/** Symbols to scan on consolidated bars: the enrichment universe below $300M, else the scanner rows. */
 export function sipUniverse(state) {
   const e = state.enrichment?.symbols;
   if (e) {
