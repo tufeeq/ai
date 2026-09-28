@@ -3,10 +3,12 @@ export const REFERENCE_URL='https://raw.githubusercontent.com/tufeeq/ai/main/tag
 export const FRESH_QUOTE_MS=3000;
 export const MAX_REFERENCE_AGE_MS=86400000;
 export const REFERENCE_TIMEOUT_MS=30000;
+// Small-cap ceiling (exclusive). The detector was studied below $100M; the owner widened the scan to $300M.
+export const MAX_MARKET_CAP=Number(globalThis.process?.env?.TAGIT_MAX_MARKET_CAP)>0?Number(globalThis.process.env.TAGIT_MAX_MARKET_CAP):3e8;
 const isoPattern=/(?:Z|[+-]\d{2}:\d{2})$/;
 const finitePositive=n=>typeof n==='number'&&Number.isFinite(n)&&n>0;
 export function ageMs(at,now){if(typeof at!=='string'||!isoPattern.test(at))return null;const t=Date.parse(at);return Number.isFinite(t)?now-t:null;}
-export function normalizeReference(raw,now){
+export function normalizeReference(raw,now,maxCap=MAX_MARKET_CAP){
   const age=ageMs(raw?.updatedAt,now);
   if(raw?.schemaVersion!==1||!Array.isArray(raw.rows)||age===null||age<0||age>MAX_REFERENCE_AGE_MS)throw new Error('CURRENT_UNIVERSE_REQUIRED');
   const rows=new Map();
@@ -15,7 +17,7 @@ export function normalizeReference(raw,now){
     // Finviz numeric export Market Cap is in USD millions. Reject unknown units.
     const text=String(r['Market Cap']??'');
     const cap=/^\d+(?:\.\d+)?$/.test(text)?Number(text)*1e6:NaN;
-    if(!/^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol??'')||!industry||/exchange.traded|closed.end|shell compan/i.test(industry)||!finitePositive(cap)||cap>=1e8)continue;
+    if(!/^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol??'')||!industry||/exchange.traded|closed.end|shell compan/i.test(industry)||!finitePositive(cap)||cap>=maxCap)continue;
     const rowAge=ageMs(r._snapshotTimestampUTC??raw.updatedAt,now);
     if(rowAge===null||rowAge<0||rowAge>MAX_REFERENCE_AGE_MS)continue;
     const floatMillions=Number(r.Float),shortText=String(r['Short Float']??''),shortPercent=/^\d+(?:\.\d+)?%$/.test(shortText)?Number(shortText.slice(0,-1)):null;

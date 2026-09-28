@@ -1,4 +1,4 @@
-import {createMarketService} from './market.mjs';
+import {createMarketService,MAX_MARKET_CAP} from './market.mjs';
 import {createScanner} from './scanner.mjs';
 import {createLabService} from './lab.mjs';
 import {createHaltWatcher} from './halts.mjs';
@@ -14,6 +14,7 @@ export async function decorate(result,{halts,consolidated,symbols,closes=null}){
  const overlay=consolidated.peek(symbols);
  const sip=closes?.peek(result.rows.map(r=>r.symbol))??new Map();
  return {...result,
+  ...(result.coverage?{coverage:{...result.coverage,max_market_cap_exclusive:MAX_MARKET_CAP,scope:`NASDAQ equities below $${MAX_MARKET_CAP/1e6}M present in reference; excludes missing metadata and funds`}}:{}),
   rows:result.rows.map(r=>({...applyClose(r,sip.get(r.symbol)),halt:h.halts.get(r.symbol)??null,halt_status:h.status,consolidated:overlay.get(r.symbol)??null})),
   complements:{halts:halts.status(),consolidated:consolidated.status(),closes:closes?.status()??null}};
 }
