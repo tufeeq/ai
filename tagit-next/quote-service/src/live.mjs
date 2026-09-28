@@ -67,7 +67,9 @@ export function parseWatchlist(body, fetchedAt) {
     const price = money(r?.lastSalePrice ?? r?.lastsale), at = nasdaqMinute(r?.lastTradeTimestamp) ?? nasdaqDateTime(r?.lastTradeTimestampDateTime);
     if (!SYMBOL.test(symbol) || !price || !at || Date.parse(at) > fetchedAt + 60_000) continue;
     const change = signed(r?.netChange), listed = Number(r?.previousClosePrice);
+    const volume = Number(String(r?.volume ?? '').replace(/,/g, ''));
     out.set(symbol, { price, trade_minute_at: at, fetched_at: iso(fetchedAt), change, change_pct: signed(r?.percentageChange),
+      volume: Number.isFinite(volume) && volume >= 0 && String(r?.volume ?? '') !== '' ? volume : null,
       previous_close: listed > 0 ? listed : change !== null && price - change > 0 ? Math.round((price - change) * 1e4) / 1e4 : null });
   }
   return out;
@@ -310,6 +312,10 @@ export function createLiveBoard({ env = process.env, fetcher = fetch, now = Date
       closes: closes?.status() ?? null,
       running, universe: universe.length, hot: hot.size,
     }),
+    /** Latest consolidated watchlist quotes (price, cumulative volume, fetch time) for the pulse detector. */
+    snapshot: () => nasdaq,
+    universe: () => universe,
+    wake,
     tick, // tests
     stop() { running = false; if (timer) timers.clearTimeout(timer); timer = null; },
   };

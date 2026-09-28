@@ -6,6 +6,7 @@ import {createHaltWatcher} from './src/halts.mjs';
 import {createConsolidated} from './src/consolidated.mjs';
 import {createSipCloses} from './src/closes.mjs';
 import {createLiveBoard} from './src/live.mjs';
+import {createPulse} from './src/pulse.mjs';
 import {createElite} from '../elite/core/live.mjs';
 import {eliteHttp} from '../elite/core/http.mjs';
 import {createSweep,createSweepWorker} from '../elite/core/sweep.mjs';
@@ -16,10 +17,13 @@ runtime.scanner.get=async()=>{const scan=await originalGet();elite.observe({scan
 const sweepWorker=createSweepWorker({sweep:createSweep(),observe:e=>elite.observe(e),drain:async()=>{await elite.drain();if(elite.status().lastError)throw Error('OBSERVER_FAILED');},enabled:process.env.TAG_ELITE_SWEEP!=='0'});
 const exposedElite={status:()=>({...elite.status(),legacy_background:elite.status().background,background:sweepWorker.status().enabled,sweep:sweepWorker.status()}),snapshot:()=>{const value=elite.snapshot();value.status.legacy_background=value.status.background;value.status.sweep=sweepWorker.status();value.status.background=value.status.sweep.enabled;return value;},timeline:id=>elite.timeline(id),refresh:()=>sweepWorker.refresh()};
 const closes=createSipCloses(),live=createLiveBoard({closes});
-const handle=createHandler({runtime,sharia:createSharia(),halts:createHaltWatcher(),consolidated:createConsolidated(),closes,live});
+const consolidated=createConsolidated();
+// The pulse keeps the consolidated board running all session (not only while someone views it); TAGIT_PULSE=0 disables it.
+const pulse=process.env.TAGIT_PULSE==='0'?null:createPulse({board:live,onExpansion:symbol=>consolidated.peek([symbol])});
+const handle=createHandler({runtime,sharia:createSharia(),halts:createHaltWatcher(),consolidated,closes,live,pulse});
 const onRequest=async(req,res)=>{try{if(!await eliteHttp(req,res,exposedElite))await handle(req,res);}catch{res.statusCode=503;res.end(JSON.stringify({status:'SERVICE_ERROR'}));}};
 const host=process.env.HOST||'0.0.0.0',port=Number(process.env.PORT||8787);
-const server=http.createServer(onRequest).listen(port,host,()=>{console.log(`tagit quote service listening on ${host}:${port}`);runtime.start();sweepWorker.start();});
+const server=http.createServer(onRequest).listen(port,host,()=>{console.log(`tagit quote service listening on ${host}:${port}`);runtime.start();sweepWorker.start();pulse?.start();});
 // On Railway the public domain may target a different port than $PORT; answer on the usual ones too.
 const extra=process.env.RAILWAY_ENVIRONMENT||process.env.RAILWAY_PROJECT_ID?[...new Set([8080,10000,3000])].filter(p=>p!==port).map(p=>http.createServer(onRequest).on('error',e=>console.error(`extra port ${p}: ${e.code}`)).listen(p,host,()=>console.log(`also listening on ${host}:${p}`))):[];
-for(const signal of ['SIGINT','SIGTERM'])process.once(signal,()=>{live.stop();void sweepWorker.close().then(()=>runtime.close()).then(()=>elite.close());server.close();for(const x of extra)x.close();setTimeout(()=>process.exit(0),5000).unref();});
+for(const signal of ['SIGINT','SIGTERM'])process.once(signal,()=>{live.stop();pulse?.stop();void sweepWorker.close().then(()=>runtime.close()).then(()=>elite.close());server.close();for(const x of extra)x.close();setTimeout(()=>process.exit(0),5000).unref();});
