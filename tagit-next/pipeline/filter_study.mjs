@@ -24,7 +24,7 @@ import { batches, fetchBatch, detectSymbol } from '../src/core/sipscan.js';
 import { getJson, eligibleSymbols, session } from './sip_study.mjs';
 import { applyRule, RULES } from './exit_study.mjs';
 
-const SERVICE = process.env.TAGIT_SERVICE || 'https://tagit-next-quotes.onrender.com';
+const SERVICE = process.env.TAGIT_SERVICE || 'https://ai-production-85c7.up.railway.app';
 const SEC_UA = process.env.SEC_USER_AGENT || 'TAGit NEXT research tufeeq11@gmail.com';
 const MIN = 60_000, DAY = 86_400_000;
 const DELAY = 17 * MIN, ENTRY_WINDOW = 2 * MIN;

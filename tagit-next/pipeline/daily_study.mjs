@@ -25,7 +25,7 @@
 import { writeFileSync } from 'node:fs';
 import { getJson } from './sip_study.mjs';
 
-const SERVICE = process.env.TAGIT_SERVICE || 'https://tagit-next-quotes.onrender.com';
+const SERVICE = process.env.TAGIT_SERVICE || 'https://ai-production-85c7.up.railway.app';
 const COSTS = [0.5, 1.0];
 const HORIZONS = [1, 3, 5];
 const SYMBOL = /^[A-Z]{1,5}$/;

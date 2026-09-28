@@ -81,7 +81,7 @@ csv.field_size_limit(1 << 30)
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT = ROOT / 'data/catalyst-study.json'
-SERVICE = os.environ.get('TAGIT_SERVICE', 'https://tagit-next-quotes.onrender.com')
+SERVICE = os.environ.get('TAGIT_SERVICE', 'https://ai-production-85c7.up.railway.app')
 FROM, TO = '2023-01-03', '2026-09-24'
 WINDOWS = [('2022-11-15T00:00:00Z', '2024-12-31T23:59:00Z'), ('2025-01-01T00:00:00Z', '2026-10-05T23:59:00Z')]
 EDGAR_SINCE = '2021-11-01'  # a year of filing history before the first bar window (shelf look-back)

@@ -2,7 +2,7 @@
 import json, sys, time, urllib.request
 UA = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36',
       'Accept': 'application/json', 'Origin': 'https://www.nasdaq.com', 'Referer': 'https://www.nasdaq.com/'}
-SERVICE = 'https://tagit-next-quotes.onrender.com'
+SERVICE = 'https://ai-production-85c7.up.railway.app'
 def get(url, headers=UA):
     t = time.monotonic()
     with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=40) as r:

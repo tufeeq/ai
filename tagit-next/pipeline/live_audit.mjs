@@ -15,7 +15,7 @@ import { writeFileSync } from 'node:fs';
 import { getJson as relayJson, eligibleSymbols, session } from './sip_study.mjs';
 import { parseWatchlist, WATCHLIST_URL, HEADERS } from './nasdaq.mjs';
 
-const SERVICE = process.env.TAGIT_SERVICE || 'https://tagit-next-quotes.onrender.com';
+const SERVICE = process.env.TAGIT_SERVICE || 'https://ai-production-85c7.up.railway.app';
 const OUT = process.env.AUDIT_OUT || 'live-audit.json';
 const arg = (n) => { const i = process.argv.indexOf(n); return i >= 0 ? process.argv[i + 1] : null; };
 const PARTS = new Set((arg('--parts') || 'A,B,E').split(','));

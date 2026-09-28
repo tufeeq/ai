@@ -129,7 +129,7 @@ if status == 200:
     chart = data.get('chart') or []
     print('NASDAQ CHART RAW', json.dumps({k: v for k, v in data.items() if k != 'chart'})[:600], flush=True)
     print('NASDAQ CHART POINTS', json.dumps(chart[:3] + chart[-2:])[:900], flush=True)
-status, body = fetch('https://tagit-next-quotes.onrender.com/api/scanner', None, 90)[:2]
+status, body = fetch('https://ai-production-85c7.up.railway.app/api/scanner', None, 90)[:2]
 print('TAGIT SCANNER', status, (json.dumps({k: (v if not isinstance(v, list) else len(v)) for k, v in j(body).items()}) if status == 200 else body[:200])[:700], flush=True)
 if status == 200 and j(body).get('alerts'):
     print('TAGIT ALERT SAMPLE', json.dumps(j(body)['alerts'][:2])[:700], flush=True)

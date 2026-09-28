@@ -22,7 +22,7 @@ import { gzipSync } from 'node:zlib';
 import { batches, fetchBatch, detectSymbol } from '../src/core/sipscan.js';
 import { getJson, eligibleSymbols, session } from './sip_study.mjs';
 
-const SERVICE = process.env.TAGIT_SERVICE || 'https://tagit-next-quotes.onrender.com';
+const SERVICE = process.env.TAGIT_SERVICE || 'https://ai-production-85c7.up.railway.app';
 const COST = 0.5;
 const ENTRY_WINDOW = 2 * 60_000;
 const DELAY = 17 * 60_000;
