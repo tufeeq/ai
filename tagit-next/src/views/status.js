@@ -3,7 +3,10 @@ import { html } from '../html.js';
 import * as f from '../format.js';
 import { marketSession } from '../core/market.js';
 import { errorMessage } from '../api.js';
-import { metrics, priceCoverage } from '../state.js';
+import { metrics, priceCoverage, UNIVERSE_CAP } from '../state.js';
+
+/** The small-cap ceiling the server actually applied (older servers report $100M), e.g. "أقل من 300 مليون دولار". */
+const capLabel = (state) => `أقل من ${f.num((Number(state.scan?.coverage?.max_market_cap_exclusive) || UNIVERSE_CAP) / 1e6, 0)} مليون دولار`;
 
 const PHASES = {
   boot: ['connecting', 'جارٍ الاتصال…'],
@@ -28,7 +31,7 @@ export function renderMetrics(state, now) {
   const item =(key, label, value, hint, accent = false) =>
     html`<div class="kpi${accent ? ' accent' : ''}" data-key="kpi-${key}"><span>${label}</span><strong dir="ltr">${value ?? f.DASH}</strong><small>${hint}</small></div>`;
   return html`
-    ${item('scanned', 'أسهم ضمن المسح', m.scanned !== null ? f.num(m.scanned, 0) : null, 'ناسداك · أقل من ١٠٠ مليون دولار')}
+    ${item('scanned', 'أسهم ضمن المسح', m.scanned !== null ? f.num(m.scanned, 0) : null, `ناسداك · ${capLabel(state)}`)}
     ${item('priced', 'أسعار معروضة / حالية', p.total ? `${f.num(p.total, 0)} / ${f.num(p.live + p.quiet, 0)}` : c ? `${f.num(c.with_prices, 0)} / ${f.num(c.fresh_prices, 0)}` : null,
     p.total ? `مجمّع ${f.num(p.CONSOLIDATED, 0)} · IEX ${f.num(p.IEX, 0)} · متأخر ${f.num(p.delayed, 0)} · قديم ${f.num(p.stale + p.aging, 0)}` : 'عند آخر مسح')}
     ${item('signals', 'تسارع مستوفٍ', state.scan ? m.signals : null, 'حجم وسعر ودقائق حديثة')}
@@ -72,5 +75,5 @@ export function renderNotices(state) {
 export function coverageText(state) {
   const c = state.scan?.coverage;
   if (!c) return '';
-  return `${String(state.scan.feed ?? '').toUpperCase()} · قائمة ناسداك لدى المزود ${f.num(c.nasdaq_assets, 0)} رمزًا، منها ${f.num(c.eligible_small_caps, 0)} مؤهلًا (أقل من ١٠٠ مليون دولار حسب مرجع ${f.dateTime(c.metadata_at)})، و${f.num(c.detailed_symbols, 0)} رمزًا بفحص دقائق متعمق.`;
+  return `${String(state.scan.feed ?? '').toUpperCase()} · قائمة ناسداك لدى المزود ${f.num(c.nasdaq_assets, 0)} رمزًا، منها ${f.num(c.eligible_small_caps, 0)} مؤهلًا (${capLabel(state)} حسب مرجع ${f.dateTime(c.metadata_at)})، و${f.num(c.detailed_symbols, 0)} رمزًا بفحص دقائق متعمق.`;
 }
