@@ -16,6 +16,7 @@
 // output, not recommendations: every study so far found no positive edge after costs.
 import { analyzeBars, RULES } from './scanner.mjs';
 import { HEADERS, extendedHours } from './live.mjs';
+import { observe } from './store.mjs';
 
 export const PULSE_RULES = Object.freeze({
   version: 'discovery-1c', base: RULES.version,
@@ -92,10 +93,13 @@ export function rankCandidates(history, now, r = PULSE_RULES) {
   return out.sort((a, b) => b.score - a.score).slice(0, r.maxCandidates);
 }
 
-export function createPulse({ board, fetcher = fetch, now = Date.now, timers = { setTimeout, clearTimeout }, rules = PULSE_RULES, onExpansion = null } = {}) {
+export function createPulse({ board, fetcher = fetch, now = Date.now, timers = { setTimeout, clearTimeout }, rules = PULSE_RULES, onExpansion = null, store = null, storeError = null } = {}) {
   const history = new Map(), signals = new Map(), checkedAt = new Map(), ledger = [];
   const stat = { status: 'IDLE', charts_ok: 0, charts_failed: 0, last_error: null, last_cycle_at: null, candidates: 0, blocked_until: 0 };
   let timer = null, running = false, lastChart = 0, queue = [];
+  let storageError = storeError;
+  const persist = (fn) => { if (!store) return; try { fn(); } catch (e) { storageError = e.message; } };
+  persist(() => { for (const e of store.recent(300)) ledger.push(e); });
 
   function sample() {
     const snap = board.snapshot?.();
@@ -126,9 +130,11 @@ export function createPulse({ board, fetcher = fetch, now = Date.now, timers = {
           try { onExpansion?.(symbol); } catch { /* quote prefetch is best effort */ }
           const prev = ledger.find((x) => x.symbol === symbol);
           if (!prev || t - Date.parse(prev.detected_at) >= RULES.cooldown) {
-            ledger.unshift({ symbol, detected_at: iso(t), bar_at: signal.bar_at, price: signal.last_close, return_3m: signal.return_3m,
-              volume_ratio: signal.volume_ratio, dollars_3m: signal.dollars_3m, trigger: signal.trigger, stop: signal.stop, rules: rules.version });
+            const entry = { symbol, detected_at: iso(t), bar_at: signal.bar_at, price: signal.last_close, return_3m: signal.return_3m,
+              volume_ratio: signal.volume_ratio, dollars_3m: signal.dollars_3m, trigger: signal.trigger, stop: signal.stop, plan_valid: signal.plan_valid, rules: rules.version, observed: {} };
+            ledger.unshift(entry);
             ledger.splice(300);
+            persist(() => store.record(entry));
           }
         }
       } else signals.delete(symbol);
@@ -137,11 +143,23 @@ export function createPulse({ board, fetcher = fetch, now = Date.now, timers = {
     }
   }
 
+  /** Follow each signal of the last seven hours with the latest consolidated price. */
+  function track(t) {
+    const snap = board.snapshot?.();
+    if (!snap) return;
+    for (const entry of ledger) {
+      if (t - Date.parse(entry.detected_at) > 7 * 3600_000) break;
+      const q = snap.get(entry.symbol);
+      if (q && observe(entry, q.price, Date.parse(q.fetched_at))) persist(() => store.observe(entry));
+    }
+  }
+
   async function cycle() {
     const t = now();
     if (!extendedHours(t)) { stat.status = 'MARKET_CLOSED'; return; }
     await board.get?.(); // keeps the watchlist rotation running while the pulse is on
     sample();
+    track(t);
     const ranked = rankCandidates(history, t, rules);
     stat.candidates = ranked.length;
     // Symbols with a live signal are re-checked first so plans stay current; then the new movers.
@@ -180,9 +198,10 @@ export function createPulse({ board, fetcher = fetch, now = Date.now, timers = {
     ledger: () => ledger,
     status: () => ({ source: 'NASDAQ_COM_CHART', rules: rules.version, status: stat.status, charts_ok: stat.charts_ok, charts_failed: stat.charts_failed,
       last_error: stat.last_error, last_cycle_at: stat.last_cycle_at, candidates: stat.candidates, tracked: history.size,
-      live_signals: [...signals.values()].filter((s) => s.expansion && now() - Date.parse(s.evaluated_at) <= rules.signalTtlMs).length, running }),
+      live_signals: [...signals.values()].filter((s) => s.expansion && now() - Date.parse(s.evaluated_at) <= rules.signalTtlMs).length, running,
+      storage: store ? { kind: 'SQLITE', path: store.path, signals: (() => { try { return store.count(); } catch { return null; } })(), error: storageError } : { kind: 'MEMORY', error: storageError } }),
     // tests
-    _sample: sample, _cycle: cycle, _fetchChart: fetchChart, _queue: () => queue,
+    _sample: sample, _track: track, _cycle: cycle, _fetchChart: fetchChart, _queue: () => queue,
   };
 }
 

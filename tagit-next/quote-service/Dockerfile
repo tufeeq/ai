@@ -5,8 +5,8 @@ COPY quote-service ./quote-service
 COPY research ./research
 COPY elite ./elite
 RUN mkdir -p /var/lib/tagit && chown -R node:node /app /var/lib/tagit
-USER node
 ENV HOST=0.0.0.0 PORT=10000 TAGIT_PAPER_PYTHON=/usr/bin/python3
 WORKDIR /app/quote-service
 EXPOSE 10000
-CMD ["node", "server.mjs"]
+# Starts as root only to hand a mounted volume to `node`, then drops privileges (docker-start.sh).
+CMD ["sh", "docker-start.sh"]

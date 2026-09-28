@@ -7,6 +7,7 @@ import {createConsolidated} from './src/consolidated.mjs';
 import {createSipCloses} from './src/closes.mjs';
 import {createLiveBoard} from './src/live.mjs';
 import {createPulse} from './src/pulse.mjs';
+import {openStore,dbPath} from './src/store.mjs';
 import {createElite} from '../elite/core/live.mjs';
 import {eliteHttp} from '../elite/core/http.mjs';
 import {createSweep,createSweepWorker} from '../elite/core/sweep.mjs';
@@ -19,11 +20,14 @@ const exposedElite={status:()=>({...elite.status(),legacy_background:elite.statu
 const closes=createSipCloses(),live=createLiveBoard({closes});
 const consolidated=createConsolidated();
 // The pulse keeps the consolidated board running all session (not only while someone views it); TAGIT_PULSE=0 disables it.
-const pulse=process.env.TAGIT_PULSE==='0'?null:createPulse({board:live,onExpansion:symbol=>consolidated.peek([symbol])});
+// Signals and their outcomes persist on the Railway volume (or TAGIT_DB_PATH); otherwise memory only.
+let store=null,storeError=null;
+if(dbPath())try{store=openStore(dbPath());console.log(`pulse store: ${dbPath()}`);}catch(e){storeError=e.code||e.message;console.error(`pulse store unavailable (${storeError}); keeping signals in memory`);}
+const pulse=process.env.TAGIT_PULSE==='0'?null:createPulse({board:live,onExpansion:symbol=>consolidated.peek([symbol]),store,storeError});
 const handle=createHandler({runtime,sharia:createSharia(),halts:createHaltWatcher(),consolidated,closes,live,pulse});
 const onRequest=async(req,res)=>{try{if(!await eliteHttp(req,res,exposedElite))await handle(req,res);}catch{res.statusCode=503;res.end(JSON.stringify({status:'SERVICE_ERROR'}));}};
 const host=process.env.HOST||'0.0.0.0',port=Number(process.env.PORT||8787);
 const server=http.createServer(onRequest).listen(port,host,()=>{console.log(`tagit quote service listening on ${host}:${port}`);runtime.start();sweepWorker.start();pulse?.start();});
 // On Railway the public domain may target a different port than $PORT; answer on the usual ones too.
 const extra=process.env.RAILWAY_ENVIRONMENT||process.env.RAILWAY_PROJECT_ID?[...new Set([8080,10000,3000])].filter(p=>p!==port).map(p=>http.createServer(onRequest).on('error',e=>console.error(`extra port ${p}: ${e.code}`)).listen(p,host,()=>console.log(`also listening on ${host}:${p}`))):[];
-for(const signal of ['SIGINT','SIGTERM'])process.once(signal,()=>{live.stop();pulse?.stop();void sweepWorker.close().then(()=>runtime.close()).then(()=>elite.close());server.close();for(const x of extra)x.close();setTimeout(()=>process.exit(0),5000).unref();});
+for(const signal of ['SIGINT','SIGTERM'])process.once(signal,()=>{live.stop();pulse?.stop();try{store?.close();}catch{}void sweepWorker.close().then(()=>runtime.close()).then(()=>elite.close());server.close();for(const x of extra)x.close();setTimeout(()=>process.exit(0),5000).unref();});
