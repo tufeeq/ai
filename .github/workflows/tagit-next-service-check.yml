@@ -17,7 +17,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Probe endpoints
         run: |
@@ -30,6 +30,11 @@ jobs:
             done
           fi
           B="${B:-https://tagit-next-quotes.onrender.com}"
+          # Wait up to 12 minutes for a fresh deploy to answer /api/health with 200.
+          for i in $(seq 1 48); do
+            c=$(curl -s -m 10 -o /dev/null -w '%{http_code}' "$B/api/health" || true)
+            echo "wait $i: /api/health -> $c"; [ "$c" = "200" ] && break; sleep 15
+          done
           echo "BASE=$B"
           probe() {
             echo "=================== $1"
