@@ -1,0 +1,21 @@
+name: TAGit NEXT Nasdaq.com probe
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/**']
+    paths: ['.github/workflows/tagit-next-nasdaq-probe.yml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: |
+          UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36'
+          H=(-H "User-Agent: $UA" -H 'Accept: application/json, text/plain, */*' -H 'Origin: https://www.nasdaq.com' -H 'Referer: https://www.nasdaq.com/')
+          echo '== watchlist'; curl -s -m 20 "${H[@]}" 'https://api.nasdaq.com/api/quote/watchlist?symbol=sens|stocks&symbol=soun|stocks' | head -c 1500; echo
+          echo '== chart'; curl -s -m 20 "${H[@]}" 'https://api.nasdaq.com/api/quote/SENS/chart?assetclass=stocks' | head -c 1500; echo
+          echo '== chart charttype=rs'; curl -s -m 20 "${H[@]}" 'https://api.nasdaq.com/api/quote/SENS/chart?assetclass=stocks&charttype=rs' | head -c 800; echo
+          echo '== realtime-trades'; curl -s -m 20 "${H[@]}" 'https://api.nasdaq.com/api/quote/SENS/realtime-trades?&limit=5&fromTime=00:00' | head -c 1500; echo
+          echo '== info'; curl -s -m 20 "${H[@]}" 'https://api.nasdaq.com/api/quote/SENS/info?assetclass=stocks' | head -c 1200; echo

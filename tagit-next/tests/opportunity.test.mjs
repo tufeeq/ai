@@ -53,3 +53,24 @@ test('pressure keeps its samples across UTC midnight inside one New York session
  const next='2026-12-02T09:30:00Z';
  assert.equal(updatePressure(s,{price:1.3,day_volume:10,price_at:next},next).segments.length,0);
 });
+
+test('consolidated real-time signals skip only the trade-count rule and can produce a plan', async () => {
+  const { assess } = await import('../src/core/checks.js');
+  const now = Date.parse('2026-09-28T14:03:10Z');
+  const iso = (ms) => new Date(ms).toISOString();
+  const signal = { source: 'CONSOLIDATED_NASDAQ', trades_3m: null, ready: true, bars: 33, bar_at: iso(now - 70_000), return_3m: 1.8, volume_ratio: 15,
+    dollars_3m: 230000, volume_concentration: 0.4, vwap_window: 5.0, expansion: true, plan_valid: true, trigger: 5.065, stop: 4.995 };
+  const row = { symbol: 'SURG', price: 5.1, price_at: iso(now - 30_000), price_source: 'CONSOLIDATED', quote_at: iso(now - 5_000), quote_source: 'CONSOLIDATED',
+    bid: 5.09, ask: 5.1, spread_pct: 0.196, extended: false, day_change: 4, signal, actionable: true,
+    plan: { entry: 5.1, stop: 4.995, targets: [5.205, 5.31], kind: 'CONDITIONAL' } };
+  const a = assess(row, { now, serverTime: iso(now - 5_000), feed: 'iex' });
+  const prints = a.checks.find((c) => c.key === 'prints');
+  assert.equal(prints.pass, true);
+  assert.equal(prints.na, true);
+  assert.deepEqual(a.blockers, []);
+  assert.equal(a.state, 'READY');
+  assert.ok(a.plan);
+  // IEX signals still need 30 trades.
+  const iex = assess({ ...row, signal: { ...signal, source: undefined, trades_3m: 5 } }, { now, serverTime: iso(now - 5_000), feed: 'iex' });
+  assert.equal(iex.checks.find((c) => c.key === 'prints').pass, false);
+});
