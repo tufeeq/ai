@@ -7,6 +7,7 @@ exits; three cases had no entry. Neither quote paths nor same-session minute bar
 showed a +10% or +20% target-first case. Full-sample expectancy is unavailable,
 the final holdout remains sealed and no live rule changed. Reproduce offline with
 `make -C tagit-next quote-anchored`.
+The complete local verification passed 206 Python tests and 74 Node tests.
 
 **Latest cycle (27 September 2026):** [quote-anchored decision findings](QUOTE_ANCHORED_FINDINGS.md).
 A frozen twelve-case SIP audit now starts its plan at the first qualified observed
