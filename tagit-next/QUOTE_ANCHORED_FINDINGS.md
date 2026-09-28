@@ -81,8 +81,10 @@ This is twelve exposed cases from one development session in the existing
 validation set, a forward trial, or proof of profitability. The result does not
 replace the negative 322-signal baseline or the rejected feature studies.
 
-Next, freeze a new quote-anchored sample from later qualified development dates and
-retrieve only missing entry-to-exit intervals. Apply this same normalization without
-retuning. Discovery recall for later +10%/+20% movement must remain a separate
-metric from executable entry/exit outcomes. The final holdout stays unopened until
-the measurement path is sufficiently complete.
+That next sample is now complete and reported in
+[LATER_QUOTE_FINDINGS.md](LATER_QUOTE_FINDINGS.md): eight later cases over four
+sessions, with 34,718 new SIP quotes and no target-first +10%/+20% case. Four of
+five simulated entries still have unknown exits. The next bounded measurement is
+a preregistered 3-second versus 30-second exit-capacity sensitivity on the combined
+20 exposed development cases. Discovery recall remains separate from execution,
+and the final holdout stays unopened.

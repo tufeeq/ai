@@ -1,5 +1,13 @@
 # TAGit NEXT — independent small-cap rebuild
 
+**Latest cycle (28 September 2026):** [later quote-anchored findings](LATER_QUOTE_FINDINGS.md).
+The frozen later-development sample adds 34,718 SIP quotes for eight signals across
+four sessions. Five simulated entries produced one modeled stop and four unknown
+exits; three cases had no entry. Neither quote paths nor same-session minute bars
+showed a +10% or +20% target-first case. Full-sample expectancy is unavailable,
+the final holdout remains sealed and no live rule changed. Reproduce offline with
+`make -C tagit-next quote-anchored`.
+
 **Latest cycle (27 September 2026):** [quote-anchored decision findings](QUOTE_ANCHORED_FINDINGS.md).
 A frozen twelve-case SIP audit now starts its plan at the first qualified observed
 quote. A conservative order-invariant repair reduced unknown cases from 9 to 8 per
