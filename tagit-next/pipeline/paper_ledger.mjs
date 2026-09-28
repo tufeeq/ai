@@ -48,7 +48,7 @@ export const QUOTE_CAP = 120;
 export const MIN_SESSIONS = 20;
 export const MIN_TRADES = 100;
 
-const SERVICE = process.env.TAGIT_SERVICE || 'https://tagit-next-quotes.onrender.com';
+const SERVICE = process.env.TAGIT_SERVICE || 'https://ai-production-85c7.up.railway.app';
 const ROOT = new URL('../', import.meta.url);
 const OUT_DEFAULT = new URL('data/paper-ledger.json', ROOT);
 const PACE_MS = 3_100; // relay: 40 requests/min shared by every agent and the live site

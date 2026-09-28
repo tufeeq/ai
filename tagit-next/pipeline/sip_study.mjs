@@ -15,7 +15,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { batches, fetchBatch, detectSymbol, regularSession } from '../src/core/sipscan.js';
 
-const SERVICE = process.env.TAGIT_SERVICE || 'https://tagit-next-quotes.onrender.com';
+const SERVICE = process.env.TAGIT_SERVICE || 'https://ai-production-85c7.up.railway.app';
 const ROOT = new URL('../', import.meta.url);
 const OUT_DEFAULT = new URL('data/sip-outcomes.json', ROOT); // summary the page loads
 const RAW_DEFAULT = new URL('data/sip-events.json', ROOT); // every labeled signal, for incremental runs

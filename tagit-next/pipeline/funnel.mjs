@@ -4,7 +4,7 @@
 import { writeFileSync } from 'node:fs';
 import { analyzeBars, RULES } from '../research/discovery-detector.mjs';
 
-const SERVICE = process.env.TAGIT_SERVICE || 'https://tagit-next-quotes.onrender.com';
+const SERVICE = process.env.TAGIT_SERVICE || 'https://ai-production-85c7.up.railway.app';
 const OUT = process.argv[2] || 'funnel.json';
 
 async function getJson(url, timeoutMs = 90_000) {

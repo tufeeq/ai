@@ -3,6 +3,10 @@ name: TAGit NEXT service check
 # Read-only diagnosis of the Render quote service as the browser sees it (same Origin header).
 on:
   workflow_dispatch:
+    inputs:
+      base:
+        description: Service base URL
+        default: ''
   push:
     branches: ['claude/**']
     paths: ['.github/workflows/tagit-next-service-check.yml']
@@ -13,17 +17,33 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Probe endpoints
         run: |
-          B=https://tagit-next-quotes.onrender.com
+          B="${{ github.event.inputs.base }}"
+          if [ -z "$B" ]; then
+            for h in ai-production tagit-next-quotes-production quote-service-production tagit-next-production ai-production-1 web-production; do
+              c=$(curl -s -m 20 -o /dev/null -w '%{http_code}' "https://$h.up.railway.app/api/health" || true)
+              echo "guess $h.up.railway.app -> $c"
+              [ "$c" = "200" ] && B="https://$h.up.railway.app" && break
+            done
+          fi
+          B="${B:-https://ai-production-85c7.up.railway.app}"
+          # Wait up to 12 minutes for a fresh deploy to answer /api/health with 200.
+          for i in $(seq 1 48); do
+            c=$(curl -s -m 10 -o /dev/null -w '%{http_code}' "$B/api/health" || true)
+            echo "wait $i: /api/health -> $c"; [ "$c" = "200" ] && break; sleep 15
+          done
+          echo "BASE=$B"
           probe() {
             echo "=================== $1"
             curl -sS -m 90 -H 'Origin: https://tufeeq.github.io' -o /tmp/body -w 'HTTP %{http_code} in %{time_total}s\n' "$B$1" || echo 'CURL FAILED'
             head -c 1500 /tmp/body; echo
           }
           date -u
+          echo "=================== / (headers)"; curl -sS -m 30 -D - -o /tmp/root "$B/" | head -20; head -c 600 /tmp/root; echo
+          echo "=================== /tagit-next/ (status)"; curl -s -m 30 -o /dev/null -w '%{http_code}\n' "$B/tagit-next/"
           probe /api/health
           probe /api/health
           probe '/api/live?symbols=SENS,SOUN,MU'

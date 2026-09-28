@@ -25,7 +25,7 @@ import { writeFileSync } from 'node:fs';
 import { batches, fetchBatch, detectSymbol, isRegularBar } from '../src/core/sipscan.js';
 import { getJson, eligibleSymbols, session, label, summarize } from './sip_study.mjs';
 
-const SERVICE = process.env.TAGIT_SERVICE || 'https://tagit-next-quotes.onrender.com';
+const SERVICE = process.env.TAGIT_SERVICE || 'https://ai-production-85c7.up.railway.app';
 const nyDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' });
 const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
 const r3 = (x) => (Number.isFinite(x) ? Math.round(x * 1000) / 1000 : x);

@@ -23,7 +23,7 @@ from zoneinfo import ZoneInfo
 NY = ZoneInfo('America/New_York')
 ROOT = Path(__file__).resolve().parents[2]
 OUTCOMES = ROOT / 'tagit-next/data/forward-outcomes.json'
-SCANNER = 'https://tagit-next-quotes.onrender.com/api/scanner'
+SCANNER = 'https://ai-production-85c7.up.railway.app/api/scanner'
 BROWSER_UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36'
 COST_PP = 0.5
 HORIZON = dt.timedelta(minutes=30)

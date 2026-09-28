@@ -59,7 +59,7 @@ import { getJson } from './sip_study.mjs';
 import { HYPOTHESES as DAILY, eligible } from './daily_study.mjs';
 import { extensionEvents, FADE_WINDOW_SESSIONS } from '../src/core/fade.js';
 
-const SERVICE = process.env.TAGIT_SERVICE || 'https://tagit-next-quotes.onrender.com';
+const SERVICE = process.env.TAGIT_SERVICE || 'https://ai-production-85c7.up.railway.app';
 const PACE_MS = Number(process.env.TAGIT_RELAY_PACE_MS || 3200);
 export const COST_PP = 0.5;
 export const HORIZONS = [1, 3, 5, 10];

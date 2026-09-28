@@ -53,7 +53,7 @@ if (LOCAL) {
   });
 }
 if (MOCK) {
-  await page.route('https://tagit-next-quotes.onrender.com/**', (route) => {
+  await page.route('https://ai-production-85c7.up.railway.app/**', (route) => {
     const body = mockService(new URL(route.request().url()), Date.now());
     return route.fulfill({ status: body ? 200 : 404, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(body ?? { status: 'NOT_FOUND' }) });
   });
