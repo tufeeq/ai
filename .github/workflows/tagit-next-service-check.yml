@@ -7,6 +7,9 @@ on:
       base:
         description: Service base URL
         default: ''
+      expect:
+        description: Text /api/scanner must contain before probing (waits for a redeploy)
+        default: ''
   push:
     branches: ['claude/**']
     paths: ['.github/workflows/tagit-next-service-check.yml']
@@ -17,7 +20,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - name: Probe endpoints
         run: |
@@ -30,6 +33,13 @@ jobs:
             done
           fi
           B="${B:-https://ai-production-85c7.up.railway.app}"
+          E="${{ github.event.inputs.expect }}"
+          if [ -n "$E" ]; then
+            for i in $(seq 1 60); do
+              if curl -s -m 30 -H 'Origin: https://tufeeq.github.io' "$B/api/scanner" | grep -q "$E"; then echo "expected text seen after $i tries"; break; fi
+              echo "wait $i: '$E' not yet in /api/scanner"; sleep 20
+            done
+          fi
           # Wait up to 12 minutes for a fresh deploy to answer /api/health with 200.
           for i in $(seq 1 48); do
             c=$(curl -s -m 10 -o /dev/null -w '%{http_code}' "$B/api/health" || true)
