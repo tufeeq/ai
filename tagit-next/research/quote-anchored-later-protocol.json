@@ -1,0 +1,68 @@
+{
+  "id": "QUOTE_ANCHORED_LATER_DEVELOPMENT_20260928",
+  "base_commit": "dc66d9a694d0bdd88fa4fc9313f2e0e9ec3373ab",
+  "status": "FROZEN_EXPOSED_DEVELOPMENT_ONLY",
+  "selection": "From each later development date 2026-08-25 through 2026-08-28, take the first two chronological BASE signals produced causally by the frozen detector and metadata. The rule and all eight cases were frozen before requesting quotes; signal outcomes and later price paths were not consulted.",
+  "dates": ["2026-08-25", "2026-08-26", "2026-08-27", "2026-08-28"],
+  "cases": [
+    {"id": "OCGN:2026-08-25T14:03:00+00:00", "symbol": "OCGN", "at": "2026-08-25T14:03:00+00:00", "entry": 1.405, "max_entry": 1.412025, "stop": 1.38861, "target": 1.4800884586466156, "expires_at": "2026-08-25T14:05:00+00:00"},
+    {"id": "MITK:2026-08-25T14:08:00+00:00", "symbol": "MITK", "at": "2026-08-25T14:08:00+00:00", "entry": 18.095, "max_entry": 18.185475, "stop": 17.91207, "target": 19.005750789473673, "expires_at": "2026-08-25T14:10:00+00:00"},
+    {"id": "SLDB:2026-08-26T14:04:00+00:00", "symbol": "SLDB", "at": "2026-08-26T14:04:00+00:00", "entry": 9.74, "max_entry": 9.7887, "stop": 9.66033, "target": 10.192638496240596, "expires_at": "2026-08-26T14:06:00+00:00"},
+    {"id": "METC:2026-08-26T14:16:00+00:00", "symbol": "METC", "at": "2026-08-26T14:16:00+00:00", "entry": 12.54, "max_entry": 12.6027, "stop": 12.34764, "target": 13.302334285714279, "expires_at": "2026-08-26T14:18:00+00:00"},
+    {"id": "BTCT:2026-08-27T13:31:00+00:00", "symbol": "BTCT", "at": "2026-08-27T13:31:00+00:00", "entry": 2.245, "max_entry": 2.256225, "stop": 2.13786, "target": 2.52688319548872, "expires_at": "2026-08-27T13:33:00+00:00"},
+    {"id": "NUAI:2026-08-27T13:49:00+00:00", "symbol": "NUAI", "at": "2026-08-27T13:49:00+00:00", "entry": 5.2, "max_entry": 5.226, "stop": 5.049945, "target": 5.656696466165413, "expires_at": "2026-08-27T13:51:00+00:00"},
+    {"id": "RBBN:2026-08-28T14:02:00+00:00", "symbol": "RBBN", "at": "2026-08-28T14:02:00+00:00", "entry": 2.025, "max_entry": 2.035125, "stop": 1.998, "target": 2.139978383458645, "expires_at": "2026-08-28T14:04:00+00:00"},
+    {"id": "BTCT:2026-08-28T14:09:00+00:00", "symbol": "BTCT", "at": "2026-08-28T14:09:00+00:00", "entry": 2.11, "max_entry": 2.12055, "stop": 2.03796, "target": 2.31761796992481, "expires_at": "2026-08-28T14:11:00+00:00"}
+  ],
+  "question": "On later exposed development dates, how often does the unchanged quote-anchored 100-share policy produce an executable entry, and how often does a +10% or +20% move remain after the first source-qualified SIP decision quote?",
+  "decision_quote": "First quote from signal time through two minutes later with positive share sizes, uncrossed positive prices, midpoint spread <=0.8%, and Alpaca SIP provenance. The event timestamp is the historical decision anchor; receipt time is not asserted.",
+  "entry": {
+    "quantity_shares": 100,
+    "latency_seconds": [1, 3],
+    "window_seconds_after_decision": 30,
+    "minimum_impact_adjusted_ask_multiplier": 0.995,
+    "maximum_impact_adjusted_ask_multiplier": 1.005,
+    "maximum_midpoint_spread_pct": 0.8,
+    "maximum_participation_of_lagged_minute_volume": 0.01,
+    "maximum_completed_bar_age_seconds": 90
+  },
+  "execution_label": {
+    "stop_bid_multiplier_of_decision_ask": 0.97,
+    "target_bid_multiplier_of_decision_ask": 1.10,
+    "horizon_minutes_after_entry": 45,
+    "fresh_timeout_allowance_seconds": 3,
+    "rule": "First bid-side barrier after a simulated executable fill; ambiguous same-timestamp barrier order and incomplete quote coverage remain unknown."
+  },
+  "discovery_labels": {
+    "thresholds_pct": [10, 20],
+    "adverse_barrier_pct": -3,
+    "quote_horizon_minutes_after_decision": 45,
+    "same_session_bar_horizon": "Regular-session close using already-saved one-minute bars, beginning with the first whole minute after the decision quote.",
+    "rule": "Measure whether the threshold is reached before the adverse barrier. A one-minute bar touching both is ambiguous. These are opportunity-recall outcomes, not executable returns."
+  },
+  "cost_scenarios": [
+    {"id": "BASE", "fee_bps_per_side": 1, "impact_bps_at_full_participation": 20},
+    {"id": "STRESS", "fee_bps_per_side": 2, "impact_bps_at_full_participation": 40}
+  ],
+  "retrieval": {
+    "provider": "Alpaca",
+    "feed": "sip",
+    "range": "Signal time through 48 minutes later, ascending, one symbol per request.",
+    "limit_per_request": 10000,
+    "maximum_new_market_requests": 20,
+    "no_repeat_rule": "Do not re-request a completed interval in this cycle. A capped or unavailable path is recorded as missing, not as a negative outcome."
+  },
+  "comparison": "Retain every frozen case and every scenario. Do not tune thresholds, omit missing cases, compute resolved-only expectancy as strategy profitability, open the final holdout, change live rules, execute orders, or deploy from this study.",
+  "new_market_request_budget": 20,
+  "holdout_opens": 0,
+  "deployment_allowed": false,
+  "live_rule_changes_allowed": false,
+  "source_sha256": {
+    "data/study-protocol.json": "1dd02a379bcd90a848415d165bb4ff31129bd4c0b60f7166c7e5c712159505bb",
+    "data/study-manifest.json": "6ce841265eb4ac91447908c3dddb3b145e3abdf90080ad5094c94074f4d445df",
+    "engine.py": "2cf01d9926743d204b09a6ca139b4338c247ab2c5085dadba3862c08c664e251",
+    "study.py": "82303568082f80e9c4a6afe9736ed53ffed4f88446f9aad6268e838753b34ad2",
+    "research/quote_anchored_order.py": "e4c081043dc7847355ba35f96dd4d3ef528bad93b7fb8c6ddaa90a736f33ae49",
+    "research/quote-anchored-protocol.json": "4f04fb390fdbcb55265c03134bdd007926fe34bf140df81b2cc91073259fe7fd"
+  }
+}
