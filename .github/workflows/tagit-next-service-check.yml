@@ -37,6 +37,8 @@ jobs:
             head -c 1500 /tmp/body; echo
           }
           date -u
+          echo "=================== / (headers)"; curl -sS -m 30 -D - -o /tmp/root "$B/" | head -20; head -c 600 /tmp/root; echo
+          echo "=================== /tagit-next/ (status)"; curl -s -m 30 -o /dev/null -w '%{http_code}\n' "$B/tagit-next/"
           probe /api/health
           probe /api/health
           probe '/api/live?symbols=SENS,SOUN,MU'
