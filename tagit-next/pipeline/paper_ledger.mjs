@@ -32,8 +32,16 @@
 //   a 95% session-block bootstrap interval. No verdict before 20 sessions and 100 trades; even
 //   then only an interval entirely above zero counts as evidence of an edge.
 // Paper trades are bar simulations, not fills; no order is ever placed.
+//
+// Bookkeeping corrections (2026-09-29, review-outcomes; the trading rules above are unchanged):
+//  - session() is the detector's regularSession (13:00 early closes were treated as 16:00).
+//  - A LIVE_ALERTS session counts only when forward.py recorded that day (live_source); a day run
+//    before its forward row existed is re-run when the row appears (SIP records are kept as
+//    published), and a day with a failed bar batch is retried instead of kept partial.
+//  - Missing sessions are caught up oldest first instead of only the last five weekdays.
+//  - Median net R and $ per trade are reported beside the mean; prices are stored to 6 decimals.
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { batches, fetchBatch, detectSymbol } from '../src/core/sipscan.js';
+import { batches, fetchBatch, detectSymbol, regularSession } from '../src/core/sipscan.js';
 import { sizeWithCosts, roundTripCost, spreadPct } from '../src/core/costs.js';
 import { GATE } from '../src/core/tradeability.js';
 
@@ -85,11 +93,10 @@ export async function getJson(url) {
 
 // ---- session, halts ------------------------------------------------------------------------
 
+/** Regular session [open, close) for a New York date: EDT/EST and 13:00 early closes (shared with the detector). */
 export function session(day) {
-  const probe = new Date(`${day}T16:00:00Z`);
-  const nyHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hourCycle: 'h23' }).format(probe));
-  const open = Date.parse(`${day}T${String(9 + 16 - nyHour).padStart(2, '0')}:30:00Z`);
-  return { open, close: open + 390 * 60_000 };
+  const { open, close } = regularSession(Date.parse(`${day}T16:00:00Z`));
+  return { open, close };
 }
 
 /** "09/25/2026" + "10:01:02" New York → epoch ms; null when malformed. */
@@ -202,8 +209,8 @@ export function simulate(bars, signal, { visibleAt, close, open, spread = null, 
 
   return {
     status: 'TRADED',
-    entry: round(entry), entry_at: iso(entryAt), exit: round(exit), exit_at: iso(exitAt), exit_kind: kind,
-    stop: round(stop), target: round(target), shares, notional: round(shares * entry, 2), limited_by: size.limitedBy,
+    entry: round(entry, 6), entry_at: iso(entryAt), exit: round(exit, 6), exit_at: iso(exitAt), exit_kind: kind,
+    stop: round(stop, 6), target: round(target, 6), shares, notional: round(shares * entry, 2), limited_by: size.limitedBy,
     spread_pct: round(cost.spreadPct, 3), spread_source: cost.spreadSource,
     minute_dollars: Math.round(liq.minuteDollars ?? 0),
     gross_usd: round(gross, 2), cost_usd: round(costUsd, 2), net_usd: round(net, 2),
@@ -242,6 +249,8 @@ export function blockBootstrap(days, draws = 2000, seed = 7) {
   return [round(means[Math.floor(0.025 * means.length)], 4), round(means[Math.ceil(0.975 * means.length) - 1], 4)];
 }
 
+const medianOf = (xs) => { const s = [...xs].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+
 /** Summary of a book over days: [{ date, trades: [...] }]. */
 export function summarizeBook(days) {
   const trades = days.flatMap((d) => d.trades);
@@ -261,6 +270,10 @@ export function summarizeBook(days) {
     gross_usd: round(sum(trades.map((t) => t.gross_usd)), 2),
     cost_usd: round(sum(trades.map((t) => t.cost_usd)), 2),
     mean_net_r: round(meanR, 4),
+    // The mean R is dominated by plans whose stop sits inside the spread (costs of 20-70R); the
+    // median and the dollar result per trade are reported beside it.
+    median_net_r: n ? round(medianOf(trades.map((t) => t.net_r)), 4) : null,
+    net_usd_per_trade: n ? round(sum(trades.map((t) => t.net_usd)) / n, 2) : null,
     mean_gross_r: n ? round(sum(trades.map((t) => t.gross_r)) / n, 4) : null,
     mean_cost_r: n ? round(sum(trades.map((t) => t.cost_r)) / n, 4) : null,
     mean_net_r_ci95: ci,
@@ -287,11 +300,26 @@ function sipSymbolsFor(day) {
   return d ? { symbols: [...new Set(d.events.map((e) => e.symbol))], signals: d.events.length } : null;
 }
 
-function liveAlertsFor(day) {
+/**
+ * Live alerts forward.py recorded for a session. `source` is MISSING when forward-outcomes.json has
+ * no recorded row for the day (not evaluated yet, or the recorder never sampled it): zero alerts
+ * then means "not observed", so the day is not counted in the LIVE_ALERTS book and is re-run once
+ * the row appears.
+ */
+export function liveAlertsFor(day, report = null) {
   const path = new URL('data/forward-outcomes.json', ROOT);
-  if (!existsSync(path)) return [];
-  const d = JSON.parse(readFileSync(path)).days?.find((x) => x.summary?.date === day);
-  return d?.events ?? [];
+  if (!report && !existsSync(path)) return { source: 'MISSING', events: [] };
+  const d = (report ?? JSON.parse(readFileSync(path))).days?.find((x) => x.summary?.date === day);
+  const recorded = d && (d.summary.recorded ?? (d.summary.health?.samples ?? 0) > 0);
+  return recorded ? { source: 'FORWARD_OUTCOMES', events: d.events ?? [] } : { source: 'MISSING', events: [] };
+}
+
+/** A stored day must be run again: a failed bar batch, or live alerts that arrived after it ran. */
+export function needsRerun(stored, live) {
+  if (!stored) return true;
+  if (stored.failed > 0) return true;
+  const stale = (stored.live_source ?? 'MISSING') !== live.source || (stored.live_alerts_input ?? 0) !== live.events.length;
+  return live.source === 'FORWARD_OUTCOMES' && stale;
 }
 
 async function quoteSpread(symbol, at) {
@@ -305,7 +333,8 @@ export async function runDay(day, { log = console.log } = {}) {
   // Regular-session bars only, exactly like the published SIP study, so detections match it.
   const window = { start: iso(open), end: iso(close) };
   const sip = sipSymbolsFor(day);
-  const live = liveAlertsFor(day);
+  const liveInput = liveAlertsFor(day);
+  const live = liveInput.events;
   const universe = sip ? sip.symbols : eligibleSymbols();
   const symbols = [...new Set([...universe, ...live.map((a) => a.symbol).filter(Boolean)])];
   const halts = await loadHalts(day);
@@ -365,6 +394,8 @@ export async function runDay(day, { log = console.log } = {}) {
     failed,
     universe_source: sip ? 'sip-events.json' : 'eligible universe (sip-events missing)',
     published_sip_signals: sip?.signals ?? null,
+    live_source: liveInput.source,
+    live_alerts_input: live.length,
     live_alerts_extended_hours: extendedLive.length,
     halts_source: halts.status,
     records,
@@ -375,7 +406,11 @@ export async function runDay(day, { log = console.log } = {}) {
 
 export function buildLedger(days, { status = 'FORWARD_PAPER_TRADING' } = {}) {
   const sorted = [...days].sort((a, b) => a.date.localeCompare(b.date));
-  const book = (name, filter = () => true) => summarizeBook(sorted.map((d) => ({ date: d.date, trades: d.records.filter((r) => r.book === name && r.status === 'TRADED' && filter(r)) })));
+  // A day counts as a LIVE_ALERTS session only when forward.py recorded it; a missing forward row
+  // is "not observed", not "zero alerts" (days stored before this field existed count as observed).
+  const observed = (name, d) => name !== 'LIVE_ALERTS' || (d.live_source ?? 'FORWARD_OUTCOMES') === 'FORWARD_OUTCOMES';
+  const book = (name, filter = () => true) => summarizeBook(sorted.filter((d) => observed(name, d))
+    .map((d) => ({ date: d.date, trades: d.records.filter((r) => r.book === name && r.status === 'TRADED' && filter(r)) })));
   const books = {};
   for (const name of ['SIP_DELAYED', 'LIVE_ALERTS']) {
     books[name] = { all: book(name), gate_passed: book(name, (r) => r.gate === 'PASSED') };
@@ -405,7 +440,8 @@ export function buildLedger(days, { status = 'FORWARD_PAPER_TRADING' } = {}) {
     books,
     days: sorted.map((d) => ({
       date: d.date, with_bars: d.with_bars, symbols: d.symbols, failed: d.failed, halts_source: d.halts_source, universe_source: d.universe_source,
-      published_sip_signals: d.published_sip_signals, live_alerts_extended_hours: d.live_alerts_extended_hours,
+      published_sip_signals: d.published_sip_signals, live_source: d.live_source ?? null, live_alerts_input: d.live_alerts_input ?? null,
+      live_alerts_extended_hours: d.live_alerts_extended_hours,
       signals: d.records.length, traded: d.records.filter((r) => r.status === 'TRADED').length,
       net_usd: round(d.records.filter((r) => r.status === 'TRADED').reduce((s, r) => s + r.net_usd, 0), 2),
     })),
@@ -433,13 +469,23 @@ async function main() {
   const to = arg('--to') ?? today;
   if (!from) throw new Error('--replay needs --from');
   if (!replay && from < FORWARD_START) throw new Error(`forward ledger starts ${FORWARD_START}; use --replay for earlier sessions`);
-  const wanted = tradingDays(from, to).slice(-Number(arg('--max-days') ?? 5));
+  // Every session that still needs work (never run, a failed bar batch, or live alerts that
+  // arrived after it ran), oldest first: a missed night is caught up instead of skipped.
+  const refresh = process.argv.includes('--refresh');
+  const wanted = tradingDays(from, to)
+    .filter((day) => refresh || needsRerun(known.get(day), liveAlertsFor(day)))
+    .slice(0, Number(arg('--max-days') ?? 5));
   let changed = !existsSync(out);
   for (const day of wanted) {
-    if (known.has(day) && !process.argv.includes('--refresh')) continue;
     if (Date.now() < session(day).close + SIP_VISIBLE_MS) { console.log(`${day}: session not complete`); continue; }
-    const result = await runDay(day);
+    let result = await runDay(day);
     if (!result) { console.log(`${day}: no bars (holiday or provider gap)`); continue; }
+    const stored = known.get(day);
+    if (stored && !refresh && !(stored.failed > 0) && !(result.failed > 0)) {
+      // Only the live alerts changed: keep the SIP records already published (bar corrections
+      // between fetches must not rewrite past trades) and take the new LIVE_ALERTS records.
+      result = { ...result, records: [...stored.records.filter((r) => r.book === 'SIP_DELAYED'), ...result.records.filter((r) => r.book === 'LIVE_ALERTS')] };
+    }
     known.set(day, result);
     changed = true;
     writeFileSync(rawPath, JSON.stringify({ schema: 1, protocol: PROTOCOL, days: [...known.values()] }) + '\n');

@@ -29,16 +29,18 @@ const DILUTION_REASONS = {
   REPEATED_OFFERINGS: 'طرحان مسعّران أو أكثر (424B) خلال ١٢ شهرًا',
   SHARE_GROWTH: 'الأسهم القائمة زادت ٥٠٪ أو أكثر خلال سنة',
 };
-const millions = (v) => `$${(v / 1e6).toFixed(1)}M`;
+// Left-to-right isolate so "$44.8M", "+310.2%" and ISO dates keep their order inside Arabic text.
+const ltr = (t) => `\u2066${t}\u2069`;
+const millions = (v) => ltr(`$${(v / 1e6).toFixed(1)}M`);
 
 /** Dilution-risk item for one symbol, or null when none is flagged or no data exists. */
 export function dilutionOf(entry) {
   const d = entry?.dilution;
   if (!d || !['HIGH', 'WATCH'].includes(d.level)) return null;
   const parts = (d.reasons ?? []).map((r) => DILUTION_REASONS[r]).filter(Boolean);
-  if (finite(d.cash?.value)) parts.push(`النقد ${millions(d.cash.value)} بتاريخ ${d.cash.as_of}${d.cash_stale ? ' (قديم)' : ''}`);
+  if (finite(d.cash?.value)) parts.push(`النقد ${millions(d.cash.value)} بتاريخ ${ltr(d.cash.as_of)}${d.cash_stale ? ' (قديم)' : ''}`);
   if (d.level === 'HIGH') parts.push('دراسة catalyst-study-1: هذه الأسهم تأخرت عن غيرها بنحو ٢٫٦ نقطة خلال ١٠ جلسات في فترة الاختبار، ولم يظهر الفرق في فترة التطوير؛ تحذير، لا إشارة بيع');
-  if (finite(d.shares_change_1y_pct)) parts.push(`تغير الأسهم خلال سنة ${d.shares_change_1y_pct > 0 ? '+' : ''}${d.shares_change_1y_pct}%`);
+  if (finite(d.shares_change_1y_pct)) parts.push(`تغير الأسهم خلال سنة ${ltr(`${d.shares_change_1y_pct > 0 ? '+' : ''}${d.shares_change_1y_pct}%`)}`);
   return {
     level: d.level,
     kind: 'DILUTION',

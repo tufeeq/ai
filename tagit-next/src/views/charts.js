@@ -24,14 +24,19 @@ export function samplesChart(event) {
   const last = points.at(-1);
   const up = last.price >= event.start_price;
   const base = y(event.start_price).toFixed(1);
+  // Keep the last-price tag clear of the start-price tag when the two prices are close.
+  let lastY = y(last.price) + 4;
+  if (Math.abs(lastY - (Number(base) + 4)) < 16) lastY = Number(base) + 4 + (y(last.price) > Number(base) ? 16 : -16);
+  lastY = Math.min(H - B, Math.max(T, lastY));
+  // direction ltr: the page is RTL, which would otherwise flip text anchors and clip the time axis.
   return html`<figure class="chart ${up ? 'up' : 'down'}">
-    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="عينات السعر المرصودة بعد بدء المتابعة">
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="عينات السعر المرصودة بعد بدء المتابعة" dir="ltr" style="direction:ltr">
       <path class="chart-area" d="${area}"/>
       <line class="chart-base" x1="${L}" x2="${W - R}" y1="${base}" y2="${base}"/>
       <text class="chart-tag" x="${W - R + 6}" y="${Number(base) + 4}">${f.price(event.start_price)}</text>
       <path class="chart-line" d="${path}"/>
       <circle class="chart-dot" cx="${x(t1).toFixed(1)}" cy="${y(last.price).toFixed(1)}" r="3.5"/>
-      <text class="chart-tag strong" x="${W - R + 6}" y="${(y(last.price) + 4).toFixed(1)}">${f.price(last.price)}</text>
+      <text class="chart-tag strong" x="${W - R + 6}" y="${lastY.toFixed(1)}">${f.price(last.price)}</text>
       <text class="chart-axis" x="${L}" y="${H - 6}">${f.time(points[0].at)}</text>
       <text class="chart-axis" x="${W - R}" y="${H - 6}" text-anchor="end">${f.time(last.at)}</text>
     </svg>
@@ -39,8 +44,8 @@ export function samplesChart(event) {
   </figure>`;
 }
 
-/** Vertical price ladder: stop, entry, targets and the live price marker. */
-export function planLadder(levels, price) {
+/** Vertical price ladder: stop, entry, targets and the price marker ("now" only when current). */
+export function planLadder(levels, price, current = true) {
   const marks = levels.filter((m) => positive(m.value));
   if (marks.length < 2) return '';
   const all = [...marks.map((m) => m.value), ...(positive(price) ? [price] : [])];
@@ -62,7 +67,7 @@ export function planLadder(levels, price) {
     ? raw(`<rect class="zone-reward" x="70" width="260" y="${y(target.value).toFixed(1)}" height="${Math.max(1, y(entry.value) - y(target.value)).toFixed(1)}"/>`)
     : '';
   const now = positive(price)
-    ? raw(`<g class="lvl-now"><circle cx="200" cy="${y(price).toFixed(1)}" r="5"/><text x="210" y="${(y(price) - 8).toFixed(1)}">الآن ${f.price(price)}</text></g>`)
+    ? raw(`<g class="lvl-now"><circle cx="200" cy="${y(price).toFixed(1)}" r="5"/><text x="210" y="${(y(price) - 8).toFixed(1)}">${current ? 'الآن' : 'آخر سعر (غير حالي)'} ${f.price(price)}</text></g>`)
     : '';
   return html`<svg class="ladder" viewBox="0 0 420 ${H}" role="img" aria-label="مستويات الخطة والسعر الحالي" dir="ltr">${reward}${zone}${rows}${now}</svg>`;
 }
