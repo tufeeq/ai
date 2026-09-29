@@ -101,6 +101,19 @@ test('journal: deleting today\'s manual record is not undone by the next scan', 
   assert.equal(removeEvent(state, 'missing', now), false);
 });
 
+test('lab: every CSS token it uses exists, and the iframe height cannot feed back on itself', () => {
+  const css = readFileSync(new URL('../lab/lab.css', import.meta.url), 'utf8');
+  const theme = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  const defined = new Set([...(theme + css).matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]));
+  const used = new Set([...css.matchAll(/var\((--[a-z0-9-]+)\)/g)].map((m) => m[1]));
+  const missing = [...used].filter((v) => !defined.has(v));
+  assert.deepEqual(missing, []);
+  assert.match(css, /body\{[^}]*min-height:0/); // style.css sets body min-height:100vh
+  const js = readFileSync(new URL('../lab/lab.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(js, /document\.body\.getBoundingClientRect\(\)\.height/);
+  assert.doesNotMatch(js, /Asia\/Riyadh/); // the rest of the site shows New York time
+});
+
 test('themes use the median move and show the range, so one outlier cannot flip the sign', () => {
   const rows = [row('K1', 'Biotechnology', 178, 5000), row('K2', 'Biotechnology', -18.6, 100), row('K3', 'Biotechnology', -29.6, 60), row('K4', 'Biotechnology', 1.2, 900)];
   const by = new Map(parseUniverse(rows).map((x) => [x.symbol, x]));
