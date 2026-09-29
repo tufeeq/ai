@@ -91,7 +91,7 @@ function overview(state, r, a, now) {
   const flowTotal = (flow.up ?? 0) + (flow.down ?? 0);
   const upShare = flowTotal > 0 ? Math.round(((flow.up ?? 0) / flowTotal) * 100) : 50;
   const why = s?.ready
-    ? `تحرك ${f.pct(s.return_3m)} خلال ٣ دقائق مكتملة، بحجم ${f.num(s.volume_ratio, 1)}× المعتاد وقيمة تداول ${f.compactUsd(s.dollars_3m)}.`
+    ? `تحرك ${f.pct(s.return_3m)} خلال ٣ دقائق مكتملة، بحجم ${f.ltr(`${f.num(s.volume_ratio, 1)}×`)} المعتاد وقيمة تداول ${f.compactUsd(s.dollars_3m)}.`
     : 'ظهر ضمن قائمة السوق، لكن بيانات الدقائق لا تكفي لتأكيد نمط انطلاق.';
 
   return html`

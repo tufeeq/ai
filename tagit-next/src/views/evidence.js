@@ -119,7 +119,9 @@ const COND_NAMES = {
   liq_lt1m: 'تداول الأمس < $1M', liq_gt10m: 'تداول الأمس > $10M', dtc_ge3: 'أيام تغطية ≥ ٣',
   morning: 'قبل 11:00', afternoon: 'بعد 14:00', breakout: 'اختراق', vr_ge6: 'حجم ≥ ٦×', usd3_lt50k: 'قيمة ٣ د < $50K', usd3_ge250k: 'قيمة ٣ د ≥ $250K',
 };
-const condName = (name) => name.split(' + ').map((x) => COND_NAMES[x] ?? x).join(' + ');
+// Dollar amounts and clock times stay left-to-right inside the Arabic label ("$50K", not "50K$").
+const condName = (name) => name.split(' + ')
+  .map((x) => (COND_NAMES[x] ?? x).replace(/\$[\d.–]+[KM]?|\d{1,2}:\d{2}/g, (t) => f.ltr(t))).join(' + ');
 
 function filterCard(x) {
   if (!x?.baseline) return '';
