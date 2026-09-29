@@ -80,8 +80,9 @@ top-mover recall, forward performance or actual fills. Historical event timestam
 are not receipt timestamps; queue position, halts and point-in-time universe
 eligibility remain unknown. No live rule, UI recommendation or order was changed.
 
-The next bounded step is to preregister an exit-measurement sensitivity on the
-combined 20-case development sample using fixed 3-second and 30-second capacity
-allowances, then measure whether uncertainty falls without changing entry or
-barrier rules. Only after that measurement is fixed should a timestamped pre-signal
-feature be tested on a separate validation sample. The final holdout stays sealed.
+That bounded sensitivity is now complete: the 30-second allowance resolved only
+one additional case and left ten unknown exits. See
+[EXIT_CAPACITY_SENSITIVITY_FINDINGS.md](EXIT_CAPACITY_SENSITIVITY_FINDINGS.md).
+The next step is to freeze one timestamped pre-signal feature and its acceptance
+criterion before testing it on a separate validation manifest. The final holdout
+stays sealed.

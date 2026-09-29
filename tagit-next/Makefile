@@ -15,6 +15,7 @@ verify:
 	python -m research.quote_anchored --check
 	python -m research.quote_anchored_order --check
 	python -m research.quote_anchored_later --check
+	python -m research.exit_capacity_sensitivity --check
 
 # Python 3.12+, Node 24. Offline, no account secrets needed.
 phase1:
@@ -68,3 +69,4 @@ quote-anchored:
 	python -m research.quote_anchored --check
 	python -m research.quote_anchored_order --check
 	python -m research.quote_anchored_later --check
+	python -m research.exit_capacity_sensitivity --check

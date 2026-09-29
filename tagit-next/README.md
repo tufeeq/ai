@@ -1,5 +1,12 @@
 # TAGit NEXT — independent small-cap rebuild
 
+**Latest cycle (29 September 2026):** [exit-capacity sensitivity](EXIT_CAPACITY_SENSITIVITY_FINDINGS.md).
+On the same 20 frozen development cases, extending qualified exit-capacity wait
+from 3 to 30 seconds resolved only one additional case, as a modeled timeout.
+Ten of 14 simulated entries still have unknown exits; full-sample expectancy is
+unavailable, no market history was requested, the final holdout remains sealed
+and no live rule changed. Reproduce offline with `make -C tagit-next quote-anchored`.
+
 **Latest cycle (28 September 2026):** [later quote-anchored findings](LATER_QUOTE_FINDINGS.md).
 The frozen later-development sample adds 34,718 SIP quotes for eight signals across
 four sessions. Five simulated entries produced one modeled stop and four unknown
@@ -7,7 +14,7 @@ exits; three cases had no entry. Neither quote paths nor same-session minute bar
 showed a +10% or +20% target-first case. Full-sample expectancy is unavailable,
 the final holdout remains sealed and no live rule changed. Reproduce offline with
 `make -C tagit-next quote-anchored`.
-The complete local verification passed 206 Python tests and 74 Node tests.
+The complete local verification passed 209 Python tests and 94 Node tests.
 
 **Latest cycle (27 September 2026):** [quote-anchored decision findings](QUOTE_ANCHORED_FINDINGS.md).
 A frozen twelve-case SIP audit now starts its plan at the first qualified observed
