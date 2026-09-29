@@ -3,12 +3,14 @@ name: TAGit NEXT paper ledger
 # Forward paper-trade ledger (protocol paper-ledger-1, pipeline/paper_ledger.mjs): after each
 # session, every signal the page would have shown is traded on paper with SIP minute bars and the
 # calculator's cost model. Runs after the consolidated study (16:40) and the forward evaluation
-# (20:20) have published the day's inputs. Branch pushes replay recent sessions (not forward,
+# (21:20 EDT / 20:20 EST) have published the day's inputs. Branch pushes replay recent sessions (not forward,
 # not published) as a smoke test.
 on:
   schedule:
-    - cron: '45 0 * * 2-6'   # 20:45 EDT
-    - cron: '45 1 * * 2-6'   # 20:45 EST (second, idempotent pass in EDT)
+    # After the forward evaluation passes (01:20, 02:20, 05:20 UTC). A session is re-run when its
+    # live alerts arrive after it was first run, and a missed night is caught up (oldest first).
+    - cron: '45 2 * * 2-6'   # 22:45 EDT / 21:45 EST
+    - cron: '45 5 * * 2-6'   # 01:45 EDT / 00:45 EST (idempotent late pass)
   workflow_dispatch:
     inputs:
       replay_from:
