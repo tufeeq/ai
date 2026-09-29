@@ -53,6 +53,7 @@ export const isExtended = (row, fade = row?.fade) =>
  */
 export function compareRows(x, ax, y, ay, fadeOf = (r) => r?.fade ?? null) {
   return ay.passed - ax.passed ||
+    Number(ax.state === 'BLOCKED') - Number(ay.state === 'BLOCKED') ||
     Number(isExtended(x, fadeOf(x))) - Number(isExtended(y, fadeOf(y))) ||
     (x.signal?.return_3m ?? Infinity) - (y.signal?.return_3m ?? Infinity) ||
     (x.symbol < y.symbol ? -1 : x.symbol > y.symbol ? 1 : 0);

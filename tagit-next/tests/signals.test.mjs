@@ -150,3 +150,12 @@ test('published data renders the bottom line and all-negative holdout breakdowns
   assert.match(out, /الخلاصة/);
   assert.match(out, /كلها سالبة بعد التكلفة/);
 });
+
+test('integration: a row the execution gate blocks ranks after a tradeable row with the same checks', () => {
+  const x = { symbol: 'AAA', signal: { return_3m: 1 } };
+  const y = { symbol: 'BBB', signal: { return_3m: 2 } };
+  const blocked = { passed: 10, state: 'BLOCKED' };
+  const ready = { passed: 10, state: 'READY' };
+  assert.ok(compareRows(x, blocked, y, ready) > 0);
+  assert.ok(compareRows(y, ready, x, blocked) < 0);
+});

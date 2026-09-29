@@ -33,10 +33,25 @@ function row(state, r, now) {
     <span class="row-id"><span class="sym">${state.watched.has(r.symbol) ? '★ ' : ''}${r.symbol} ${shariaBadge(r, now)}${riskBadge(riskFor(state, r, now))}</span><span class="name">${r.name ?? ''}</span></span>
     <span class="row-price${q.current ? '' : ' is-stale'}" title="${q.sourceLabel ?? ''} · ${q.label}"><span class="px" dir="ltr">${f.usd(r.price)}</span><span class="chg ${f.tone(r.day_change)}" dir="ltr">${f.pct(r.day_change)}${changeNote(r, now)}</span><small class="px-src q-${q.level}">${priceTag(q)}</small></span>
     <span class="row-meter">${meter(a)}<span class="meter-label" dir="ltr">${a.passed}/${a.total}</span></span>
-    <span class="row-vol"><span dir="ltr">${f.num(s?.volume_ratio, 1)}×</span><small dir="ltr">${f.compactUsd(s?.dollars_3m)}</small></span>
+    <span class="row-vol"><span dir="ltr">${Number.isFinite(s?.volume_ratio) ? `${f.num(s.volume_ratio, 1)}×` : f.DASH}</span><small dir="ltr">${f.compactUsd(s?.dollars_3m)}</small></span>
     <span class="row-state">${stateBadge(a.state)}<small class="flow fl-${flow.status}">${flow.label}</small></span>
     <span class="row-age" data-age="${r.price_at ?? ''}"><i class="dot ${DOT[q.level]}"></i><span class="age-text">${f.age(r.price_at, now)}</span></span>
   </button></li>`;
+}
+
+/** Why the list is empty: no filter match, an empty scan, no connection yet, or still loading. */
+export function emptyText(state) {
+  const { view, search, maxPrice, filter } = state.ui;
+  if (view === 'watch' && !state.watched.size) return EMPTY.watch;
+  if (search.trim() || Number.isFinite(maxPrice) || filter !== 'all') return 'لا أسهم تطابق البحث أو الفلاتر الحالية. امسح البحث أو اختر «الكل».';
+  if (view === 'watch') return EMPTY.watch;
+  if (!state.scan) {
+    return state.connection.phase === 'error'
+      ? 'تعذر الوصول إلى خدمة البيانات بعد؛ نعيد المحاولة تلقائيًا. لا تعتمد على أي سعر من خارج الصفحة كأنه حالي.'
+      : 'بانتظار أول مسح للسوق…';
+  }
+  if (!state.scan.order.length) return 'آخر مسح لم يُرجع أي سهم بسعر ضمن النطاق (سوق هادئ أو مزود بلا بيانات). نعيد المسح كل ٣٠ ثانية.';
+  return view === 'early' ? 'كل أسهم المسح الحالية ممتدة أو خارج النطاق؛ لا بداية حركة مبكرة الآن.' : EMPTY[view];
 }
 
 function tier(key, title, count, hint) {
@@ -63,8 +78,6 @@ export function renderList(state, now) {
     ];
   }
   let empty = '';
-  if (!rows.length) {
-    empty = state.scan || view === 'watch' ? EMPTY[view] : 'بانتظار أول مسح للسوق…';
-  }
+  if (!rows.length) empty = emptyText(state);
   return { markup: html`${items}`, count: rows.length, empty };
 }
