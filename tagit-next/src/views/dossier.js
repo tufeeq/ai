@@ -9,6 +9,7 @@ import { outcome } from '../core/journal.js';
 import { shariaStatus } from '../core/sharia.js';
 import { companyFacts } from '../core/risk.js';
 import { fadeWarning, EVENT_LABELS } from '../core/fade.js';
+import { marketDate } from '../core/market.js';
 import { assessRow, flowOf, selectedRow } from '../state.js';
 import { STATE_HINTS, stateBadge, shariaBadge, meter, stat, riskFor, changeNote, DOT } from './common.js';
 import { priceQuality, SOURCES } from '../core/quality.js';
@@ -117,7 +118,7 @@ function overview(state, r, a, now) {
     ${gateSection(gateFor(state, r, a, now))}
     <h3>لماذا ظهر السهم؟</h3>
     <p class="why">${why}${isExtended(r) ? ' الحركة ممتدة؛ لا تُصنّف بداية مبكرة.' : ''}</p>
-    ${sipCard(sipSignalFor(state, r.symbol), r, now)}
+    ${sipCard(sipSignalFor(state, r.symbol), r, now, state.evidence)}
     ${riskSection(state, r, now)}
     <div class="checks">${groups}</div>
     <h3>السيولة التقديرية <small class="flow fl-${flow.status}">${flow.label}</small></h3>
@@ -285,8 +286,8 @@ function priceContext(r, now) {
 }
 
 /** fade-study-1 long-side warning: shown only for symbols on the published flag list. */
-export function fadeBanner(flags, symbol) {
-  const w = fadeWarning(flags, symbol);
+export function fadeBanner(flags, symbol, today = null) {
+  const w = fadeWarning(flags, symbol, today);
   if (!w) return '';
   return html`<div class="fade-warning" role="note">
     <b>⚠ تحذير امتداد</b> · ${w.events.map((e) => EVENT_LABELS[e] ?? e).join(' + ')} · <span dir="ltr">${w.day}</span>
@@ -327,7 +328,7 @@ export function renderDossier(state, now) {
       ${priceContext(r, now)}
       <button class="btn ${watching ? 'btn-on' : ''}" data-watch="${r.symbol}" aria-pressed="${watching}">${watching ? '★ في المتابعة' : '☆ أضف للمتابعة'}</button>
     </div>
-    ${fadeBanner(state.fadeFlags, r.symbol)}
+    ${fadeBanner(state.fadeFlags, r.symbol, marketDate(now))}
     <nav class="seg" role="tablist" aria-label="أقسام ملف السهم">${TABS.map(([id, label]) =>
       html`<button role="tab" data-tab="${id}" aria-selected="${tab === id}" class="${tab === id ? 'is-active' : ''}">${label}</button>`)}</nav>
     <div class="dossier-body" data-key="body-${r.symbol}-${tab}" role="tabpanel">${body}</div>`;
