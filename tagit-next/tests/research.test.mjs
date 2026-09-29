@@ -26,3 +26,13 @@ test('published relabel file matches a fresh run', () => {
   const published = JSON.parse(readFileSync(new URL('../data/outcome-relabel.json', import.meta.url)));
   assert.deepEqual(published, JSON.parse(JSON.stringify(report)));
 });
+
+test('plan label: a gap through the stop exits at the gap open, and R after cost is below gross R', () => {
+  const plans = report.events.map((e) => e.plan).filter((p) => p && ['STOP', 'TARGET_2R', 'TIME'].includes(p.status));
+  const gaps = plans.filter((p) => p.gap);
+  assert.ok(gaps.length > 0);
+  for (const p of gaps) assert.ok(p.r < -1 + 1e-12, `gap stop must lose at least 1R, got ${p.r}`);
+  for (const p of plans.filter((x) => x.status === 'STOP' && !x.gap)) assert.ok(Math.abs(p.r + 1) < 1e-9);
+  for (const p of plans) assert.ok(p.r_after_cost < p.r);
+  assert.equal(report.corrected['2m'].plan.stop_gaps, gaps.length);
+});
