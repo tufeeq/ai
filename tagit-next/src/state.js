@@ -2,7 +2,8 @@
 // so every transition is testable in Node with an injected clock.
 import { positive, isSymbol } from './core/util.js';
 import { marketDate, mergeMarketRow } from './core/market.js';
-import { assess, isExtended, splitPriority } from './core/checks.js';
+import { assess, isExtended, splitPriority, compareRows } from './core/checks.js';
+import { fadeWarning } from './core/fade.js';
 import { createWatchEvent, createSignalEvent, recordObservation, JOURNAL_LIMIT } from './core/journal.js';
 import { updatePressure, pressureSummary } from './core/pressure.js';
 import { WATCH_LIMIT } from './storage.js';
@@ -53,11 +54,15 @@ export function assessRow(state, row, now) {
       serverTime: row.scan_at ?? state.scan?.server_time,
       connected: state.connection.phase === 'live' || state.connection.phase === 'partial',
       feed: state.scan?.feed,
+      fade: fadeOf(state, row, now),
     });
     state.cache.map.set(row, a);
   }
   return a;
 }
+/** fade-study-1 warning for a row (extension event in the last five sessions), or null. */
+export const fadeOf = (state, row, now) => fadeWarning(state.fadeFlags, row?.symbol, marketDate(now));
+
 const invalidate = (state) => state.cache.map.clear();
 
 export const flowOf = (state, symbol, now) => pressureSummary(state.pressure.get(symbol), now);
@@ -320,11 +325,11 @@ export function visibleRows(state, now) {
   } else {
     rows = (state.scan?.order ?? []).map((s) => state.stocks.get(s)).filter((r) => r && inUniverse(r));
   }
-  if (view === 'early') rows = rows.filter((r) => !isExtended(r));
+  if (view === 'early') rows = rows.filter((r) => !isExtended(r, fadeOf(state, r, now)));
   if (view === 'gainers') {
     rows.sort((a, b) => (b.day_change ?? -Infinity) - (a.day_change ?? -Infinity));
   } else {
-    rows.sort((a, b) => assessRow(state, b, now).passed - assessRow(state, a, now).passed || (b.score ?? 0) - (a.score ?? 0));
+    rows.sort((a, b) => compareRows(a, assessRow(state, a, now), b, assessRow(state, b, now), (r) => fadeOf(state, r, now)));
   }
   return rows.filter((r) => matchesFilters(state, r, now)).slice(0, LIST_LIMIT);
 }
@@ -336,6 +341,7 @@ export function groupRows(state, rows, now) {
     connected: state.connection.phase === 'live' || state.connection.phase === 'partial',
     feed: state.scan?.feed,
     assessment: (r) => assessRow(state, r, now),
+    fadeOf: (r) => fadeOf(state, r, now),
   });
 }
 
@@ -352,7 +358,7 @@ export function metrics(state, now) {
     scanned: state.scan?.coverage?.eligible_small_caps ?? null,
     priced: state.scan?.coverage?.with_prices ?? null,
     fresh: rows.filter((r) => assessRow(state, r, now).checks.find((c) => c.key === 'trade').pass).length,
-    signals: rows.filter((r) => r.signal?.expansion && !isExtended(r) && assessRow(state, r, now).checks.find((c) => c.key === 'history').pass).length,
+    signals: rows.filter((r) => r.signal?.expansion && !isExtended(r, fadeOf(state, r, now)) && assessRow(state, r, now).checks.find((c) => c.key === 'history').pass).length,
     plans: rows.filter((r) => assessRow(state, r, now).plan).length,
   };
 }

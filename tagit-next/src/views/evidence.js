@@ -32,8 +32,11 @@ function forwardCard(fw) {
     return html`<div class="evidence-card"><h4>السجل الحي للتنبيهات</h4><p class="note">يبدأ التسجيل التلقائي للتنبيهات الحية وتقييمها بعد الإغلاق يوميًا. لا توجد أيام مقيّمة بعد.</p></div>`;
   }
   const recent = [...fw.days].reverse().slice(0, 7);
+  const none = !t.alerts;
   return html`<div class="evidence-card">
     <h4>السجل الحي للتنبيهات <small>آخر تحديث ${f.dateTime(fw.updated_at)}</small></h4>
+    ${none ? html`<p class="down"><b>لم تُسجَّل أي تنبيهات من القائمة الحية في ${n(t.days)} يوم؛ لا توجد نتيجة حية لهذه القائمة بعد.</b></p>` : ''}
+    <p class="note">القائمة الحية تعمل على دقائق IEX (بورصة واحدة) وتختلف عن الإشارة المدروسة على بيانات SIP (تدقيق A6: ٤ تطابقات فقط من ٣٢ إشارة IEX)، فلا تنطبق عليها نتائج الدراسات.</p>
     <div class="stats">
       <div class="stat"><span class="stat-label">أيام مقيّمة</span><strong class="stat-value">${n(t.days)}</strong></div>
       <div class="stat"><span class="stat-label">تنبيهات / لها نتيجة</span><strong class="stat-value" dir="ltr">${n(t.alerts)} / ${n(t.resolved)}</strong></div>
@@ -64,8 +67,21 @@ function sipStudyCard(st) {
         ${row('الكل · عند الرصد', st.totals.at_detection)}
       </tbody>
     </table>
+    ${breakdownTable(st.breakdowns_holdout)}
     <p class="note">"عند الرصد" يقيس الحركة بعد الإشارة مباشرة؛ "بعد التأخير" يدخل حين تصبح الإشارة المجانية مرئية. الاختبار اللاحق هو آخر ثلث الجلسات ولم يُستخدم لضبط أي شيء. الكون الحالي للأسهم يعني انحياز بقاء للجلسات السابقة، والتكلفة ٠٫٥ نقطة مفترضة.</p>
   </div>`;
+}
+
+/** Holdout breakdown of the SIP study: shows that larger bursts did not do better (every row negative). */
+function breakdownTable(b) {
+  const groups = Object.entries(b ?? {}).filter(([, v]) => v && typeof v === 'object');
+  if (!groups.length) return '';
+  const names = { price: 'السعر', volume_ratio: 'تسارع الحجم', dollars_3m: 'قيمة ٣ دقائق', time: 'الوقت', breakout: 'اختراق' };
+  const rows = groups.flatMap(([g, v]) => Object.entries(v).map(([k, x]) => html`<tr><th>${names[g] ?? g} · <span dir="ltr">${k}</span></th><td dir="ltr">${n(x.resolved)}</td><td>${pctCell(x.mean_return_pct)}</td><td dir="ltr">${x.win_rate == null ? '—' : f.num(x.win_rate * 100, 0) + '%'}</td></tr>`));
+  const anyUp = groups.some(([, v]) => Object.values(v).some((x) => x.mean_return_pct > 0));
+  return html`<details><summary>الشرائح في فترة الاختبار (عند الرصد)${anyUp ? '' : ' — كلها سالبة بعد التكلفة'}</summary>
+    <table class="evidence-table"><thead><tr><th></th><th>لها نتيجة</th><th>متوسط بعد التكلفة</th><th>نسبة الربح</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="note">للوصف فقط، لا للاختيار: الشرائح الأكبر (حجم ≥ ٦×، قيمة ≥ ٢٥٠ ألف دولار) كانت أسوأ لا أفضل، لذلك لا ترتّب الأداة الإشارات بقوة الحركة.</p></details>`;
 }
 
 const RULE_NAMES = {
@@ -184,7 +200,8 @@ function paperCard(p) {
       <p class="note">لم تُسجَّل جلسة بعد. يبدأ السجل في <span dir="ltr">${p.forward_start}</span>: كل إشارة كانت الأداة ستعرضها تُتداول ورقيًا بعد الجلسة على دقائق SIP بنفس نموذج التكلفة في الحاسبة. القواعد مسجلة مسبقًا ولا تُعدّل بعد رؤية النتائج.</p></div>`;
   }
   const rows = Object.entries(p.books).flatMap(([name, b]) => [['all', 'كل الصفقات'], ['gate_passed', 'اجتازت بوابة التنفيذ']].map(([k, label]) => {
-    const s = b[k];
+    const s = b?.[k];
+    if (!s) return '';
     return html`<tr><th>${BOOK_NAMES[name] ?? name} · ${label}</th><td dir="ltr">${f.num(s.trades, 0)}</td>
       <td><span class="${f.tone(s.net_usd)}" dir="ltr">${signedUsd(s.net_usd)}</span></td>
       <td>${rCell(s.mean_net_r)} ${ciCell(s.mean_net_r_ci95)}</td>
@@ -261,9 +278,32 @@ export function fadeCard(x) {
   </div>`;
 }
 
+/**
+ * The bottom line, first: what has and has not held. Built from the published verdict fields only;
+ * a study that is missing is left out rather than assumed.
+ */
+export function bottomLineCard(e) {
+  const items = [];
+  const hd = e.sip?.holdout?.delayed;
+  if (Number.isFinite(hd?.mean_return_pct)) items.push(html`<li>إشارة الانطلاق (SIP، ${n(e.sip.sessions)} جلسة): فترة الاختبار بعد تأخير ١٧ د ${pctCell(hd.mean_return_pct)} بعد التكلفة من ${n(hd.resolved)} إشارة.</li>`);
+  const pb = e.paper?.books?.SIP_DELAYED?.all;
+  if (pb?.trades) items.push(html`<li>السجل الورقي الأمامي: ${n(pb.trades)} صفقة في ${n(e.paper.sessions)} جلسة، ${rCell(pb.mean_net_r)} صافٍ للصفقة (التكلفة ${f.num(pb.mean_cost_r, 2)}R) — عينة صغيرة، لا حكم بعد.</li>`);
+  if (e.exits) items.push(html`<li>طرق الخروج: ${e.exits.holdout?.now && Object.values(e.exits.holdout.now).every((x) => x.mean_pct < 0) ? 'كل القواعد سالبة في فترة الاختبار' : 'انظر الجدول'}.</li>`);
+  if (e.filters) items.push(html`<li>المرشحات: ${e.filters.any_candidate_holds ? 'مرشح صمد (يحتاج تأكيدًا)' : 'لم يصمد أي مرشح'}.</li>`);
+  if (e.daily) items.push(html`<li>الإشارات اليومية: ${e.daily.holds ? 'فرضية صمدت (تحتاج تأكيدًا)' : 'لم تصمد أي فرضية'}.</li>`);
+  if (e.fade) items.push(html`<li>تحذير "لا تشترِ بعد امتداد": ${e.fade.avoid?.holds ? 'صمد في اختبار لم يُمس، لكنه انعكس في ٢٠٢٣–٢٠٢٥؛ لذلك تُستبعد الأسهم الممتدة من القسم الأعلى' : 'لم يثبت'}. البيع على المكشوف: ${e.fade.short?.holds ? 'صمد' : 'لم يصمد'}.</li>`);
+  if (!items.length) return '';
+  return html`<div class="evidence-card wide">
+    <h4>الخلاصة: ما الذي ثبت وما الذي لم يثبت</h4>
+    <p class="down"><b>لا توجد قاعدة شراء أو بيع ثبت ربحها بعد التكلفة على بيانات لم تُستخدم في بنائها.</b></p>
+    <ul>${items}</ul>
+    <p class="note">لذلك تعرض الأداة الإشارات كرصد لما يحدث، لا كتوصيات؛ "خطة مشروطة" تعني أن الشروط الفنية مستوفاة، لا أن الربح متوقع.</p>
+  </div>`;
+}
+
 export function renderEvidence(evidence) {
   if (!evidence.relabel && !evidence.forward && !evidence.sip && !evidence.exits && !evidence.filters && !evidence.daily && !evidence.paper && !evidence.fade) {
     return html`<p class="note">تعذر تحميل سجلات التحقق.</p>`;
   }
-  return html`${paperCard(evidence.paper)}${fadeCard(evidence.fade)}${dailyCard(evidence.daily)}${filterCard(evidence.filters)}${exitCard(evidence.exits)}${sipStudyCard(evidence.sip)}${evidence.relabel ? relabelTable(evidence.relabel) : ''}${forwardCard(evidence.forward)}`;
+  return html`${bottomLineCard(evidence)}${paperCard(evidence.paper)}${fadeCard(evidence.fade)}${dailyCard(evidence.daily)}${filterCard(evidence.filters)}${exitCard(evidence.exits)}${sipStudyCard(evidence.sip)}${evidence.relabel ? relabelTable(evidence.relabel) : ''}${forwardCard(evidence.forward)}`;
 }
