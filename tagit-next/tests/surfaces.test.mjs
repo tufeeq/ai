@@ -8,6 +8,7 @@ import {
 import { readFileSync } from 'node:fs';
 import { sectionAsOf, economicRows } from '../src/core/insights.js';
 import { renderInsights, DEFAULT_INSIGHTS_UI } from '../src/views/insights.js';
+import { createState, toggleWatch, removeEvent, startWatchEvents } from '../src/state.js';
 
 const fixture = JSON.parse(readFileSync(new URL('./fixtures/insights.sample.json', import.meta.url), 'utf8'));
 
@@ -78,6 +79,26 @@ test('insights UI: pulse stamped by its bars, rejected economic rows, industries
   const realOut = String(renderInsights({ phase: 'ok', data: real, loadedAt: Date.parse(real.generated_at) }, DEFAULT_INSIGHTS_UI, Date.parse(real.generated_at)));
   assert.ok(realOut.includes('التقويم الاقتصادي غير متاح'));
   assert.ok(!realOut.includes('Dallas Fed'));
+});
+
+test('journal: deleting today\'s manual record is not undone by the next scan', () => {
+  const now = Date.parse('2026-09-29T14:00:00Z');
+  const fresh = (t) => ({ symbol: 'FRSH', name: 'Fresh', price: 2.4, price_at: new Date(t - 2000).toISOString(), quote_at: new Date(t - 2000).toISOString(), bid: 2.39, ask: 2.41 });
+  const state = createState();
+  state.stocks.set('FRSH', fresh(now));
+  assert.equal(toggleWatch(state, 'FRSH', now), 'recording');
+  assert.equal(state.journal.length, 1);
+  assert.equal(removeEvent(state, state.journal[0].id, now), 'unwatched');
+  assert.equal(state.watched.has('FRSH'), false);
+  state.stocks.set('FRSH', fresh(now + 30_000));
+  assert.equal(startWatchEvents(state, now + 30_000), false);
+  assert.equal(state.journal.length, 0);
+  // A record from an earlier day, or an alert record, leaves the watchlist alone.
+  state.watched.add('FRSH');
+  state.journal.push({ id: 'W-old', kind: 'WATCH', symbol: 'FRSH', started_at: '2026-09-25T14:00:00Z', start_price: 2 });
+  assert.equal(removeEvent(state, 'W-old', now), true);
+  assert.equal(state.watched.has('FRSH'), true);
+  assert.equal(removeEvent(state, 'missing', now), false);
 });
 
 test('themes use the median move and show the range, so one outlier cannot flip the sign', () => {
