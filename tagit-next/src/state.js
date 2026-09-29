@@ -8,6 +8,8 @@ import { updatePressure, pressureSummary } from './core/pressure.js';
 import { WATCH_LIMIT } from './storage.js';
 import { dayChange } from './core/closes.js';
 import { priceQuality } from './core/quality.js';
+import { tradeability } from './core/tradeability.js';
+import { riskOf } from './core/risk.js';
 
 export const UNIVERSE_CAP = 300_000_000;
 export const LIST_LIMIT = 80;
@@ -48,15 +50,28 @@ export function assessRow(state, row, now) {
   }
   let a = state.cache.map.get(row);
   if (!a) {
-    a = assess(row, {
-      now,
-      serverTime: row.scan_at ?? state.scan?.server_time,
-      connected: state.connection.phase === 'live' || state.connection.phase === 'partial',
-      feed: state.scan?.feed,
+    const connected = state.connection.phase === 'live' || state.connection.phase === 'partial';
+    const base = assess(row, { now, serverTime: row.scan_at ?? state.scan?.server_time, connected, feed: state.scan?.feed });
+    const gate = tradeability(row, {
+      now, feed: state.scan?.feed, plan: planLevels(row, base), connected,
+      risk: riskOf(state.enrichment?.symbols?.[row.symbol], row, now, state.enrichment?.generated_at),
     });
+    // A plan the execution gate blocks (halt, stale quote, cost ≥ 0.5 R, outside the regular
+    // session…) is not offered anywhere: list badge, filters, KPI, journal and dossier agree.
+    a = base.plan && gate.verdict === 'NO'
+      ? { ...base, state: 'BLOCKED', plan: null, heldPlan: base.plan, gate,
+        blockers: [...gate.reasons.filter((x) => x.level === 'BLOCK').map((x) => x.text), ...base.blockers] }
+      : { ...base, gate };
     state.cache.map.set(row, a);
   }
   return a;
+}
+
+/** Plan levels the gate costs: the live plan, else the watch-only breakout levels of the signal. */
+export function planLevels(row, a) {
+  const entry = a.plan?.entry ?? row.signal?.trigger;
+  const stop = a.plan?.stop ?? row.signal?.stop;
+  return positive(entry) && positive(stop) && entry > stop ? { entry, stop } : null;
 }
 const invalidate = (state) => state.cache.map.clear();
 
@@ -203,7 +218,10 @@ export function nextQuoteSymbols(state, now) {
   const rotation = [...new Set([...state.watched, ...visibleRows(state, now).map((r) => r.symbol)])];
   if (state.quoteCursor >= rotation.length) state.quoteCursor = 0;
   const slice = rotation.slice(state.quoteCursor, state.quoteCursor + QUOTE_BATCH - 1);
-  state.quoteCursor = rotation.length ? (state.quoteCursor + QUOTE_BATCH - 1) % rotation.length : 0;
+  // Restart at the top after the last batch; wrapping with a modulo landed mid-list and left the
+  // first rows (the best ranked) un-refreshed for several rounds.
+  state.quoteCursor += QUOTE_BATCH - 1;
+  if (state.quoteCursor >= rotation.length) state.quoteCursor = 0;
   return [...new Set([state.ui.selected, ...slice].filter(isSymbol))].slice(0, QUOTE_BATCH);
 }
 
@@ -337,6 +355,14 @@ export function groupRows(state, rows, now) {
     feed: state.scan?.feed,
     assessment: (r) => assessRow(state, r, now),
   });
+}
+
+/** Rows in the order the list displays them (priority tier, monitoring tier, then placeholders). */
+export function displayOrder(state, now) {
+  const rows = visibleRows(state, now);
+  if (state.ui.view === 'gainers' || state.ui.view === 'sip') return rows;
+  const { upper, lower } = groupRows(state, rows.filter((r) => !r.placeholder), now);
+  return [...upper, ...lower, ...rows.filter((r) => r.placeholder)];
 }
 
 export function journalRows(state) {

@@ -10,6 +10,7 @@ export const STATE_NAMES = {
   STALE: 'سعر غير حديث',
   WATCH: 'للمتابعة',
   HALTED: 'تداول موقوف',
+  BLOCKED: 'غير قابل للتنفيذ',
 };
 
 export const STATE_HINTS = {
@@ -19,6 +20,7 @@ export const STATE_HINTS = {
   STALE: 'آخر صفقة أو آخر مسح غير حديث؛ لا تُبنى خطة على سعر قديم.',
   WATCH: 'لا نمط انطلاق مكتمل الآن.',
   HALTED: 'أوقفت البورصة التداول على السهم؛ لا خطة حتى يُستأنف التداول وتتجدد البيانات.',
+  BLOCKED: 'استوفى شروط الرصد، لكن التنفيذ غير ممكن الآن (انظر قابلية التنفيذ)؛ لا خطة ولا حساب كمية.',
 };
 
 export const stateBadge = (state) => html`<span class="badge s-${state}">${STATE_NAMES[state]}</span>`;

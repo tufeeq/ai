@@ -4,7 +4,7 @@ import * as f from '../format.js';
 import { finite, positive } from '../core/util.js';
 import { CHECK_GROUPS, isExtended } from '../core/checks.js';
 import { sizeWithCosts } from '../core/costs.js';
-import { tradeability, GATE_NOTE } from '../core/tradeability.js';
+import { GATE_NOTE } from '../core/tradeability.js';
 import { outcome } from '../core/journal.js';
 import { shariaStatus } from '../core/sharia.js';
 import { companyFacts } from '../core/risk.js';
@@ -42,24 +42,8 @@ function checkValue(c) {
 
 const RISK_TEXT = { HIGH: 'مخاطر هيكلية ظاهرة', WATCH: 'إفصاحات تستحق الانتباه', NONE: 'لا إفصاحات خطرة في آخر ١٢٠ يومًا', UNKNOWN: 'لا بيانات إفصاح لهذا السهم' };
 
-/** Plan levels shown to the user: the live plan, else the watch-only breakout levels. */
-function levelsOf(r, a) {
-  const p = a.plan;
-  const s = r.signal;
-  const entry = p?.entry ?? s?.trigger;
-  const stop = p?.stop ?? s?.stop;
-  return positive(entry) && positive(stop) && entry > stop ? { entry, stop } : null;
-}
-
-export function gateFor(state, r, a, now) {
-  return tradeability(r, {
-    now,
-    feed: state.scan?.feed,
-    plan: levelsOf(r, a),
-    risk: riskFor(state, r, now),
-    connected: state.connection.phase === 'live' || state.connection.phase === 'partial',
-  });
-}
+/** The execution gate computed with the assessment (state.assessRow), so every view agrees. */
+export const gateFor = (state, r, a) => a.gate;
 
 const LEVEL_ICON = { BLOCK: '⛔', WARN: '⚠', INFO: 'ℹ' };
 
@@ -151,12 +135,13 @@ function overview(state, r, a, now) {
 
 function plan(state, r, a, now) {
   const g = gateFor(state, r, a, now);
-  // A plan is only offered when the execution gate does not block it.
-  const p = g.verdict === 'NO' ? null : a.plan;
+  // A plan is only offered when the execution gate does not block it (assessRow holds it back).
+  const p = a.plan;
+  const shown = p ?? a.heldPlan;
   const s = r.signal;
-  const entry = p?.entry ?? s?.trigger;
-  const stop = p?.stop ?? s?.stop;
-  const targets = p?.targets ?? (Array.isArray(s?.targets) ? s.targets : []);
+  const entry = shown?.entry ?? s?.trigger;
+  const stop = shown?.stop ?? s?.stop;
+  const targets = shown?.targets ?? (Array.isArray(s?.targets) ? s.targets : []);
   const levels = [
     { kind: 'target', value: targets[1], label: 'هدف ٢R' },
     { kind: 'target', value: targets[0], label: 'هدف ١R' },
@@ -171,7 +156,7 @@ function plan(state, r, a, now) {
   }) : null;
   const LIMITS = { RISK: 'حد الخسارة شاملًا التكاليف', CAPITAL: 'رأس المال', LIQUIDITY: 'سيولة السهم (١٠٪ من دقيقة · ١٪ من اليوم)' };
   let result;
-  if (!p) result = html`<p class="calc-off">${a.plan && g.verdict === 'NO' ? 'الخطة موقوفة لأن السهم غير قابل للتداول الآن (انظر الأسباب أعلاه).' : 'تعمل الحاسبة عند وجود خطة مستوفية فقط.'}</p>`;
+  if (!p) result = html`<p class="calc-off">${a.heldPlan ? 'الخطة موقوفة لأن السهم غير قابل للتداول الآن (انظر الأسباب أعلاه).' : 'تُحفظ حدودك هنا، وتُحسب الكمية عند وجود خطة مستوفية فقط.'}</p>`;
   else if (!size) result = html`<p class="calc-off">أدخل رأس المال والخسارة القصوى بمبالغ موجبة.</p>`;
   else if (size.shares < 1) result = html`<p class="calc-off">حد الخسارة لا يغطي سهمًا واحدًا بعد احتساب التكاليف والانزلاق، أو السيولة لا تسمح.</p>`;
   else {
@@ -192,24 +177,25 @@ function plan(state, r, a, now) {
   }
   return html`
     <div class="decision d-${p ? 'READY' : a.state}">
-      <div class="decision-head"><strong>${p ? 'خطة مشروطة متاحة الآن' : 'لا خطة مستوفية'}</strong></div>
+      <div class="decision-head"><strong>${p ? 'خطة مشروطة متاحة الآن' : a.heldPlan ? 'الخطة موقوفة: غير قابل للتنفيذ الآن' : 'لا خطة مستوفية'}</strong></div>
       <p>${p
         ? 'التفعيل عند تجاوز المستوى مع استمرار السيولة. تُلغى الخطة عند كسر الإبطال أو تقادم البيانات.'
         : 'المستويات أدناه للمراقبة الفنية فقط، وليست توصية دخول.'}</p>
     </div>
     ${gateSection(g)}
-    ${planLadder(levels, r.price)}
+    ${planLadder(levels, r.price, priceQuality(r, now).current)}
     <div class="stats">
       ${stat(p ? 'التفعيل' : 'اختراق للمراقبة', f.num(entry, 4))}
       ${stat('الإبطال', f.num(stop, 4), riskPct !== null ? html`مسافة <span dir="ltr">${f.num(riskPct)}%</span>` : '')}
-      ${stat('الطلب / العرض', `${f.num(r.bid, 4)} / ${f.num(r.ask, 4)}`, 'IEX · ليس عمق السوق')}
-      ${stat('فارق العرض والطلب', finite(r.spread_pct) ? f.num(r.spread_pct) + '%' : f.DASH)}
+      ${stat('الطلب / العرض', html`<span dir="ltr">${f.num(r.bid, 4)} × ${f.num(r.ask, 4)}</span>`,
+        html`${r.quote_source === 'CONSOLIDATED' ? 'مجمّع · ناسداك' : 'IEX · بورصة واحدة'} · ${f.age(r.quote_at, now)} · ليس عمق السوق`)}
+      ${stat('فارق العرض والطلب', finite(g.spread) ? f.num(g.spread) + '%' : f.DASH, finite(g.spread) ? '' : 'لا عرض وطلب حديث')}
     </div>
     <h3>حاسبة الكمية وفق حدودك</h3>
     <form class="calc" data-key="calc" novalidate>
-      <label>رأس المال المتاح ($)<input id="calc-capital" name="capital" type="text" inputmode="decimal" autocomplete="off" value="${capital}" placeholder="مثال: 5000" ${p ? '' : 'disabled'}></label>
-      <label>أقصى خسارة مخططة ($)<input id="calc-risk" name="risk" type="text" inputmode="decimal" autocomplete="off" value="${risk}" placeholder="مثال: 50" ${p ? '' : 'disabled'}></label>
-      <label>عمولة الأمر الواحد ($)<input id="calc-commission" name="commission" type="text" inputmode="decimal" autocomplete="off" value="${commission ?? ''}" placeholder="0" ${p ? '' : 'disabled'}></label>
+      <label>رأس المال المتاح ($)<input id="calc-capital" name="capital" type="text" inputmode="decimal" autocomplete="off" value="${capital}" placeholder="مثال: 5000"></label>
+      <label>أقصى خسارة مخططة ($)<input id="calc-risk" name="risk" type="text" inputmode="decimal" autocomplete="off" value="${risk}" placeholder="مثال: 50"></label>
+      <label>عمولة الأمر الواحد ($)<input id="calc-commission" name="commission" type="text" inputmode="decimal" autocomplete="off" value="${commission ?? ''}" placeholder="0"></label>
     </form>
     ${result}
     <p class="note">الأهداف مضاعفات للمخاطرة وليست توقعات. لا يوجد وقت وصول مثبت للهدف.</p>`;
