@@ -273,10 +273,21 @@ export function toggleWatch(state, symbol, now) {
   return startWatchEvents(state, now) ? 'recording' : 'added';
 }
 
-export function removeEvent(state, id) {
-  const before = state.journal.length;
+/**
+ * Delete one journal record. Returns false when absent, 'unwatched' when it was today's manual record of a
+ * symbol still on the watchlist (the symbol leaves the list, else startWatchEvents would recreate the record
+ * from a new price within one scan), else true.
+ */
+export function removeEvent(state, id, now = Date.now()) {
+  const event = state.journal.find((e) => e.id === id);
+  if (!event) return false;
   state.journal = state.journal.filter((e) => e.id !== id);
-  return state.journal.length !== before;
+  state.dirty = true;
+  if (event.kind === 'WATCH' && state.watched.has(event.symbol) && marketDate(event.started_at) === marketDate(now)) {
+    state.watched.delete(event.symbol);
+    return 'unwatched';
+  }
+  return true;
 }
 
 // ---- consolidated signals ---------------------------------------------------------

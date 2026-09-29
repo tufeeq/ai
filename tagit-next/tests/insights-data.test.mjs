@@ -126,7 +126,8 @@ test('Nasdaq calendar parsing', () => {
   ] } });
   assert.deepEqual(e.map((x) => [x.symbol, x.time, x.eps_forecast]), [['B1', 'pre-market', 1.5], ['S1', 'after-hours', -0.12], ['U1', null, null]]);
   const c = parseEconomic({ data: { rows: [{ gmt: '12:30', country: 'United States', eventName: 'CPI', actual: '&nbsp;', consensus: '0.3%', previous: '0.2%' }, { gmt: '9:00', country: 'Euro Zone', eventName: 'X' }] } }, '2026-09-28');
-  assert.deepEqual(c, [{ time: '2026-09-28T12:30:00.000Z', event: 'CPI', actual: null, forecast: '0.3%', previous: '0.2%' }]);
+  // Nasdaq's "gmt" is New York wall time: 12:30 on 2026-09-28 (EDT) is 16:30 UTC.
+  assert.deepEqual(c, [{ time: '2026-09-28T16:30:00.000Z', event: 'CPI', actual: null, forecast: '0.3%', previous: '0.2%' }]);
   assert.equal(parseEarnings(null).length, 0);
 });
 

@@ -316,9 +316,10 @@ $('dossier').addEventListener('click', (e) => {
     return;
   }
   const remove = e.target.closest('[data-remove-event]');
-  if (remove && removeEvent(state, remove.dataset.removeEvent)) {
+  const removed = remove ? removeEvent(state, remove.dataset.removeEvent, clock()) : false;
+  if (removed) {
     persist(true);
-    toast('حُذف السجل.');
+    toast(removed === 'unwatched' ? 'حُذف السجل وأزيل السهم من المتابعة، حتى لا يُعاد تسجيله اليوم بسعر جديد.' : 'حُذف السجل.');
     render();
   }
 });

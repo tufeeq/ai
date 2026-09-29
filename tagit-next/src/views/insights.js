@@ -4,7 +4,7 @@ import { html, raw, safeUrl } from '../html.js';
 import * as f from '../format.js';
 import { finite, isSymbol } from '../core/util.js';
 import {
-  freshnessOf, sectionAsOf, sourceFor, list, newsFacets, filterNews, sortSectors, SECTOR_SORTS, maxAbs,
+  freshnessOf, sectionAsOf, sourceFor, list, newsFacets, filterNews, sortSectors, SECTOR_SORTS, maxAbs, economicRows,
 } from '../core/insights.js';
 
 export const DEFAULT_INSIGHTS_UI = { sectorSort: 'chg', movers: 'gainers', sector: '', industry: '', symbol: '' };
@@ -93,6 +93,7 @@ function pulseSection(data, now) {
   const pulse = data.pulse ?? {};
   const indices = list(pulse.indices);
   const regime = pulse.regime;
+  const lastBar = indices.map((i) => i.last_bar_date).filter((d) => typeof d === 'string').sort().at(-1) ?? null;
   const regimeCard = regime?.label_ar
     ? html`<div class="ins-regime r-${REGIME_TONE[regime.key] ?? 'mixed'}"><span class="ins-regime-k">حالة السوق (قاعدة ثابتة)${finite(regime.score) && finite(regime.max_score) ? html` · ${n(`${regime.score}/${regime.max_score}`)} نقاط` : ''}</span><strong>${regime.label_ar}</strong>
         ${list(regime.reasons_ar).length ? html`<ul>${list(regime.reasons_ar).map((r) => html`<li>${r}</li>`)}</ul>` : ''}
@@ -108,7 +109,7 @@ function pulseSection(data, now) {
     </article>`);
   const body = html`<div class="ins-pulse">${regimeCard}
     ${indices.length ? html`<div class="ins-indices">${cards}</div>` : empty('لا تتوفر أسعار المؤشرات وصناديق القطاعات في هذا الملف.')}</div>
-    <p class="note">▲/▼ م50 و م200: الإغلاق فوق/تحت متوسط ٥٠ و٢٠٠ يوم. الخط المنقط في الرسم = أول إغلاق في السلسلة.</p>`;
+    <p class="note">${lastBar ? html`آخر إغلاق يومي: ${n(lastBar)}. ` : ''}▲/▼ م50 و م200: الإغلاق فوق/تحت متوسط ٥٠ و٢٠٠ يوم. الخط المنقط في الرسم = أول إغلاق في السلسلة. حالة السوق تجمع إشارات الصناديق مع اتساع لقطة Finviz.</p>`;
   return section('pulse', 'نبض السوق', data, now, body, { wide: true });
 }
 
@@ -130,7 +131,7 @@ function gauge(title, b) {
       <div><dt>صاعد/هابط</dt><dd>${n(ratio(b.adv_dec_ratio))}</dd></div>
       <div><dt>‎+5% أو أكثر</dt><dd>${n(f.num(b.up_5pct, 0), 'up')}</dd></div>
       <div><dt>‎−5% أو أقل</dt><dd>${n(f.num(b.down_5pct, 0), 'down')}</dd></div>
-      <div><dt>قمة ٢٠ يومًا</dt><dd>${n(f.num(b.new_high_20d, 0))}</dd></div>
+      ${finite(b.new_high_20d) ? html`<div><dt>قمة ٢٠ يومًا</dt><dd>${n(f.num(b.new_high_20d, 0))}</dd></div>` : ''}
       <div><dt>حجم غير معتاد</dt><dd>${n(f.num(b.unusual_volume, 0))}</dd></div>
     </dl></div>`;
 }
@@ -162,19 +163,22 @@ function sectorsSection(data, ui, now) {
   return section('sectors', 'القطاعات', data, now, body, { wide: true, extra: sorts });
 }
 
-function industryList(items, title, cls) {
+function industryList(items, title, cls, byMedian = true) {
   if (!items.length) return html`<div class="ins-ind-col"><h3>${title}</h3>${empty('لا توجد صناعات تستوفي حد الأسهم الخمسة.')}</div>`;
+  // The big number is the ranking metric, so the list reads in order; the other measure goes in the meta line.
+  const [main, other, otherLabel] = byMedian ? ['median_chg_pct', 'chg_1d_pct', 'مرجّح'] : ['chg_1d_pct', 'median_chg_pct', 'وسيط'];
   return html`<div class="ins-ind-col ${cls}"><h3>${title}</h3><ol class="ins-inds">${items.map((i) => html`<li data-key="ind-${i.industry}">
-      <div class="ins-ind-head"><div><strong>${i.name_ar ?? i.industry}</strong><small dir="ltr">${i.name_ar ? `${i.industry} · ` : ''}${i.sector ?? ''}</small></div>${chg(i.chg_1d_pct)}</div>
-      <div class="ins-ind-meta">وسيط ${chg(i.median_chg_pct)} · اتساع ${n(finite(i.breadth_pct_up) ? `${f.num(i.breadth_pct_up, 0)}%` : f.DASH)} · حجم ${n(ratio(i.rel_volume))} · ${n(f.num(i.count, 0))} سهم</div>
+      <div class="ins-ind-head"><div><strong>${i.name_ar ?? i.industry}</strong><small dir="ltr">${i.name_ar ? `${i.industry} · ` : ''}${i.sector ?? ''}</small></div>${chg(i[main])}</div>
+      <div class="ins-ind-meta">${otherLabel} ${chg(i[other])} · اتساع ${n(finite(i.breadth_pct_up) ? `${f.num(i.breadth_pct_up, 0)}%` : f.DASH)} · حجم ${n(ratio(i.rel_volume))} · ${n(f.num(i.count, 0))} سهم</div>
       ${list(i.leaders).length ? html`<div class="ins-leaders"><span class="muted">أبرزها:</span>${list(i.leaders).map((l) => html`<span class="ins-leader">${dossierLink(l.symbol)} ${chg(l.chg_pct, 1)}</span>`)}</div>` : ''}
     </li>`)}</ol></div>`;
 }
 
 function industriesSection(data, now) {
   const ind = data.industries ?? {};
-  const body = html`<div class="ins-ind-grid">${industryList(list(ind.top), 'الأقوى اليوم', 'top')}${industryList(list(ind.bottom), 'الأضعف اليوم', 'bottom')}</div>
-    <p class="note">الصناعات التي تضم ${n(ind.min_stocks ?? 5)} أسهم على الأقل، مرتبة ${ind.rank_by === 'chg_1d_pct' ? 'بالتغير المرجّح بالقيمة السوقية' : 'بوسيط تغير أسهمها (وزن متساوٍ)'}. «أبرزها» في الأضعف = الأكثر هبوطًا.</p>`;
+  const byMedian = ind.rank_by !== 'chg_1d_pct';
+  const body = html`<div class="ins-ind-grid">${industryList(list(ind.top), 'الأقوى اليوم', 'top', byMedian)}${industryList(list(ind.bottom), 'الأضعف اليوم', 'bottom', byMedian)}</div>
+    <p class="note">الصناعات التي تضم ${n(ind.min_stocks ?? 5)} أسهم على الأقل، مرتبة ${byMedian ? 'بوسيط تغير أسهمها (وزن متساوٍ)، وهو الرقم الكبير؛ «مرجّح» = التغير المرجّح بالقيمة السوقية' : 'بالتغير المرجّح بالقيمة السوقية، وهو الرقم الكبير'}. «أبرزها» في الأضعف = الأكثر هبوطًا.</p>`;
   return section('industries', 'الصناعات الأقوى والأضعف', data, now, body);
 }
 
@@ -187,13 +191,14 @@ function moversSection(data, ui, now) {
   const tabs = html`<div class="seg ins-seg" role="group" aria-label="نوع الحركة">${Object.entries(MOVER_TABS).map(([k, label]) => html`<button type="button" data-movers="${k}" aria-pressed="${tab === k}" class="${tab === k ? 'is-active' : ''}">${label} <span class="count">${list(movers[k]).length}</span></button>`)}</div>`;
   const newsById = new Map(list(data.news).map((x) => [x.id, x]));
   const body = rows.length
-    ? html`<div class="ins-scroll"><table class="ins-table"><thead><tr><th scope="col">السهم</th><th scope="col">السعر</th><th scope="col">التغير</th><th scope="col">حجم نسبي</th><th scope="col" class="opt">القيمة السوقية</th><th scope="col" class="opt">الصناعة</th><th scope="col">خبر</th></tr></thead>
+    ? html`<div class="ins-scroll"><table class="ins-table"><thead><tr><th scope="col">السهم</th><th scope="col">السعر</th><th scope="col">التغير</th><th scope="col">خبر</th><th scope="col">حجم نسبي</th><th scope="col" class="opt">القيمة السوقية</th><th scope="col" class="opt">الصناعة</th></tr></thead>
       <tbody>${rows.map((r) => {
         const linked = list(r.news_ids).map((id) => newsById.get(id)).filter(Boolean);
         return html`<tr data-key="mv-${tab}-${r.symbol}"><th scope="row">${dossierLink(r.symbol)}<small class="ins-co" dir="auto" title="${r.company ?? ''}">${r.company ?? ''}</small></th>
-          <td>${n(f.usd(r.price))}</td><td>${chg(r.chg_pct)}</td><td>${n(ratio(r.rel_volume), finite(r.rel_volume) && r.rel_volume >= 2 ? 'hot' : '')}</td>
-          <td class="opt">${n(capM(r.market_cap_m))}</td><td class="opt"><small>${r.industry ?? f.DASH}</small></td>
-          <td>${linked.length ? html`<button type="button" class="ins-news-link" data-news-symbol="${r.symbol}" title="${linked.map((x) => x.headline).join(' | ')}">${linked.length} خبر</button>` : html`<span class="muted">—</span>`}</td></tr>`;
+          <td>${n(f.usd(r.price))}</td><td>${chg(r.chg_pct)}</td>
+          <td>${linked.length ? html`<button type="button" class="ins-news-link" data-news-symbol="${r.symbol}" title="${linked.map((x) => x.headline).join(' | ')}">${linked.length} خبر</button>` : html`<span class="muted">—</span>`}</td>
+          <td>${n(ratio(r.rel_volume), finite(r.rel_volume) && r.rel_volume >= 2 ? 'hot' : '')}</td>
+          <td class="opt">${n(capM(r.market_cap_m))}</td><td class="opt"><small>${r.industry ?? f.DASH}</small></td></tr>`;
       })}</tbody></table></div>
       <p class="note">اضغط الرمز لفتح ملفه في مساحة السوق. «خبر» يعرض الأخبار المطابقة للرمز؛ التزامن ليس دليلًا على السبب.</p>`
     : empty('لا توجد أسهم في هذه القائمة لهذه اللقطة.');
@@ -252,11 +257,11 @@ function themesSection(data, now) {
   const body = themes.length
     ? html`<ul class="ins-themes">${themes.map((t) => {
         const scope = t.industry ?? t.sector;
-        return html`<li data-key="th-${scope}-${t.title_ar}"><div class="ins-trend-head"><strong>${t.title_ar}</strong>${chg(t.avg_move_pct)}</div>
+        return html`<li data-key="th-${scope}-${t.title_ar}"><div class="ins-trend-head"><strong>${t.title_ar}</strong>${finite(t.median_move_pct) ? html`<span title="وسيط تغير أسهم الموضوع">${chg(t.median_move_pct)}</span>` : html`<span title="متوسط تغير أسهم الموضوع">${chg(t.avg_move_pct)}</span>`}</div>
           <small dir="ltr" class="muted">${t.industry ? 'Industry' : 'Sector'}: ${scope ?? f.DASH}</small>
           <div class="ins-tags">${list(t.symbols).map((s) => dossierLink(s, 'ins-chip sym'))}</div>
           <button type="button" class="ins-news-link" ${raw(t.industry ? 'data-news-industry' : 'data-news-sector')}="${scope ?? ''}">${list(t.news_ids).length} خبر ←</button></li>`;
-      })}</ul><p class="note">متوسط الحركة لأسهم الموضوع في الجلسة؛ تجميع للأخبار حسب الصناعة، لا تفسير سببي.</p>`
+      })}</ul><p class="note">الرقم = وسيط حركة أسهم الموضوع في الجلسة (المتوسط في الملفات الأقدم)؛ تجميع للأخبار حسب الصناعة، لا تفسير سببي.</p>`
     : empty('لا توجد مجموعات أخبار تتركز في صناعة واحدة الآن.');
   return section('themes', 'موضوعات الأخبار حسب الصناعة', data, now, body);
 }
@@ -266,7 +271,8 @@ const EARN_TIME = { 'pre-market': 'قبل الافتتاح', 'after-hours': 'ب�
 function calendarSection(data, now) {
   const cal = data.calendar ?? {};
   const earnings = list(cal.earnings_today);
-  const eco = list(cal.economic);
+  const ecoRaw = economicRows(data);
+  const eco = list(ecoRaw);
   const body = html`<div class="ins-cal">
     <div><h3>نتائج الأعمال</h3>${earnings.length
       ? html`<ul class="ins-cal-list">${earnings.map((e) => html`<li data-key="er-${e.symbol}">${dossierLink(e.symbol)}<span class="ins-co">${e.company ?? ''}</span><span class="badge">${EARN_TIME[e.time] ?? 'وقت غير معلن'}</span><span class="muted">EPS متوقع ${n(finite(e.eps_forecast) ? f.num(e.eps_forecast, 2) : f.DASH)}</span></li>`)}</ul>`
@@ -274,7 +280,7 @@ function calendarSection(data, now) {
     <div><h3>البيانات الاقتصادية</h3>${eco.length
       ? html`<div class="ins-scroll"><table class="ins-table"><thead><tr><th scope="col">الوقت</th><th scope="col">الحدث</th><th scope="col">الفعلي</th><th scope="col">المتوقع</th><th scope="col">السابق</th></tr></thead>
         <tbody>${eco.map((e, i) => html`<tr data-key="eco-${i}"><td>${f.dateTime(e.time)}</td><td dir="ltr" class="ins-event">${e.event}</td><td>${n(e.actual ?? f.DASH, 'strong')}</td><td>${n(e.forecast ?? f.DASH)}</td><td>${n(e.previous ?? f.DASH)}</td></tr>`)}</tbody></table></div>`
-      : empty('لا بيانات اقتصادية مدرجة اليوم.')}</div>
+      : empty(ecoRaw == null ? 'التقويم الاقتصادي غير متاح في هذا الملف (لم يُجلب أو رُفض لأنه لا يخص هذا اليوم).' : 'لا بيانات اقتصادية أمريكية مدرجة لهذا اليوم.')}</div>
   </div>`;
   return section('calendar', cal.date ? html`تقويم جلسة ${n(cal.date)}` : 'تقويم اليوم', data, now, body);
 }
@@ -289,7 +295,7 @@ export function renderInsights(store, ui = DEFAULT_INSIGHTS_UI, now = Date.now()
   const data = store?.data;
   const head = html`<section class="intro ins-intro" data-key="ins-intro"><div><p class="eyebrow">نبض ← قطاعات ← أخبار</p><h1>رؤى السوق الأمريكي</h1>
       <p class="coverage-line">${data
-        ? html`جلسة ${n(data.session ?? f.DASH)} · ${MARKET_STATE[data.market_state] ?? 'حالة غير معروفة'} · أُنتج الملف ${f.dateTime(data.generated_at)} نيويورك (قبل ${f.age(data.generated_at, now)})`
+        ? html`جلسة ${n(data.session ?? f.DASH)} · ${MARKET_STATE[data.market_state] ?? 'حالة غير معروفة'} عند إنتاج الملف · أُنتج ${f.dateTime(data.generated_at)} نيويورك (قبل ${f.age(data.generated_at, now)})`
         : 'حقائق مؤرخة بمصادرها: المؤشرات، الاتساع، القطاعات، الأخبار والتقويم. لا توصيات شراء أو بيع.'}</p></div>
       <div class="intro-actions"><button type="button" class="btn btn-primary" data-insights-refresh ${store?.phase === 'loading' ? raw('disabled') : ''}>↻ تحديث</button></div></section>`;
   if (!data) {
