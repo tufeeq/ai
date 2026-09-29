@@ -5,7 +5,8 @@ On the same 20 frozen development cases, extending qualified exit-capacity wait
 from 3 to 30 seconds resolved only one additional case, as a modeled timeout.
 Ten of 14 simulated entries still have unknown exits; full-sample expectancy is
 unavailable, no market history was requested, the final holdout remains sealed
-and no live rule changed. Reproduce offline with `make -C tagit-next quote-anchored`.
+and no live rule changed. The protocol was frozen first in commit `80313dd`.
+Reproduce offline with `make -C tagit-next quote-anchored`.
 
 **Latest cycle (28 September 2026):** [later quote-anchored findings](LATER_QUOTE_FINDINGS.md).
 The frozen later-development sample adds 34,718 SIP quotes for eight signals across
