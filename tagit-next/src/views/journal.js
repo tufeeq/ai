@@ -8,7 +8,7 @@ export const JOURNAL_NOTE = 'نتائج أسعار مرصودة منذ بدء ا
 
 export function renderJournal(state) {
   const events = journalRows(state);
-  const wins = events.filter((e) => (outcome(e).change ?? 0) > 0).length;
+  const wins = events.filter((e) => (outcome(e).net ?? 0) > 0).length;
   const summary = events.length
     ? html`<li data-key="journal-summary" class="tier"><span class="tier-title">السجل <b>${events.length}</b></span><small>${wins} منها أعلى من سعر الرصد الآن · عينات وليست صفقات</small></li>`
     : '';
