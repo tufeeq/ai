@@ -45,12 +45,28 @@ export function regularMinute(ms) {
   return m >= 570 && m < 960;
 }
 
+const nyHm = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+/**
+ * Nasdaq.com chart `x` values are New York wall-clock times written as if they were UTC
+ * ("4:00 AM ET" → 04:00Z). Convert to the real instant by trying the EDT and EST offsets.
+ */
+export function nasdaqWallToUtc(ms) {
+  const wall = new Date(ms), hh = wall.getUTCHours(), mm = wall.getUTCMinutes();
+  for (const offset of [4, 5]) {
+    const guess = ms + offset * 3600_000;
+    const p = Object.fromEntries(nyHm.formatToParts(new Date(guess)).map((x) => [x.type, x.value]));
+    if (+p.hour === hh && +p.minute === mm) return guess;
+  }
+  return null;
+}
+
 /** Nasdaq.com chart (charttype=rs) → minute bars {t,o,h,l,c,v,n,vw} for the regular session. */
 export function chartBars(body) {
   const points = Array.isArray(body?.data?.chart) ? body.data.chart : [];
   const minutes = new Map();
   for (const p of points) {
-    const t = Number(p?.x), c = Number(p?.y), v = Number(p?.w ?? String(p?.z?.shares ?? '').replace(/,/g, ''));
+    const t = Number.isFinite(Number(p?.x)) ? nasdaqWallToUtc(Number(p.x)) : null;
+    const c = Number(p?.y), v = Number(p?.w ?? String(p?.z?.shares ?? '').replace(/,/g, ''));
     if (!Number.isFinite(t) || !positive(c) || !(v >= 0)) continue;
     const minute = Math.floor(t / 60_000) * 60_000;
     const prev = minutes.get(minute);

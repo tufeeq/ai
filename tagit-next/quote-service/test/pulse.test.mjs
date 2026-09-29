@@ -6,13 +6,22 @@ import { chartBars, consolidatedSignal, rankCandidates, applySignals, completePl
 const open = Date.parse('2026-09-28T13:30:00Z');
 const at = (min) => open + min * 60_000;
 /** 30 quiet minutes around $5.00, then a 3-minute consolidated surge on heavy volume. */
+// Nasdaq.com writes New York wall-clock time as if it were UTC (EDT: 4 hours earlier than the instant).
+const wall = (ms) => ms - 4 * 3600_000;
 function chart({ surge = true } = {}) {
-  const pts = [{ x: open - 60_000 * 30, y: 4.9, w: 500 }]; // pre-market print: not a regular bar
-  for (let m = 0; m < 30; m++) pts.push({ x: at(m), y: 5 + (m % 2) * 0.01, w: 1000 });
+  const pts = [{ x: wall(open - 60_000 * 30), y: 4.9, w: 500 }]; // pre-market print: not a regular bar
+  for (let m = 0; m < 30; m++) pts.push({ x: wall(at(m)), y: 5 + (m % 2) * 0.01, w: 1000 });
   const up = surge ? [[30, 5.03, 12000], [31, 5.06, 15000], [32, 5.1, 18000]] : [[30, 5.01, 900], [31, 5, 1100], [32, 5.01, 1000]];
-  for (const [m, y, w] of up) pts.push({ x: at(m), y, w, z: { shares: String(w) } });
+  for (const [m, y, w] of up) pts.push({ x: wall(at(m)), y, w, z: { shares: String(w) } });
   return { data: { chart: pts } };
 }
+
+test('Nasdaq.com wall-clock chart times convert to real instants (EDT and EST)', async () => {
+  const { nasdaqWallToUtc } = await import('../src/pulse.mjs');
+  // Observed: "4:00 AM ET" on 2026-09-28 arrives as x = 1790568000000 (= 04:00Z).
+  assert.equal(new Date(nasdaqWallToUtc(1790568000000)).toISOString(), '2026-09-28T08:00:00.000Z');
+  assert.equal(new Date(nasdaqWallToUtc(Date.parse('2026-12-01T09:30:00Z'))).toISOString(), '2026-12-01T14:30:00.000Z');
+});
 
 test('regular session only, weekdays', () => {
   assert.equal(regularMinute(at(0)), true);
