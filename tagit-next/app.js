@@ -15,6 +15,7 @@ import { sipScan } from './src/core/sipscan.js';
 import { sipUniverse, applyCloses, applyLive, applySipDelayed, liveSymbols } from './src/state.js';
 import { fetchCloses } from './src/core/closes.js';
 import { marketDate } from './src/core/market.js';
+import { createGate, breaker } from './src/backoff.js';
 import { cleanAmount } from './src/core/sizing.js';
 
 const SCAN_INTERVAL_MS = 30_000;
@@ -26,6 +27,20 @@ const SIP_INTERVAL_MS = 5 * 60_000; // relay windows move in 5-minute buckets
 const LIVE_INTERVAL_MS = 10_000; // consolidated live board, when the service has it
 const LIVE_RETRY_MS = 10 * 60_000; // re-probe a service without /api/live (manual redeploys)
 const CLOSES_INTERVAL_MS = 30 * 60_000;
+
+// ---- retry pacing (resilience) ------------------------------------------------------
+// Failed polls back off (2×, 4× … capped) instead of hammering a cold or failing free server;
+// a success, a manual refresh, a returning tab or a restored network resets them.
+const gates = {
+  scan: createGate(SCAN_INTERVAL_MS, 4 * 60_000),
+  quotes: createGate(QUOTE_INTERVAL_MS, 60_000),
+  live: createGate(LIVE_INTERVAL_MS, 2 * 60_000),
+};
+let retryTimer = 0;
+const resetGates = () => {
+  clearTimeout(retryTimer);
+  Object.values(gates).forEach((g) => g.reset());
+};
 
 const $ = (id) => document.getElementById(id);
 const clock = () => Date.now();
@@ -58,7 +73,7 @@ function render() {
   const journal = state.ui.view === 'journal';
   morph($('status'), renderStatus(state, now, { scanning }));
   morph($('kpis'), renderMetrics(state, now));
-  morph($('notices'), renderNotices(state));
+  morph($('notices'), renderNotices(state, now));
 
   const sip = state.ui.view === 'sip';
   const list = journal ? renderJournal(state) : sip ? renderSipList(state, now) : renderList(state, now);
@@ -82,11 +97,27 @@ function render() {
   morph($('dossier'), renderDossier(state, now));
   $('dossier').classList.toggle('is-open', state.ui.sheet);
   document.body.classList.toggle('sheet-open', state.ui.sheet && innerWidth < SHEET_BREAKPOINT);
+  modalSheet(state.ui.sheet && innerWidth < SHEET_BREAKPOINT);
 
   const coverage = coverageText(state);
   if (coverage) {
     $('coverage-line').textContent = coverage;
     $('coverage').textContent = coverage;
+  }
+}
+
+/** Phone sheet: a modal dialog; the page behind it is inert so focus and screen readers stay inside. */
+const BEHIND_SHEET = ['.skip', '.topbar', '.intro', '#kpis', '#notices', '.board', '.method', '.site-foot'];
+function modalSheet(open) {
+  const d = $('dossier');
+  if (open === d.hasAttribute('aria-modal')) return;
+  for (const sel of BEHIND_SHEET) document.querySelector(sel)?.toggleAttribute('inert', open);
+  if (open) {
+    d.setAttribute('role', 'dialog');
+    d.setAttribute('aria-modal', 'true');
+  } else {
+    d.removeAttribute('role');
+    d.removeAttribute('aria-modal');
   }
 }
 
@@ -107,6 +138,7 @@ function toast(message) {
 
 async function scan({ manual = false } = {}) {
   if (scanning || !client || (document.hidden && !manual)) return;
+  if (!manual && !gates.scan.ready(clock())) return;
   scanning = true;
   $('refresh').disabled = true;
   scheduleRender();
@@ -114,6 +146,8 @@ async function scan({ manual = false } = {}) {
     // A cold free-tier server can take close to a minute on the first request.
     const payload = await client.scanner(state.scan ? 30_000 : 90_000);
     const added = applyScan(state, payload, clock());
+    resetGates();
+    state.retryAt = 0;
     persist(added);
     if (!state.ui.selected && innerWidth >= SHEET_BREAKPOINT) {
       // The first row the list shows (not the first of the unsorted tiers, which could be a halt).
@@ -121,6 +155,9 @@ async function scan({ manual = false } = {}) {
     }
   } catch (e) {
     scanFailed(state, e.code ?? 'NETWORK');
+    state.retryAt = gates.scan.fail(clock());
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(() => scan(), state.retryAt - clock() + 50); // retry when announced, not at the next 30 s tick
     if (manual) toast(errorMessage(e.code));
   } finally {
     scanning = false;
@@ -139,7 +176,7 @@ async function runSip() {
   state.sip = { ...state.sip, phase: 'loading' };
   scheduleRender();
   try {
-    const result = await sipScan({ getJson: (url) => client.relay(url), service: state.endpoint, symbols, now: clock() });
+    const result = await sipScan({ getJson: breaker((url) => client.relay(url)), service: state.endpoint, symbols, now: clock() });
     if (!result.with_bars && result.failed) throw new Error('تعذر الوصول إلى بيانات SIP');
     state.sip = { phase: 'ok', result, error: null };
     applySipDelayed(state, result.last, clock());
@@ -166,7 +203,7 @@ async function loadCloses() {
   if (fresh) return;
   closesBusy = true;
   try {
-    const closes = await fetchCloses({ getJson: (url) => client.relay(url), service: state.endpoint, symbols, now: clock() });
+    const closes = await fetchCloses({ getJson: breaker((url) => client.relay(url)), service: state.endpoint, symbols, now: clock() });
     if (closes.map.size) {
       applyCloses(state, closes);
       if (!closes.failed) storage.saveCloses(closes);
@@ -184,11 +221,14 @@ let liveBusy = false;
 async function live() {
   if (liveBusy || !client || !state.scan || document.hidden) return;
   if (state.live.supported === false && clock() - (state.live.checkedAt ?? 0) < LIVE_RETRY_MS) return;
+  if (!gates.live.ready(clock())) return;
   liveBusy = true;
   try {
     const result = await client.live(liveSymbols(state, clock()));
     applyLive(state, result, clock());
+    gates.live.ok();
   } catch (e) {
+    if (e.code !== 'NOT_SUPPORTED') gates.live.fail(clock());
     state.live = e.code === 'NOT_SUPPORTED'
       ? { ...state.live, supported: false, checkedAt: clock(), error: null }
       : { ...state.live, error: e.code ?? 'NETWORK' };
@@ -200,15 +240,18 @@ async function live() {
 
 async function quotes() {
   if (quoting || !client || !state.scan || document.hidden) return;
+  if (!gates.quotes.ready(clock())) return;
   const symbols = nextQuoteSymbols(state, clock());
   if (!symbols.length) return;
   quoting = true;
   try {
     const result = await client.quotes(symbols);
     const added = applyQuotes(state, result, clock());
+    gates.quotes.ok();
     persist(added);
   } catch {
     state.quoteError = true;
+    gates.quotes.fail(clock());
   } finally {
     quoting = false;
     scheduleRender();
@@ -342,7 +385,7 @@ $('max-price').addEventListener('change', (e) => {
   state.ui.maxPrice = e.target.value && v > 0 ? v : Infinity;
   render();
 });
-$('refresh').addEventListener('click', () => scan({ manual: true }));
+$('refresh').addEventListener('click', () => { resetGates(); scan({ manual: true }); });
 
 document.addEventListener('keydown', (e) => {
   const typing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement?.tagName);
@@ -391,7 +434,20 @@ $('export').addEventListener('click', () => {
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) persist(true);
-  else scan();
+  else {
+    resetGates();
+    scan();
+  }
+});
+// Network changes on phones: say so at once, and resume as soon as the connection returns.
+state.offline = navigator.onLine === false;
+window.addEventListener('offline', () => { state.offline = true; scheduleRender(); });
+window.addEventListener('online', () => {
+  state.offline = false;
+  resetGates();
+  scan();
+  quotes();
+  scheduleRender();
 });
 window.addEventListener('pagehide', () => persist(true));
 window.addEventListener('resize', () => {

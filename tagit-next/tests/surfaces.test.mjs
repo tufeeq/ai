@@ -71,7 +71,7 @@ test('insights UI: pulse stamped by its bars, rejected economic rows, industries
   // Industries: the first number in each item is the median (ranking metric).
   const top = d.industries.top[0];
   const item = out.slice(out.indexOf(`data-key="ind-${top.industry}"`));
-  const firstPct = /<span class="num[^"]*" dir="ltr">([^<]+)<\/span>/.exec(item)[1];
+  const firstPct = /<span class="num[^"]*" dir="ltr">([^<]+)<\/span>/.exec(item)[1].replace(/[\u2066-\u2069]/g, ''); // LTR isolates
   assert.ok(firstPct.startsWith(top.median_chg_pct > 0 ? '+' : ''), firstPct);
   assert.ok(firstPct.includes(Math.abs(top.median_chg_pct).toFixed(2)), `${firstPct} vs ${top.median_chg_pct}`);
   // Movers: the news column comes right after the change (visible without horizontal scroll).

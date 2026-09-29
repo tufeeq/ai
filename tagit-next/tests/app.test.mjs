@@ -42,8 +42,8 @@ test('html escapes interpolations but keeps nested templates and raw markup', ()
 test('formatting keeps four decimals under $1 and signs percentages', () => {
   assert.equal(f.price(0.43125), '0.4313');
   assert.equal(f.price(12.4), '12.40');
-  assert.equal(f.pct(3.014), '+3.01%');
-  assert.equal(f.pct(-1.5), '-1.50%');
+  assert.equal(f.plain(f.pct(3.014)), '+3.01%');
+  assert.equal(f.plain(f.pct(-1.5)), '-1.50%');
   assert.equal(f.pct(null), '—');
   assert.equal(f.age(at(-4000), now), '4 ث');
   assert.equal(f.age(at(5000), now), 'وقت غير صالح');
