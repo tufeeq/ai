@@ -1,19 +1,27 @@
 name: TAGit NEXT forward record
 
 # Records live scanner alerts every ~10 minutes during the extended session (the request also
-# keeps the free Render instance awake) and evaluates the day after 20:00 New York.
+# keeps the free service instance awake) and evaluates the latest closed session after 20:00 New York.
+# The evaluated date comes from `forward.py session-day`, never from the runner's clock: GitHub
+# delays scheduled runs, and a run that slipped past midnight New York used to evaluate the new,
+# empty date (2026-09-26 and 2026-09-29 rows) and lose the real session. Evaluate passes are
+# idempotent and a poorer later pass never overwrites a published day, so there are three.
 on:
   schedule:
     - cron: '*/10 8-23 * * 1-5'   # record: 04:00-19:59 EDT / 03:00-18:59 EST
     - cron: '*/10 0 * * 2-6'      # record: 20:00-20:59 EDT / 19:00-19:59 EST
-    - cron: '20 0 * * 2-6'        # evaluate: 20:20 EDT
-    - cron: '20 1 * * 2-6'        # evaluate: 20:20 EST (and a second pass in EDT)
+    - cron: '20 1 * * 2-6'        # evaluate: 21:20 EDT / 20:20 EST
+    - cron: '20 2 * * 2-6'        # evaluate: second pass
+    - cron: '20 5 * * 2-6'        # evaluate: late pass (01:20 EDT), before the next pre-market
   workflow_dispatch:
     inputs:
       command:
         type: choice
         options: [record, evaluate]
         default: record
+      day:
+        description: New York session to evaluate (YYYY-MM-DD); empty = latest closed session
+        default: ''
   push:
     branches: ['claude/**']
     paths: ['tagit-next/pipeline/forward.py', '.github/workflows/tagit-next-forward.yml']
@@ -37,16 +45,22 @@ jobs:
       - name: Decide command and New York date
         id: plan
         run: |
-          echo "day=$(TZ=America/New_York date +%F)" >> "$GITHUB_OUTPUT"
           case "${{ github.event_name }}:${{ github.event.schedule }}" in
-            schedule:20\ 0*|schedule:20\ 1*) echo "command=evaluate" >> "$GITHUB_OUTPUT" ;;
-            workflow_dispatch:*) echo "command=${{ github.event.inputs.command }}" >> "$GITHUB_OUTPUT" ;;
-            push:*) echo "command=both" >> "$GITHUB_OUTPUT" ;;
-            *) echo "command=record" >> "$GITHUB_OUTPUT" ;;
+            schedule:20\ *) command=evaluate ;;
+            workflow_dispatch:*) command="${{ github.event.inputs.command }}" ;;
+            push:*) command=both ;;
+            *) command=record ;;
           esac
+          echo "command=$command" >> "$GITHUB_OUTPUT"
+          if [ "$command" = evaluate ]; then
+            # The session being evaluated (its ledger cache is keyed by that date).
+            echo "day=$(python3 tagit-next/pipeline/forward.py session-day --day '${{ github.event.inputs.day }}')" >> "$GITHUB_OUTPUT"
+          else
+            echo "day=$(TZ=America/New_York date +%F)" >> "$GITHUB_OUTPUT"
+          fi
       - name: Unit tests
         run: python3 -m unittest discover -s tagit-next/pipeline -p 'test_forward.py'
-      - name: Restore today's ledger
+      - name: Restore the session's ledger
         uses: actions/cache/restore@v4
         with:
           path: forward-ledger.json
@@ -62,13 +76,17 @@ jobs:
           path: forward-ledger.json
           key: tagit-forward-${{ steps.plan.outputs.day }}-${{ github.run_id }}
       - name: Evaluate
-        if: steps.plan.outputs.command != 'record'
+        if: steps.plan.outputs.command == 'evaluate'
         run: python3 tagit-next/pipeline/forward.py evaluate --ledger forward-ledger.json --day ${{ steps.plan.outputs.day }}
+      - name: Evaluate (branch smoke test, latest closed session)
+        if: steps.plan.outputs.command == 'both'
+        run: python3 tagit-next/pipeline/forward.py evaluate --ledger forward-ledger.json
       - name: Keep the raw ledger
         if: steps.plan.outputs.command != 'record'
         uses: actions/upload-artifact@v4
         with:
           name: forward-ledger-${{ steps.plan.outputs.day }}-${{ github.run_id }}
+          if-no-files-found: ignore
           path: |
             forward-ledger.json
             tagit-next/data/forward-outcomes.json
@@ -88,6 +106,7 @@ jobs:
               gh workflow run pages-tagx-deploy.yml --ref main
               exit 0
             fi
+            git rebase --abort 2>/dev/null || true
             sleep $((attempt * 5))
           done
           exit 1

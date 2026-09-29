@@ -17,7 +17,8 @@ test('label carries the last trade, caps at the close and records the plan outco
   const l = label(bars, Date.parse('2026-09-25T19:40:00Z'), close, signal);
   assert.equal(l.exit_kind, 'SESSION_END');
   assert.ok(Math.abs(l.return_pct - 4.5) < 1e-9);
-  assert.deepEqual(l.plan, { status: 'TARGET_2R', r: 2 });
+  assert.deepEqual({ ...l.plan, cost_r: undefined }, { status: 'TARGET_2R', r: 2, cost_r: undefined });
+  assert.ok(Math.abs(l.plan.cost_r - 0.1) < 1e-9); // 0.5% of 2.00 over a 0.10 risk
   assert.deepEqual(label(bars, Date.parse('2026-09-25T19:43:00Z'), close, signal), { status: 'NO_ENTRY' });
   assert.equal(label(bars, Date.parse('2026-09-25T19:40:00Z'), close, { ...signal, trigger: 1.5 }).plan.status, 'CHASED');
   const stop = label([bar('2026-09-25T15:00:00Z', 2.0, 2.3, 1.85, 2.2)], Date.parse('2026-09-25T15:00:00Z'), close, signal);

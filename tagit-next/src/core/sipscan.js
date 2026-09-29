@@ -104,10 +104,54 @@ export function detectSymbol(symbol, rawBars, { from = -Infinity, to = Infinity,
       stop: s.stop,
       plan_valid: s.plan_valid,
       targets: risk > 0 ? [s.trigger + risk, s.trigger + 2 * risk] : null,
+      // The live list's own early-move limit (discovery-1 maxEarly3mGain). The detector does not apply
+      // it, so the SIP list showed these as ordinary signals; sip-study-1 holdout: −2.07% (n=718) vs
+      // −0.83% for the rest, after 0.5 pp.
+      extended: s.return_3m > RULES.maxEarly3mGain,
       source: 'SIP_DELAYED',
     });
   }
   return signals;
+}
+
+// Timing of the studied trade (sip-study-1 "delayed" and paper-ledger-1): the signal becomes visible
+// 17 minutes after detection, entry must happen within the next 2 minutes, exit 30 minutes later.
+export const STUDIED_VISIBLE_MS = 17 * 60_000;
+export const STUDIED_ENTRY_WINDOW_MS = 2 * 60_000;
+export const STUDIED_HORIZON_MS = 30 * 60_000;
+
+/**
+ * Where a delayed signal stands against the studied timing at `now`:
+ *   ENTRY   — inside the studied entry window (17–19 min after detection);
+ *   LATE    — past the studied entry but the studied 30-minute holding period is still running;
+ *             an entry now is a different, unstudied trade;
+ *   EXPIRED — the studied trade would already have ended; history only.
+ * (Before 17 minutes the relay cannot have served the bars, so it counts as ENTRY.)
+ */
+export function signalPhase(signal, now) {
+  const age = now - Date.parse(signal?.detected_at);
+  if (!Number.isFinite(age)) return 'EXPIRED';
+  if (age <= STUDIED_VISIBLE_MS + STUDIED_ENTRY_WINDOW_MS) return 'ENTRY';
+  if (age <= STUDIED_VISIBLE_MS + STUDIED_HORIZON_MS) return 'LATE';
+  return 'EXPIRED';
+}
+
+const PHASE_ORDER = { ENTRY: 0, LATE: 1, EXPIRED: 2 };
+
+/**
+ * Display order for the SIP list: expired signals last; before them, signals with an extension warning
+ * (3-minute burst > 8% or a fade-study-1 flag from `fadeOf(symbol)`) after the rest; then by phase
+ * (studied entry window before late), then newest first.
+ * Returns new objects carrying `phase` and `warned`. This de-emphasises chasing; it is not an edge:
+ * every studied bucket lost money after costs.
+ */
+export function rankSipSignals(signals, now, fadeOf = () => null) {
+  return (signals ?? [])
+    .map((s) => ({ ...s, extended: s.extended ?? s.return_3m > RULES.maxEarly3mGain, phase: signalPhase(s, now), fade: fadeOf(s.symbol) ?? null }))
+    .map((s) => ({ ...s, warned: Boolean(s.extended || s.fade) }))
+    .sort((a, b) => Number(a.phase === 'EXPIRED') - Number(b.phase === 'EXPIRED') || Number(a.warned) - Number(b.warned) ||
+      PHASE_ORDER[a.phase] - PHASE_ORDER[b.phase] ||
+      Date.parse(b.detected_at) - Date.parse(a.detected_at) || a.symbol.localeCompare(b.symbol));
 }
 
 /**

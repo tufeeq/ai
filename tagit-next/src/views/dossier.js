@@ -4,11 +4,12 @@ import * as f from '../format.js';
 import { finite, positive } from '../core/util.js';
 import { CHECK_GROUPS, isExtended } from '../core/checks.js';
 import { sizeWithCosts } from '../core/costs.js';
-import { tradeability, GATE_NOTE } from '../core/tradeability.js';
+import { GATE_NOTE } from '../core/tradeability.js';
 import { outcome } from '../core/journal.js';
 import { shariaStatus } from '../core/sharia.js';
 import { companyFacts } from '../core/risk.js';
 import { fadeWarning, EVENT_LABELS } from '../core/fade.js';
+import { marketDate } from '../core/market.js';
 import { assessRow, flowOf, selectedRow } from '../state.js';
 import { STATE_HINTS, stateBadge, shariaBadge, meter, stat, riskFor, changeNote, DOT } from './common.js';
 import { priceQuality, SOURCES } from '../core/quality.js';
@@ -34,7 +35,8 @@ const NEWS_TOPICS = {
 function checkValue(c) {
   if (c.time) return f.time(c.value);
   if (finite(c.value)) {
-    if (c.unit === '$') return f.compactUsd(c.value);
+    // Prices keep their decimals ($1.95 vs a $2.00 price); only dollar volumes are compacted.
+    if (c.unit === '$') return c.value < 1000 ? f.usd(c.value) : f.compactUsd(c.value);
     return f.num(c.value, c.key === 'prints' ? 0 : 2) + (c.unit ?? '');
   }
   return typeof c.value === 'string' ? c.value : f.DASH;
@@ -42,24 +44,8 @@ function checkValue(c) {
 
 const RISK_TEXT = { HIGH: 'مخاطر هيكلية ظاهرة', WATCH: 'إفصاحات تستحق الانتباه', NONE: 'لا إفصاحات خطرة في آخر ١٢٠ يومًا', UNKNOWN: 'لا بيانات إفصاح لهذا السهم' };
 
-/** Plan levels shown to the user: the live plan, else the watch-only breakout levels. */
-function levelsOf(r, a) {
-  const p = a.plan;
-  const s = r.signal;
-  const entry = p?.entry ?? s?.trigger;
-  const stop = p?.stop ?? s?.stop;
-  return positive(entry) && positive(stop) && entry > stop ? { entry, stop } : null;
-}
-
-export function gateFor(state, r, a, now) {
-  return tradeability(r, {
-    now,
-    feed: state.scan?.feed,
-    plan: levelsOf(r, a),
-    risk: riskFor(state, r, now),
-    connected: state.connection.phase === 'live' || state.connection.phase === 'partial',
-  });
-}
+/** The execution gate computed with the assessment (state.assessRow), so every view agrees. */
+export const gateFor = (state, r, a) => a.gate;
 
 const LEVEL_ICON = { BLOCK: '⛔', WARN: '⚠', INFO: 'ℹ' };
 
@@ -117,7 +103,7 @@ function overview(state, r, a, now) {
     ${gateSection(gateFor(state, r, a, now))}
     <h3>لماذا ظهر السهم؟</h3>
     <p class="why">${why}${isExtended(r) ? ' الحركة ممتدة؛ لا تُصنّف بداية مبكرة.' : ''}</p>
-    ${sipCard(sipSignalFor(state, r.symbol), r, now)}
+    ${sipCard(sipSignalFor(state, r.symbol), r, now, state.evidence)}
     ${riskSection(state, r, now)}
     <div class="checks">${groups}</div>
     <h3>السيولة التقديرية <small class="flow fl-${flow.status}">${flow.label}</small></h3>
@@ -151,12 +137,13 @@ function overview(state, r, a, now) {
 
 function plan(state, r, a, now) {
   const g = gateFor(state, r, a, now);
-  // A plan is only offered when the execution gate does not block it.
-  const p = g.verdict === 'NO' ? null : a.plan;
+  // A plan is only offered when the execution gate does not block it (assessRow holds it back).
+  const p = a.plan;
+  const shown = p ?? a.heldPlan;
   const s = r.signal;
-  const entry = p?.entry ?? s?.trigger;
-  const stop = p?.stop ?? s?.stop;
-  const targets = p?.targets ?? (Array.isArray(s?.targets) ? s.targets : []);
+  const entry = shown?.entry ?? s?.trigger;
+  const stop = shown?.stop ?? s?.stop;
+  const targets = shown?.targets ?? (Array.isArray(s?.targets) ? s.targets : []);
   const levels = [
     { kind: 'target', value: targets[1], label: 'هدف ٢R' },
     { kind: 'target', value: targets[0], label: 'هدف ١R' },
@@ -171,7 +158,7 @@ function plan(state, r, a, now) {
   }) : null;
   const LIMITS = { RISK: 'حد الخسارة شاملًا التكاليف', CAPITAL: 'رأس المال', LIQUIDITY: 'سيولة السهم (١٠٪ من دقيقة · ١٪ من اليوم)' };
   let result;
-  if (!p) result = html`<p class="calc-off">${a.plan && g.verdict === 'NO' ? 'الخطة موقوفة لأن السهم غير قابل للتداول الآن (انظر الأسباب أعلاه).' : 'تعمل الحاسبة عند وجود خطة مستوفية فقط.'}</p>`;
+  if (!p) result = html`<p class="calc-off">${a.heldPlan ? 'الخطة موقوفة لأن السهم غير قابل للتداول الآن (انظر الأسباب أعلاه).' : 'تُحفظ حدودك هنا، وتُحسب الكمية عند وجود خطة مستوفية فقط.'}</p>`;
   else if (!size) result = html`<p class="calc-off">أدخل رأس المال والخسارة القصوى بمبالغ موجبة.</p>`;
   else if (size.shares < 1) result = html`<p class="calc-off">حد الخسارة لا يغطي سهمًا واحدًا بعد احتساب التكاليف والانزلاق، أو السيولة لا تسمح.</p>`;
   else {
@@ -192,24 +179,25 @@ function plan(state, r, a, now) {
   }
   return html`
     <div class="decision d-${p ? 'READY' : a.state}">
-      <div class="decision-head"><strong>${p ? 'خطة مشروطة متاحة الآن' : 'لا خطة مستوفية'}</strong></div>
+      <div class="decision-head"><strong>${p ? 'خطة مشروطة متاحة الآن' : a.heldPlan ? 'الخطة موقوفة: غير قابل للتنفيذ الآن' : 'لا خطة مستوفية'}</strong></div>
       <p>${p
         ? 'التفعيل عند تجاوز المستوى مع استمرار السيولة. تُلغى الخطة عند كسر الإبطال أو تقادم البيانات.'
         : 'المستويات أدناه للمراقبة الفنية فقط، وليست توصية دخول.'}</p>
     </div>
     ${gateSection(g)}
-    ${planLadder(levels, r.price)}
+    ${planLadder(levels, r.price, priceQuality(r, now).current)}
     <div class="stats">
       ${stat(p ? 'التفعيل' : 'اختراق للمراقبة', f.num(entry, 4))}
       ${stat('الإبطال', f.num(stop, 4), riskPct !== null ? html`مسافة <span dir="ltr">${f.num(riskPct)}%</span>` : '')}
-      ${stat('الطلب / العرض', `${f.num(r.bid, 4)} / ${f.num(r.ask, 4)}`, 'IEX · ليس عمق السوق')}
-      ${stat('فارق العرض والطلب', finite(r.spread_pct) ? f.num(r.spread_pct) + '%' : f.DASH)}
+      ${stat('الطلب / العرض', html`<span dir="ltr">${f.num(r.bid, 4)} × ${f.num(r.ask, 4)}</span>`,
+        html`${r.quote_source === 'CONSOLIDATED' ? 'مجمّع · ناسداك' : 'IEX · بورصة واحدة'} · ${f.age(r.quote_at, now)} · ليس عمق السوق`)}
+      ${stat('فارق العرض والطلب', finite(g.spread) ? f.num(g.spread) + '%' : f.DASH, finite(g.spread) ? '' : 'لا عرض وطلب حديث')}
     </div>
     <h3>حاسبة الكمية وفق حدودك</h3>
     <form class="calc" data-key="calc" novalidate>
-      <label>رأس المال المتاح ($)<input id="calc-capital" name="capital" type="text" inputmode="decimal" autocomplete="off" value="${capital}" placeholder="مثال: 5000" ${p ? '' : 'disabled'}></label>
-      <label>أقصى خسارة مخططة ($)<input id="calc-risk" name="risk" type="text" inputmode="decimal" autocomplete="off" value="${risk}" placeholder="مثال: 50" ${p ? '' : 'disabled'}></label>
-      <label>عمولة الأمر الواحد ($)<input id="calc-commission" name="commission" type="text" inputmode="decimal" autocomplete="off" value="${commission ?? ''}" placeholder="0" ${p ? '' : 'disabled'}></label>
+      <label>رأس المال المتاح ($)<input id="calc-capital" name="capital" type="text" inputmode="decimal" autocomplete="off" value="${capital}" placeholder="مثال: 5000"></label>
+      <label>أقصى خسارة مخططة ($)<input id="calc-risk" name="risk" type="text" inputmode="decimal" autocomplete="off" value="${risk}" placeholder="مثال: 50"></label>
+      <label>عمولة الأمر الواحد ($)<input id="calc-commission" name="commission" type="text" inputmode="decimal" autocomplete="off" value="${commission ?? ''}" placeholder="0"></label>
     </form>
     ${result}
     <p class="note">الأهداف مضاعفات للمخاطرة وليست توقعات. لا يوجد وقت وصول مثبت للهدف.</p>`;
@@ -285,8 +273,8 @@ function priceContext(r, now) {
 }
 
 /** fade-study-1 long-side warning: shown only for symbols on the published flag list. */
-export function fadeBanner(flags, symbol) {
-  const w = fadeWarning(flags, symbol);
+export function fadeBanner(flags, symbol, today = null) {
+  const w = fadeWarning(flags, symbol, today);
   if (!w) return '';
   return html`<div class="fade-warning" role="note">
     <b>⚠ تحذير امتداد</b> · ${w.events.map((e) => EVENT_LABELS[e] ?? e).join(' + ')} · <span dir="ltr">${w.day}</span>
@@ -327,7 +315,7 @@ export function renderDossier(state, now) {
       ${priceContext(r, now)}
       <button class="btn ${watching ? 'btn-on' : ''}" data-watch="${r.symbol}" aria-pressed="${watching}">${watching ? '★ في المتابعة' : '☆ أضف للمتابعة'}</button>
     </div>
-    ${fadeBanner(state.fadeFlags, r.symbol)}
+    ${fadeBanner(state.fadeFlags, r.symbol, marketDate(now))}
     <nav class="seg" role="tablist" aria-label="أقسام ملف السهم">${TABS.map(([id, label]) =>
       html`<button role="tab" data-tab="${id}" aria-selected="${tab === id}" class="${tab === id ? 'is-active' : ''}">${label}</button>`)}</nav>
     <div class="dossier-body" data-key="body-${r.symbol}-${tab}" role="tabpanel">${body}</div>`;

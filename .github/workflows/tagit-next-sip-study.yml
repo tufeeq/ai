@@ -47,7 +47,10 @@ jobs:
           elif [ -n "${{ github.event.inputs.from }}" ]; then
             node tagit-next/pipeline/sip_study.mjs --from "${{ github.event.inputs.from }}" --to "${{ github.event.inputs.to }}" --max-minutes 300
           else
-            node tagit-next/pipeline/sip_study.mjs --today
+            # Today plus any session of the last week that is missing or had a failed batch: a
+            # scheduled run that GitHub delayed past midnight New York (or dropped) is caught up
+            # by the next one instead of leaving a hole (`--today` alone never looked back).
+            node tagit-next/pipeline/sip_study.mjs --from "$(TZ=America/New_York date -d '-7 days' +%F)" --to "$(TZ=America/New_York date +%F)" --max-minutes 60
           fi
       - name: Upload for review
         uses: actions/upload-artifact@v4

@@ -3,7 +3,7 @@ import { morph, html } from './src/html.js';
 import { loadEndpoint, createClient, errorMessage, loadStatic } from './src/api.js';
 import * as storage from './src/storage.js';
 import {
-  createState, applyScan, scanFailed, applyQuotes, nextQuoteSymbols, toggleWatch, removeEvent, visibleRows,
+  createState, applyScan, scanFailed, applyQuotes, nextQuoteSymbols, toggleWatch, removeEvent, displayOrder,
 } from './src/state.js';
 import { renderList, LIST_NOTES } from './src/views/list.js';
 import { renderJournal, JOURNAL_NOTE } from './src/views/journal.js';
@@ -16,6 +16,7 @@ import { sipUniverse, applyCloses, applyLive, applySipDelayed, liveSymbols } fro
 import { fetchCloses } from './src/core/closes.js';
 import { marketDate } from './src/core/market.js';
 import { createGate, breaker } from './src/backoff.js';
+import { cleanAmount } from './src/core/sizing.js';
 
 const SCAN_INTERVAL_MS = 30_000;
 const QUOTE_INTERVAL_MS = 5_000;
@@ -81,9 +82,10 @@ function render() {
   $('list').classList.toggle('is-sip', sip);
   $('list-head').classList.toggle('is-sip', sip);
   morph($('list-head'), journal ? JOURNAL_HEAD : sip ? SIP_HEAD : LIST_HEAD);
-  morph($('list'), list.markup);
-  $('empty').hidden = !list.empty;
-  $('empty').textContent = list.empty;
+  // The empty message goes inside the list: below it, the list's minimum height pushed the
+  // message out of view and an empty scan looked like a blank, broken page.
+  morph($('list'), list.empty ? html`<li class="empty" data-key="empty" role="status">${list.empty}</li>` : list.markup);
+  $('empty').hidden = true;
   $('row-count').textContent = journal ? `${list.count} سجلًا` : sip ? `${list.count} إشارة` : `${list.count} سهمًا معروضًا`;
   $('list-note').textContent = journal ? JOURNAL_NOTE : sip ? SIP_NOTE : LIST_NOTES[state.ui.view];
   $('sip-count').textContent = state.sip.result ? state.sip.result.signals.length : state.sip.phase === 'error' ? '!' : '…';
@@ -148,7 +150,8 @@ async function scan({ manual = false } = {}) {
     state.retryAt = 0;
     persist(added);
     if (!state.ui.selected && innerWidth >= SHEET_BREAKPOINT) {
-      state.ui.selected = visibleRows(state, clock()).find((r) => !r.placeholder)?.symbol ?? null;
+      // The first row the list shows (not the first of the unsorted tiers, which could be a halt).
+      state.ui.selected = displayOrder(state, clock()).find((r) => !r.placeholder)?.symbol ?? null;
     }
   } catch (e) {
     scanFailed(state, e.code ?? 'NETWORK');
@@ -356,16 +359,17 @@ $('dossier').addEventListener('click', (e) => {
     return;
   }
   const remove = e.target.closest('[data-remove-event]');
-  if (remove && removeEvent(state, remove.dataset.removeEvent)) {
+  const removed = remove ? removeEvent(state, remove.dataset.removeEvent, clock()) : false;
+  if (removed) {
     persist(true);
-    toast('حُذف السجل.');
+    toast(removed === 'unwatched' ? 'حُذف السجل وأزيل السهم من المتابعة، حتى لا يُعاد تسجيله اليوم بسعر جديد.' : 'حُذف السجل.');
     render();
   }
 });
 
 $('dossier').addEventListener('input', (e) => {
   if (!['calc-capital', 'calc-risk', 'calc-commission'].includes(e.target.id)) return;
-  const clean = e.target.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
+  const clean = cleanAmount(e.target.value);
   if (clean !== e.target.value) e.target.value = clean;
   state.settings = { ...state.settings, [e.target.name]: clean };
   storage.saveSettings(state.settings);

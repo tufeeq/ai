@@ -2,8 +2,8 @@ const $=id=>document.getElementById(id);
 const labels={baseline:['القاعدة الأساسية','ارتفاع ٠٫٧٪ خلال ٣ دقائق؛ حجم ضعفين؛ تداول ٢٥ ألف دولار؛ ٣٠ صفقة؛ السعر فوق VWAP.'],no_extended:['استبعاد الحركة الممتدة','استبعاد الارتفاع فوق ٢٥٪ لليوم أو ٨٪ خلال ٣ دقائق.'],rvol_tod:['الحجم حسب توقيت اليوم','حجم لا يقل عن ٣ أضعاف المعتاد لهذا التوقيت.'],price_ge_1:['سعر دولار فأكثر','استبعاد الأسهم التي يقل سعرها عن دولار.'],spread_cap:['تقييد فرق السعر','نصف الفرق المقدّر لا يتجاوز ٧٥ نقطة أساس.'],no_dilution:['استبعاد التخفيف','استبعاد إيداعات الطرح والتخفيف في آخر ٣٠ يومًا.'],skip_open_15:['تجاوز أول ربع ساعة','انتظار ١٥ دقيقة من بداية الجلسة.'],target_1r:['هدف مخاطرة واحدة','الهدف يساوي المسافة إلى الوقف، بدل ضعفيها.'],hold_15:['احتفاظ ١٥ دقيقة','تقليص الحد الزمني من ٣٠ إلى ١٥ دقيقة.'],window_low_stop:['وقف عند قاع النافذة','استخدام قاع نافذة الإشارة بدل ATR.'],wide_stop:['وقف لا يقل عن ٣٪','رفع الحد الأدنى للوقف من ١٪ إلى ٣٪.'],quality_combo:['مزيج الجودة','جمع فلاتر الامتداد والحجم حسب التوقيت والسعر والفرق والتخفيف.']};
 const num=n=>typeof n==='number'&&Number.isFinite(n);
 const pct=n=>num(n)?`${(n*100).toFixed(2)}%`:'—';
-const count=n=>num(n)?n.toLocaleString('ar-SA'):'—';
-const dated=t=>t&&Number.isFinite(Date.parse(t))?new Date(t).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh',dateStyle:'short',timeStyle:'short'})+' (الرياض)':'—';
+const count=n=>num(n)?n.toLocaleString('en-US'):'—';
+const dated=t=>t&&Number.isFinite(Date.parse(t))?new Date(t).toLocaleString('ar-u-ca-gregory-nu-latn',{timeZone:'America/New_York',dateStyle:'medium',timeStyle:'short'})+' نيويورك':'—';
 function row(values){const tr=document.createElement('tr');for(const v of values){const td=document.createElement('td');td.textContent=v??'—';tr.append(td);}return tr;}
 for(const [key,[label,desc]]of Object.entries(labels))$('rule-rows').append(row([`${label} · ${key}`,desc]));
 for(const b of document.querySelectorAll('[data-lab-view]'))b.onclick=()=>{for(const x of document.querySelectorAll('[data-lab-view]')){const active=x===b;x.classList.toggle('active',active);x.setAttribute('aria-pressed',String(active));}for(const v of ['results','rules'])$(v+'-view').hidden=v!==b.dataset.labView;resize();};
@@ -34,7 +34,7 @@ async function refresh(){if(busy)return;busy=true;$('refresh-lab').disabled=true
  catch{await resultsPromise;if(data?.connection)connection(data.connection,true);else connection({status:'CONNECTION_FAILED'});}
  await resultsPromise;$('refresh-lab').disabled=false;busy=false;resize();
 }
-function resize(){if(window.parent!==window)window.parent.postMessage({type:'tagit-lab-height',height:Math.ceil(document.body.getBoundingClientRect().height)},location.origin);}
+function resize(){if(window.parent!==window)window.parent.postMessage({type:'tagit-lab-height',height:Math.ceil(document.querySelector('main').getBoundingClientRect().bottom+window.scrollY+16)},location.origin);}
 function theme(){try{document.body.classList.toggle('dark',parent.document.body.classList.contains('dark'));}catch{}}
 window.addEventListener('message',e=>{if(e.origin===location.origin&&e.data?.type==='tagit-theme'){document.body.classList.toggle('dark',e.data.dark);resize();}});
 $('refresh-lab').onclick=refresh;new ResizeObserver(resize).observe(document.body);theme();void refresh();

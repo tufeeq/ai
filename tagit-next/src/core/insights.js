@@ -46,6 +46,8 @@ const TOP_LEVEL_AS_OF = { sectors: 'sectors_as_of', trends: 'trends_as_of', news
 
 /** Section as_of: its own when present, else the top-level `<key>_as_of`, else generated_at. */
 export function sectionAsOf(data, key) {
+  // The pulse cards are ETF daily bars (credited to the SIP source), not the Finviz snapshot in pulse.as_of.
+  if (key === 'pulse' && data?.pulse?.bars_as_of && list(data.pulse.indices).length) return data.pulse.bars_as_of;
   const own = data?.[key] && !Array.isArray(data[key]) ? data[key].as_of : null;
   return own ?? data?.[TOP_LEVEL_AS_OF[key]] ?? data?.generated_at ?? null;
 }
@@ -68,6 +70,18 @@ export function sourceFor(data, key) {
 }
 
 export const list = (v) => (Array.isArray(v) ? v : []);
+
+/**
+ * Economic rows that cannot belong to the calendar day: a release scheduled after the file was produced already
+ * has an actual value (files before the pipeline fix carried Monday's releases under Tuesday). Returns null then.
+ */
+export function economicRows(data) {
+  const rows = data?.calendar?.economic;
+  if (!Array.isArray(rows)) return null;
+  const made = Date.parse(data.generated_at);
+  const impossible = rows.some((r) => r?.actual != null && Date.parse(r.time) > made + 5 * 60_000);
+  return impossible ? null : rows;
+}
 
 const uniqueSorted = (values) => [...new Set(values.filter((v) => typeof v === 'string' && v))].sort((a, b) => a.localeCompare(b));
 
