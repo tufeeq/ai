@@ -149,6 +149,14 @@ test('the plan ladder does not call a stale price "now"', () => {
   assert.match(stale, /غير حالي/);
 });
 
+test('the VWAP check shows the price with decimals, not a rounded "$2"', () => {
+  const state = createState();
+  applyScan(state, payload([row('AAA')]), now);
+  state.ui.selected = 'AAA';
+  state.ui.tab = 'overview';
+  assert.match(String(renderDossier(state, now)), /\$1\.95/);
+});
+
 test('plan tab names the quote source instead of always saying IEX', () => {
   const state = createState();
   applyScan(state, payload([row('AAA', {

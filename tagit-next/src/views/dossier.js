@@ -34,7 +34,8 @@ const NEWS_TOPICS = {
 function checkValue(c) {
   if (c.time) return f.time(c.value);
   if (finite(c.value)) {
-    if (c.unit === '$') return f.compactUsd(c.value);
+    // Prices keep their decimals ($1.95 vs a $2.00 price); only dollar volumes are compacted.
+    if (c.unit === '$') return c.value < 1000 ? f.usd(c.value) : f.compactUsd(c.value);
     return f.num(c.value, c.key === 'prints' ? 0 : 2) + (c.unit ?? '');
   }
   return typeof c.value === 'string' ? c.value : f.DASH;
