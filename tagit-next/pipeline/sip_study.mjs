@@ -13,7 +13,7 @@
 // The universe is today's eligible list (Nasdaq-listed, reference cap < $100M): survivorship bias
 // remains for past sessions and is reported.
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { batches, fetchBatch, detectSymbol, regularSession } from '../src/core/sipscan.js';
+import { batches, fetchBatch, detectSymbol, regularSession, isRegularBar } from '../src/core/sipscan.js';
 
 const SERVICE = process.env.TAGIT_SERVICE || 'https://ai-production-85c7.up.railway.app';
 const ROOT = new URL('../', import.meta.url);
@@ -83,9 +83,13 @@ export function label(bars, entryFrom, close, signal) {
     const risk = entry - signal.stop, target = entry + 2 * risk;
     let plan = { status: 'TIME', r: (exit - entry) / risk };
     for (const b of path) {
+      // A later bar opening at/below the stop gapped through it: the stop fills at that open.
+      if (b !== path[0] && b.o <= signal.stop) { plan = { status: 'STOP', r: (b.o - entry) / risk }; break; }
       if (b.l <= signal.stop) { plan = { status: 'STOP', r: (signal.stop - entry) / risk }; break; }
       if (b.h >= target) { plan = { status: 'TARGET_2R', r: 2 }; break; }
     }
+    // The 0.5 pp round trip in R units (0.5% of the entry over the risk): plan R is gross without it.
+    plan.cost_r = (entry * COST_PP / 100) / risk;
     out.plan = plan;
   } else {
     out.plan = { status: !signal.plan_valid ? 'NO_PLAN' : entry > signal.trigger * 1.01 ? 'CHASED' : 'INVALIDATED' };
@@ -129,8 +133,16 @@ export async function studyDay(day, symbols) {
 
 const compact = (l) => (l.status !== 'RESOLVED' ? { s: l.status } : {
   s: 'R', ret: round(l.return_pct), up: round(l.max_up_pct), dn: round(l.max_down_pct), end: l.exit_kind === 'SESSION_END' ? 1 : 0,
-  plan: l.plan.status, r: round(l.plan.r),
+  plan: l.plan.status, r: round(l.plan.r), ...(Number.isFinite(l.plan.cost_r) ? { rc: round(l.plan.cost_r) } : {}),
 });
+
+/** Signals decided after the regular close (the inclusive 16:00 bar, before audit fix A1) are not
+ * signals of the studied session: drop them from stored days so counts match the detector. */
+export function dropAfterClose(day) {
+  // The decision time is the signal bar's start + 1 minute; that bar must be a regular-session bar.
+  const events = day.events.filter((e) => isRegularBar(Date.parse(e.at) - 60_000));
+  return events.length === day.events.length ? day : { ...day, events };
+}
 
 // ---- summaries --------------------------------------------------------------------------
 
@@ -154,7 +166,10 @@ export function summarize(events, key) {
     plan_traded: plans.length,
     plan_target: plans.filter((l) => l.plan === 'TARGET_2R').length,
     plan_stop: plans.filter((l) => l.plan === 'STOP').length,
-    plan_mean_r: round(mean(plans.map((l) => l.r))),
+    plan_mean_r: round(mean(plans.map((l) => l.r))), // gross: before any cost
+    // After the 0.5 pp round trip, over the plans that carry their cost in R (labels from 2026-09-29 on).
+    plan_costed: plans.filter((l) => Number.isFinite(l.rc)).length,
+    plan_mean_r_after_cost: round(mean(plans.filter((l) => Number.isFinite(l.rc)).map((l) => l.r - l.rc))),
   };
 }
 
@@ -178,7 +193,7 @@ export function breakdowns(events) {
 }
 
 export function buildReport(days, symbolsCount) {
-  const sorted = [...days].sort((a, b) => a.date.localeCompare(b.date)).slice(-KEEP_DAYS);
+  const sorted = [...days].map(dropAfterClose).sort((a, b) => a.date.localeCompare(b.date)).slice(-KEEP_DAYS);
   const all = sorted.flatMap((d) => d.events);
   const cut = Math.floor(sorted.length * 2 / 3);
   const dev = sorted.slice(0, cut).flatMap((d) => d.events);
@@ -220,7 +235,7 @@ async function main() {
   const out = arg('--out') ? new URL(arg('--out'), `file://${process.cwd()}/`) : OUT_DEFAULT;
   const rawOut = arg('--raw') ? new URL(arg('--raw'), `file://${process.cwd()}/`) : RAW_DEFAULT;
   const existing = existsSync(rawOut) ? JSON.parse(readFileSync(rawOut)) : null;
-  const known = new Map((existing?.days ?? []).map((d) => [d.date, d]));
+  const known = new Map((existing?.days ?? []).map((d) => [d.date, dropAfterClose(d)]));
   const save = () => {
     const days = [...known.values()].sort((a, b) => a.date.localeCompare(b.date)).slice(-KEEP_DAYS);
     writeFileSync(rawOut, JSON.stringify({ schema: 1, days }) + '\n');
@@ -236,7 +251,8 @@ async function main() {
   console.log(`universe ${symbols.length} symbols; ${wanted.length} weekdays`);
   for (const day of wanted) {
     if (Date.now() - started > maxMinutes * 60_000) { console.log('time budget reached; rerun to continue'); break; }
-    if (known.has(day) && day !== today && !process.argv.includes('--refresh')) continue;
+    // A stored day is final unless a bar batch failed (then it is retried, not silently kept partial).
+    if (known.has(day) && !(known.get(day).failed > 0) && day !== today && !process.argv.includes('--refresh')) continue;
     if (day === today && Date.now() < session(day).close + 17 * 60_000) { console.log(`${day}: session not complete`); continue; }
     const result = await studyDay(day, symbols);
     if (!result.with_bars) { console.log(`${day}: no bars (holiday or provider gap)`); continue; }
