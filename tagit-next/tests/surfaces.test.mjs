@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { sectionAsOf, economicRows } from '../src/core/insights.js';
 import { renderInsights, DEFAULT_INSIGHTS_UI } from '../src/views/insights.js';
 import { createState, toggleWatch, removeEvent, startWatchEvents } from '../src/state.js';
+import { evidenceSummary } from '../phase2-view.mjs';
 
 const fixture = JSON.parse(readFileSync(new URL('./fixtures/insights.sample.json', import.meta.url), 'utf8'));
 
@@ -112,6 +113,27 @@ test('lab: every CSS token it uses exists, and the iframe height cannot feed bac
   const js = readFileSync(new URL('../lab/lab.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(js, /document\.body\.getBoundingClientRect\(\)\.height/);
   assert.doesNotMatch(js, /Asia\/Riyadh/); // the rest of the site shows New York time
+});
+
+test('evidence page headline comes from the study files and says plainly that nothing held', () => {
+  const read = (n) => JSON.parse(readFileSync(new URL(`../data/${n}.json`, import.meta.url), 'utf8'));
+  const files = { sip: read('sip-outcomes'), exits: read('exit-study'), filters: read('filter-study'), daily: read('daily-study'), fade: read('fade-study'), paper: read('paper-ledger') };
+  const s = evidenceSummary(files);
+  const k = Object.fromEntries(s.kpis.map((x) => [x.key, x]));
+  const pp = (v) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
+  assert.equal(k.sip.value, pp(files.sip.holdout.at_detection.mean_return_pct));
+  assert.equal(k.exit.value, pp(files.exits.selected_holdout.mean_pct));
+  assert.equal(k.filters.value, `${files.filters.candidates.filter((c) => c.holds).length} / ${files.filters.combinations_tested}`);
+  assert.match(k.paper.value, /^[-+]\$[\d,]+$/);
+  if (!files.filters.any_candidate_holds && !files.daily.holds && !files.fade.short.holds
+    && files.sip.holdout.at_detection.mean_return_pct < 0 && files.exits.selected_holdout.mean_pct < 0) assert.match(s.verdict, /لم تصمد أي قاعدة/);
+  // Missing files: nulls and an honest verdict, never zeros.
+  const none = evidenceSummary({});
+  assert.ok(none.kpis.every((x) => x.value === null));
+  assert.match(none.verdict, /غير متاح/);
+  // The methodology section no longer repeats the superseded phase-1 figure.
+  const phase1 = readFileSync(new URL('../phase1.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(phase1, /resolved_expectancy_pct|fetch\(/);
 });
 
 test('themes use the median move and show the range, so one outlier cannot flip the sign', () => {

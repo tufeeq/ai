@@ -1,4 +1,41 @@
 // Format development evidence only. This module cannot rank or emit live signals.
+
+/**
+ * Headline of the evidence page, computed only from the published study files (data/*.json).
+ * Missing files give null values, never zeros. Returns { kpis:[{key,label,value,hint,tone}], verdict, held:[...] }.
+ */
+export function evidenceSummary({ sip = null, exits = null, filters = null, daily = null, fade = null, paper = null } = {}) {
+  const fin = (v) => typeof v === 'number' && Number.isFinite(v);
+  const pp = (v) => (fin(v) ? `${v > 0 ? '+' : ''}${v.toFixed(2)}%` : null);
+  const int = (v) => (fin(v) ? Math.round(v).toLocaleString('en-US') : '—');
+  const tone = (v) => (fin(v) ? (v > 0 ? 'up' : v < 0 ? 'down' : '') : '');
+  const kpis = [];
+  const h = sip?.holdout?.at_detection;
+  kpis.push({ key: 'sip', label: 'إشارات الدقائق · العينة المختومة', value: pp(h?.mean_return_pct), tone: tone(h?.mean_return_pct),
+    hint: h ? `${int(h.signals)} إشارة · ${int(sip.split?.holdout_sessions)} جلسة منذ ${sip.split?.holdout_from ?? '—'} · بعد تكلفة ${sip.cost_pp ?? 0.5} نقطة` : 'ملف الدراسة غير متاح' });
+  const x = exits?.selected_holdout;
+  kpis.push({ key: 'exit', label: 'أفضل قاعدة خروج · المختومة', value: pp(x?.mean_pct), tone: tone(x?.mean_pct),
+    hint: x ? `${exits.selected_on_development ?? '—'} (اختيرت على التطوير) · ${int(x.trades)} صفقة` : 'ملف الدراسة غير متاح' });
+  const held = filters ? (filters.candidates ?? []).filter((c) => c.holds).length : null;
+  kpis.push({ key: 'filters', label: 'تركيبات فلاتر صمدت', value: filters ? `${held} / ${int(filters.combinations_tested)}` : null, tone: held ? 'up' : filters ? 'down' : '',
+    hint: filters ? `بلا فلتر: ${pp(filters.baseline?.holdout?.mean_pct) ?? '—'} في المختومة` : 'ملف الدراسة غير متاح' });
+  const b = paper?.books?.SIP_DELAYED?.all;
+  kpis.push({ key: 'paper', label: 'السجل الورقي الأمامي', value: fin(b?.net_usd) ? `${b.net_usd < 0 ? '-' : '+'}$${Math.abs(b.net_usd).toLocaleString('en-US', { maximumFractionDigits: 0 })}` : null, tone: tone(b?.net_usd),
+    hint: b ? `${int(b.trades)} صفقة · ${int(paper.sessions)} جلسة · رأس مال $${int(paper.account?.capital)} · منها تكاليف $${int(b.cost_usd)}` : 'ملف السجل غير متاح' });
+  const buyRulesFailed = [
+    fin(h?.mean_return_pct) ? h.mean_return_pct < 0 : null, fin(x?.mean_pct) ? x.mean_pct < 0 : null,
+    filters ? !filters.any_candidate_holds : null, daily ? !daily.holds : null, fade?.short ? !fade.short.holds : null,
+  ];
+  const known = buyRulesFailed.filter((v) => v !== null).length;
+  const allFailed = known === 5 && buyRulesFailed.every(Boolean);
+  const heldFindings = [];
+  const av = fade?.avoid;
+  if (av?.holds && av.primary?.holdout) heldFindings.push(`الشراء في الأسهم الممتدة (${av.primary.flag}) أسوأ من غيره بـ ${pp(av.primary.holdout.diff_pct)} خلال ${av.primary.horizon_days} أيام في العينة المختومة: هذه قاعدة تجنّب، لا قاعدة ربح.`);
+  const verdict = allFailed
+    ? 'لم تصمد أي قاعدة شراء أو بيع على المكشوف في العينة المختومة بعد التكلفة. الأرقام أدناه سالبة، وهي النتيجة الفعلية وليست خطأ في العرض.'
+    : known < 5 ? 'بعض ملفات الدراسات غير متاح؛ لا يُستنتج من الغياب شيء.' : 'راجع كل دراسة أدناه؛ لا تعني نتيجة موجبة في مرحلة واحدة اكتمال التحقق.';
+  return { kpis, verdict, held: heldFindings };
+}
 const titles = {core_session:'استبعاد أول وآخر 30 دقيقة', momentum_atr:'الحركة ≥ وحدة تقلب سابقة واحدة'};
 const finite = n => typeof n === 'number' && Number.isFinite(n);
 const pct = n => n === null ? 'غير متاح' : `${n.toFixed(2)}٪`;
