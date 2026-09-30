@@ -16,6 +16,7 @@ verify:
 	python -m research.quote_anchored_order --check
 	python -m research.quote_anchored_later --check
 	python -m research.exit_capacity_sensitivity --check
+	python -m research.participation_breadth --check
 
 # Python 3.12+, Node 24. Offline, no account secrets needed.
 phase1:

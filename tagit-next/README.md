@@ -1,5 +1,13 @@
 # TAGit NEXT — independent small-cap rebuild
 
+**Latest cycle (30 September 2026):** [persistent participation replication](PARTICIPATION_BREADTH_FINDINGS.md).
+The preregistered feature required all three completed signal minutes to exceed
+the prior-ten-minute median volume. It lifted conditional +10%-before−3% target
+rate by only 1.00 percentage point in the exposed two-session validation period,
+where just 25 feature-observable outcomes and one target were known. It therefore
+failed the frozen sample-size conditions and is rejected. Zero market-data requests,
+zero holdout opens and no live-rule change. Reproduce with `make -C tagit-next verify`.
+
 **Latest cycle (29 September 2026):** [exit-capacity sensitivity](EXIT_CAPACITY_SENSITIVITY_FINDINGS.md).
 On the same 20 frozen development cases, extending qualified exit-capacity wait
 from 3 to 30 seconds resolved only one additional case, as a modeled timeout.
@@ -15,7 +23,7 @@ exits; three cases had no entry. Neither quote paths nor same-session minute bar
 showed a +10% or +20% target-first case. Full-sample expectancy is unavailable,
 the final holdout remains sealed and no live rule changed. Reproduce offline with
 `make -C tagit-next quote-anchored`.
-The complete local verification passed 209 Python tests and 94 Node tests.
+The complete local verification passed 213 Python tests and 95 Node tests.
 
 **Latest cycle (27 September 2026):** [quote-anchored decision findings](QUOTE_ANCHORED_FINDINGS.md).
 A frozen twelve-case SIP audit now starts its plan at the first qualified observed
