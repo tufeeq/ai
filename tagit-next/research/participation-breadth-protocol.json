@@ -1,0 +1,81 @@
+{
+  "id": "PERSISTENT_PARTICIPATION_TEMPORAL_REPLICATION_20260930",
+  "base_commit": "9794532af3bce75562f9273d5eab6e4fbbef9180",
+  "status": "FROZEN_EXPOSED_TEMPORAL_REPLICATION",
+  "question": "Does sustained pre-signal volume participation across every one of the three completed signal minutes reduce known non-target outcomes while retaining target-first cases, compared with the unchanged frozen discovery ledger?",
+  "feature": {
+    "id": "persistent_three_minute_participation",
+    "availability": "Final one-minute bars under the explicit end-of-minute availability scenario; only bars whose minute ended no later than the signal timestamp may enter the feature.",
+    "history": "Require thirteen consecutive completed one-minute bars ending at the signal timestamp: ten reference minutes followed by the three signal minutes.",
+    "reference": "Median volume of the ten completed reference minutes immediately preceding the three signal minutes.",
+    "rule": "Select only when each of the three signal-minute volumes is at least the reference median and every input volume is finite and strictly positive.",
+    "rationale": "The frozen detector already requires elevated average three-minute volume and limits one-minute concentration. This orthogonal diagnostic asks whether participation persists in every signal minute instead of being carried by a brief burst. The one-times-median threshold is a causal scale comparison and is not fitted to returns."
+  },
+  "sample": {
+    "source": "Every event in the immutable 322-event discovery-audit ledger whose session is assigned below; no sampling, return ranking or missing-outcome exclusion.",
+    "development_sessions": [
+      "2026-08-24",
+      "2026-08-25",
+      "2026-08-26",
+      "2026-08-27",
+      "2026-08-28"
+    ],
+    "validation_sessions": [
+      "2026-08-31",
+      "2026-09-01"
+    ],
+    "excluded_final_test_sessions": [
+      "2026-09-02",
+      "2026-09-03",
+      "2026-09-04"
+    ],
+    "selection_uses_outcomes": false
+  },
+  "label": {
+    "purpose": "Discovery remaining-move proxy, not executable performance.",
+    "entry": "Next whole-minute open after a fixed one-second decision delay.",
+    "target_gross_pct": 10,
+    "stop_gross_pct": 3,
+    "horizon_minutes": 60,
+    "rules": "First target or stop; opening gaps precede intraminute extrema; same-minute target/stop is ambiguous; any path gap remains unknown; session close may shorten the horizon."
+  },
+  "metrics": {
+    "primary": "Known target-first rate among selected feature-observable signals versus all feature-observable signals, with every unknown outcome retained in the full denominator.",
+    "false_positive_proxy": "Known non-target outcomes divided by all known outcomes; this is not a calibrated false-positive probability.",
+    "target_retention": "Selected known targets divided by all feature-observable known targets.",
+    "coverage": "Feature-observable, selected, known-outcome, unknown-outcome and status counts for development and validation separately."
+  },
+  "acceptance": {
+    "apply_to_both_periods": true,
+    "minimum_known_outcomes": 30,
+    "minimum_known_targets": 3,
+    "minimum_target_retention": 0.5,
+    "minimum_target_rate_lift_percentage_points": 0,
+    "decision": "ACCEPT_FOR_FURTHER_QUOTE_VALIDATION only if every condition passes independently in development and validation. Otherwise REJECT. Never promote directly to the live detector."
+  },
+  "multiplicity": {
+    "family_size_this_cycle": 1,
+    "prior_failed_features_remain_in_record": true,
+    "confirmatory_inference_allowed": false,
+    "reason": "Both periods and labels were exposed by earlier studies, sessions are few, signals overlap and outcome missingness is substantial."
+  },
+  "new_market_request_budget": 0,
+  "new_market_requests": 0,
+  "holdout_opens": 0,
+  "deployment_allowed": false,
+  "live_rule_changes_allowed": false,
+  "profitability_claim_allowed": false,
+  "source_sha256": {
+    "data/discovery-audit.json": "bf6ae9b3e6d3f5cbbfc2e53a03204823fa135059245a6960393ef41af42add4a",
+    "data/study-manifest.json": "6ce841265eb4ac91447908c3dddb3b145e3abdf90080ad5094c94074f4d445df",
+    "data/study/2026-08-24.json.gz": "4de2735014a63e99966fe11875ddd223a78e20e9478773730b67f892f13e77c6",
+    "data/study/2026-08-25.json.gz": "429d375e54fdbf25609796d8c9a164c4ac6cd5324061f3889845d48dc333b1b5",
+    "data/study/2026-08-26.json.gz": "0688309991df6d2b309706cad28ceeb4fa0c4fd1870ca40b6a0ddb653c50db49",
+    "data/study/2026-08-27.json.gz": "bf75685b4960fd9669831007eb163149a0037ed807cdacde2a388833b0ca27e6",
+    "data/study/2026-08-28.json.gz": "906005ead6b30304b1fb4837d41e25823fa4978a205c9404444eaea66a0243d8",
+    "data/study/2026-08-31.json.gz": "9618bdaddfb90f2ff54984c9895ff20ddb3c4d5f35cbb133298f7bdfd506c47a",
+    "data/study/2026-09-01.json.gz": "62b46c53835b97d90ea0b434448c49c70254a30322a717bb2d4fbf89d96c05b6",
+    "research/features.py": "42e102853c2669b4c1235d547cf31baa82cbbba2484849099685982c1739bb68",
+    "research/continuation.py": "88cdfb57c0c6afeb3f1d3fe9fbed65a0943c87a32d2f1db303e9ec26e7447047"
+  }
+}
