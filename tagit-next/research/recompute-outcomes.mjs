@@ -115,7 +115,8 @@ function checkPaper() {
       if (Math.abs(r.gross_usd - r.cost_usd - r.net_usd) > 0.011) flag(`paper ${r.symbol}: net ≠ gross − cost`);
       // Rows written before 2026-09-29 store the stop rounded to 4 decimals; with sub-cent stops
       // that rounding alone moves R, so allow half a unit of the 4th decimal per share of risk.
-      const riskSlack = Math.abs(r.net_r) * r.shares * 0.00005 + 0.02;
+      // net_r itself is published to 3 decimals: allow half a unit of the 3rd decimal of R as well.
+      const riskSlack = Math.abs(r.net_r) * r.shares * 0.00005 + 0.0005 * Math.abs(risk) + 0.02;
       if (Math.abs(r.net_usd - r.net_r * risk) > riskSlack) flag(`paper ${r.symbol}: net R ${r.net_r} ≠ ${r.net_usd / risk}`);
       if (r.exit_kind === 'STOP' && Math.abs(r.exit - r.stop) > 1e-4) flag(`paper ${r.symbol}: STOP exit not at the stop`);
       if (r.exit_kind === 'STOP_GAP' && r.exit > r.stop) flag(`paper ${r.symbol}: STOP_GAP exit above the stop`);

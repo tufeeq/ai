@@ -154,6 +154,17 @@ export function createClient(endpoint, fetcher = fetch) {
       if (body?.schema_version !== 1 || !Array.isArray(body.rows)) throw new ApiError('INVALID_RESPONSE');
       return { ...body, rows: body.rows.map(normalizeLive).filter(Boolean) };
     },
+    /**
+     * Real-time consolidated detector (server pulse): status and today's signal ledger with what each
+     * signal's price did afterwards. Absent on an older service (404 → NOT_SUPPORTED).
+     */
+    async pulse(timeoutMs = 15_000) {
+      const { ok, body } = await getJson(fetcher, `${endpoint}/api/pulse`, timeoutMs);
+      if (body?.status === 'NOT_FOUND') throw new ApiError('NOT_SUPPORTED');
+      if (!ok) throw new ApiError(body?.status ?? 'PROVIDER_UNAVAILABLE');
+      if (body?.schema_version !== 1 || !Array.isArray(body.ledger)) throw new ApiError('INVALID_RESPONSE');
+      return { status: body.pulse ?? null, server_time: body.server_time ?? null, ledger: body.ledger.filter((e) => isSymbol(e?.symbol) && Number.isFinite(Date.parse(e.detected_at))) };
+    },
     async quotes(symbols, timeoutMs = 12_000) {
       const query = encodeURIComponent(symbols.join(','));
       const { ok, body } = await getJson(fetcher, `${endpoint}/api/quotes?symbols=${query}`, timeoutMs);

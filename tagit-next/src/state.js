@@ -28,6 +28,7 @@ export function createState({ journal = [], watched = new Set(), settings = { ca
     sip: { phase: 'idle', result: null, error: null }, // consolidated (delayed) signal scan
     closes: null, // { day, map: symbol → [{day, close}] } consolidated split-adjusted daily closes
     live: { supported: null, at: null, coverage: null, error: null }, // /api/live board (optional endpoint)
+    pulse: { supported: null, status: null, ledger: [], at: null, error: null }, // /api/pulse: real-time consolidated signals + outcomes
     stocks: new Map(),
     pressure: new Map(),
     journal,
@@ -391,6 +392,13 @@ export function journalRows(state) {
     .filter((e) => !q || e.symbol.includes(q));
 }
 
+/** Today's (New York session) real-time consolidated signals from the server ledger, newest first. */
+export function pulseToday(state, now) {
+  const today = marketDate(now);
+  return (state.pulse.ledger ?? []).filter((e) => marketDate(e.detected_at) === today)
+    .sort((a, b) => Date.parse(b.detected_at) - Date.parse(a.detected_at));
+}
+
 export function metrics(state, now) {
   const rows = (state.scan?.order ?? []).map((s) => state.stocks.get(s)).filter(Boolean);
   return {
@@ -398,6 +406,7 @@ export function metrics(state, now) {
     priced: state.scan?.coverage?.with_prices ?? null,
     fresh: rows.filter((r) => assessRow(state, r, now).checks.find((c) => c.key === 'trade').pass).length,
     signals: rows.filter((r) => r.signal?.expansion && !isExtended(r, fadeOf(state, r, now)) && assessRow(state, r, now).checks.find((c) => c.key === 'history').pass).length,
+    signalsToday: state.pulse.supported ? pulseToday(state, now).length : null,
     plans: rows.filter((r) => assessRow(state, r, now).plan).length,
   };
 }
