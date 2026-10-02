@@ -49,6 +49,7 @@ export function createHandler({env=globalThis.process?.env??{},service=createMar
    else if(url.pathname==='/api/quotes'){result=await complement(await service.quotes(url.searchParams.get('symbols')));}
    else if(url.pathname==='/api/scanner'){result=await complement(await scanner.get());}
    else if(url.pathname==='/api/live'&&live)result=await live.get(parseBoardSymbols(url.searchParams.get('symbols')));
+   else if(url.pathname==='/api/pulse/export'&&pulse){const since=url.searchParams.get('since')??'';if(!/^\d{4}-\d{2}-\d{2}$/.test(since))throw Error('INVALID_LAB_QUERY');const signals=pulse.export(since+'T00:00:00.000Z');result={schema_version:1,status:'OK',server_time:new Date(now()).toISOString(),since,count:signals.length,signals,purpose:'RESEARCH_SIGNALS_NOT_RECOMMENDATIONS'};}
    else if(url.pathname==='/api/pulse'&&pulse)result={schema_version:1,status:'OK',server_time:new Date(now()).toISOString(),pulse:pulse.status(),signals:[...pulse.signals().entries()].filter(([,x])=>x.expansion).map(([symbol,x])=>({symbol,...x})),ledger:pulse.ledger().slice(0,100),approved_for_live:false,purpose:'RESEARCH_SIGNALS_NOT_RECOMMENDATIONS'};
    else if(url.pathname==='/api/universe')result=await service.universe();
    else {res.statusCode=404;return res.end(JSON.stringify({status:'NOT_FOUND'}));}

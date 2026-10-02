@@ -17,6 +17,7 @@
 import { analyzeBars, RULES } from './scanner.mjs';
 import { HEADERS, extendedHours } from './live.mjs';
 import { observe } from './store.mjs';
+import { settings } from './market.mjs';
 
 export const PULSE_RULES = Object.freeze({
   version: 'discovery-1c', base: RULES.version,
@@ -40,6 +41,40 @@ export const chartUrl = (symbol) => `https://api.nasdaq.com/api/quote/${encodeUR
 const positive = (x) => typeof x === 'number' && Number.isFinite(x) && x > 0;
 const pct = (a, b) => (positive(a) && positive(b) ? (a / b - 1) * 100 : null);
 const iso = (ms) => new Date(ms).toISOString();
+const nyDay = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date(ms));
+function minutesSinceOpen(ms) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
+  return +p.hour * 60 + +p.minute - 570;
+}
+
+/**
+ * Summarise Alpaca news items for a symbol as of detection time `t`: only items published before
+ * `t` count (no look-ahead). Returns counts for 2 h / 24 h and the latest headline with its age.
+ */
+export function newsContext(items, t) {
+  const before = (items ?? []).map((n) => ({ ...n, at: Date.parse(n.created_at ?? n.updated_at) })).filter((n) => Number.isFinite(n.at) && n.at <= t).sort((a, b) => b.at - a.at);
+  const latest = before[0];
+  return {
+    count_2h: before.filter((n) => t - n.at <= 2 * 3600_000).length,
+    count_24h: before.filter((n) => t - n.at <= 24 * 3600_000).length,
+    latest_minutes_before: latest ? Math.round((t - latest.at) / 60_000) : null,
+    latest_headline: latest?.headline ?? null,
+    latest_source: latest?.source ?? null,
+  };
+}
+
+/** News lookup for detected signals: Alpaca (Benzinga) news for the 24 h before `t`, summarised by newsContext. */
+export function alpacaNews({ env = process.env, fetcher = fetch } = {}) {
+  return async (symbol, t) => {
+    const s = settings(env);
+    if (!s.configured) return { error: 'NOT_CONFIGURED' };
+    const url = 'https://data.alpaca.markets/v1beta1/news?sort=desc&limit=20&symbols=' + encodeURIComponent(symbol) + '&start=' + encodeURIComponent(iso(t - 24 * 3600_000));
+    const r = await fetcher(url, { headers: { 'APCA-API-KEY-ID': s.key, 'APCA-API-SECRET-KEY': s.secret }, signal: AbortSignal.timeout(10_000) });
+    if (!r.ok) return { error: `HTTP_${r.status}` };
+    const body = await r.json();
+    return { ...newsContext(body.news, t), fetched_at: iso(Date.now()) };
+  };
+}
 const nyParts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 
 /** Regular session (09:30–16:00 New York, weekdays; holidays are simply quiet). */
@@ -114,7 +149,7 @@ export function rankCandidates(history, now, r = PULSE_RULES) {
   return out.sort((a, b) => b.score - a.score).slice(0, r.maxCandidates);
 }
 
-export function createPulse({ board, fetcher = fetch, now = Date.now, timers = { setTimeout, clearTimeout }, rules = PULSE_RULES, onExpansion = null, store = null, storeError = null } = {}) {
+export function createPulse({ board, fetcher = fetch, now = Date.now, timers = { setTimeout, clearTimeout }, rules = PULSE_RULES, onExpansion = null, store = null, storeError = null, newsFor = null } = {}) {
   const history = new Map(), signals = new Map(), checkedAt = new Map(), ledger = [], held = new Map();
   const stat = { status: 'IDLE', charts_ok: 0, charts_failed: 0, last_error: null, last_cycle_at: null, candidates: 0, blocked_until: 0 };
   let timer = null, running = false, lastChart = 0, queue = [];
@@ -155,9 +190,18 @@ export function createPulse({ board, fetcher = fetch, now = Date.now, timers = {
           if (!prev || t - Date.parse(prev.detected_at) >= RULES.cooldown) {
             const entry = { symbol, detected_at: iso(t), bar_at: signal.bar_at, price: signal.last_close, return_3m: signal.return_3m,
               volume_ratio: signal.volume_ratio, dollars_3m: signal.dollars_3m, trigger: signal.trigger, stop: signal.stop, plan_valid: signal.plan_valid, rules: rules.version, observed: {} };
+            // Context known at detection (no look-ahead): first signal of the day for this symbol,
+            // minutes since the open, the consolidated day change from the watchlist.
+            const day = nyDay(t);
+            entry.first_today = !ledger.some((x) => x.symbol === symbol && nyDay(Date.parse(x.detected_at)) === day);
+            entry.minutes_since_open = minutesSinceOpen(t);
+            const q = board.snapshot?.()?.get(symbol);
+            entry.day_change_pct = Number.isFinite(q?.change_pct) ? q.change_pct : null;
             ledger.unshift(entry);
             ledger.splice(300);
             persist(() => store.record(entry));
+            // News published before detection (Alpaca/Benzinga); fetched right after, stored as context.
+            if (newsFor) newsFor(symbol, t).then((news) => { entry.news = news; persist(() => store.context(entry)); }).catch(() => { entry.news = { error: true }; });
           }
         }
       } else signals.delete(symbol);
@@ -170,6 +214,9 @@ export function createPulse({ board, fetcher = fetch, now = Date.now, timers = {
   function track(t) {
     const snap = board.snapshot?.();
     if (!snap) return;
+    // Signals of the last hour are marked as viewed so the board refreshes them every ~15 s.
+    const recent = ledger.filter((e) => t - Date.parse(e.detected_at) <= 3600_000).map((e) => e.symbol);
+    if (recent.length) void board.get?.([...new Set(recent)].slice(0, 100))?.catch?.(() => {});
     for (const entry of ledger) {
       if (t - Date.parse(entry.detected_at) > 7 * 3600_000) break;
       const q = snap.get(entry.symbol);
@@ -227,6 +274,11 @@ export function createPulse({ board, fetcher = fetch, now = Date.now, timers = {
     },
     signals: () => signals,
     ledger: () => ledger,
+    /** Full stored ledger from a date on (oldest first) for the live study; memory ledger without a store. */
+    export(fromIso) {
+      if (store) return store.since(fromIso);
+      return ledger.filter((e) => e.detected_at >= fromIso).slice().reverse();
+    },
     status: () => ({ source: 'NASDAQ_COM_CHART', rules: rules.version, status: stat.status, charts_ok: stat.charts_ok, charts_failed: stat.charts_failed,
       last_error: stat.last_error, last_cycle_at: stat.last_cycle_at, candidates: stat.candidates, tracked: history.size,
       live_signals: [...held.values()].filter((h) => now() - Date.parse(h.detected_at) <= rules.holdMs).length, running,

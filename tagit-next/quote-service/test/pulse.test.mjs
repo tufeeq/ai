@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chartBars, consolidatedSignal, rankCandidates, applySignals, completePlans, createPulse, regularMinute, chartUrl } from '../src/pulse.mjs';
+import { chartBars, consolidatedSignal, rankCandidates, applySignals, completePlans, createPulse, regularMinute, chartUrl, newsContext, alpacaNews } from '../src/pulse.mjs';
 
 // Monday 2026-09-28, 10:00 New York (EDT) = 14:00 UTC.
 const open = Date.parse('2026-09-28T13:30:00Z');
@@ -126,4 +126,44 @@ test('scanner rows take the consolidated signal; plans need a fresh consolidated
   // Extended moves never get a plan.
   const ext = completePlans({ rows: [{ ...quoted.rows[0], extended: true }] }, t);
   assert.equal(ext.rows[0].actionable, false);
+});
+
+test('news context counts only items published before detection (no look-ahead)', () => {
+  const t = Date.parse('2026-10-02T15:00:00Z');
+  const items = [
+    { created_at: '2026-10-02T15:05:00Z', headline: 'after', source: 'benzinga' },
+    { created_at: '2026-10-02T14:30:00Z', headline: 'fresh', source: 'benzinga' },
+    { created_at: '2026-10-01T20:00:00Z', headline: 'yesterday', source: 'benzinga' },
+  ];
+  assert.deepEqual(newsContext(items, t), { count_2h: 1, count_24h: 2, latest_minutes_before: 30, latest_headline: 'fresh', latest_source: 'benzinga' });
+  assert.equal(newsContext([], t).latest_headline, null);
+});
+
+test('alpaca news lookup asks for the 24 h before detection and reports missing keys', async () => {
+  assert.deepEqual(await alpacaNews({ env: {} })('SURG', Date.now()), { error: 'NOT_CONFIGURED' });
+  let asked;
+  const t = Date.parse('2026-10-02T15:00:00Z');
+  const news = alpacaNews({ env: { ALPACA_API_KEY_ID: 'k', ALPACA_API_SECRET_KEY: 's' }, fetcher: async (url) => { asked = url; return { ok: true, json: async () => ({ news: [{ created_at: '2026-10-02T14:50:00Z', headline: 'h', source: 'benzinga' }] }) }; } });
+  const r = await news('SURG', t);
+  assert.match(asked, /symbols=SURG/);
+  assert.match(asked, /start=2026-10-01T15%3A00%3A00\.000Z/);
+  assert.equal(r.count_2h, 1);
+  assert.equal(r.latest_minutes_before, 10);
+});
+
+test('new signals record first-of-day, session minute, and their news context', async () => {
+  const t = at(33) + 10_000;
+  const snap = new Map([['SURG', { price: 5.0, volume: 100_000, fetched_at: new Date(t - 200_000).toISOString() }]]);
+  const board = { snapshot: () => snap, get: async () => ({}) };
+  const pulse = createPulse({ board, now: () => t, fetcher: async () => ({ ok: true, status: 200, json: async () => chart() }), newsFor: async () => ({ count_2h: 2 }) });
+  pulse._sample();
+  snap.set('SURG', { price: 5.1, volume: 160_000, fetched_at: new Date(t - 5_000).toISOString() });
+  await pulse._cycle();
+  await pulse._fetchChart('SURG');
+  await new Promise((r) => setImmediate(r));
+  const e = pulse.ledger()[0];
+  assert.equal(e.first_today, true);
+  assert.equal(typeof e.minutes_since_open, 'number');
+  assert.deepEqual(e.news, { count_2h: 2 });
+  assert.equal(pulse.export('2000-01-01T00:00:00.000Z').length, 1);
 });

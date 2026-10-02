@@ -44,3 +44,24 @@ test('without a store the pulse reports memory storage and the reason', () => {
   const pulse = createPulse({ board: { snapshot: () => new Map() }, storeError: 'EACCES' });
   assert.deepEqual(pulse.status().storage, { kind: 'MEMORY', error: 'EACCES' });
 });
+
+test('first-hour price path is sampled and the store exports and updates context', () => {
+  const store = openStore(':memory:');
+  const t0 = Date.parse('2026-09-29T14:00:00Z');
+  const entry = { symbol: 'SURG', detected_at: new Date(t0).toISOString(), price: 5, stop: 4.9, rules: 'discovery-1c', observed: {} };
+  store.record(entry);
+  observe(entry, 5.1, t0 + 10_000);
+  observe(entry, 5.1, t0 + 30_000); // same price within a minute: no new point
+  observe(entry, 5.0, t0 + 40_000);
+  observe(entry, 5.0, t0 + 110_000); // same price, a minute later: a point
+  observe(entry, 6.0, t0 + 3_700_000); // past the first hour: not on the path
+  assert.deepEqual(entry.observed.path, [[10, 5.1], [40, 5], [110, 5]]);
+  store.observe(entry);
+  entry.news = { count_2h: 1 };
+  store.context(entry);
+  const [row] = store.since('2026-09-29T00:00:00.000Z');
+  assert.equal(row.news.count_2h, 1);
+  assert.equal(row.observed.path.length, 3);
+  assert.equal(store.since('2026-09-30T00:00:00.000Z').length, 0);
+  store.close();
+});

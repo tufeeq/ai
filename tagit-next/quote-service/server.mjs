@@ -6,7 +6,7 @@ import {createHaltWatcher} from './src/halts.mjs';
 import {createConsolidated} from './src/consolidated.mjs';
 import {createSipCloses} from './src/closes.mjs';
 import {createLiveBoard} from './src/live.mjs';
-import {createPulse} from './src/pulse.mjs';
+import {createPulse,alpacaNews} from './src/pulse.mjs';
 import {openStore,dbPath} from './src/store.mjs';
 import {createElite} from '../elite/core/live.mjs';
 import {eliteHttp} from '../elite/core/http.mjs';
@@ -23,7 +23,7 @@ const consolidated=createConsolidated();
 // Signals and their outcomes persist on the Railway volume (or TAGIT_DB_PATH); otherwise memory only.
 let store=null,storeError=null;
 if(dbPath())try{store=openStore(dbPath());console.log(`pulse store: ${dbPath()}`);}catch(e){storeError=e.code||e.message;console.error(`pulse store unavailable (${storeError}); keeping signals in memory`);}
-const pulse=process.env.TAGIT_PULSE==='0'?null:createPulse({board:live,onExpansion:symbol=>consolidated.peek([symbol]),store,storeError});
+const pulse=process.env.TAGIT_PULSE==='0'?null:createPulse({board:live,onExpansion:symbol=>consolidated.peek([symbol]),store,storeError,newsFor:alpacaNews({env:process.env})});
 const handle=createHandler({runtime,sharia:createSharia(),halts:createHaltWatcher(),consolidated,closes,live,pulse});
 const onRequest=async(req,res)=>{try{if(!await eliteHttp(req,res,exposedElite))await handle(req,res);}catch{res.statusCode=503;res.end(JSON.stringify({status:'SERVICE_ERROR'}));}};
 const host=process.env.HOST||'0.0.0.0',port=Number(process.env.PORT||8787);

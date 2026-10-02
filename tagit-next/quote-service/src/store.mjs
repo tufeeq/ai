@@ -24,6 +24,8 @@ export function openStore(path, { now = Date.now } = {}) {
     CREATE INDEX IF NOT EXISTS pulse_signals_time ON pulse_signals(detected_at);`);
   const insert = db.prepare('INSERT OR IGNORE INTO pulse_signals(id,symbol,detected_at,rules,payload,observations,updated_at) VALUES(?,?,?,?,?,?,?)');
   const update = db.prepare('UPDATE pulse_signals SET observations=?, updated_at=? WHERE id=?');
+  const rewrite = db.prepare('UPDATE pulse_signals SET payload=?, updated_at=? WHERE id=?');
+  const since = db.prepare('SELECT payload, observations FROM pulse_signals WHERE detected_at >= ? ORDER BY detected_at ASC LIMIT ?');
   const recent = db.prepare('SELECT payload, observations FROM pulse_signals ORDER BY detected_at DESC LIMIT ?');
   const count = db.prepare('SELECT COUNT(*) AS n FROM pulse_signals');
   const iso = () => new Date(now()).toISOString();
@@ -34,6 +36,15 @@ export function openStore(path, { now = Date.now } = {}) {
     },
     observe(entry) {
       update.run(JSON.stringify(entry.observed ?? {}), iso(), `${entry.symbol}@${entry.detected_at}`);
+    },
+    /** Replace the stored signal payload (context added after detection, e.g. news). */
+    context(entry) {
+      const { observed, ...payload } = entry;
+      rewrite.run(JSON.stringify(payload), iso(), `${entry.symbol}@${entry.detected_at}`);
+    },
+    /** Every signal from `fromIso` on, oldest first (for the live study export). */
+    since(fromIso, limit = 20_000) {
+      return since.all(fromIso, limit).map((r) => ({ ...JSON.parse(r.payload), observed: JSON.parse(r.observations) }));
     },
     recent(limit = 300) {
       return recent.all(limit).map((r) => ({ ...JSON.parse(r.payload), observed: JSON.parse(r.observations) }));
@@ -62,5 +73,13 @@ export function observe(entry, price, at) {
   if (!(o.min_price <= price)) { o.min_price = price; o.min_return_pct = ret(price); changed = true; }
   if (o.last_price !== price) { o.last_price = price; o.last_at = new Date(at).toISOString(); o.last_return_pct = ret(price); changed = true; }
   if (entry.stop > 0 && !o.stop_hit_at && price <= entry.stop) { o.stop_hit_at = new Date(at).toISOString(); changed = true; }
+  // Price path for the first hour ([seconds since detection, price]), so alternative entries
+  // (e.g. waiting for a pullback) can be evaluated later from what was actually observed.
+  const sec = Math.round((at - t0) / 1000);
+  if (sec <= 3600) {
+    const path = (o.path ??= []);
+    const last = path.at(-1);
+    if ((!last || (sec > last[0] && (price !== last[1] || sec - last[0] >= 60))) && path.length < 240) { path.push([sec, price]); changed = true; }
+  }
   return changed;
 }
