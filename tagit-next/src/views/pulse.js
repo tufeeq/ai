@@ -6,7 +6,7 @@ import * as f from '../format.js';
 import { pulseToday } from '../state.js';
 import { riskFor, riskBadge, shariaBadge } from './common.js';
 
-export const PULSE_NOTE = 'كل إشارة تسارع رصدها الخادم اليوم على البيانات المجمّعة اللحظية (كل البورصات)، ثم ما فعله سعرها بعدها: بعد ١٥ و٣٠ دقيقة، وأعلى وأدنى سعر، وهل لمس الإبطال. الخطة تبقى قائمة ٢٠ دقيقة ما دام السعر بين الإبطال ومنطقة التفعيل. السجل الكامل محفوظ في قاعدة البيانات.';
+export const PULSE_NOTE = 'كل إشارة تسارع رصدها الخادم اليوم على البيانات المجمّعة اللحظية (كل البورصات)، ثم ما فعله سعرها بعدها: بعد ١٥ و٣٠ دقيقة، وأعلى وأدنى سعر، وهل لمس الإبطال. الخطة تبقى قائمة ٢٠ دقيقة ما دام السعر بين الإبطال ومنطقة التفعيل. السجل الكامل محفوظ في قاعدة البيانات، ومعه سياق الأخبار وقت الرصد ومسار السعر في الساعة الأولى لدراسة حية مسجلة مسبقًا.';
 
 const finiteNum = (x) => typeof x === 'number' && Number.isFinite(x);
 const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
@@ -36,6 +36,15 @@ export function pulseSummary(entries) {
   };
 }
 
+/** News context recorded when the signal fired (only items published before detection). */
+export function newsLine(news) {
+  if (!news) return null;
+  if (news.error) return 'الأخبار: تعذر الجلب';
+  if (!news.count_24h) return 'بلا أخبار خلال ٢٤ ساعة قبل الرصد';
+  const when = finiteNum(news.latest_minutes_before) ? (news.latest_minutes_before < 120 ? `قبل ${news.latest_minutes_before} د` : `قبل ${Math.round(news.latest_minutes_before / 60)} س`) : '';
+  return `خبر ${when}: ${news.latest_headline ?? ''}`.trim();
+}
+
 const outcome = (o, k) => (finiteNum(o?.[k]?.return_pct) ? html`<span dir="ltr" class="${f.tone(o[k].return_pct)}">${f.pct(o[k].return_pct)}</span>` : html`<span class="muted">—</span>`);
 
 export function renderPulseList(state, now) {
@@ -61,8 +70,9 @@ export function renderPulseList(state, now) {
     const ageMs = now - Date.parse(e.detected_at);
     const live = ageMs <= 20 * 60_000 && !o.stop_hit_at;
     const selected = state.ui.selected === e.symbol;
+    const news = newsLine(e.news);
     return html`<li data-key="pulse-${e.symbol}-${e.detected_at}"><button class="row sip-row${selected ? ' is-selected' : ''}${live ? '' : ' is-stale'}" data-symbol="${e.symbol}">
-      <span class="row-id"><span class="sym">${e.symbol} ${shariaBadge(row ?? {}, now)}${riskBadge(riskFor(state, row ?? { symbol: e.symbol }, now))}${live ? html`<span class="badge s-READY" title="خلال ٢٠ دقيقة من الرصد ولم يلمس الإبطال">نشطة</span>` : ''}${o.stop_hit_at ? html`<span class="badge s-EXTENDED" title="لمس السعر مستوى الإبطال بعد الرصد">لمس الإبطال</span>` : ''}</span><span class="name">${row?.name ?? ''}</span></span>
+      <span class="row-id"><span class="sym">${e.symbol} ${shariaBadge(row ?? {}, now)}${riskBadge(riskFor(state, row ?? { symbol: e.symbol }, now))}${live ? html`<span class="badge s-READY" title="خلال ٢٠ دقيقة من الرصد ولم يلمس الإبطال">نشطة</span>` : ''}${o.stop_hit_at ? html`<span class="badge s-EXTENDED" title="لمس السعر مستوى الإبطال بعد الرصد">لمس الإبطال</span>` : ''}</span><span class="name">${row?.name ?? ''}</span>${news ? html`<small class="pulse-news${e.news?.count_2h ? ' is-fresh' : ''}" title="${e.news?.latest_source ?? ''}">${news}</small>` : ''}</span>
       <span class="row-price"><span class="px" dir="ltr">${f.usd(e.price)}</span><small>رُصد ${f.time(e.detected_at)} · قبل ${f.age(e.detected_at, now)}</small><small dir="ltr">تفعيل ${f.num(e.trigger, 4)} · إبطال ${f.num(e.stop, 4)}</small></span>
       <span class="row-vol"><span dir="ltr" class="${f.tone(e.return_3m)}">${f.pct(e.return_3m)}</span><small dir="ltr">${f.num(e.volume_ratio, 1)}× · ${f.compactUsd(e.dollars_3m)}</small></span>
       <span class="row-state"><span dir="ltr" class="${f.tone(change)}">${finiteNum(change) ? f.pct(change) : '—'}</span><small>منذ الرصد · ١٥ د ${outcome(o, 'm15')} · ٣٠ د ${outcome(o, 'm30')}</small><small dir="ltr">أعلى ${finiteNum(o.max_return_pct) ? f.pct(o.max_return_pct) : '—'} · أدنى ${finiteNum(o.min_return_pct) ? f.pct(o.min_return_pct) : '—'}</small></span>
