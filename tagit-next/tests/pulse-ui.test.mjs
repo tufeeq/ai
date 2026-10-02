@@ -51,3 +51,12 @@ test("today's server ledger feeds the tab, the KPI and an honest outcome summary
   assert.equal(changeSince(today[0], { price: 2.93 * 1.05, price_at: iso(now) }).toFixed(2), '5.00');
   assert.equal(changeSince(today[0], null), 3.2);
 });
+
+test('signal rows describe the news recorded at detection', async () => {
+  const { newsLine } = await import('../src/views/pulse.js');
+  assert.equal(newsLine(undefined), null);
+  assert.equal(newsLine({ count_2h: 0, count_24h: 0 }), 'بلا أخبار خلال ٢٤ ساعة قبل الرصد');
+  assert.equal(newsLine({ count_2h: 1, count_24h: 1, latest_minutes_before: 12, latest_headline: 'Wins contract' }), 'خبر قبل 12 د: Wins contract');
+  assert.equal(newsLine({ count_2h: 0, count_24h: 2, latest_minutes_before: 300, latest_headline: 'Q2 results' }), 'خبر قبل 5 س: Q2 results');
+  assert.equal(newsLine({ error: true }), 'الأخبار: تعذر الجلب');
+});
