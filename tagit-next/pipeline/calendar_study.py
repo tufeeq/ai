@@ -49,6 +49,14 @@ Trades (entry at an open, exit at a close; eligibility on the bar before entry: 
       Hold h in {1, 3, 5}.
   - Same symbol and same family within 5 sessions: keep the first.
 
+Amendment 1 (2026-10-02, after the diagnostics-only run, before any aggregate return)
+  - The diagnostics flagged 754 of 1,737 PDUFA filings as decision notices. The cause: quarterly releases
+    mention past approvals of other products. This left only 51 FDA run-up events.
+  - A decision notice is now a filing whose HEADLINE says so: the first 400 characters of the exhibit
+    text say the FDA approved, or mention a complete response letter.
+  - Disclosure: the diagnostics printed a 15-row sample of individual FDA run-up trade returns by mistake.
+    No mean, count by sign, or interval was computed. The sample now omits returns. Nothing else changed.
+
 Pre-registered primaries (long)
   E_run5   predicted earnings date, k = 5
   B_run10  PDUFA date, k = 10
@@ -106,7 +114,8 @@ MONTHS['sept'] = 9
 DATE_RE = re.compile(r'\b(January|February|March|April|May|June|July|August|September|October|November|December|'
                      r'Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept|Sep|Oct|Nov|Dec)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b')
 PDUFA_RE = re.compile(r'PDUFA', re.I)
-DECISION_RE = re.compile(r'\b(FDA|Food and Drug Administration)\b[^.]{0,80}\b(has\s+)?approved\b|\bcomplete response letter\b|\bCRL\b', re.I)
+DECISION_RE = re.compile(r'\b(FDA|Food and Drug Administration)\b[^.]{0,80}\b(approves|approved|approval of)\b|\bcomplete response letter\b|\bCRL\b', re.I)
+HEADLINE_CHARS = 400
 EXTEND_RE = re.compile(r'\bextend', re.I)
 
 
@@ -122,7 +131,7 @@ def text_of(raw):
 
 def parse_pdufa(text, filed):
     """-> {'date': 'YYYY-MM-DD' | None, 'decision': bool, 'extension': bool} for one filing's text."""
-    decision = bool(DECISION_RE.search(text))
+    decision = bool(DECISION_RE.search(text[:HEADLINE_CHARS]))
     best = None
     extension = False
     lo, hi = cs.add_days(filed, 7), cs.add_days(filed, 400)
@@ -494,7 +503,7 @@ def run_study(data, bars, pdufa, diag, diagnostics_only=False):
     diag['earnings_prediction'] = {**hits, 'share_within_3d': cs.r3(hits['within_3d'] / max(1, hits['predicted'])),
                                    'share_within_7d': cs.r3(hits['within_7d'] / max(1, hits['predicted']))}
     diag['pdufa_symbols'] = len(pdufa_symbols)
-    diag['sample_pdufa'] = [e for e in kept if e['f'] == 'B'][:15]
+    diag['sample_pdufa'] = [{k: v for k, v in e.items() if k != 'r'} for e in kept if e['f'] == 'B'][:15]
     if diagnostics_only:
         return {'diagnostics': diag, 'sessions': len(sessions)}
     result = analyze(cells, sessions)
@@ -524,7 +533,7 @@ def main():
         seen = {b[0]: b for b in lst}
         bars[s] = [seen[d] for d in sorted(seen) if d <= cs.TO]
     print(f'bars for {len(bars)} symbols; filings for {len(data["filings"])} companies', flush=True)
-    pdufa = pdufa_mentions(cache / 'pdufa.json.gz', diag=diag)
+    pdufa = pdufa_mentions(cache / 'pdufa-v2.json.gz', diag=diag)
     report = run_study(data, bars, pdufa, diag, args.diagnostics_only)
     report = {'schema': 1, 'protocol': 'calendar-study-1', 'updated_at': dt.datetime.now(dt.timezone.utc).isoformat(timespec='seconds'),
               'status': 'DIAGNOSTICS_ONLY' if args.diagnostics_only else 'RESEARCH_EVIDENCE', 'profitability_claim_allowed': False,

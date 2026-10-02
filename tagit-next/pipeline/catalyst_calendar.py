@@ -96,7 +96,7 @@ def upcoming_fda(uni, today, cache):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--out', default=str(OUT))
-    ap.add_argument('--cache', default='calendar-cache/pdufa-recent.json.gz')
+    ap.add_argument('--cache', default='calendar-cache/pdufa-recent-v2.json.gz')
     args = ap.parse_args()
     today = dt.datetime.now(cal.cs.NY).date() if cal.cs.NY else dt.date.today()
     uni = universe()
