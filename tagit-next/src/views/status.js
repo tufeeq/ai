@@ -40,7 +40,7 @@ export function renderMetrics(state, now) {
     ${item('scanned', 'أسهم ضمن المسح', m.scanned !== null ? f.num(m.scanned, 0) : null, `ناسداك · ${capLabel(state)}`)}
     ${item('priced', 'أسعار معروضة / حالية', p.total ? pair(p.total, p.live + p.quiet) : c ? pair(c.with_prices, c.fresh_prices) : null,
     p.total ? `مجمّع ${f.num(p.CONSOLIDATED, 0)} · IEX ${f.num(p.IEX, 0)} · متأخر ${f.num(p.delayed, 0)} · قديم ${f.num(p.stale + p.aging, 0)}` : 'عند آخر مسح', false, 'rtl')}
-    ${item('signals', 'تسارع مستوفٍ', state.scan ? m.signals : null, 'حجم وسعر ودقائق حديثة')}
+    ${item('signals', 'تسارع مستوفٍ', state.scan ? m.signals : null, m.signalsToday !== null ? `خلال آخر ٢٠ دقيقة · ${f.num(m.signalsToday, 0)} إشارة اليوم` : 'حجم وسعر ودقائق حديثة')}
     ${item('plans', 'خطط مشروطة الآن', state.scan ? m.plans : null, 'تتغير مع حداثة السعر', true)}`;
 }
 

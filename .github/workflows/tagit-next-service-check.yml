@@ -58,6 +58,10 @@ jobs:
           probe /api/health
           probe '/api/live?symbols=SENS,SOUN,MU'
           probe '/api/quotes?symbols=SENS,SOUN,MU'
+          echo "=================== /api/pulse (summary)"
+          curl -s -m 60 -H 'Origin: https://tufeeq.github.io' "$B/api/pulse" | python3 -c "import json,sys;d=json.load(sys.stdin);print(json.dumps(d.get('pulse')));print('live signals:',[(x['symbol'],round(x.get('return_3m') or 0,2),round(x.get('volume_ratio') or 0,1)) for x in d.get('signals',[])]);print('ledger:',len(d.get('ledger',[])));[print(e['symbol'],e['detected_at'],e.get('price'),json.dumps(e.get('observed',{}))[:200]) for e in d.get('ledger',[])[:25]]" || true
+          echo "=================== /api/scanner (summary)"
+          curl -s -m 60 -H 'Origin: https://tufeeq.github.io' "$B/api/scanner" | python3 -c "import json,sys;d=json.load(sys.stdin);r=d.get('rows',[]);c=[x for x in r if x.get('signal_source')=='CONSOLIDATED_NASDAQ'];print('rows',len(r),'consolidated signals',len(c),'expansion',sum(1 for x in c if (x.get('signal') or {}).get('expansion')),'actionable',sum(1 for x in r if x.get('actionable')));[print(x['symbol'],x.get('stage'),x.get('actionable'),x.get('plan')) for x in c[:20]]" || true
           probe /api/scanner
           probe /api/universe
           probe '/api/lab/provider?resource=calendar&start=2026-09-28&end=2026-09-28'

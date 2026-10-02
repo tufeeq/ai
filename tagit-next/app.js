@@ -11,8 +11,9 @@ import { renderDossier } from './src/views/dossier.js';
 import { renderStatus, renderMetrics, renderNotices, coverageText } from './src/views/status.js';
 import { renderEvidence } from './src/views/evidence.js';
 import { renderSipList, SIP_NOTE } from './src/views/sip.js';
+import { renderPulseList, PULSE_NOTE } from './src/views/pulse.js';
 import { sipScan } from './src/core/sipscan.js';
-import { sipUniverse, applyCloses, applyLive, applySipDelayed, liveSymbols } from './src/state.js';
+import { sipUniverse, applyCloses, applyLive, applySipDelayed, liveSymbols, pulseToday } from './src/state.js';
 import { fetchCloses } from './src/core/closes.js';
 import { marketDate } from './src/core/market.js';
 import { createGate, breaker } from './src/backoff.js';
@@ -27,6 +28,7 @@ const SIP_INTERVAL_MS = 5 * 60_000; // relay windows move in 5-minute buckets
 const LIVE_INTERVAL_MS = 10_000; // consolidated live board, when the service has it
 const LIVE_RETRY_MS = 10 * 60_000; // re-probe a service without /api/live (manual redeploys)
 const CLOSES_INTERVAL_MS = 30 * 60_000;
+const PULSE_INTERVAL_MS = 30_000; // server's real-time consolidated signal ledger
 
 // ---- retry pacing (resilience) ------------------------------------------------------
 // Failed polls back off (2×, 4× … capped) instead of hammering a cold or failing free server;
@@ -76,7 +78,9 @@ function render() {
   morph($('notices'), renderNotices(state, now));
 
   const sip = state.ui.view === 'sip';
-  const list = journal ? renderJournal(state) : sip ? renderSipList(state, now) : renderList(state, now);
+  // The consolidated tab shows the server's real-time signals when the service has them, else the delayed SIP scan.
+  const pulseTab = sip && state.pulse.supported === true;
+  const list = journal ? renderJournal(state) : pulseTab ? renderPulseList(state, now) : sip ? renderSipList(state, now) : renderList(state, now);
   $('list').classList.toggle('is-journal', journal);
   $('list-head').classList.toggle('is-journal', journal);
   $('list').classList.toggle('is-sip', sip);
@@ -87,8 +91,9 @@ function render() {
   morph($('list'), list.empty ? html`<li class="empty" data-key="empty" role="status">${list.empty}</li>` : list.markup);
   $('empty').hidden = true;
   $('row-count').textContent = journal ? `${list.count} سجلًا` : sip ? `${list.count} إشارة` : `${list.count} سهمًا معروضًا`;
-  $('list-note').textContent = journal ? JOURNAL_NOTE : sip ? SIP_NOTE : LIST_NOTES[state.ui.view];
-  $('sip-count').textContent = state.sip.result ? state.sip.result.signals.length : state.sip.phase === 'error' ? '!' : '…';
+  $('list-note').textContent = journal ? JOURNAL_NOTE : pulseTab ? PULSE_NOTE : sip ? SIP_NOTE : LIST_NOTES[state.ui.view];
+  $('sip-count').textContent = state.pulse.supported === true ? pulseToday(state, now).length
+    : state.sip.result ? state.sip.result.signals.length : state.sip.phase === 'error' ? '!' : '…';
   $('watch-count').textContent = state.watched.size;
   $('journal-count').textContent = state.journal.length;
   $('max-price').disabled = journal || sip;
@@ -473,6 +478,25 @@ applyTheme(storage.loadTheme());
 render();
 openFromHash();
 loadPublished();
+let pulseBusy = false;
+/** Real-time consolidated signal ledger from the server (absent on older services: 404, retried). */
+async function pulse() {
+  if (pulseBusy || !client || document.hidden) return;
+  if (state.pulse.supported === false && clock() - (state.pulse.checkedAt ?? 0) < LIVE_RETRY_MS) return;
+  pulseBusy = true;
+  try {
+    const r = await client.pulse();
+    state.pulse = { supported: true, status: r.status, ledger: r.ledger, at: r.server_time, error: null };
+  } catch (e) {
+    state.pulse = e.code === 'NOT_SUPPORTED'
+      ? { ...state.pulse, supported: false, checkedAt: clock(), error: null }
+      : { ...state.pulse, error: e.code ?? 'NETWORK' };
+  } finally {
+    pulseBusy = false;
+    scheduleRender();
+  }
+}
+
 setInterval(loadPublished, STATIC_REFRESH_MS);
 try {
   state.endpoint = await loadEndpoint();
@@ -481,6 +505,7 @@ try {
   runSip();
   loadCloses();
   live();
+  pulse();
 } catch (e) {
   scanFailed(state, e.code ?? 'CONFIG_UNAVAILABLE');
   render();
@@ -489,6 +514,7 @@ setInterval(scan, SCAN_INTERVAL_MS);
 setInterval(quotes, QUOTE_INTERVAL_MS);
 setInterval(runSip, SIP_INTERVAL_MS);
 setInterval(live, LIVE_INTERVAL_MS);
+setInterval(pulse, PULSE_INTERVAL_MS);
 setInterval(loadCloses, CLOSES_INTERVAL_MS);
 // Checks age with time: re-render every second so freshness and plans expire on screen.
 setInterval(() => {

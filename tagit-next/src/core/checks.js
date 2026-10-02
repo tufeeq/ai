@@ -20,6 +20,12 @@ export const RULES = Object.freeze({
   maxReturn3m: 8,
   scanMaxAgeMs: 90_000,
   chaseTolerance: 1.01,
+  // Real-time consolidated signals (discovery-1c, server pulse): the plan levels stay valid for 20
+  // minutes after the expansion while price holds the zone; quotes up to a minute old; small-cap spreads.
+  consolidatedSignalMaxAgeMs: 20 * 60_000,
+  consolidatedPlanQuoteMaxAgeMs: 60_000,
+  consolidatedMaxSpreadPct: 1.5,
+  consolidatedChaseTolerance: 1.02,
   priorityMinPassed: 8,
 });
 
@@ -59,11 +65,19 @@ export function compareRows(x, ax, y, ay, fadeOf = (r) => r?.fade ?? null) {
     (x.symbol < y.symbol ? -1 : x.symbol > y.symbol ? 1 : 0);
 }
 
+const isConsolidated = (s) => s?.source === 'CONSOLIDATED_NASDAQ';
+
 function buildChecks(row, now, fade) {
   const s = row.signal;
   const barAge = elapsed(s?.bar_at, now);
+  const cons = isConsolidated(s);
+  const signalAge = cons ? elapsed(s.detected_at ?? s.evaluated_at ?? s.bar_at, now) : null;
   return [
-    {
+    cons ? {
+      key: 'history', group: 'freshness', name: 'إشارة مجمّعة خلال آخر ٢٠ دقيقة',
+      pass: s.ready === true && signalAge >= 0 && signalAge <= RULES.consolidatedSignalMaxAgeMs,
+      value: `${s.bars} دقيقة متاحة`,
+    } : {
       key: 'history', group: 'freshness', name: 'دقائق حديثة مكتملة',
       pass: s?.ready === true && barAge >= RULES.barMinAgeMs && barAge <= RULES.barMaxAgeMs,
       value: s ? `${s.bars} دقيقة متاحة` : null,
@@ -104,13 +118,13 @@ function buildChecks(row, now, fade) {
     },
     {
       key: 'quote', group: 'freshness', name: 'عرض شراء وبيع حديث (IEX ‏١٠ ث · مجمّع ٣٠ ث)',
-      pass: within(row.quote_at, now, row.quote_source === 'CONSOLIDATED' ? RULES.consolidatedQuoteMaxAgeMs : RULES.quoteMaxAgeMs) &&
+      pass: within(row.quote_at, now, cons ? RULES.consolidatedPlanQuoteMaxAgeMs : row.quote_source === 'CONSOLIDATED' ? RULES.consolidatedQuoteMaxAgeMs : RULES.quoteMaxAgeMs) &&
         positive(row.bid) && positive(row.ask) && row.bid <= row.ask,
       value: row.quote_at, time: true,
     },
     {
       key: 'spread', group: 'liquidity', name: 'فارق العرض والطلب ≤ ٠٫٨٪',
-      pass: finite(row.spread_pct) && row.spread_pct >= 0 && row.spread_pct <= RULES.maxSpreadPct,
+      pass: finite(row.spread_pct) && row.spread_pct >= 0 && row.spread_pct <= (cons ? RULES.consolidatedMaxSpreadPct : RULES.maxSpreadPct),
       value: row.spread_pct, unit: '%',
     },
     {
@@ -141,7 +155,7 @@ export function assess(row, { now = Date.now(), serverTime, connected = true, fe
   const plan = row.plan;
   const recentScan = connected && within(serverTime, now, RULES.scanMaxAgeMs);
   const planGood = validPlanShape(plan);
-  const chasing = planGood && row.price > plan.entry * RULES.chaseTolerance;
+  const chasing = planGood && row.price > plan.entry * (isConsolidated(row.signal) ? RULES.consolidatedChaseTolerance : RULES.chaseTolerance);
   const halted = Boolean(row.halt);
   const livePlan = Boolean(
     !halted && recentScan && feed !== 'delayed_sip' && checks.every((c) => c.pass) && row.actionable === true &&
