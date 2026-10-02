@@ -1,0 +1,65 @@
+name: TAGit NEXT catalyst calendar
+
+# Upcoming earnings (Nasdaq.com calendar) and FDA PDUFA dates (SEC full-text search) for the
+# small-cap universe -> tagit-next/data/catalyst-calendar.json. Information only.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 10 * * 1-5'
+  push:
+    branches: ['claude/**']
+    paths: ['tagit-next/pipeline/catalyst_calendar.py', '.github/workflows/tagit-next-catalyst-calendar.yml']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-next-catalyst-calendar-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SEC_USER_AGENT: 'TAGit NEXT research tufeeq11@gmail.com'
+
+jobs:
+  calendar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Tests
+        working-directory: tagit-next/pipeline
+        run: python -m unittest test_calendar_study
+      - uses: actions/cache@v4
+        with:
+          path: calendar-cache
+          key: pdufa-recent-${{ github.run_id }}
+          restore-keys: pdufa-recent-
+      - name: Calendar
+        run: python tagit-next/pipeline/catalyst_calendar.py --cache calendar-cache/pdufa-recent-v2.json.gz
+      - name: Show
+        run: |
+          python - <<'PY'
+          import json
+          d = json.load(open('tagit-next/data/catalyst-calendar.json'))
+          print('earnings', len(d['earnings']), 'fda', len(d['fda']), d['diagnostics'])
+          for e in d['fda'][:40]: print('FDA', e['date'], e['symbol'], e['announced'], e.get('market_cap_m'), e.get('industry'))
+          for e in d['earnings'][:25]: print('EARN', e['date'], e['time'], e['symbol'], e.get('market_cap_m'))
+          PY
+      - name: Publish (main)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name 'github-actions'
+          git config user.email 'github-actions@github.com'
+          git add tagit-next/data/catalyst-calendar.json
+          git diff --cached --quiet && { echo 'No change'; exit 0; }
+          git commit -m 'data: TAGit NEXT catalyst calendar'
+          for attempt in 1 2 3 4; do
+            if git pull --rebase --autostash origin main && git push origin HEAD:main; then exit 0; fi
+            sleep $((attempt * 5))
+          done
+          exit 1

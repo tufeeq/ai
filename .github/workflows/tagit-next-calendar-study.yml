@@ -1,0 +1,98 @@
+name: TAGit NEXT calendar study
+
+# Pre-registered scheduled-catalyst hypotheses (calendar-study-1): see the header of
+# tagit-next/pipeline/calendar_study.py. Prices and SEC filings come from catalyst-study-1's cached
+# artifact; the PDUFA full-text-search data is cached in this workflow's own artifact.
+on:
+  workflow_dispatch:
+    inputs:
+      args:
+        description: Extra arguments (e.g. --diagnostics-only)
+        default: ''
+  push:
+    branches: ['claude/**']
+    paths: ['tagit-next/pipeline/calendar_study.py', '.github/workflows/tagit-next-calendar-study.yml']
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: tagit-next-calendar-study-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CATALYST_CACHE_RUN_ID: '36314921167'
+  # Diagnostics reviewed (runs 37064024448, 37064423209); full study from here on.
+  STUDY_ARGS: ''
+  SEC_USER_AGENT: 'TAGit NEXT research tufeeq11@gmail.com'
+
+jobs:
+  study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Tests
+        working-directory: tagit-next/pipeline
+        run: python -m unittest test_calendar_study test_catalyst_study
+      - name: Restore prices and filings
+        uses: actions/download-artifact@v4
+        with:
+          name: catalyst-cache
+          path: cache
+          run-id: ${{ env.CATALYST_CACHE_RUN_ID }}
+          github-token: ${{ github.token }}
+      - name: Find the last PDUFA cache
+        id: last
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          id=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=calendar-pdufa-cache&per_page=1" --jq '.artifacts[0].workflow_run.id // empty')
+          echo "run=$id" >> "$GITHUB_OUTPUT"
+      - name: Restore PDUFA cache
+        if: steps.last.outputs.run != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: calendar-pdufa-cache
+          path: cache
+          run-id: ${{ steps.last.outputs.run }}
+          github-token: ${{ github.token }}
+      - name: Study
+        run: |
+          ls -la cache
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then ARGS="${{ github.event.inputs.args }}"; else ARGS="$STUDY_ARGS"; fi
+          python tagit-next/pipeline/calendar_study.py --cache cache $ARGS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: calendar-pdufa-cache
+          path: cache/pdufa-v2.json.gz
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: calendar-study
+          path: tagit-next/data/calendar-study.json
+          if-no-files-found: ignore
+      - name: Publish (main)
+        if: github.ref == 'refs/heads/main' && env.STUDY_ARGS == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name 'github-actions'
+          git config user.email 'github-actions@github.com'
+          git add tagit-next/data/calendar-study.json
+          git diff --cached --quiet && { echo 'No change'; exit 0; }
+          git commit -m 'data: TAGit NEXT calendar study'
+          for attempt in 1 2 3 4; do
+            if git pull --rebase --autostash origin main && git push origin HEAD:main; then exit 0; fi
+            sleep $((attempt * 5))
+          done
+          exit 1
