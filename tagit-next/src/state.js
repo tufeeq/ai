@@ -22,6 +22,7 @@ export function createState({ journal = [], watched = new Set(), settings = { ca
     connection: { phase: 'boot', error: null, lastScanAt: null, attempts: 0 },
     quoteError: false,
     scan: null, // { server_time, feed, status, coverage, order, gainers, complements }
+    catalysts: null, // data/catalyst-calendar.json: upcoming earnings and FDA (PDUFA) dates
     fadeFlags: null, // data/fade-flags.json: extension events of the last 5 sessions (fade-study-1)
     enrichment: null, // data/enrichment.json: SEC, Nasdaq listing status, FINRA short interest
     evidence: { relabel: null, forward: null, sip: null }, // published research files

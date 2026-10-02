@@ -282,6 +282,28 @@ export function fadeBanner(flags, symbol, today = null) {
   </div>`;
 }
 
+const EARNINGS_TIME = { PRE_MARKET: 'قبل الافتتاح', AFTER_HOURS: 'بعد الإغلاق' };
+
+/** Upcoming scheduled catalysts for a symbol (data/catalyst-calendar.json), dates on or after today. */
+export function upcomingCatalysts(calendar, symbol, today) {
+  if (!calendar || !symbol) return [];
+  const pick = (list, kind) => (list ?? []).filter((e) => e.symbol === symbol && (!today || e.date >= today)).map((e) => ({ ...e, kind }));
+  return [...pick(calendar.earnings, 'earnings'), ...pick(calendar.fda, 'fda')].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export function catalystBanner(calendar, symbol, today = null) {
+  const items = upcomingCatalysts(calendar, symbol, today);
+  if (!items.length) return '';
+  return html`<div class="catalyst-note" role="note">
+    <b>📅 موعد قادم</b> · ${items.map((e) => e.kind === 'fda'
+      ? html`<span>قرار FDA (PDUFA) <span dir="ltr">${e.date}</span> · أُعلن <span dir="ltr">${e.announced}</span></span>`
+      : html`<span>نتائج مالية <span dir="ltr">${e.date}</span>${EARNINGS_TIME[e.time] ? ` (${EARNINGS_TIME[e.time]})` : ''}</span>`)}
+    <p>${CALENDAR_NOTE}</p>
+  </div>`;
+}
+
+export const CALENDAR_NOTE = 'معلومة لا توصية. الأيام التي تسبق موعدًا معروفًا قد يرتفع فيها السهم ثم يُباع بعد الخبر؛ هل يربح هذا بعد التكلفة؟ تختبره الدراسة المسجلة مسبقًا calendar-study-1. الاحتفاظ بالسهم عبر الخبر نفسه مقامرة.';
+
 export function renderDossier(state, now) {
   const r = selectedRow(state);
   if (!r) {
@@ -316,6 +338,7 @@ export function renderDossier(state, now) {
       <button class="btn ${watching ? 'btn-on' : ''}" data-watch="${r.symbol}" aria-pressed="${watching}">${watching ? '★ في المتابعة' : '☆ أضف للمتابعة'}</button>
     </div>
     ${fadeBanner(state.fadeFlags, r.symbol, marketDate(now))}
+    ${catalystBanner(state.catalysts, r.symbol, marketDate(now))}
     <nav class="seg" role="tablist" aria-label="أقسام ملف السهم">${TABS.map(([id, label]) =>
       html`<button role="tab" data-tab="${id}" aria-selected="${tab === id}" class="${tab === id ? 'is-active' : ''}">${label}</button>`)}</nav>
     <div class="dossier-body" data-key="body-${r.symbol}-${tab}" role="tabpanel">${body}</div>`;
