@@ -117,9 +117,10 @@ def recent_reports(uni, today):
     symbols = sorted({x[0] for x in reports})
     closes = {}
     start = (today - dt.timedelta(days=30)).isoformat() + 'T00:00:00Z'
+    end = (today + dt.timedelta(days=1)).isoformat() + 'T00:00:00Z'  # the relay caps it at now - 16 min
     for k in range(0, len(symbols), 100):
         try:
-            for body in cs.relay_pages({'resource': 'bars', 'symbols': ','.join(symbols[k:k + 100]), 'timeframe': '1Day', 'start': start,
+            for body in cs.relay_pages({'resource': 'bars', 'symbols': ','.join(symbols[k:k + 100]), 'timeframe': '1Day', 'start': start, 'end': end,
                                         'feed': 'sip', 'adjustment': 'split', 'limit': '10000', 'sort': 'asc'}, 20):
                 for sym, lst in (body.get('bars') or {}).items():
                     closes.setdefault(sym, []).extend((b['t'][:10], b['c']) for b in lst)
