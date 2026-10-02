@@ -153,7 +153,7 @@ def pdufa_events(mentions):
     """mentions for one company: [(filed, date|None, decision, extension)] -> [(D, f, cancel_day|None, decision_days)].
     D is announced first on f; cancelled from the first later filing (before D) that announces a later date with
     an extension; decision_days are the filing days of decision notices (used to drop events)."""
-    mentions = sorted(mentions)
+    mentions = sorted(mentions, key=lambda m: (m[0], m[1] or ""))
     decisions = sorted(f for f, _, dec, _ in mentions if dec)
     first = {}
     for f, d, dec, _ in mentions:
