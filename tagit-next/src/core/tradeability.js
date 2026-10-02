@@ -84,10 +84,12 @@ export function tradeability(row, { now = Date.now(), feed = 'iex', plan = null,
   if (!positive(row?.price) || !within(row?.price_at, now, consolidatedTrade ? RULES.consolidatedTradeMaxAgeMs : RULES.tradeMaxAgeMs)) {
     add('BLOCK', 'آخر صفقة غير حديثة');
   }
-  const spread = spreadPct(row?.bid, row?.ask);
+  const quotedSpread = spreadPct(row?.bid, row?.ask);
   const consolidatedQuote = row?.quote_source === 'CONSOLIDATED';
   const quoteFresh = within(row?.quote_at, now, consolidatedQuote ? RULES.consolidatedQuoteMaxAgeMs : RULES.quoteMaxAgeMs);
-  if (spread === null || !quoteFresh) add('BLOCK', 'لا عرض وطلب حديث لحساب التكلفة');
+  // A spread from an old quote is not today's execution cost: it is neither shown nor costed.
+  const spread = quoteFresh ? quotedSpread : null;
+  if (spread === null) add('BLOCK', 'لا عرض وطلب حديث لحساب التكلفة');
   else if (spread > GATE.blockSpreadPct) add('BLOCK', `فارق العرض والطلب ${spread.toFixed(2)}٪ (الحد ${GATE.blockSpreadPct}٪)`);
   else if (spread > GATE.warnSpreadPct) add('WARN', `فارق العرض والطلب واسع ${spread.toFixed(2)}٪`);
 
@@ -101,7 +103,9 @@ export function tradeability(row, { now = Date.now(), feed = 'iex', plan = null,
     else if (costR >= GATE.warnCostR) add('WARN', `التكلفة المقدرة ${costR.toFixed(2)}R من المخاطرة`);
   }
 
-  if (session === 'PRE' || session === 'AFTER') add('WARN', 'خارج الجلسة النظامية: سيولة أقل وفجوات أوسع، والأوامر المحددة فقط');
+  // The plan is a stop entry with a stop exit. Most brokers do not trigger stop orders outside the
+  // regular session, and every published study measured the regular session only.
+  if (session === 'PRE' || session === 'AFTER') add('BLOCK', 'خارج الجلسة النظامية: أوامر الوقف لا تُفعَّل عادةً، والسيولة أقل والفجوات أوسع، والدراسات شملت الجلسة النظامية فقط');
   if (positive(row?.price) && row.price < GATE.subDollar) add('WARN', 'سعر دون دولار: فجوات سعرية وخطر الشطب');
   if (positive(row?.float_shares)) {
     if (row.float_shares < GATE.microFloat) add('WARN', 'تعويم أقل من مليون سهم: تقلب وفجوات حادة');

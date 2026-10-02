@@ -15,6 +15,8 @@
 //       excursions from bar highs/lows in [entry, horizon); cost 0.5 pp round trip, as before.
 //  4. Plan label: the detector's own stop; target = 2R from the entry; a bar touching both the
 //     stop and the target counts as a stop (conservative); otherwise the time exit above.
+//     Correction 2026-09-29 (review-outcomes): a later bar opening at/below the stop exits at
+//     that open (gap), not at the stop; R is also reported after the 0.5 pp cost (r_after_cost).
 //     Entries above trigger × 1.01 are CHASED and entries at or below the stop INVALIDATED —
 //     the live app would not offer those plans.
 //  5. Sensitivity: entry windows of 1, 2 and 5 minutes are all reported; 2 minutes is primary.
@@ -87,11 +89,20 @@ function planLabel(path, entry, signal, timeLabel) {
   if (entry <= signal.stop) return { status: 'INVALIDATED' };
   const risk = entry - signal.stop;
   const target = entry + 2 * risk;
+  // R is reported gross and after the same 0.5 pp round trip the returns carry (in R units the
+  // cost is 0.5% of the entry divided by the risk, so tight stops pay many R).
+  const result = (status, exit, extra = {}) => ({
+    status, ...extra, r: (exit - entry) / risk, r_after_cost: (exit - entry - entry * COST_PP / 100) / risk,
+    return_after_cost_pct: (exit / entry - 1) * 100 - COST_PP,
+  });
   for (const b of path) {
-    if (b.l <= signal.stop) return { status: 'STOP', r: (signal.stop - entry) / risk, return_after_cost_pct: (signal.stop / entry - 1) * 100 - COST_PP };
-    if (b.h >= target) return { status: 'TARGET_2R', r: 2, return_after_cost_pct: (target / entry - 1) * 100 - COST_PP };
+    // A bar that opens at or below the stop gapped through it: a stop order fills at that open,
+    // not at the stop (correction 2026-09-29; the entry bar opens at the entry, above the stop).
+    if (b !== path[0] && b.o <= signal.stop) return result('STOP', b.o, { gap: true });
+    if (b.l <= signal.stop) return result('STOP', signal.stop);
+    if (b.h >= target) return result('TARGET_2R', target);
   }
-  return { status: 'TIME', r: (timeLabel.exit - entry) / risk, return_after_cost_pct: timeLabel.return_after_cost_pct };
+  return result('TIME', timeLabel.exit);
 }
 
 function detect(sessions) {
@@ -148,6 +159,8 @@ function summarize(labels) {
       invalidated: count('INVALIDATED'),
       no_plan: count('NO_PLAN'),
       mean_r: mean(traded.map((p) => p.r)),
+      mean_r_after_cost: mean(traded.map((p) => p.r_after_cost)),
+      stop_gaps: plans.filter((p) => p.gap).length,
       mean_return_after_cost_pct: mean(traded.map((p) => p.return_after_cost_pct)),
     },
   };

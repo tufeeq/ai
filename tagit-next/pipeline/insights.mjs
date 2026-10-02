@@ -97,6 +97,20 @@ const num = (s) => {
   const n = Number(t);
   return Number.isFinite(n) ? n : null;
 };
+const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+/** Benzinga/Nasdaq text arrives HTML-escaped ("Sachs&#39;"); the page escapes on render, so decode once here. */
+export function decodeEntities(s) {
+  if (s == null) return s;
+  return String(s).replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e) => {
+    if (e[0] === '#') {
+      const c = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : Number(e.slice(1));
+      return Number.isFinite(c) && c > 0 && c < 0x110000 ? String.fromCodePoint(c) : m;
+    }
+    return ENTITIES[e.toLowerCase()] ?? m;
+  });
+}
+/** Plain text: tags dropped, entities decoded, whitespace collapsed; empty → null. */
+export const plainText = (s) => { const t = decodeEntities(String(s ?? '').replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim(); return t || null; };
 export function median(xs) {
   const v = xs.filter(Number.isFinite).sort((a, b) => a - b);
   if (!v.length) return null;
@@ -413,7 +427,7 @@ export function linkNews(raw, bySymbol, win) {
     else if (phase === 'BEFORE') note = `نُشر قبل جلسة ${win.day}؛ للاطلاع فقط دون ربط بحركة اليوم.`;
     else note = 'توقيت الجلسة غير معروف؛ لا ربط بالحركة.';
     out.push({
-      id: String(n.id ?? out.length), time: new Date(t).toISOString(), headline: n.headline, summary: n.summary || null,
+      id: String(n.id ?? out.length), time: new Date(t).toISOString(), headline: plainText(n.headline), summary: plainText(n.summary),
       source: n.source ?? null, url: /^https?:\/\//i.test(n.url ?? '') ? n.url : null, symbols: n.symbols ?? [], industries, sectors,
       move_pct: move, linked_symbol: move != null ? top : null, impact_note_ar: note,
     });
@@ -440,9 +454,16 @@ export function themes(news, bySymbol) {
   }
   return [...m].filter(([, g]) => g.ids.size >= 2 && g.syms.size >= 2).map(([industry, g]) => {
     const syms = [...g.syms], moves = syms.map((s) => bySymbol.get(s).chg);
-    const avg = r2(moves.reduce((a, x) => a + x, 0) / moves.length), name = INDUSTRY_AR[industry] ?? industry;
-    return { industry, title_ar: `${name}: ${countAr(g.ids.size, 'خبرًا', 'أخبار', 'خبران')} عن ${countAr(syms.length, 'شركة', 'شركات', 'شركتين')}، ومتوسط تغيّرها ${signed(avg)}`, news_ids: [...g.ids], symbols: syms, avg_move_pct: avg };
-  }).sort((a, b) => b.news_ids.length - a.news_ids.length || Math.abs(b.avg_move_pct) - Math.abs(a.avg_move_pct)).slice(0, 12);
+    // The mean is kept for the contract, but one +178% name can make a mostly falling group read "+31%":
+    // the title and the UI use the median and show the range.
+    const avg = r2(moves.reduce((a, x) => a + x, 0) / moves.length), med = r2(median(moves)), name = INDUSTRY_AR[industry] ?? industry;
+    const lo = r2(Math.min(...moves)), hi = r2(Math.max(...moves));
+    return {
+      industry,
+      title_ar: `${name}: ${countAr(g.ids.size, 'خبرًا', 'أخبار', 'خبران')} عن ${countAr(syms.length, 'شركة', 'شركات', 'شركتين')}؛ وسيط تغيّرها ${signed(med)} (من ${signed(lo)} إلى ${signed(hi)})`,
+      news_ids: [...g.ids], symbols: syms, avg_move_pct: avg, median_move_pct: med, min_move_pct: lo, max_move_pct: hi,
+    };
+  }).sort((a, b) => b.news_ids.length - a.news_ids.length || Math.abs(b.median_move_pct) - Math.abs(a.median_move_pct)).slice(0, 12);
 }
 
 // ---- Nasdaq calendars --------------------------------------------------------------------------
@@ -455,18 +476,32 @@ export function parseEarnings(body, limit = 40) {
     .sort((a, b) => (b.market_cap_m ?? -1) - (a.market_cap_m ?? -1)).slice(0, limit);
 }
 
+/**
+ * Nasdaq economic calendar rows → contract rows. The feed's `gmt` field is New York wall time despite its name
+ * (checked on the 2026-09-28 rows: Dallas Fed survey "10:30", 3/6-month bill auctions "11:30", Singapore IP
+ * "01:00" = 13:00 SGT), so it is converted with nyTime(), not read as UTC (which showed them 4 hours early).
+ */
 export function parseEconomic(body, day) {
   const rows = body?.data?.rows ?? [];
-  const clean = (s) => { const t = String(s ?? '').replace(/&nbsp;/g, ' ').trim(); return t && t !== '-' ? t : null; };
+  const clean = (s) => { const t = decodeEntities(String(s ?? '')).trim(); return t && t !== '-' ? t : null; };
   return rows.filter((r) => /United States/i.test(r?.country ?? '') && r.eventName).map((r) => {
     const m = /^(\d{1,2}):(\d{2})$/.exec(String(r.gmt ?? '').trim());
-    return { time: m ? new Date(Date.parse(`${day}T00:00:00Z`) + (+m[1] * 60 + +m[2]) * 60_000).toISOString() : null, event: clean(r.eventName), actual: clean(r.actual), forecast: clean(r.consensus), previous: clean(r.previous) };
+    const t = m && +m[1] < 24 ? nyTime(day, `${m[1].padStart(2, '0')}:${m[2]}`) : null;
+    return { time: t != null ? new Date(t).toISOString() : null, event: clean(r.eventName), actual: clean(r.actual), forecast: clean(r.consensus), previous: clean(r.previous) };
   }).sort((a, b) => String(a.time).localeCompare(String(b.time)));
+}
+
+/**
+ * True when the rows cannot belong to the requested day: an event scheduled after `now` already has an actual.
+ * Seen on 2026-09-29 at 01:35 ET: date=2026-09-29 returned Monday's releases (Dallas Fed 9.8, bill auctions).
+ */
+export function economicDayMismatch(rows, now, graceMs = 5 * 60_000) {
+  return (rows ?? []).some((r) => r.actual != null && Number.isFinite(Date.parse(r.time)) && Date.parse(r.time) > now + graceMs);
 }
 
 // ---- assemble ----------------------------------------------------------------------------------
 
-export function buildInsights({ universe, bars = {}, barsAsOf = null, newsRaw = [], newsOk = true, calendar = null, earnings = null, economic = null, calDay = null, now = Date.now() }) {
+export function buildInsights({ universe, bars = {}, barsAsOf = null, newsRaw = [], newsOk = true, calendar = null, earnings = null, economic = null, economicMismatch = false, calDay = null, now = Date.now() }) {
   const days = tradingDays(calendar, now);
   const snapAt = Date.parse(universe?.updatedAt);
   const stocks = parseUniverse(universe?.rows);
@@ -500,6 +535,8 @@ export function buildInsights({ universe, bars = {}, barsAsOf = null, newsRaw = 
   if (!newsOk) notes.push('تعذّر جلب الأخبار في هذا التحديث.');
   if (!indices.length) notes.push('تعذّر جلب بيانات الصناديق والمؤشرات في هذا التحديث.');
   if (!calendar) notes.push('تقويم التداول غير متاح؛ استُخدمت أيام العمل دون احتساب العطل الرسمية.');
+  const ecoBad = economicMismatch || economicDayMismatch(economic, now);
+  if (ecoBad) { economic = null; notes.push(`أعاد مصدر التقويم الاقتصادي أحداثًا لا تخص يوم ${calDay ?? 'التقويم'} (قيم فعلية لأحداث لم يحن وقتها)، فلم تُعرض.`); }
   return {
     schema_version: 1, generated_at: new Date(now).toISOString(), session: sess?.date ?? null, market_state: state,
     sources: [
@@ -571,7 +608,7 @@ async function main() {
   const offline = process.argv.includes('--offline');
   const universe = JSON.parse(readFileSync(arg('--universe') ?? fileURLToPath(new URL('../../tag/data/universe-broad.json', import.meta.url)), 'utf8'));
   const now = Date.now();
-  let calendar = null, bars = {}, barsAsOf = null, newsRaw = [], newsOk = false, earnings = null, economic = null;
+  let calendar = null, bars = {}, barsAsOf = null, newsRaw = [], newsOk = false, earnings = null, economic = null, economicMismatch = false;
   if (!offline) {
     try {
       calendar = await relay({ resource: 'calendar', start: nyDate(now - 20 * DAY), end: nyDate(now + 20 * DAY) });
@@ -609,9 +646,10 @@ async function main() {
       const body = await nasdaq(`https://api.nasdaq.com/api/calendar/economicevents?date=${calDay}`);
       log('economic rows', body?.data?.rows?.length ?? 'none', JSON.stringify(body?.data?.rows?.[0] ?? body?.status ?? null).slice(0, 300));
       economic = parseEconomic(body, calDay);
+      if (economicDayMismatch(economic, now)) { log('economic rows belong to another day; dropped'); economic = null; economicMismatch = true; }
     } catch (e) { log('economic failed', e.message); }
   }
-  const out = buildInsights({ universe, bars, barsAsOf, newsRaw, newsOk, calendar, earnings, economic, calDay, now });
+  const out = buildInsights({ universe, bars, barsAsOf, newsRaw, newsOk, calendar, earnings, economic, economicMismatch, calDay, now });
   out.run = { relay_requests: requests, diagnostics };
   writeFileSync(arg('--out') ?? OUT_DEFAULT, JSON.stringify(out, null, 1) + '\n');
   console.log(summary(out));

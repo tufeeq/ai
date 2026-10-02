@@ -2,12 +2,15 @@
 // so every transition is testable in Node with an injected clock.
 import { positive, isSymbol } from './core/util.js';
 import { marketDate, mergeMarketRow } from './core/market.js';
-import { assess, isExtended, splitPriority } from './core/checks.js';
+import { assess, isExtended, splitPriority, compareRows } from './core/checks.js';
+import { fadeWarning } from './core/fade.js';
 import { createWatchEvent, createSignalEvent, recordObservation, JOURNAL_LIMIT } from './core/journal.js';
 import { updatePressure, pressureSummary } from './core/pressure.js';
 import { WATCH_LIMIT } from './storage.js';
 import { dayChange } from './core/closes.js';
 import { priceQuality } from './core/quality.js';
+import { tradeability } from './core/tradeability.js';
+import { riskOf } from './core/risk.js';
 
 export const UNIVERSE_CAP = 300_000_000;
 export const LIST_LIMIT = 80;
@@ -48,15 +51,34 @@ export function assessRow(state, row, now) {
   }
   let a = state.cache.map.get(row);
   if (!a) {
-    a = assess(row, {
-      now,
-      serverTime: row.scan_at ?? state.scan?.server_time,
-      connected: state.connection.phase === 'live' || state.connection.phase === 'partial',
-      feed: state.scan?.feed,
+    const connected = state.connection.phase === 'live' || state.connection.phase === 'partial';
+    const base = assess(row, {
+      now, serverTime: row.scan_at ?? state.scan?.server_time, connected, feed: state.scan?.feed,
+      fade: fadeOf(state, row, now),
     });
+    const gate = tradeability(row, {
+      now, feed: state.scan?.feed, plan: planLevels(row, base), connected,
+      risk: riskOf(state.enrichment?.symbols?.[row.symbol], row, now, state.enrichment?.generated_at),
+    });
+    // A plan the execution gate blocks (halt, stale quote, cost ≥ 0.5 R, outside the regular
+    // session…) is not offered anywhere: list badge, filters, KPI, journal and dossier agree.
+    a = base.plan && gate.verdict === 'NO'
+      ? { ...base, state: 'BLOCKED', plan: null, heldPlan: base.plan, gate,
+        blockers: [...gate.reasons.filter((x) => x.level === 'BLOCK').map((x) => x.text), ...base.blockers] }
+      : { ...base, gate };
     state.cache.map.set(row, a);
   }
   return a;
+}
+/** fade-study-1 warning for a row (extension event in the last five sessions), or null. */
+export const fadeOf = (state, row, now) => fadeWarning(state.fadeFlags, row?.symbol, marketDate(now));
+
+
+/** Plan levels the gate costs: the live plan, else the watch-only breakout levels of the signal. */
+export function planLevels(row, a) {
+  const entry = a.plan?.entry ?? row.signal?.trigger;
+  const stop = a.plan?.stop ?? row.signal?.stop;
+  return positive(entry) && positive(stop) && entry > stop ? { entry, stop } : null;
 }
 const invalidate = (state) => state.cache.map.clear();
 
@@ -203,7 +225,10 @@ export function nextQuoteSymbols(state, now) {
   const rotation = [...new Set([...state.watched, ...visibleRows(state, now).map((r) => r.symbol)])];
   if (state.quoteCursor >= rotation.length) state.quoteCursor = 0;
   const slice = rotation.slice(state.quoteCursor, state.quoteCursor + QUOTE_BATCH - 1);
-  state.quoteCursor = rotation.length ? (state.quoteCursor + QUOTE_BATCH - 1) % rotation.length : 0;
+  // Restart at the top after the last batch; wrapping with a modulo landed mid-list and left the
+  // first rows (the best ranked) un-refreshed for several rounds.
+  state.quoteCursor += QUOTE_BATCH - 1;
+  if (state.quoteCursor >= rotation.length) state.quoteCursor = 0;
   return [...new Set([state.ui.selected, ...slice].filter(isSymbol))].slice(0, QUOTE_BATCH);
 }
 
@@ -248,10 +273,21 @@ export function toggleWatch(state, symbol, now) {
   return startWatchEvents(state, now) ? 'recording' : 'added';
 }
 
-export function removeEvent(state, id) {
-  const before = state.journal.length;
+/**
+ * Delete one journal record. Returns false when absent, 'unwatched' when it was today's manual record of a
+ * symbol still on the watchlist (the symbol leaves the list, else startWatchEvents would recreate the record
+ * from a new price within one scan), else true.
+ */
+export function removeEvent(state, id, now = Date.now()) {
+  const event = state.journal.find((e) => e.id === id);
+  if (!event) return false;
   state.journal = state.journal.filter((e) => e.id !== id);
-  return state.journal.length !== before;
+  state.dirty = true;
+  if (event.kind === 'WATCH' && state.watched.has(event.symbol) && marketDate(event.started_at) === marketDate(now)) {
+    state.watched.delete(event.symbol);
+    return 'unwatched';
+  }
+  return true;
 }
 
 // ---- consolidated signals ---------------------------------------------------------
@@ -320,11 +356,11 @@ export function visibleRows(state, now) {
   } else {
     rows = (state.scan?.order ?? []).map((s) => state.stocks.get(s)).filter((r) => r && inUniverse(r));
   }
-  if (view === 'early') rows = rows.filter((r) => !isExtended(r));
+  if (view === 'early') rows = rows.filter((r) => !isExtended(r, fadeOf(state, r, now)));
   if (view === 'gainers') {
     rows.sort((a, b) => (b.day_change ?? -Infinity) - (a.day_change ?? -Infinity));
   } else {
-    rows.sort((a, b) => assessRow(state, b, now).passed - assessRow(state, a, now).passed || (b.score ?? 0) - (a.score ?? 0));
+    rows.sort((a, b) => compareRows(a, assessRow(state, a, now), b, assessRow(state, b, now), (r) => fadeOf(state, r, now)));
   }
   return rows.filter((r) => matchesFilters(state, r, now)).slice(0, LIST_LIMIT);
 }
@@ -336,7 +372,16 @@ export function groupRows(state, rows, now) {
     connected: state.connection.phase === 'live' || state.connection.phase === 'partial',
     feed: state.scan?.feed,
     assessment: (r) => assessRow(state, r, now),
+    fadeOf: (r) => fadeOf(state, r, now),
   });
+}
+
+/** Rows in the order the list displays them (priority tier, monitoring tier, then placeholders). */
+export function displayOrder(state, now) {
+  const rows = visibleRows(state, now);
+  if (state.ui.view === 'gainers' || state.ui.view === 'sip') return rows;
+  const { upper, lower } = groupRows(state, rows.filter((r) => !r.placeholder), now);
+  return [...upper, ...lower, ...rows.filter((r) => r.placeholder)];
 }
 
 export function journalRows(state) {
@@ -352,7 +397,7 @@ export function metrics(state, now) {
     scanned: state.scan?.coverage?.eligible_small_caps ?? null,
     priced: state.scan?.coverage?.with_prices ?? null,
     fresh: rows.filter((r) => assessRow(state, r, now).checks.find((c) => c.key === 'trade').pass).length,
-    signals: rows.filter((r) => r.signal?.expansion && !isExtended(r) && assessRow(state, r, now).checks.find((c) => c.key === 'history').pass).length,
+    signals: rows.filter((r) => r.signal?.expansion && !isExtended(r, fadeOf(state, r, now)) && assessRow(state, r, now).checks.find((c) => c.key === 'history').pass).length,
     plans: rows.filter((r) => assessRow(state, r, now).plan).length,
   };
 }

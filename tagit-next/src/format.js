@@ -19,12 +19,25 @@ const dateTimeFormat = new Intl.DateTimeFormat('ar', {
 
 export const DASH = '—';
 
+/**
+ * Left-to-right isolate (U+2066 … U+2069). Inside Arabic text the Unicode bidi algorithm turns
+ * Latin digits after an Arabic letter into "Arabic numbers", so "-5.30%" showed as "%5.30-",
+ * "$60K" as "60K$" and "2026-09-24" as "24-09-2026". An isolate keeps the token in LTR order in
+ * text, attributes and titles alike, and is invisible.
+ */
+export const LRI = '\u2066';
+export const PDI = '\u2069';
+export const ltr = (s) => (s === DASH || s === '' || s === null || s === undefined ? (s ?? '') : `${LRI}${s}${PDI}`);
+/** The visible text without isolates (tests, exports, parsing). */
+export const plain = (s) => String(s).replace(/[\u2066-\u2069]/g, '');
+
 export const num = (v, digits = 2) => (finite(v) ? numberFormat(digits).format(v) : DASH);
 /** Sub-dollar prices keep four decimals so small caps stay readable. */
 export const price = (v) => (finite(v) ? num(v, positive(v) && v < 1 ? 4 : 2) : DASH);
-export const usd = (v) => (finite(v) ? `$${price(v)}` : DASH);
-export const pct = (v, digits = 2) => (finite(v) ? `${v > 0 ? '+' : ''}${num(v, digits)}%` : DASH);
-export const compactUsd = (v) => (finite(v) ? `$${compactFormat.format(v)}` : DASH);
+// Signed, percent and currency tokens are the ones the bidi algorithm reorders: isolate them.
+export const usd = (v) => (finite(v) ? ltr(`${v < 0 ? '-' : ''}$${price(Math.abs(v))}`) : DASH);
+export const pct = (v, digits = 2) => (finite(v) ? ltr(`${v > 0 ? '+' : ''}${num(v, digits)}%`) : DASH);
+export const compactUsd = (v) => (finite(v) ? ltr(`${v < 0 ? '-' : ''}$${compactFormat.format(Math.abs(v))}`) : DASH);
 export const compact = (v) => (finite(v) ? compactFormat.format(v) : DASH);
 export const tone = (v) => (finite(v) ? (v > 0 ? 'up' : v < 0 ? 'down' : 'flat') : '');
 
