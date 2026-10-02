@@ -70,5 +70,20 @@ class Study(unittest.TestCase):
         self.assertGreater(out['grid']['B']['H10']['development']['trades'] + out['grid']['B']['H10']['holdout']['trades'], 0)
 
 
+class AfterNews(unittest.TestCase):
+    def test_runup_and_warning_window(self):
+        import datetime as dt
+        import catalyst_calendar as cc
+        closes = [(f'2026-09-{d:02d}', p) for d, p in [(21, 10), (22, 10.2), (23, 10.5), (24, 10.8), (25, 11.2), (28, 11.5), (29, 12.0)]]
+        e = cc.after_news_entry(dt.date(2026, 9, 29), 'AFTER_HOURS', closes)
+        self.assertEqual(e['runup_pct'], round((11.5 / 10 - 1) * 100, 2))  # close before the report over 5 sessions earlier
+        self.assertEqual(e['reaction_day'], '2026-09-30')
+        self.assertEqual(e['warn_until'], '2026-10-02')
+        e = cc.after_news_entry(dt.date(2026, 10, 2), 'PRE_MARKET', closes + [('2026-09-30', 12), ('2026-10-01', 12)])
+        self.assertEqual(e['reaction_day'], '2026-10-02')
+        self.assertEqual(e['warn_until'], '2026-10-06')  # over the weekend
+        self.assertIsNone(cc.after_news_entry(dt.date(2026, 9, 23), 'PRE_MARKET', closes))
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -291,18 +291,31 @@ export function upcomingCatalysts(calendar, symbol, today) {
   return [...pick(calendar.earnings, 'earnings'), ...pick(calendar.fda, 'fda')].sort((a, b) => a.date.localeCompare(b.date));
 }
 
+/** calendar-study-1 avoid rule A: the symbol reported after a >= 10% run-up and is inside the 3-session window. */
+export function afterNewsWarning(calendar, symbol, today) {
+  if (!calendar || !symbol || !today) return null;
+  return (calendar.after_news ?? []).find((e) => e.symbol === symbol && e.reaction_day <= today && today <= e.warn_until) ?? null;
+}
+
 export function catalystBanner(calendar, symbol, today = null) {
   const items = upcomingCatalysts(calendar, symbol, today);
-  if (!items.length) return '';
-  return html`<div class="catalyst-note" role="note">
+  const after = afterNewsWarning(calendar, symbol, today);
+  const warn = after ? html`<div class="fade-warning" role="note">
+    <b>⚠ بيع على الخبر</b> · أعلن نتائجه <span dir="ltr">${after.report_day}</span> بعد صعود <span dir="ltr">${f.pct(after.runup_pct)}</span> في ٥ جلسات
+    <p>${AFTER_NEWS_NOTE}</p>
+  </div>` : '';
+  if (!items.length) return warn;
+  return html`${warn}<div class="catalyst-note" role="note">
     <b>📅 موعد قادم</b> · ${items.map((e) => e.kind === 'fda'
       ? html`<span>قرار FDA (PDUFA) <span dir="ltr">${e.date}</span> · أُعلن <span dir="ltr">${e.announced}</span></span>`
       : html`<span>نتائج مالية <span dir="ltr">${e.date}</span>${EARNINGS_TIME[e.time] ? ` (${EARNINGS_TIME[e.time]})` : ''}</span>`)}
-    <p>${CALENDAR_NOTE}</p>
+    <p>${items.some((e) => e.kind === 'fda') ? FDA_NOTE : EARNINGS_NOTE}</p>
   </div>`;
 }
 
-export const CALENDAR_NOTE = 'معلومة لا توصية. الأيام التي تسبق موعدًا معروفًا قد يرتفع فيها السهم ثم يُباع بعد الخبر؛ هل يربح هذا بعد التكلفة؟ تختبره الدراسة المسجلة مسبقًا calendar-study-1. الاحتفاظ بالسهم عبر الخبر نفسه مقامرة.';
+export const EARNINGS_NOTE = 'معلومة لا توصية. اختبرنا شراء السهم قبل موعد النتائج بـ٣ و٥ و١٠ جلسات والبيع قبل الإعلان (٢٠٢٣–٢٠٢٦، أكثر من ١٠ آلاف حالة): لا ميزة بعد التكلفة (≈٠٪). الاحتفاظ عبر الإعلان نفسه مقامرة.';
+export const FDA_NOTE = 'معلومة لا توصية. شراء السهم قبل موعد قرار FDA بـ١٠ جلسات والبيع قبله بيوم كان رابحًا في فترة التطوير (٢٠٢٣–منتصف ٢٠٢٥: +٧٫٦٪ في المتوسط، ٥١ حالة) لكنه لم يثبت في فترة الاختبار اللاحقة (+٢٪، ٤١ حالة، هامش −٦٫٥ إلى +١٠٫٤) ولم يتفوق على أسهم البايوتك نفسها. نتابعه على المواعيد القادمة. لا تحتفظ بالسهم عبر القرار.';
+export const AFTER_NEWS_NOTE = 'في دراسة ٢٠٢٣–٢٠٢٦، شراء سهم صغير بعد إعلان نتائج سبقه صعود ١٠٪ فأكثر خسر في المتوسط ١٫٤٪ خلال ٣ جلسات بعد التكلفة في فترة الاختبار (هامش ٩٥٪: −٣٫٠ إلى −٠٫٣). تحذير لتجنّب الشراء فقط، يبقى ٣ جلسات.';
 
 export function renderDossier(state, now) {
   const r = selectedRow(state);
