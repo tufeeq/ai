@@ -23,7 +23,12 @@ export const PULSE_RULES = Object.freeze({
   cycleMs: 15_000, // how often candidates are re-ranked
   chartEveryMs: 4_000, // at most one chart request per 4 s (15/min) on top of the watchlist rotation
   recheckMs: 60_000, // a symbol's chart is refetched at most once a minute
-  signalTtlMs: 150_000, // a signal older than this is not applied to scanner rows
+  signalTtlMs: 150_000, // a fresh evaluation older than this is not applied to scanner rows
+  holdMs: 20 * 60_000, // an expansion stays actionable this long while price stays between stop and trigger zone
+  planQuoteMaxAgeMs: 60_000, // consolidated (or IEX) bid/ask age accepted for a plan
+  planMaxSpreadPct: 1.5, // small caps rarely quote tighter than ~1%; the cost model shows the spread's price
+  planChase: 1.02, // price may sit up to 2% above the trigger
+  planMaxAgeMs: 20 * 60_000,
   historyMs: 20 * 60_000, // watchlist samples kept per symbol
   lookbackMs: 5 * 60_000, // candidate move measured over roughly this span
   minMovePct: 0.5, // candidate filter: consolidated move over the lookback
@@ -110,7 +115,7 @@ export function rankCandidates(history, now, r = PULSE_RULES) {
 }
 
 export function createPulse({ board, fetcher = fetch, now = Date.now, timers = { setTimeout, clearTimeout }, rules = PULSE_RULES, onExpansion = null, store = null, storeError = null } = {}) {
-  const history = new Map(), signals = new Map(), checkedAt = new Map(), ledger = [];
+  const history = new Map(), signals = new Map(), checkedAt = new Map(), ledger = [], held = new Map();
   const stat = { status: 'IDLE', charts_ok: 0, charts_failed: 0, last_error: null, last_cycle_at: null, candidates: 0, blocked_until: 0 };
   let timer = null, running = false, lastChart = 0, queue = [];
   let storageError = storeError;
@@ -143,6 +148,8 @@ export function createPulse({ board, fetcher = fetch, now = Date.now, timers = {
       if (signal) {
         signals.set(symbol, { ...signal, evaluated_at: iso(t) });
         if (signal.expansion) {
+          // Keep the expansion's trigger/stop for holdMs so the plan outlives the 3-minute burst.
+          if (!held.has(symbol) || t - Date.parse(held.get(symbol).detected_at) >= rules.holdMs) held.set(symbol, { ...signal, evaluated_at: iso(t), detected_at: iso(t) });
           try { onExpansion?.(symbol); } catch { /* quote prefetch is best effort */ }
           const prev = ledger.find((x) => x.symbol === symbol);
           if (!prev || t - Date.parse(prev.detected_at) >= RULES.cooldown) {
@@ -205,16 +212,25 @@ export function createPulse({ board, fetcher = fetch, now = Date.now, timers = {
   return {
     start() { if (!running) { running = true; void loop(); } },
     stop() { running = false; if (timer) timers.clearTimeout(timer); timer = null; },
-    /** Current signal for a symbol when evaluated recently enough to act on. */
+    /**
+     * Signal for a symbol: a fresh expansion; else an expansion detected within holdMs (held, with its
+     * original trigger/stop — completePlans keeps it only while price stays in the zone); else a fresh
+     * non-expansion evaluation (context).
+     */
     signal(symbol, t = now()) {
       const s = signals.get(symbol);
-      return s && t - Date.parse(s.evaluated_at) <= rules.signalTtlMs ? s : null;
+      const fresh = s && t - Date.parse(s.evaluated_at) <= rules.signalTtlMs ? s : null;
+      if (fresh?.expansion) return { ...fresh, detected_at: held.get(symbol)?.detected_at ?? fresh.evaluated_at };
+      const h = held.get(symbol);
+      if (h && t - Date.parse(h.detected_at) <= rules.holdMs) return { ...h, held: true };
+      return fresh;
     },
     signals: () => signals,
     ledger: () => ledger,
     status: () => ({ source: 'NASDAQ_COM_CHART', rules: rules.version, status: stat.status, charts_ok: stat.charts_ok, charts_failed: stat.charts_failed,
       last_error: stat.last_error, last_cycle_at: stat.last_cycle_at, candidates: stat.candidates, tracked: history.size,
-      live_signals: [...signals.values()].filter((s) => s.expansion && now() - Date.parse(s.evaluated_at) <= rules.signalTtlMs).length, running,
+      live_signals: [...held.values()].filter((h) => now() - Date.parse(h.detected_at) <= rules.holdMs).length, running,
+      signals_today: ledger.filter((e) => String(e.detected_at).slice(0, 10) === iso(now()).slice(0, 10)).length,
       storage: store ? { kind: 'SQLITE', path: store.path, signals: (() => { try { return store.count(); } catch { return null; } })(), error: storageError } : { kind: 'MEMORY', error: storageError } }),
     // tests
     _sample: sample, _track: track, _cycle: cycle, _fetchChart: fetchChart, _queue: () => queue,
@@ -239,20 +255,37 @@ export function applySignals(result, pulse, t) {
   return { ...result, rows, pulse: pulse.status() };
 }
 
-/** Conditional plans for consolidated signals, using the attached Nasdaq.com consolidated quote. */
-export function completePlans(result, t) {
+/**
+ * Conditional plans for consolidated signals. A plan stands while the expansion is under 20 minutes
+ * old, the move is not extended, price is above the stop and at most 2% over the trigger, and a bid/ask
+ * no older than a minute (Nasdaq.com consolidated, else IEX) shows a spread of at most 1.5%.
+ */
+export function completePlans(result, t, r = PULSE_RULES) {
   if (!Array.isArray(result?.rows)) return result;
   const rows = result.rows.map((row) => {
     const s = row.signal;
     if (row.signal_source !== 'CONSOLIDATED_NASDAQ' || !s?.expansion) return row;
-    const q = row.consolidated;
-    const quoteFresh = q && q.real_time !== false && positive(q.bid) && positive(q.ask) && q.bid <= q.ask && t - Date.parse(q.fetched_at) <= 30_000;
-    const spread = quoteFresh ? ((q.ask - q.bid) / ((q.ask + q.bid) / 2)) * 100 : null;
-    const price = positive(q?.price) ? q.price : row.price;
-    const actionable = Boolean(!row.extended && s.plan_valid && quoteFresh && spread <= RULES.maxSpread && price <= s.trigger * 1.01 && price > s.stop);
-    if (!actionable) return { ...row, actionable: false, plan: null };
+    const c = row.consolidated;
+    const quotes = [
+      c && c.real_time !== false ? { bid: c.bid, ask: c.ask, at: c.fetched_at, source: 'CONSOLIDATED' } : null,
+      { bid: row.bid, ask: row.ask, at: row.quote_at, source: 'IEX' },
+    ].filter((q) => q && positive(q.bid) && positive(q.ask) && q.bid <= q.ask && t - Date.parse(q.at) <= r.planQuoteMaxAgeMs);
+    const q = quotes[0] ?? null;
+    const spread = q ? ((q.ask - q.bid) / ((q.ask + q.bid) / 2)) * 100 : null;
+    const price = positive(c?.price) && t - Date.parse(c.fetched_at) <= r.planQuoteMaxAgeMs ? c.price : row.price;
+    const young = t - Date.parse(s.detected_at ?? s.evaluated_at ?? s.bar_at) <= r.planMaxAgeMs;
+    const why = [];
+    if (row.extended) why.push('EXTENDED');
+    if (!s.plan_valid) why.push('STOP_DISTANCE');
+    if (!young) why.push('SIGNAL_OLD');
+    if (!q) why.push('NO_FRESH_QUOTE');
+    else if (!(spread <= r.planMaxSpreadPct)) why.push('WIDE_SPREAD');
+    if (!(price > s.stop)) why.push('BELOW_STOP');
+    else if (!(price <= s.trigger * r.planChase)) why.push('PAST_ENTRY');
+    if (why.length) return { ...row, actionable: false, plan: null, plan_blockers: why };
     const entry = Math.max(q.ask, s.trigger), risk = entry - s.stop;
-    return { ...row, actionable: true, plan: { entry, stop: s.stop, targets: [entry + risk, entry + 2 * risk], kind: 'CONDITIONAL', source: 'CONSOLIDATED_NASDAQ' } };
+    return { ...row, actionable: true, plan_blockers: [], plan: { entry, stop: s.stop, targets: [entry + risk, entry + 2 * risk], kind: 'CONDITIONAL', source: 'CONSOLIDATED_NASDAQ',
+      quote_source: q.source, spread_pct: spread, detected_at: s.detected_at ?? s.evaluated_at ?? s.bar_at } };
   });
   return { ...result, rows };
 }

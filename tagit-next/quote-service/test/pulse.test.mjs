@@ -80,7 +80,13 @@ test('pulse fetches charts for movers and exposes fresh signals and a ledger', a
   assert.equal(pulse.signal('SURG').expansion, true);
   assert.equal(pulse.ledger()[0].symbol, 'SURG');
   t += 10 * 60_000;
-  assert.equal(pulse.signal('SURG'), null); // too old to act on
+  const held = pulse.signal('SURG'); // the expansion's plan levels outlive the 3-minute burst
+  assert.equal(held.held, true);
+  assert.equal(held.expansion, true);
+  assert.equal(pulse.status().live_signals, 1);
+  t += 15 * 60_000;
+  assert.equal(pulse.signal('SURG'), null); // older than 20 minutes
+  assert.equal(pulse.status().live_signals, 0);
 });
 
 test('scanner rows take the consolidated signal; plans need a fresh consolidated quote', () => {
@@ -94,10 +100,25 @@ test('scanner rows take the consolidated signal; plans need a fresh consolidated
   assert.equal(applied.rows[1].signal, null);
   const noQuote = completePlans(applied, t);
   assert.equal(noQuote.rows[0].actionable, false);
+  assert.ok(noQuote.rows[0].plan_blockers.includes('NO_FRESH_QUOTE'));
+  // An IEX quote under a minute old also qualifies; a 2-minute-old one does not.
+  const iex = (age) => completePlans({ rows: [{ ...applied.rows[0], bid: 5.09, ask: 5.1, quote_at: new Date(t - age).toISOString() }] }, t).rows[0];
+  assert.equal(iex(30_000).actionable, true);
+  assert.equal(iex(30_000).plan.quote_source, 'IEX');
+  assert.equal(iex(120_000).actionable, false);
+  // Wide spread, price past the entry zone, or below the stop: no plan, with the reason.
+  const wide = completePlans({ rows: [{ ...applied.rows[0], bid: 4.9, ask: 5.1, quote_at: new Date(t).toISOString() }] }, t).rows[0];
+  assert.deepEqual(wide.plan_blockers, ['WIDE_SPREAD']);
+  const chased = completePlans({ rows: [{ ...applied.rows[0], price: s.trigger * 1.05, bid: 5.09, ask: 5.1, quote_at: new Date(t).toISOString() }] }, t).rows[0];
+  assert.ok(chased.plan_blockers.includes('PAST_ENTRY'));
+  // A held expansion past 20 minutes no longer plans.
+  const old = completePlans({ rows: [{ ...applied.rows[0], signal: { ...s, detected_at: new Date(t - 21 * 60_000).toISOString() }, bid: 5.09, ask: 5.1, quote_at: new Date(t).toISOString() }] }, t).rows[0];
+  assert.ok(old.plan_blockers.includes('SIGNAL_OLD'));
   const quoted = { ...applied, rows: applied.rows.map((r) => r.symbol === 'SURG' ? { ...r, consolidated: { price: 5.1, bid: 5.09, ask: 5.1, real_time: true, fetched_at: new Date(t - 5_000).toISOString() } } : r) };
   const done = completePlans(quoted, t);
   const row = done.rows[0];
-  assert.equal(row.actionable, s.plan_valid && 5.1 <= s.trigger * 1.01 && 5.1 > s.stop);
+  assert.equal(row.actionable, s.plan_valid && 5.1 <= s.trigger * 1.02 && 5.1 > s.stop);
+  assert.equal(row.actionable, true);
   if (row.actionable) {
     assert.ok(row.plan.entry >= s.trigger && row.plan.entry > row.plan.stop);
     assert.equal(row.plan.targets.length, 2);
