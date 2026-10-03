@@ -12,6 +12,7 @@ import { renderStatus, renderMetrics, renderNotices, coverageText } from './src/
 import { renderEvidence } from './src/views/evidence.js';
 import { renderSipList, SIP_NOTE } from './src/views/sip.js';
 import { renderPulseList, PULSE_NOTE } from './src/views/pulse.js';
+import { renderCalendarList, calendarEntries, CALENDAR_NOTE } from './src/views/calendar.js';
 import { sipScan } from './src/core/sipscan.js';
 import { sipUniverse, applyCloses, applyLive, applySipDelayed, liveSymbols, pulseToday } from './src/state.js';
 import { fetchCloses } from './src/core/closes.js';
@@ -68,6 +69,7 @@ function persist(force = false) {
 
 const LIST_HEAD = html`<span>السهم</span><span>السعر / اليوم</span><span>الشروط</span><span>حجم ٣ د</span><span>الحالة</span><span>عمر الصفقة</span>`;
 const SIP_HEAD = html`<span>السهم</span><span>سعر الرصد / الوقت</span><span>صعود ٣ د · حجم</span><span>موقع السعر الآن</span>`;
+const CALENDAR_HEAD = html`<span>السهم</span><span>الموعد</span><span>النوع</span><span>القيمة السوقية</span>`;
 const JOURNAL_HEAD = html`<span>السهم / بداية الرصد</span><span>الرصد ← آخر عينة</span><span>التغير</span><span>أعلى / أدنى</span>`;
 
 function render() {
@@ -77,24 +79,26 @@ function render() {
   morph($('kpis'), renderMetrics(state, now));
   morph($('notices'), renderNotices(state, now));
 
-  const sip = state.ui.view === 'sip';
+  const calendar = state.ui.view === 'calendar';
+  const sip = state.ui.view === 'sip' || calendar;
   // The consolidated tab shows the server's real-time signals when the service has them, else the delayed SIP scan.
-  const pulseTab = sip && state.pulse.supported === true;
-  const list = journal ? renderJournal(state) : pulseTab ? renderPulseList(state, now) : sip ? renderSipList(state, now) : renderList(state, now);
+  const pulseTab = sip && !calendar && state.pulse.supported === true;
+  const list = journal ? renderJournal(state) : calendar ? renderCalendarList(state, now) : pulseTab ? renderPulseList(state, now) : sip ? renderSipList(state, now) : renderList(state, now);
   $('list').classList.toggle('is-journal', journal);
   $('list-head').classList.toggle('is-journal', journal);
   $('list').classList.toggle('is-sip', sip);
   $('list-head').classList.toggle('is-sip', sip);
-  morph($('list-head'), journal ? JOURNAL_HEAD : sip ? SIP_HEAD : LIST_HEAD);
+  morph($('list-head'), journal ? JOURNAL_HEAD : calendar ? CALENDAR_HEAD : sip ? SIP_HEAD : LIST_HEAD);
   // The empty message goes inside the list: below it, the list's minimum height pushed the
   // message out of view and an empty scan looked like a blank, broken page.
   morph($('list'), list.empty ? html`<li class="empty" data-key="empty" role="status">${list.empty}</li>` : list.markup);
   $('empty').hidden = true;
-  $('row-count').textContent = journal ? `${list.count} سجلًا` : sip ? `${list.count} إشارة` : `${list.count} سهمًا معروضًا`;
-  $('list-note').textContent = journal ? JOURNAL_NOTE : pulseTab ? PULSE_NOTE : sip ? SIP_NOTE : LIST_NOTES[state.ui.view];
+  $('row-count').textContent = journal ? `${list.count} سجلًا` : calendar ? `${list.count} موعدًا` : sip ? `${list.count} إشارة` : `${list.count} سهمًا معروضًا`;
+  $('list-note').textContent = journal ? JOURNAL_NOTE : calendar ? CALENDAR_NOTE : pulseTab ? PULSE_NOTE : sip ? SIP_NOTE : LIST_NOTES[state.ui.view];
   $('sip-count').textContent = state.pulse.supported === true ? pulseToday(state, now).length
     : state.sip.result ? state.sip.result.signals.length : state.sip.phase === 'error' ? '!' : '…';
   $('watch-count').textContent = state.watched.size;
+  $('calendar-count').textContent = state.catalysts ? calendarEntries(state.catalysts, marketDate(now)).length : '…';
   $('journal-count').textContent = state.journal.length;
   $('max-price').disabled = journal || sip;
   document.querySelectorAll('[data-filter]').forEach((b) => { b.disabled = journal || sip; });

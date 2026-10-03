@@ -61,8 +61,11 @@ test('insights UI: pulse stamped by its bars, rejected economic rows, industries
   assert.equal(sectionAsOf(d, 'pulse'), '2026-09-25T20:30:00Z');
   assert.equal(sectionAsOf({ ...d, pulse: { ...d.pulse, indices: [] } }, 'pulse'), d.pulse.as_of);
   assert.equal(economicRows(d).length, d.calendar.economic.length);
-  // The committed file (2026-09-29 run) carries Monday's releases with actuals under Tuesday: not shown.
-  assert.equal(economicRows(real), null);
+  // A release scheduled after the file was produced cannot have an actual yet (the 2026-09-29 file carried
+  // Monday's releases under Tuesday): such a calendar is not shown. Synthetic, so live data refreshes don't break it.
+  const made = '2026-09-29T01:00:00Z';
+  assert.equal(economicRows({ generated_at: made, calendar: { economic: [{ time: '2026-09-29T14:00:00Z', event: 'ISM', actual: 49.1 }] } }), null);
+  assert.equal(economicRows({ generated_at: made, calendar: { economic: [{ time: '2026-09-29T14:00:00Z', event: 'ISM', actual: null }] } }).length, 1);
   const soon = Date.parse('2026-09-25T20:50:00Z');
   const out = String(renderInsights({ phase: 'ok', data: d, loadedAt: soon }, DEFAULT_INSIGHTS_UI, soon));
   assert.ok(out.includes('آخر إغلاق يومي'));
@@ -77,9 +80,12 @@ test('insights UI: pulse stamped by its bars, rejected economic rows, industries
   // Movers: the news column comes right after the change (visible without horizontal scroll).
   const head = /<table class="ins-table"><thead><tr>(.*?)<\/tr>/.exec(out)[1];
   assert.ok(head.indexOf('التغير') < head.indexOf('خبر') && head.indexOf('خبر') < head.indexOf('حجم نسبي'));
-  const realOut = String(renderInsights({ phase: 'ok', data: real, loadedAt: Date.parse(real.generated_at) }, DEFAULT_INSIGHTS_UI, Date.parse(real.generated_at)));
-  assert.ok(realOut.includes('التقويم الاقتصادي غير متاح'));
-  assert.ok(!realOut.includes('Dallas Fed'));
+  // The committed live file renders whatever the bots last wrote; the rejection itself is checked on a synthetic file.
+  const bad = { ...structuredClone(d), generated_at: made, calendar: { ...d.calendar, economic: [{ time: '2026-09-29T14:30:00Z', event: 'Dallas Fed', actual: -9.1, forecast: null, previous: null }] } };
+  const badOut = String(renderInsights({ phase: 'ok', data: bad, loadedAt: Date.parse(made) }, DEFAULT_INSIGHTS_UI, Date.parse(made)));
+  assert.ok(badOut.includes('التقويم الاقتصادي غير متاح'));
+  assert.ok(!badOut.includes('Dallas Fed'));
+  assert.ok(String(renderInsights({ phase: 'ok', data: real, loadedAt: Date.parse(real.generated_at) }, DEFAULT_INSIGHTS_UI, Date.parse(real.generated_at))).length > 0);
 });
 
 test('journal: deleting today\'s manual record is not undone by the next scan', () => {
