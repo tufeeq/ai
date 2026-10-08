@@ -1,95 +1,38 @@
-import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+const $=id=>document.getElementById(id), DB_NAME="nook-social", DB_VERSION=1;
+const seedPosts=[
+ {id:"p1",authorId:"u2",title:"Why we remember what we remember",summary:"A fascinating look at how memory shapes identity — and why forgetting can be a gift.",url:"https://www.youtube.com/",source:"YouTube",kind:"video",feed:"Watch later",minutes:18,created:Date.now()-60000,community:true,likes:24,visual:"linear-gradient(150deg,#253f38,#8ba792 58%,#dac5a0)"},
+ {id:"p2",authorId:"u3",title:"The hidden joy of doing things badly",summary:"Hobbies do not need to become side hustles. A thoughtful case for being a beginner.",url:"https://www.theatlantic.com/",source:"The Atlantic",kind:"article",feed:"Long reads",minutes:8,created:Date.now()-120000,community:true,likes:41,visual:"linear-gradient(150deg,#687c6c,#d9ceb0 58%,#856a51)"},
+ {id:"p3",authorId:"u4",title:"A quiet morning in Kyoto",summary:"Ten calming minutes of early streets, small rituals, and the city waking up.",url:"https://vimeo.com/",source:"Vimeo",kind:"video",feed:"Watch later",minutes:10,created:Date.now()-180000,community:true,likes:67,visual:"linear-gradient(150deg,#233d3a,#b5695e 60%,#ebbd7f)"},
+ {id:"p4",authorId:"u1",title:"The only pasta recipe you’ll ever need",summary:"A weeknight technique for glossy, restaurant-style pasta using pantry ingredients.",url:"https://www.youtube.com/",source:"YouTube",kind:"video",feed:"Recipes",minutes:12,created:Date.now()-240000,community:false,likes:9,visual:"linear-gradient(150deg,#8e3428,#dc7650 52%,#efc16e)"},
+ {id:"p5",authorId:"u2",title:"How to raise curious readers",summary:"Five small family rituals that help children see reading as discovery, not homework.",url:"https://www.nytimes.com/",source:"The New York Times",kind:"article",feed:"For the kids",minutes:6,created:Date.now()-300000,community:true,likes:18,visual:"linear-gradient(150deg,#36526b,#81a5ba 58%,#e5d3a7)"}
+];
+const users=[{id:"u1",name:"Alex",handle:"@alex",color:"coral"},{id:"u2",name:"Maya",handle:"@maya",color:"blue"},{id:"u3",name:"Dad",handle:"@dad",color:"gold"},{id:"u4",name:"Jamie",handle:"@jamie",color:"green"}];
+let db,state={view:"home",feed:null,query:"",sort:"latest",shareId:null};
 
-const $ = (id) => document.getElementById(id);
-const els = {
-  welcome: $("welcome"), messages: $("messages"), load: $("loadModelBtn"), progressWrap: $("progressWrap"),
-  progressBar: $("progressBar"), progressLabel: $("progressLabel"), status: $("statusText"), input: $("promptInput"),
-  send: $("sendBtn"), form: $("chatForm"), model: $("modelSelect"), settings: $("settingsDialog"),
-  system: $("systemPrompt"), temperature: $("temperature"), tempValue: $("temperatureValue")
-};
+function request(req){return new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});}
+async function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,DB_VERSION);req.onupgradeneeded=()=>{const d=req.result;const posts=d.createObjectStore("posts",{keyPath:"id"});posts.createIndex("created","created");posts.createIndex("feed","feed");d.createObjectStore("users",{keyPath:"id"});d.createObjectStore("feeds",{keyPath:"name"});d.createObjectStore("interactions",{keyPath:"id"});};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});}
+async function all(store){return request(db.transaction(store).objectStore(store).getAll());}
+async function put(store,value){return request(db.transaction(store,"readwrite").objectStore(store).put(value));}
+async function remove(store,key){return request(db.transaction(store,"readwrite").objectStore(store).delete(key));}
+async function seed(){if(!(await all("users")).length)for(const u of users)await put("users",u);if(!(await all("feeds")).length)for(const name of ["Watch later","Long reads","Recipes","For the kids"])await put("feeds",{name});if(!(await all("posts")).length)for(const p of seedPosts)await put("posts",p);}
+function escapeHTML(text=""){const el=document.createElement("span");el.textContent=text;return el.innerHTML;}
+function initials(name){return name.split(" ").map(x=>x[0]).join("").slice(0,2).toUpperCase();}
+function sourceFrom(url){try{return new URL(url).hostname.replace("www.","");}catch{return "Web";}}
+function toast(message){$("toast").textContent=message;$("toast").classList.add("show");clearTimeout(window.toastTimeout);window.toastTimeout=setTimeout(()=>$("toast").classList.remove("show"),2200);}
+async function interaction(postId){return request(db.transaction("interactions").objectStore("interactions").get(`u1:${postId}`))||{id:`u1:${postId}`,postId,userId:"u1",liked:false,saved:false};}
 
-let engine = null;
-let isGenerating = false;
-let chat = JSON.parse(localStorage.getItem("myai-chat") || "[]");
-const settings = JSON.parse(localStorage.getItem("myai-settings") || "{}");
+async function getData(){const [posts,people,feeds,interactions]=await Promise.all([all("posts"),all("users"),all("feeds"),all("interactions")]);return{posts,people,feeds,interactions};}
+function filtered(posts,interactions){let list=[...posts];if(state.view==="community")list=list.filter(p=>p.community);if(state.view==="saved"){const ids=new Set(interactions.filter(i=>i.saved).map(i=>i.postId));list=list.filter(p=>ids.has(p.id));}if(state.feed)list=list.filter(p=>p.feed===state.feed);if(state.query){const q=state.query.toLowerCase();list=list.filter(p=>`${p.title} ${p.summary} ${p.source} ${p.feed}`.toLowerCase().includes(q));}if(state.sort==="popular")list.sort((a,b)=>b.likes-a.likes);else if(state.sort==="short")list.sort((a,b)=>a.minutes-b.minutes);else list.sort((a,b)=>b.created-a.created);return list;}
+function postCard(p,user,i){return `<article class="post-card" data-id="${p.id}" style="--delay:${i*35}ms"><button class="media" data-action="open" style="background:${p.visual}" aria-label="Open ${escapeHTML(p.title)}"><span class="format">${p.kind==="video"?"▶ Video":"▤ Read"}</span><span class="duration">${p.minutes} min</span></button><div class="post-content"><div class="author"><span class="avatar ${user.color}">${initials(user.name)}</span><span><strong>${escapeHTML(user.name)}</strong><small>${user.handle} · shared recently</small></span><button data-action="more" aria-label="Remove post">•••</button></div><span class="category">${p.kind} · ${escapeHTML(p.feed)}</span><h3>${escapeHTML(p.title)}</h3><p>${escapeHTML(p.summary)}</p><div class="actions"><button data-action="like">♡ <span>${p.likes}</span></button><button data-action="save">▱ <span>Save</span></button><button data-action="share">↗ <span>Share</span></button></div><button class="source" data-action="open"><span>↗</span><span><small>ORIGINAL SOURCE</small><strong>${escapeHTML(p.source)}</strong></span><b>Open ›</b></button></div></article>`;}
+function reelCard(p,user){return `<article class="reel" data-id="${p.id}"><div class="reel-backdrop" style="background:${p.visual}"></div><div class="reel-top"><span>${p.kind==="video"?"VIDEO":"ARTICLE"} · ${p.minutes} MIN</span><span>${escapeHTML(p.feed)}</span></div>${p.kind==="video"?'<button class="reel-play" data-action="open" aria-label="Play video">▶</button>':'<div class="read-preview"><span>QUICK SUMMARY</span><h2>'+escapeHTML(p.title)+'</h2><p>'+escapeHTML(p.summary)+'</p><button data-action="open">Read original ↗</button></div>'}<div class="reel-copy"><div class="reel-author"><span class="avatar ${user.color}">${initials(user.name)}</span><strong>${escapeHTML(user.name)}</strong><button data-action="follow">Follow</button></div>${p.kind==="video"?`<h2>${escapeHTML(p.title)}</h2><p>${escapeHTML(p.summary)}</p>`:""}<button class="reel-source" data-action="open">↗ ${escapeHTML(p.source)}</button></div><div class="reel-actions"><button data-action="like">♡<span>${p.likes}</span></button><button data-action="save">▱<span>Save</span></button><button data-action="share">↗<span>Share</span></button></div><div class="swipe-hint">Swipe up for next <b>↑</b></div></article>`;}
 
-const supported = webllm.prebuiltAppConfig.model_list;
-const preferred = supported.filter(x => /Qwen.*(0\.5B|1\.5B).*Instruct/i.test(x.model_id));
-const fallback = supported.filter(x => /(Phi|Qwen|Llama).*Instruct/i.test(x.model_id));
-const choices = [...preferred, ...fallback].filter((x, i, a) => a.findIndex(y => y.model_id === x.model_id) === i).slice(0, 12);
-choices.forEach(item => {
-  const option = document.createElement("option");
-  option.value = item.model_id;
-  option.textContent = item.model_id.replace(/-MLC$/, "");
-  els.model.append(option);
-});
-if (settings.model && choices.some(x => x.model_id === settings.model)) els.model.value = settings.model;
-if (settings.system) els.system.value = settings.system;
-if (settings.temperature !== undefined) els.temperature.value = settings.temperature;
-els.tempValue.textContent = els.temperature.value;
+async function render(){const {posts,people,feeds,interactions}=await getData();const list=filtered(posts,interactions);const userMap=Object.fromEntries(people.map(u=>[u.id,u]));$("postStat").textContent=posts.length;$("savedStat").textContent=interactions.filter(x=>x.saved).length;$("peopleStat").textContent=people.length;$("digestText").textContent=`${posts.filter(p=>p.community).length} community posts, ${posts.filter(p=>p.kind==="article").length} thoughtful reads, and ${posts.filter(p=>p.kind==="video").length} videos — summarized for you.`;$("feedList").innerHTML=feeds.map((f,i)=>`<button class="feed-button ${state.feed===f.name?"active":""}" data-feed="${escapeHTML(f.name)}"><i class="feed-dot c${i%4}"></i><span>${escapeHTML(f.name)}</span><b>${posts.filter(p=>p.feed===f.name).length}</b></button>`).join("");$("feedInput").innerHTML=feeds.map(f=>`<option>${escapeHTML(f.name)}</option>`).join("");
+  const titles={home:["Your daily nook","Good ideas from people you trust, without the noise.","For you"],community:["Nook community","Discover what your people are reading and watching.","From the community"],saved:["Saved for later","Everything you want to return to.","Your saved posts"]};const t=state.feed?[state.feed,"A focused space for links you care about.",state.feed]:titles[state.view]||titles.home;$("pageTitle").textContent=state.query?`Results for “${state.query}”`:t[0];$("pageDescription").textContent=t[1];$("listTitle").textContent=t[2];$("digest").hidden=state.view!=="home"||!!state.feed||!!state.query;$("postGrid").innerHTML=list.map((p,i)=>postCard(p,userMap[p.authorId]||users[0],i)).join("");$("emptyState").hidden=!!list.length;$("streamFeed").innerHTML=list.map(p=>reelCard(p,userMap[p.authorId]||users[0])).join("");$("streamProgress").textContent=`1 / ${list.length||1}`;bindDynamic();}
+function bindDynamic(){document.querySelectorAll("[data-feed]").forEach(b=>b.onclick=()=>selectFeed(b.dataset.feed));document.querySelectorAll("[data-id]").forEach(card=>card.onclick=e=>{const action=e.target.closest("[data-action]")?.dataset.action;if(action)act(card.dataset.id,action);});const feed=$("streamFeed");feed.onscroll=()=>{const n=Math.round(feed.scrollTop/Math.max(1,feed.clientHeight))+1;$("streamProgress").textContent=`${n} / ${feed.children.length}`;};}
+async function act(id,action){const post=await request(db.transaction("posts").objectStore("posts").get(id));if(action==="open")return window.open(post.url,"_blank","noopener,noreferrer");if(action==="follow")return toast("You are now following this creator");if(action==="share"){state.shareId=id;return $("shareDialog").showModal();}if(action==="more"&&confirm(`Remove “${post.title}”?`)){await remove("posts",id);toast("Post removed");return render();}const i=await interaction(id);if(action==="like"){i.liked=!i.liked;post.likes+=i.liked?1:-1;await put("posts",post);toast(i.liked?"You liked this":"Like removed");}if(action==="save"){i.saved=!i.saved;toast(i.saved?"Saved for later":"Removed from saved");}await put("interactions",i);render();}
+function setView(view){state.view=view;state.feed=null;state.query="";$("searchInput").value="";const stream=view==="stream";$("standardView").hidden=stream;$("streamView").hidden=!stream;document.body.classList.toggle("streaming",stream);document.querySelectorAll("[data-view]").forEach(b=>b.classList.toggle("active",b.dataset.view===view));render();window.scrollTo(0,0);}
+function selectFeed(feed){state.feed=feed;state.view="home";$("standardView").hidden=false;$("streamView").hidden=true;document.querySelectorAll("[data-view]").forEach(b=>b.classList.remove("active"));render();}
+function openSheet(id){$(id).showModal();setTimeout(()=>$(id).querySelector("input")?.focus(),100);}
 
-function saveChat(){ localStorage.setItem("myai-chat", JSON.stringify(chat)); }
-function renderMessage(role, content){
-  els.welcome.classList.add("hidden"); els.messages.classList.remove("hidden");
-  const node = document.createElement("article"); node.className = `message ${role}`;
-  node.innerHTML = `<div class="avatar">${role === "user" ? "You" : "✦"}</div><div class="bubble"></div>`;
-  node.querySelector(".bubble").textContent = content;
-  els.messages.append(node); els.messages.scrollTop = els.messages.scrollHeight;
-  return node.querySelector(".bubble");
-}
-chat.forEach(m => renderMessage(m.role, m.content));
-
-async function loadModel(){
-  if (!navigator.gpu) {
-    alert("This browser does not support WebGPU. Use a recent version of Chrome or Edge on a device with a supported GPU.");
-    return;
-  }
-  els.load.disabled = true; els.progressWrap.classList.remove("hidden"); els.status.textContent = "Loading the local model…";
-  try {
-    engine = await webllm.CreateMLCEngine(els.model.value, {
-      initProgressCallback: (p) => {
-        const value = Math.max(0, Math.min(100, Math.round((p.progress || 0) * 100)));
-        els.progressBar.style.width = `${value}%`; els.progressLabel.textContent = p.text || `Loading ${value}%`;
-      }
-    });
-    els.status.textContent = "Ready — running privately on this device";
-    els.progressLabel.textContent = "Ready"; els.input.disabled = false; els.send.disabled = false; els.input.focus();
-  } catch (error) {
-    console.error(error); els.load.disabled = false; els.status.textContent = "Model failed to load";
-    els.progressLabel.textContent = "Try another smaller model in Settings.";
-  }
-}
-
-async function submitPrompt(text){
-  if (!engine || isGenerating || !text.trim()) return;
-  isGenerating = true; els.send.disabled = true; els.input.value = ""; autoResize();
-  chat.push({role:"user",content:text.trim()}); renderMessage("user", text.trim());
-  const output = renderMessage("assistant", "");
-  try {
-    const messages = [{role:"system",content:els.system.value.trim()}, ...chat];
-    const stream = await engine.chat.completions.create({ messages, temperature:Number(els.temperature.value), stream:true });
-    let answer = "";
-    for await (const chunk of stream) {
-      answer += chunk.choices?.[0]?.delta?.content || "";
-      output.textContent = answer; els.messages.scrollTop = els.messages.scrollHeight;
-    }
-    chat.push({role:"assistant",content:answer}); saveChat();
-  } catch (error) {
-    console.error(error); output.textContent = "Something went wrong while generating. Try a shorter message or reload the model.";
-  } finally { isGenerating = false; els.send.disabled = false; els.input.focus(); }
-}
-
-function autoResize(){ els.input.style.height = "auto"; els.input.style.height = `${Math.min(els.input.scrollHeight,180)}px`; }
-els.load.addEventListener("click", loadModel);
-els.form.addEventListener("submit", e => { e.preventDefault(); submitPrompt(els.input.value); });
-els.input.addEventListener("input", autoResize);
-els.input.addEventListener("keydown", e => { if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); els.form.requestSubmit(); }});
-document.querySelectorAll(".suggestion").forEach(b => b.addEventListener("click", () => { els.input.value = b.textContent; els.input.focus(); autoResize(); }));
-$("settingsBtn").addEventListener("click", () => els.settings.showModal());
-els.temperature.addEventListener("input", () => els.tempValue.textContent = els.temperature.value);
-$("saveSettingsBtn").addEventListener("click", () => {
-  localStorage.setItem("myai-settings", JSON.stringify({model:els.model.value,system:els.system.value,temperature:els.temperature.value}));
-  if(engine) els.status.textContent = "Settings saved. Reload the page to change models.";
-});
-$("clearDataBtn").addEventListener("click", () => { chat=[]; saveChat(); els.messages.innerHTML=""; els.messages.classList.add("hidden"); els.welcome.classList.remove("hidden"); });
-$("newChatBtn").addEventListener("click", () => { chat=[]; saveChat(); els.messages.innerHTML=""; els.messages.classList.add("hidden"); els.welcome.classList.remove("hidden"); });
+async function init(){db=await openDB();await seed();$("dateLabel").textContent=new Intl.DateTimeFormat("en",{weekday:"long",month:"long",day:"numeric"}).format(new Date()).toUpperCase();document.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>setView(b.dataset.view));$("addButton").onclick=$("mobileAdd").onclick=$("emptyAdd").onclick=()=>openSheet("addDialog");$("newFeedButton").onclick=()=>openSheet("feedDialog");document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());document.querySelectorAll("dialog").forEach(d=>d.onclick=e=>{if(e.target===d)d.close();});$("searchInput").oninput=e=>{state.query=e.target.value.trim();render();};$("sortSelect").onchange=e=>{state.sort=e.target.value;render();};$("addForm").onsubmit=async e=>{e.preventDefault();const url=$("urlInput").value,shareToCommunity=$("communityInput").checked;await put("posts",{id:crypto.randomUUID(),authorId:"u1",title:$("titleInput").value.trim(),summary:$("summaryInput").value.trim()||"Saved from the web to explore later.",url,source:sourceFrom(url),kind:$("kindInput").value,feed:$("feedInput").value,minutes:5,created:Date.now(),community:shareToCommunity,likes:0,visual:"linear-gradient(150deg,#244c3b,#79a68b 58%,#d9c69f)"});e.target.reset();$("addDialog").close();toast("Added to your Nook");setView(shareToCommunity?"community":"home");};$("feedForm").onsubmit=async e=>{e.preventDefault();const name=$("feedName").value.trim();const exists=(await all("feeds")).some(f=>f.name.toLowerCase()===name.toLowerCase());if(exists)return toast("That space already exists");await put("feeds",{name});e.target.reset();$("feedDialog").close();selectFeed(name);toast("New space created");};$("communityShare").onclick=async()=>{const p=await request(db.transaction("posts").objectStore("posts").get(state.shareId));p.community=true;await put("posts",p);$("shareDialog").close();toast("Shared with your community");render();};$("copyLink").onclick=async()=>{const p=await request(db.transaction("posts").objectStore("posts").get(state.shareId));try{await navigator.clipboard.writeText(p.url);}catch{}$("shareDialog").close();toast("Link copied");};document.addEventListener("keydown",e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"){e.preventDefault();$("searchInput").focus();}});render();}
+init().catch(error=>{console.error(error);document.body.innerHTML='<main class="fatal"><h1>Nook could not start</h1><p>Please enable browser storage and reload the page.</p></main>';});
