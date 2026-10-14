@@ -1,10 +1,10 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "updatedAtUTC": "2026-10-14T13:15:24.256619+00:00",
   "updatedAtET": "2026-10-14T09:15:24.256619-04:00",
   "sessionDateET": "2026-10-14",
   "session": "pre-market",
-  "source": "TAGX premarket hot heartbeat event-driven v2.3",
+  "source": "TAGX premarket hot heartbeat event-driven v2.3 + directional-causal-audit-v1",
   "trigger": "schedule",
   "dataConfidence": "HIGH",
   "candidateCount": 560,
@@ -19,9 +19,16 @@
     "fill": 272
   },
   "causalIntegrity": {
-    "firstObservationLateCount": 58,
-    "earlyCaptureEligibleFirstObservationCount": 66,
-    "crossingsAreLeftCensoredWhenAlreadyAboveThresholdAtFirstObservation": true
+    "firstObservationLateCount": 28,
+    "earlyCaptureEligibleFirstObservationCount": 23,
+    "crossingsAreLeftCensoredWhenAlreadyAboveThresholdAtFirstObservation": true,
+    "directionalThresholds": true,
+    "upsideThresholdsUseSignedChange": true,
+    "negativeMovesExcludedFromUpsideEarlyCapture": true,
+    "directionalAuditRepairedRows": 164,
+    "negativeFalseEarlyEligibilityRemoved": 52,
+    "invalidPositiveCrossingsRemoved": 72,
+    "auditedAtUTC": "2026-10-14T13:18:08.945927+00:00"
   },
   "rows": {
     "TGL": {
@@ -43,10 +50,14 @@
       "peakPMChangePct": 13.574660633484159,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -1.2475,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -62,7 +73,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "AEHL": {
       "ticker": "AEHL",
@@ -83,10 +95,15 @@
       "peakPMChangePct": 166.98381877022658,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0147,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -100,7 +117,8 @@
         "finviz"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "NIVF": {
       "ticker": "NIVF",
@@ -121,10 +139,15 @@
       "peakPMChangePct": 59.466327827191854,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.3282,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -139,7 +162,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "BMBL": {
       "ticker": "BMBL",
@@ -160,10 +184,15 @@
       "peakPMChangePct": 56.315789473684234,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.3672,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": "2026-10-14T13:11:52+00:00",
       "firstCross5UTC": "2026-10-14T13:11:52+00:00",
       "firstCross10UTC": "2026-10-14T13:11:52+00:00",
@@ -176,7 +205,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "LQDA": {
       "ticker": "LQDA",
@@ -197,10 +227,15 @@
       "peakPMChangePct": 49.94578966389591,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.1781,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -213,7 +248,8 @@
         "finviz"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "BDRX": {
       "ticker": "BDRX",
@@ -234,10 +270,15 @@
       "peakPMChangePct": 27.922755741127368,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0672,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -253,7 +294,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "CDT": {
       "ticker": "CDT",
@@ -274,7 +316,7 @@
       "peakPMChangePct": -61.68181818181818,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.1073,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -292,7 +334,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "YFOR": {
       "ticker": "YFOR",
@@ -313,7 +356,7 @@
       "peakPMChangePct": -32.058922748228944,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.06,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -331,7 +374,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "GLND": {
       "ticker": "GLND",
@@ -352,10 +396,15 @@
       "peakPMChangePct": 81.80519480519479,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.1184,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -370,7 +419,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "SES": {
       "ticker": "SES",
@@ -391,10 +441,15 @@
       "peakPMChangePct": 25.015626953369164,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.1211,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": "2026-10-14T13:15:19+00:00",
       "firstCross5UTC": "2026-10-14T13:15:19+00:00",
       "firstCross10UTC": "2026-10-14T13:15:19+00:00",
@@ -407,7 +462,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "FBGL": {
       "ticker": "FBGL",
@@ -428,7 +484,7 @@
       "peakPMChangePct": -21.09826589595376,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0116,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -446,7 +502,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "BMEA": {
       "ticker": "BMEA",
@@ -467,7 +524,7 @@
       "peakPMChangePct": -25.11029411764707,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0288,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -485,7 +542,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "GRML": {
       "ticker": "GRML",
@@ -506,10 +564,14 @@
       "peakPMChangePct": 25.913621262458484,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0132,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -525,7 +587,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "HCAI": {
       "ticker": "HCAI",
@@ -546,7 +609,7 @@
       "peakPMChangePct": -35.255570117955436,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0683,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -564,7 +627,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "YRD": {
       "ticker": "YRD",
@@ -585,8 +649,8 @@
       "peakPMChangePct": 30.82876088005577,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.1479,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -601,7 +665,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "NCPL": {
       "ticker": "NCPL",
@@ -622,10 +687,13 @@
       "peakPMChangePct": 35.94155844155844,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.0966,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -641,7 +709,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "MRNO": {
       "ticker": "MRNO",
@@ -679,7 +748,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "DKI": {
       "ticker": "DKI",
@@ -700,14 +770,14 @@
       "peakPMChangePct": -48.42986741102583,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.2412,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
-      "firstCross20UTC": "2026-10-14T13:15:21+00:00",
+      "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T09:54:35+00:00",
       "firstAHChangePct": -51.221,
       "peakAHChangePct": -48.42986741102583,
@@ -719,7 +789,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "CANG": {
       "ticker": "CANG",
@@ -760,7 +831,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "JZ": {
       "ticker": "JZ",
@@ -781,10 +853,14 @@
       "peakPMChangePct": 23.893805309734507,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.1679,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": "2026-10-14T13:13:26+00:00",
       "firstCross10UTC": "2026-10-14T13:13:26+00:00",
@@ -797,7 +873,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "SDST": {
       "ticker": "SDST",
@@ -818,14 +895,14 @@
       "peakPMChangePct": -33.39805825242719,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.1824,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
-      "firstCross20UTC": "2026-10-14T13:15:12+00:00",
+      "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T09:54:05+00:00",
       "firstAHChangePct": -34.951,
       "peakAHChangePct": -33.39805825242719,
@@ -837,7 +914,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "ENHA": {
       "ticker": "ENHA",
@@ -858,14 +936,10 @@
       "peakPMChangePct": -11.333333333333329,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -878,7 +952,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "FUN": {
       "ticker": "FUN",
@@ -899,14 +974,10 @@
       "peakPMChangePct": -15.861577181208064,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -919,7 +990,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "PFAI": {
       "ticker": "PFAI",
@@ -940,10 +1012,15 @@
       "peakPMChangePct": 59.34482758620692,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.3908,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -958,7 +1035,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "CNEY": {
       "ticker": "CNEY",
@@ -979,14 +1057,10 @@
       "peakPMChangePct": -14.583333333333325,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1000,7 +1074,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "OLB": {
       "ticker": "OLB",
@@ -1021,14 +1096,14 @@
       "peakPMChangePct": -31.702843167227158,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.1388,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
-      "firstCross20UTC": "2026-10-14T13:15:06+00:00",
+      "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T09:53:23+00:00",
       "firstAHChangePct": -32.131,
       "peakAHChangePct": -31.702843167227158,
@@ -1039,7 +1114,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "SHFS": {
       "ticker": "SHFS",
@@ -1060,7 +1136,7 @@
       "peakPMChangePct": -41.92019950124689,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.1539,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -1079,7 +1155,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "EVTL": {
       "ticker": "EVTL",
@@ -1100,14 +1177,10 @@
       "peakPMChangePct": -15.475704369130261,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1120,7 +1193,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "AIIO": {
       "ticker": "AIIO",
@@ -1141,10 +1215,14 @@
       "peakPMChangePct": 21.977000813102563,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.2008,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1159,7 +1237,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "VSTM": {
       "ticker": "VSTM",
@@ -1180,7 +1259,7 @@
       "peakPMChangePct": 0.363636363636366,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.094,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -1196,7 +1275,8 @@
         "finviz"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "JYD": {
       "ticker": "JYD",
@@ -1240,7 +1320,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "MRLN": {
       "ticker": "MRLN",
@@ -1279,7 +1360,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "TRX": {
       "ticker": "TRX",
@@ -1300,14 +1382,10 @@
       "peakPMChangePct": -11.321739130434771,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1320,7 +1398,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "MI": {
       "ticker": "MI",
@@ -1341,14 +1420,14 @@
       "peakPMChangePct": -25.216076058772686,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0815,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
-      "firstCross20UTC": "2026-10-14T13:13:15+00:00",
+      "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T09:51:14+00:00",
       "firstAHChangePct": -27.258,
       "peakAHChangePct": -25.216076058772686,
@@ -1359,7 +1438,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "MCRP": {
       "ticker": "MCRP",
@@ -1401,7 +1481,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "SUGP": {
       "ticker": "SUGP",
@@ -1422,10 +1503,13 @@
       "peakPMChangePct": 9.392265193370154,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.1085,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1440,7 +1524,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "SXTC": {
       "ticker": "SXTC",
@@ -1461,14 +1546,14 @@
       "peakPMChangePct": -25.882352941176467,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.2076,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:15:10+00:00",
-      "firstCross5UTC": "2026-10-14T13:15:10+00:00",
-      "firstCross10UTC": "2026-10-14T13:15:10+00:00",
-      "firstCross20UTC": "2026-10-14T13:15:10+00:00",
+      "firstCross2UTC": null,
+      "firstCross5UTC": null,
+      "firstCross10UTC": null,
+      "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T09:54:16+00:00",
       "firstAHChangePct": -32.059,
       "peakAHChangePct": -25.882352941176467,
@@ -1480,7 +1565,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "SCNI": {
       "ticker": "SCNI",
@@ -1501,14 +1587,14 @@
       "peakPMChangePct": -5.1465517241379155,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.1611,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
-      "firstCross20UTC": "2026-10-14T13:12:49+00:00",
+      "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T10:38:47+00:00",
       "firstAHChangePct": -5.147,
       "peakAHChangePct": -5.1465517241379155,
@@ -1519,7 +1605,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "BKHA": {
       "ticker": "BKHA",
@@ -1540,14 +1627,10 @@
       "peakPMChangePct": -13.821138211382122,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1561,7 +1644,8 @@
         "fast"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "GMEX": {
       "ticker": "GMEX",
@@ -1603,7 +1687,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "AMTD": {
       "ticker": "AMTD",
@@ -1624,7 +1709,7 @@
       "peakPMChangePct": -6.542056074766355,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.0311,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -1641,7 +1726,8 @@
         "finviz"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "BKYI": {
       "ticker": "BKYI",
@@ -1662,10 +1748,15 @@
       "peakPMChangePct": 52.66060606060607,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.415,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1680,7 +1771,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "LGHL": {
       "ticker": "LGHL",
@@ -1701,14 +1793,10 @@
       "peakPMChangePct": -11.475409836065564,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1722,7 +1810,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "ENVX": {
       "ticker": "ENVX",
@@ -1743,10 +1832,13 @@
       "peakPMChangePct": 5.791505791505802,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.048,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1760,7 +1852,8 @@
         "finviz"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "SMTK": {
       "ticker": "SMTK",
@@ -1781,15 +1874,10 @@
       "peakPMChangePct": -38.67924528301887,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "ALREADY_EXTENDED",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10,
-        20
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1803,7 +1891,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "CLWT": {
       "ticker": "CLWT",
@@ -1824,15 +1913,10 @@
       "peakPMChangePct": -31.162790697674414,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "ALREADY_EXTENDED",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10,
-        20
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1846,7 +1930,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "TGE": {
       "ticker": "TGE",
@@ -1867,12 +1952,10 @@
       "peakPMChangePct": -2.3975903614457783,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1886,7 +1969,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "EVO": {
       "ticker": "EVO",
@@ -1907,10 +1991,13 @@
       "peakPMChangePct": 7.167883211678827,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0227,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1925,7 +2012,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "SDEV": {
       "ticker": "SDEV",
@@ -1946,14 +2034,14 @@
       "peakPMChangePct": -19.14893617021277,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0704,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
-      "firstCross10UTC": "2026-10-14T13:15:19+00:00",
-      "firstCross20UTC": "2026-10-14T13:15:19+00:00",
+      "firstCross10UTC": null,
+      "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T09:54:36+00:00",
       "firstAHChangePct": -19.149,
       "peakAHChangePct": -19.14893617021277,
@@ -1965,7 +2053,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "PDSB": {
       "ticker": "PDSB",
@@ -1986,10 +2075,13 @@
       "peakPMChangePct": 7.8947368421052655,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.013,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": "2026-10-14T13:13:18+00:00",
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2002,7 +2094,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "RKDA": {
       "ticker": "RKDA",
@@ -2023,13 +2116,13 @@
       "peakPMChangePct": -3.539823008849563,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.098,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
-      "firstCross10UTC": "2026-10-14T13:14:18+00:00",
+      "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T09:54:28+00:00",
       "firstAHChangePct": -3.54,
@@ -2042,7 +2135,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "TTI": {
       "ticker": "TTI",
@@ -2081,7 +2175,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "YJ": {
       "ticker": "YJ",
@@ -2102,7 +2197,7 @@
       "peakPMChangePct": 5.291005291005302,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.0199,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -2119,7 +2214,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "HCTI": {
       "ticker": "HCTI",
@@ -2140,12 +2236,10 @@
       "peakPMChangePct": -4.794996525364836,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2159,7 +2253,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "EZGO": {
       "ticker": "EZGO",
@@ -2180,12 +2275,10 @@
       "peakPMChangePct": -2.3407022106632036,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2199,7 +2292,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "DCX": {
       "ticker": "DCX",
@@ -2220,14 +2314,10 @@
       "peakPMChangePct": -17.727272727272737,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2242,7 +2332,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "JBLU": {
       "ticker": "JBLU",
@@ -2263,14 +2354,10 @@
       "peakPMChangePct": -10.262430939226519,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2283,7 +2370,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "WBUY": {
       "ticker": "WBUY",
@@ -2304,10 +2392,13 @@
       "peakPMChangePct": 7.8708251473477375,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.0802,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2322,7 +2413,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "UAMY": {
       "ticker": "UAMY",
@@ -2343,12 +2435,12 @@
       "peakPMChangePct": -7.101190476190478,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0517,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:15:17+00:00",
-      "firstCross5UTC": "2026-10-14T13:15:17+00:00",
+      "firstCross2UTC": null,
+      "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T10:28:19+00:00",
@@ -2359,7 +2451,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "SAIQ": {
       "ticker": "SAIQ",
@@ -2380,10 +2473,13 @@
       "peakPMChangePct": 5.121293800539073,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.077,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2398,7 +2494,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "MSGY": {
       "ticker": "MSGY",
@@ -2419,13 +2516,10 @@
       "peakPMChangePct": -5.185185185185192,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2439,7 +2533,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "DAIC": {
       "ticker": "DAIC",
@@ -2460,14 +2555,10 @@
       "peakPMChangePct": -13.529411764705879,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2481,7 +2572,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "CRML": {
       "ticker": "CRML",
@@ -2502,7 +2594,7 @@
       "peakPMChangePct": 1.319648093841641,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.037,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -2520,7 +2612,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "VCIG": {
       "ticker": "VCIG",
@@ -2541,14 +2634,14 @@
       "peakPMChangePct": -28.272727272727273,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.1461,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
-      "firstCross10UTC": "2026-10-14T13:13:50+00:00",
-      "firstCross20UTC": "2026-10-14T13:13:50+00:00",
+      "firstCross10UTC": null,
+      "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T09:54:23+00:00",
       "firstAHChangePct": -28.273,
       "peakAHChangePct": -28.272727272727273,
@@ -2559,7 +2652,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "RYDE": {
       "ticker": "RYDE",
@@ -2601,7 +2695,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "QTEX": {
       "ticker": "QTEX",
@@ -2628,7 +2723,7 @@
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
-      "firstCross10UTC": "2026-10-14T13:15:23+00:00",
+      "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T09:54:11+00:00",
       "firstAHChangePct": -6.329,
@@ -2641,7 +2736,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "AXNX": {
       "ticker": "AXNX",
@@ -2662,14 +2758,10 @@
       "peakPMChangePct": -16.301522465651686,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2683,7 +2775,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "GNS": {
       "ticker": "GNS",
@@ -2704,11 +2797,11 @@
       "peakPMChangePct": -4.246575342465741,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0212,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:15:06+00:00",
+      "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
@@ -2720,7 +2813,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "FCHL": {
       "ticker": "FCHL",
@@ -2763,7 +2857,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "LNKS": {
       "ticker": "LNKS",
@@ -2784,15 +2879,10 @@
       "peakPMChangePct": -59.29515418502203,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "ALREADY_EXTENDED",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10,
-        20
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2806,7 +2896,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "CCXI": {
       "ticker": "CCXI",
@@ -2845,7 +2936,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "DEC": {
       "ticker": "DEC",
@@ -2885,7 +2977,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "BBAI": {
       "ticker": "BBAI",
@@ -2906,10 +2999,12 @@
       "peakPMChangePct": 4.782608695652191,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.0032,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2922,7 +3017,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "GLAS": {
       "ticker": "GLAS",
@@ -2943,12 +3039,10 @@
       "peakPMChangePct": -4.4117647058823595,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2961,7 +3055,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "MTEN": {
       "ticker": "MTEN",
@@ -2982,12 +3077,12 @@
       "peakPMChangePct": -6.494845360824741,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0141,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
-      "firstCross5UTC": "2026-10-14T13:14:39+00:00",
+      "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T09:41:54+00:00",
@@ -2999,7 +3094,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "FFR": {
       "ticker": "FFR",
@@ -3020,13 +3116,13 @@
       "peakPMChangePct": -3.3333333333333326,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0699,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:13:49+00:00",
-      "firstCross5UTC": "2026-10-14T13:13:49+00:00",
-      "firstCross10UTC": "2026-10-14T13:13:49+00:00",
+      "firstCross2UTC": null,
+      "firstCross5UTC": null,
+      "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T10:31:42+00:00",
       "firstAHChangePct": -3.333,
@@ -3037,7 +3133,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "TOPS": {
       "ticker": "TOPS",
@@ -3058,13 +3155,10 @@
       "peakPMChangePct": -5.620316402997494,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3078,7 +3172,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "IPW": {
       "ticker": "IPW",
@@ -3099,13 +3194,13 @@
       "peakPMChangePct": -12.172284644194754,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0634,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
-      "firstCross5UTC": "2026-10-14T13:13:13+00:00",
-      "firstCross10UTC": "2026-10-14T13:13:13+00:00",
+      "firstCross5UTC": null,
+      "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T10:35:56+00:00",
       "firstAHChangePct": -12.172,
@@ -3117,7 +3212,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "RIME": {
       "ticker": "RIME",
@@ -3138,7 +3234,7 @@
       "peakPMChangePct": 0.37878787878788955,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0276,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -3155,7 +3251,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "FRGT": {
       "ticker": "FRGT",
@@ -3176,13 +3273,13 @@
       "peakPMChangePct": -19.999999999999986,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.1005,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
-      "firstCross5UTC": "2026-10-14T13:08:15+00:00",
-      "firstCross10UTC": "2026-10-14T13:08:15+00:00",
+      "firstCross5UTC": null,
+      "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T10:24:59+00:00",
       "firstAHChangePct": -23.429,
@@ -3194,7 +3291,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "IZM": {
       "ticker": "IZM",
@@ -3215,10 +3313,15 @@
       "peakPMChangePct": 37.520055008022,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.1381,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": "2026-10-14T13:05:32+00:00",
@@ -3233,7 +3336,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "VJET": {
       "ticker": "VJET",
@@ -3254,10 +3358,14 @@
       "peakPMChangePct": 11.00000000000001,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0494,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3272,7 +3380,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "TCRT": {
       "ticker": "TCRT",
@@ -3293,10 +3402,15 @@
       "peakPMChangePct": 261.95238095238096,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 1.5991,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3312,7 +3426,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "MBRX": {
       "ticker": "MBRX",
@@ -3353,7 +3468,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "OFAL": {
       "ticker": "OFAL",
@@ -3374,12 +3490,10 @@
       "peakPMChangePct": -4.883781666231391,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3393,7 +3507,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "HAWK": {
       "ticker": "HAWK",
@@ -3414,12 +3529,10 @@
       "peakPMChangePct": -4.237918215613368,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3432,7 +3545,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "TWG": {
       "ticker": "TWG",
@@ -3453,12 +3567,16 @@
       "peakPMChangePct": 11.749999999999993,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0689,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
-      "firstCross5UTC": "2026-10-14T13:14:43+00:00",
+      "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T09:54:05+00:00",
@@ -3471,7 +3589,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "ARAI": {
       "ticker": "ARAI",
@@ -3492,13 +3611,13 @@
       "peakPMChangePct": -7.835325365205847,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.054,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
-      "firstCross5UTC": "2026-10-14T13:13:34+00:00",
-      "firstCross10UTC": "2026-10-14T13:13:34+00:00",
+      "firstCross5UTC": null,
+      "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T10:39:02+00:00",
       "firstAHChangePct": -7.835,
@@ -3509,7 +3628,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "VEEA": {
       "ticker": "VEEA",
@@ -3530,10 +3650,14 @@
       "peakPMChangePct": 21.826464208242946,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.1353,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": "2026-10-14T13:15:13+00:00",
       "firstCross5UTC": "2026-10-14T13:15:13+00:00",
       "firstCross10UTC": "2026-10-14T13:15:13+00:00",
@@ -3548,7 +3672,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "ECC": {
       "ticker": "ECC",
@@ -3569,13 +3694,10 @@
       "peakPMChangePct": -5.592105263157887,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3588,7 +3710,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "AGMH": {
       "ticker": "AGMH",
@@ -3609,12 +3732,12 @@
       "peakPMChangePct": -2.465501379944801,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0442,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
-      "firstCross5UTC": "2026-10-14T13:13:17+00:00",
+      "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T09:54:31+00:00",
@@ -3628,7 +3751,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "KITT": {
       "ticker": "KITT",
@@ -3668,7 +3792,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "WFF": {
       "ticker": "WFF",
@@ -3689,14 +3814,14 @@
       "peakPMChangePct": -87.26620370370371,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.5606,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:15:18+00:00",
-      "firstCross5UTC": "2026-10-14T13:15:18+00:00",
-      "firstCross10UTC": "2026-10-14T13:15:18+00:00",
-      "firstCross20UTC": "2026-10-14T13:15:18+00:00",
+      "firstCross2UTC": null,
+      "firstCross5UTC": null,
+      "firstCross10UTC": null,
+      "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T09:54:25+00:00",
       "firstAHChangePct": -87.266,
       "peakAHChangePct": -87.26620370370371,
@@ -3708,7 +3833,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "NAK": {
       "ticker": "NAK",
@@ -3729,12 +3855,10 @@
       "peakPMChangePct": -4.3018867924528355,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3747,7 +3871,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "AXG": {
       "ticker": "AXG",
@@ -3785,7 +3910,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "FLYE": {
       "ticker": "FLYE",
@@ -3829,7 +3955,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "RCAT": {
       "ticker": "RCAT",
@@ -3850,13 +3977,10 @@
       "peakPMChangePct": -5.936920222634501,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3869,7 +3993,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "GIPR": {
       "ticker": "GIPR",
@@ -3907,7 +4032,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "ALP": {
       "ticker": "ALP",
@@ -3945,7 +4071,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "BIAF": {
       "ticker": "BIAF",
@@ -3966,14 +4093,10 @@
       "peakPMChangePct": -10.51282051282051,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3987,7 +4110,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "VNTG": {
       "ticker": "VNTG",
@@ -4025,7 +4149,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "AI": {
       "ticker": "AI",
@@ -4046,10 +4171,12 @@
       "peakPMChangePct": 4.048234280792418,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.016,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": "2026-10-14T13:13:29+00:00",
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4062,7 +4189,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "FLUX": {
       "ticker": "FLUX",
@@ -4083,12 +4211,10 @@
       "peakPMChangePct": -4.54355108877722,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4102,7 +4228,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "APUS": {
       "ticker": "APUS",
@@ -4123,13 +4250,10 @@
       "peakPMChangePct": -8.846153846153848,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4143,7 +4267,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "YHC": {
       "ticker": "YHC",
@@ -4185,7 +4310,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "DFNS": {
       "ticker": "DFNS",
@@ -4223,7 +4349,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "AIXI": {
       "ticker": "AIXI",
@@ -4244,10 +4371,15 @@
       "peakPMChangePct": 25.82916666666666,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.0886,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": "2026-10-14T13:14:42+00:00",
       "firstCross5UTC": "2026-10-14T13:14:42+00:00",
       "firstCross10UTC": "2026-10-14T13:14:42+00:00",
@@ -4262,7 +4394,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "MNDR": {
       "ticker": "MNDR",
@@ -4283,15 +4416,10 @@
       "peakPMChangePct": -52.22368421052632,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "ALREADY_EXTENDED",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10,
-        20
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4306,7 +4434,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "SMJF": {
       "ticker": "SMJF",
@@ -4327,10 +4456,15 @@
       "peakPMChangePct": 37.419354838709666,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.2237,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": "2026-10-14T13:15:07+00:00",
       "firstCross10UTC": "2026-10-14T13:15:07+00:00",
@@ -4345,7 +4479,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "XNDU": {
       "ticker": "XNDU",
@@ -4366,12 +4501,12 @@
       "peakPMChangePct": -2.005730659025795,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.046,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:15:22+00:00",
-      "firstCross5UTC": "2026-10-14T13:15:22+00:00",
+      "firstCross2UTC": null,
+      "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T10:35:29+00:00",
@@ -4384,7 +4519,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "SKYA": {
       "ticker": "SKYA",
@@ -4409,7 +4545,7 @@
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:14:13+00:00",
+      "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
@@ -4423,7 +4559,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "URG": {
       "ticker": "URG",
@@ -4444,12 +4581,10 @@
       "peakPMChangePct": -3.0877573131094294,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4462,7 +4597,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "REA": {
       "ticker": "REA",
@@ -4483,14 +4619,10 @@
       "peakPMChangePct": -11.339092872570177,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4505,7 +4637,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "FJET": {
       "ticker": "FJET",
@@ -4542,7 +4675,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "LAC": {
       "ticker": "LAC",
@@ -4563,11 +4697,11 @@
       "peakPMChangePct": -0.4622222222222305,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0296,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:14:56+00:00",
+      "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
@@ -4579,7 +4713,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "BURU": {
       "ticker": "BURU",
@@ -4604,7 +4739,7 @@
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:14:33+00:00",
+      "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
@@ -4618,7 +4753,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "XHLD": {
       "ticker": "XHLD",
@@ -4639,12 +4775,12 @@
       "peakPMChangePct": 0.20501138952164766,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.045,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:15:10+00:00",
-      "firstCross5UTC": "2026-10-14T13:15:10+00:00",
+      "firstCross2UTC": null,
+      "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T10:39:36+00:00",
@@ -4658,7 +4794,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "UMAC": {
       "ticker": "UMAC",
@@ -4679,11 +4816,11 @@
       "peakPMChangePct": 0.2545824847250522,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0256,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:13:49+00:00",
+      "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
@@ -4695,7 +4832,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "MEDS": {
       "ticker": "MEDS",
@@ -4716,11 +4854,11 @@
       "peakPMChangePct": -0.6514657980456029,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0281,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:10:57+00:00",
+      "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
@@ -4734,7 +4872,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "ABR": {
       "ticker": "ABR",
@@ -4771,7 +4910,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "CWH": {
       "ticker": "CWH",
@@ -4808,7 +4948,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "DDC": {
       "ticker": "DDC",
@@ -4829,12 +4970,12 @@
       "peakPMChangePct": -2.6687598116169498,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0361,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:11:40+00:00",
-      "firstCross5UTC": "2026-10-14T13:11:40+00:00",
+      "firstCross2UTC": null,
+      "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T10:26:07+00:00",
@@ -4847,7 +4988,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "LTBR": {
       "ticker": "LTBR",
@@ -4868,12 +5010,10 @@
       "peakPMChangePct": -4.013961605584648,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4886,7 +5026,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "BORR": {
       "ticker": "BORR",
@@ -4907,7 +5048,7 @@
       "peakPMChangePct": 1.6125760649087217,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0097,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -4923,7 +5064,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "CABO": {
       "ticker": "CABO",
@@ -4962,7 +5104,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "FFAI": {
       "ticker": "FFAI",
@@ -5006,7 +5149,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "XTND": {
       "ticker": "XTND",
@@ -5027,7 +5171,7 @@
       "peakPMChangePct": 0.46724890829694665,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0166,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -5043,7 +5187,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "BTBT": {
       "ticker": "BTBT",
@@ -5064,7 +5209,7 @@
       "peakPMChangePct": 0.8064516129032251,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0481,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -5080,7 +5225,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "AADX": {
       "ticker": "AADX",
@@ -5101,12 +5247,10 @@
       "peakPMChangePct": -3.7140204271123523,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5119,7 +5263,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "RWT": {
       "ticker": "RWT",
@@ -5156,7 +5301,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "BKSY": {
       "ticker": "BKSY",
@@ -5177,12 +5323,10 @@
       "peakPMChangePct": -4.128902316213501,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5195,7 +5339,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "KDK": {
       "ticker": "KDK",
@@ -5216,12 +5361,10 @@
       "peakPMChangePct": -2.298850574712641,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5234,7 +5377,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "IVR": {
       "ticker": "IVR",
@@ -5255,12 +5399,10 @@
       "peakPMChangePct": -2.3049645390070927,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5273,7 +5415,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "GCTS": {
       "ticker": "GCTS",
@@ -5310,7 +5453,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "ARR": {
       "ticker": "ARR",
@@ -5347,7 +5491,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "OPTT": {
       "ticker": "OPTT",
@@ -5388,7 +5533,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "AMPX": {
       "ticker": "AMPX",
@@ -5409,12 +5555,12 @@
       "peakPMChangePct": -3.3968432919954883,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0345,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:15:23+00:00",
-      "firstCross5UTC": "2026-10-14T13:15:23+00:00",
+      "firstCross2UTC": null,
+      "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T10:38:54+00:00",
@@ -5425,7 +5571,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "DNA": {
       "ticker": "DNA",
@@ -5446,12 +5593,10 @@
       "peakPMChangePct": -2.7989821882951516,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5464,7 +5609,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "ENSC": {
       "ticker": "ENSC",
@@ -5503,7 +5649,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "CTNT": {
       "ticker": "CTNT",
@@ -5524,12 +5671,10 @@
       "peakPMChangePct": -2.880658436214001,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5544,7 +5689,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "DVLT": {
       "ticker": "DVLT",
@@ -5581,7 +5727,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "SPCE": {
       "ticker": "SPCE",
@@ -5602,11 +5749,11 @@
       "peakPMChangePct": -0.38576779026217034,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.024,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:11:31+00:00",
+      "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
@@ -5618,7 +5765,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "MX": {
       "ticker": "MX",
@@ -5639,12 +5787,10 @@
       "peakPMChangePct": -2.7972027972028024,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5657,7 +5803,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "EDVA": {
       "ticker": "EDVA",
@@ -5678,13 +5825,10 @@
       "peakPMChangePct": -5.13698630136985,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5698,7 +5842,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "SKHY": {
       "ticker": "SKHY",
@@ -5719,12 +5864,12 @@
       "peakPMChangePct": -6.034642174690252,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0272,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
-      "firstCross5UTC": "2026-10-14T13:15:23+00:00",
+      "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T09:54:30+00:00",
@@ -5735,7 +5880,8 @@
         "finviz"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "AGRZ": {
       "ticker": "AGRZ",
@@ -5756,15 +5902,10 @@
       "peakPMChangePct": -21.232876712328764,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "ALREADY_EXTENDED",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10,
-        20
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5778,7 +5919,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "EOSE": {
       "ticker": "EOSE",
@@ -5799,12 +5941,12 @@
       "peakPMChangePct": -1.297071129707117,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0484,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:15:15+00:00",
-      "firstCross5UTC": "2026-10-14T13:15:15+00:00",
+      "firstCross2UTC": null,
+      "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T09:48:36+00:00",
@@ -5815,7 +5957,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "ELPW": {
       "ticker": "ELPW",
@@ -5853,7 +5996,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "GLXG": {
       "ticker": "GLXG",
@@ -5894,7 +6038,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "SBFM": {
       "ticker": "SBFM",
@@ -5915,14 +6060,14 @@
       "peakPMChangePct": -21.02649006622517,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.1456,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:15:18+00:00",
-      "firstCross5UTC": "2026-10-14T13:15:18+00:00",
-      "firstCross10UTC": "2026-10-14T13:15:18+00:00",
-      "firstCross20UTC": "2026-10-14T13:15:18+00:00",
+      "firstCross2UTC": null,
+      "firstCross5UTC": null,
+      "firstCross10UTC": null,
+      "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T09:50:03+00:00",
       "firstAHChangePct": -23.808,
       "peakAHChangePct": -21.02649006622517,
@@ -5932,7 +6077,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "XRPN": {
       "ticker": "XRPN",
@@ -5953,12 +6099,12 @@
       "peakPMChangePct": -6.204021289177996,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0246,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
-      "firstCross5UTC": "2026-10-14T13:13:19+00:00",
+      "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T10:31:01+00:00",
@@ -5969,7 +6115,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "OLOX": {
       "ticker": "OLOX",
@@ -6007,7 +6154,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "LHAI": {
       "ticker": "LHAI",
@@ -6028,12 +6176,10 @@
       "peakPMChangePct": -3.422212891035059,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6047,7 +6193,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "SLDP": {
       "ticker": "SLDP",
@@ -6068,11 +6215,11 @@
       "peakPMChangePct": -1.7937219730941756,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0438,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:12:58+00:00",
+      "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
@@ -6084,7 +6231,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "WSHP": {
       "ticker": "WSHP",
@@ -6105,13 +6253,10 @@
       "peakPMChangePct": -6.837606837606824,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6125,7 +6270,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "CYPH": {
       "ticker": "CYPH",
@@ -6146,13 +6292,10 @@
       "peakPMChangePct": -5.1724137931034475,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6165,7 +6308,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "NEWP": {
       "ticker": "NEWP",
@@ -6186,12 +6330,10 @@
       "peakPMChangePct": -3.6106750392464693,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6204,7 +6346,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "CNTB": {
       "ticker": "CNTB",
@@ -6242,7 +6385,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "LCID": {
       "ticker": "LCID",
@@ -6263,11 +6407,11 @@
       "peakPMChangePct": -1.8922852983988325,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0232,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:14:58+00:00",
+      "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
@@ -6279,7 +6423,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "SLXN": {
       "ticker": "SLXN",
@@ -6317,7 +6462,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "GIXI": {
       "ticker": "GIXI",
@@ -6338,13 +6484,10 @@
       "peakPMChangePct": -9.957627118644064,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6358,7 +6501,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "HKD": {
       "ticker": "HKD",
@@ -6379,12 +6523,10 @@
       "peakPMChangePct": -2.3391812865497075,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6398,7 +6540,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "TRUG": {
       "ticker": "TRUG",
@@ -6419,12 +6562,12 @@
       "peakPMChangePct": -6.914893617021267,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0552,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:13:54+00:00",
-      "firstCross5UTC": "2026-10-14T13:13:54+00:00",
+      "firstCross2UTC": null,
+      "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T10:31:13+00:00",
@@ -6436,7 +6579,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "VIVS": {
       "ticker": "VIVS",
@@ -6474,7 +6618,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "VIVK": {
       "ticker": "VIVK",
@@ -6495,14 +6640,10 @@
       "peakPMChangePct": -17.51152073732718,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6516,7 +6657,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "PLG": {
       "ticker": "PLG",
@@ -6537,12 +6679,10 @@
       "peakPMChangePct": -2.34375,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6555,7 +6695,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "MOBX": {
       "ticker": "MOBX",
@@ -6576,13 +6717,10 @@
       "peakPMChangePct": -9.11772249294691,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6596,7 +6734,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "GORO": {
       "ticker": "GORO",
@@ -6617,13 +6756,10 @@
       "peakPMChangePct": -5.830903790087472,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6636,7 +6772,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "AKAN": {
       "ticker": "AKAN",
@@ -6657,14 +6794,10 @@
       "peakPMChangePct": -10.97560975609756,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6678,7 +6811,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "JAGX": {
       "ticker": "JAGX",
@@ -6699,14 +6833,10 @@
       "peakPMChangePct": -18.534482758620683,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6720,7 +6850,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "CYCU": {
       "ticker": "CYCU",
@@ -6741,13 +6872,10 @@
       "peakPMChangePct": -5.051903114186851,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6761,7 +6889,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "DLXY": {
       "ticker": "DLXY",
@@ -6782,14 +6911,10 @@
       "peakPMChangePct": -10.313901345291477,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6803,7 +6928,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "POET": {
       "ticker": "POET",
@@ -6824,12 +6950,10 @@
       "peakPMChangePct": -4.368174726989082,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6842,7 +6966,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "LPCN": {
       "ticker": "LPCN",
@@ -6863,7 +6988,7 @@
       "peakPMChangePct": -2.409638554216853,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0004,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -6880,7 +7005,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "EDBL": {
       "ticker": "EDBL",
@@ -6901,14 +7027,10 @@
       "peakPMChangePct": -12.692307692307692,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6922,7 +7044,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "RCON": {
       "ticker": "RCON",
@@ -6943,7 +7066,7 @@
       "peakPMChangePct": 2.970297029702973,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": 0.0001,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -6960,7 +7083,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "TC": {
       "ticker": "TC",
@@ -6981,13 +7105,13 @@
       "peakPMChangePct": -11.789473684210527,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.1293,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
-      "firstCross5UTC": "2026-10-14T13:13:48+00:00",
-      "firstCross10UTC": "2026-10-14T13:13:48+00:00",
+      "firstCross5UTC": null,
+      "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T10:39:17+00:00",
       "firstAHChangePct": -11.789,
@@ -6999,7 +7123,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "BKKT": {
       "ticker": "BKKT",
@@ -7020,13 +7145,10 @@
       "peakPMChangePct": -5.586764705882352,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7041,7 +7163,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "ENLV": {
       "ticker": "ENLV",
@@ -7062,13 +7185,13 @@
       "peakPMChangePct": -11.50197628458498,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0833,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:14:00+00:00",
-      "firstCross5UTC": "2026-10-14T13:14:00+00:00",
-      "firstCross10UTC": "2026-10-14T13:14:00+00:00",
+      "firstCross2UTC": null,
+      "firstCross5UTC": null,
+      "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T09:50:21+00:00",
       "firstAHChangePct": -13.043,
@@ -7079,7 +7202,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "EONR": {
       "ticker": "EONR",
@@ -7117,7 +7241,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "BTTC": {
       "ticker": "BTTC",
@@ -7138,14 +7263,10 @@
       "peakPMChangePct": -15.779816513761457,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7159,7 +7280,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "RSKD": {
       "ticker": "RSKD",
@@ -7196,7 +7318,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "INTC": {
       "ticker": "INTC",
@@ -7217,7 +7340,7 @@
       "peakPMChangePct": 0.3453379378391741,
       "observationCount": 3,
       "crossSnapshotChangeSlopePpPerMin": -0.0037,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -7233,7 +7356,8 @@
         "finviz"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "CISS": {
       "ticker": "CISS",
@@ -7254,13 +7378,13 @@
       "peakPMChangePct": -8.236675965350171,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0693,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:05:58+00:00",
-      "firstCross5UTC": "2026-10-14T13:05:58+00:00",
-      "firstCross10UTC": "2026-10-14T13:05:58+00:00",
+      "firstCross2UTC": null,
+      "firstCross5UTC": null,
+      "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T10:38:05+00:00",
       "firstAHChangePct": -8.237,
@@ -7271,7 +7395,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "SKYQ": {
       "ticker": "SKYQ",
@@ -7292,12 +7417,10 @@
       "peakPMChangePct": -2.5751072961373467,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7311,7 +7434,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "NAMM": {
       "ticker": "NAMM",
@@ -7332,13 +7456,10 @@
       "peakPMChangePct": -5.454545454545457,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7352,7 +7473,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "BENF": {
       "ticker": "BENF",
@@ -7373,7 +7495,7 @@
       "peakPMChangePct": -4.250442754453587,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0876,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -7390,7 +7512,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "TNON": {
       "ticker": "TNON",
@@ -7411,12 +7534,10 @@
       "peakPMChangePct": -3.3557046979865834,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7430,7 +7551,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "NOK": {
       "ticker": "NOK",
@@ -7467,7 +7589,8 @@
         "finviz"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "DBGI": {
       "ticker": "DBGI",
@@ -7508,7 +7631,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "ZCMD": {
       "ticker": "ZCMD",
@@ -7529,13 +7653,10 @@
       "peakPMChangePct": -6.618705035971217,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7549,7 +7670,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "SRXH": {
       "ticker": "SRXH",
@@ -7587,7 +7709,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "PEW": {
       "ticker": "PEW",
@@ -7625,7 +7748,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "BIYA": {
       "ticker": "BIYA",
@@ -7646,13 +7770,10 @@
       "peakPMChangePct": -5.095541401273884,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7666,7 +7787,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "PPCB": {
       "ticker": "PPCB",
@@ -7687,13 +7809,10 @@
       "peakPMChangePct": -5.659090909090903,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7707,7 +7826,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "MFA": {
       "ticker": "MFA",
@@ -7744,7 +7864,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "GYGY": {
       "ticker": "GYGY",
@@ -7765,13 +7886,13 @@
       "peakPMChangePct": -8.650671362535768,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0758,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:04:20+00:00",
-      "firstCross5UTC": "2026-10-14T13:04:20+00:00",
-      "firstCross10UTC": "2026-10-14T13:04:20+00:00",
+      "firstCross2UTC": null,
+      "firstCross5UTC": null,
+      "firstCross10UTC": null,
       "firstCross20UTC": null,
       "firstAHSeenUTC": "2026-10-14T10:36:50+00:00",
       "firstAHChangePct": -8.651,
@@ -7782,7 +7903,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "WCT": {
       "ticker": "WCT",
@@ -7803,14 +7925,10 @@
       "peakPMChangePct": -12.469647193258094,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7824,7 +7942,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "MYSZ": {
       "ticker": "MYSZ",
@@ -7864,7 +7983,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "INDO": {
       "ticker": "INDO",
@@ -7902,7 +8022,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "TNXP": {
       "ticker": "TNXP",
@@ -7923,13 +8044,10 @@
       "peakPMChangePct": -8.283132530120485,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7943,7 +8061,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "ENGS": {
       "ticker": "ENGS",
@@ -7983,7 +8102,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "GDC": {
       "ticker": "GDC",
@@ -8021,7 +8141,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "GOSS": {
       "ticker": "GOSS",
@@ -8061,7 +8182,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "IPDN": {
       "ticker": "IPDN",
@@ -8082,13 +8204,10 @@
       "peakPMChangePct": -6.587878787878787,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8102,7 +8221,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "AGIG": {
       "ticker": "AGIG",
@@ -8123,12 +8243,10 @@
       "peakPMChangePct": -2.152173913043487,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8142,7 +8260,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "PAAI": {
       "ticker": "PAAI",
@@ -8163,13 +8282,10 @@
       "peakPMChangePct": -5.607476635514019,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8183,7 +8299,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "NUAI": {
       "ticker": "NUAI",
@@ -8204,12 +8321,10 @@
       "peakPMChangePct": -4.329493087557601,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8222,7 +8337,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "HSHP": {
       "ticker": "HSHP",
@@ -8243,12 +8359,10 @@
       "peakPMChangePct": -2.5612472160356448,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8263,7 +8377,8 @@
         "standard"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "GCTK": {
       "ticker": "GCTK",
@@ -8284,11 +8399,11 @@
       "peakPMChangePct": -2.6034482758620747,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0175,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
-      "firstCross2UTC": "2026-10-14T13:03:43+00:00",
+      "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
       "firstCross20UTC": null,
@@ -8301,7 +8416,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "BYND": {
       "ticker": "BYND",
@@ -8322,12 +8438,10 @@
       "peakPMChangePct": -2.9890560875513006,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8341,7 +8455,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "SRFM": {
       "ticker": "SRFM",
@@ -8362,12 +8477,10 @@
       "peakPMChangePct": -2.115211521152116,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0008,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8380,7 +8493,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "NAT": {
       "ticker": "NAT",
@@ -8417,7 +8531,8 @@
         "afterhours_persistence"
       ],
       "afterHoursPersistence": true,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "PASS"
     },
     "RCT": {
       "ticker": "RCT",
@@ -8438,14 +8553,10 @@
       "peakPMChangePct": -19.918699186991862,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "LATE_AT_FIRST_SEEN",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5,
-        10
-      ],
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8459,7 +8570,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "JTAI": {
       "ticker": "JTAI",
@@ -8480,13 +8592,10 @@
       "peakPMChangePct": -7.482993197278908,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8500,7 +8609,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "SPAI": {
       "ticker": "SPAI",
@@ -8521,12 +8631,10 @@
       "peakPMChangePct": -2.6303153177186234,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8540,7 +8648,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "BFRI": {
       "ticker": "BFRI",
@@ -8561,13 +8670,10 @@
       "peakPMChangePct": -5.199437898605563,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8581,7 +8687,8 @@
         "standard"
       ],
       "afterHoursPersistence": false,
-      "source": "Yahoo Finance premarket-heartbeat-v2.3"
+      "source": "Yahoo Finance premarket-heartbeat-v2.3",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     }
   },
   "failClosed": false
