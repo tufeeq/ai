@@ -1,10 +1,10 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "updatedAtUTC": "2026-11-09T14:24:42.977741+00:00",
   "updatedAtET": "2026-11-09T09:24:42.977741-05:00",
   "sessionDateET": "2026-11-09",
   "session": "pre-market",
-  "source": "TAGX premarket hot heartbeat event-driven v2.3",
+  "source": "TAGX premarket hot heartbeat event-driven v2.3 + directional-causal-audit-v1",
   "trigger": "workflow_dispatch",
   "dataConfidence": "HIGH",
   "candidateCount": 560,
@@ -19,13 +19,20 @@
     "fill": 303
   },
   "causalIntegrity": {
-    "firstObservationLateCount": 103,
-    "earlyCaptureEligibleFirstObservationCount": 77,
+    "firstObservationLateCount": 77,
+    "earlyCaptureEligibleFirstObservationCount": 53,
     "crossingsAreLeftCensoredWhenAlreadyAboveThresholdAtFirstObservation": true,
     "baselineReconciliationVersion": 1,
     "legacyFirstObservationsInvalidated": 140,
     "baselinePolicy": "IMMEDIATELY_PRECEDING_REGULAR_SESSION_CLOSE",
-    "retroactiveCrossingInferenceProhibited": true
+    "retroactiveCrossingInferenceProhibited": true,
+    "directionalThresholds": true,
+    "upsideThresholdsUseSignedChange": true,
+    "negativeMovesExcludedFromUpsideEarlyCapture": true,
+    "directionalAuditRepairedRows": 201,
+    "negativeFalseEarlyEligibilityRemoved": 2,
+    "invalidPositiveCrossingsRemoved": 0,
+    "auditedAtUTC": "2026-11-10T01:39:09.067214+00:00"
   },
   "rows": {
     "NWGL": {
@@ -47,10 +54,15 @@
       "peakPMChangePct": 89.91417910447758,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.2111,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -70,7 +82,8 @@
       "baselinePreviousRegularClose": 3.0,
       "baselineDisagreementPct": -4.7619,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "OMH": {
       "ticker": "OMH",
@@ -91,10 +104,15 @@
       "peakPMChangePct": 60.09138576779027,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.1392,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -115,7 +133,8 @@
       "baselinePreviousRegularClose": 47.51,
       "baselineDisagreementPct": -2.0412,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "JDZG": {
       "ticker": "JDZG",
@@ -136,10 +155,13 @@
       "peakPMChangePct": 6.661600810536972,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0538,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -160,7 +182,8 @@
       "baselinePreviousRegularClose": 0.232,
       "baselineDisagreementPct": -16.7862,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "NTCL": {
       "ticker": "NTCL",
@@ -181,10 +204,15 @@
       "peakPMChangePct": 20.493827160493836,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.1036,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -205,7 +233,8 @@
       "baselinePreviousRegularClose": 0.2733,
       "baselineDisagreementPct": 8.2805,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "GOGO": {
       "ticker": "GOGO",
@@ -226,10 +255,15 @@
       "peakPMChangePct": 72.4988962472406,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0004,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -247,7 +281,8 @@
       "baselinePreviousRegularClose": 3.735,
       "baselineDisagreementPct": 1.6327,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "ZURA": {
       "ticker": "ZURA",
@@ -268,8 +303,8 @@
       "peakPMChangePct": -65.33064516129032,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -289,7 +324,8 @@
       "baselinePreviousRegularClose": 1.175,
       "baselineDisagreementPct": 0.0,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "SOC": {
       "ticker": "SOC",
@@ -310,8 +346,8 @@
       "peakPMChangePct": -64.94505494505495,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -331,7 +367,8 @@
       "baselinePreviousRegularClose": 0.847,
       "baselineDisagreementPct": 5.611,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "CKX": {
       "ticker": "CKX",
@@ -352,10 +389,15 @@
       "peakPMChangePct": 63.0153110047847,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -373,7 +415,8 @@
       "baselinePreviousRegularClose": 18.215,
       "baselineDisagreementPct": -6.8286,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "YMAT": {
       "ticker": "YMAT",
@@ -394,10 +437,15 @@
       "peakPMChangePct": 51.37614678899081,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.1426,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -417,7 +465,8 @@
       "baselinePreviousRegularClose": 1.125,
       "baselineDisagreementPct": 3.211,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "EDSA": {
       "ticker": "EDSA",
@@ -438,10 +487,15 @@
       "peakPMChangePct": 52.57276995305165,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -459,7 +513,8 @@
       "baselinePreviousRegularClose": 2.544,
       "baselineDisagreementPct": -12.9065,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "SERV": {
       "ticker": "SERV",
@@ -480,10 +535,15 @@
       "peakPMChangePct": 42.24137931034484,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0095,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -501,7 +561,8 @@
       "baselinePreviousRegularClose": 3.47,
       "baselineDisagreementPct": 1.6105,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "TGE": {
       "ticker": "TGE",
@@ -522,10 +583,15 @@
       "peakPMChangePct": 39.624252775405644,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0648,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -545,7 +611,8 @@
       "baselinePreviousRegularClose": 0.3599,
       "baselineDisagreementPct": 6.1026,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "KDK": {
       "ticker": "KDK",
@@ -566,10 +633,15 @@
       "peakPMChangePct": 34.58101146041426,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0075,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -587,7 +659,8 @@
       "baselinePreviousRegularClose": 1.47,
       "baselineDisagreementPct": 4.2553,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "GFR": {
       "ticker": "GFR",
@@ -608,10 +681,15 @@
       "peakPMChangePct": 41.42335766423357,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0123,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -631,7 +709,8 @@
       "baselinePreviousRegularClose": 7.745,
       "baselineDisagreementPct": 0.0646,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "NUAI": {
       "ticker": "NUAI",
@@ -652,10 +731,15 @@
       "peakPMChangePct": 25.76687116564418,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0111,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -673,7 +757,8 @@
       "baselinePreviousRegularClose": 2.21,
       "baselineDisagreementPct": -0.4505,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "HRTX": {
       "ticker": "HRTX",
@@ -694,10 +779,15 @@
       "peakPMChangePct": 33.928571428571416,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -715,7 +805,8 @@
       "baselinePreviousRegularClose": 0.384,
       "baselineDisagreementPct": 0.5236,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "TLS": {
       "ticker": "TLS",
@@ -736,10 +827,15 @@
       "peakPMChangePct": 27.008368200836806,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -757,7 +853,8 @@
       "baselinePreviousRegularClose": 6.905,
       "baselineDisagreementPct": 9.6032,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "DCTH": {
       "ticker": "DCTH",
@@ -778,10 +875,15 @@
       "peakPMChangePct": 26.510006901311243,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -799,7 +901,8 @@
       "baselinePreviousRegularClose": 19.735,
       "baselineDisagreementPct": 3.2705,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "RCT": {
       "ticker": "RCT",
@@ -820,10 +923,13 @@
       "peakPMChangePct": 10.666666666666668,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0086,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -844,7 +950,8 @@
       "baselinePreviousRegularClose": 0.0329,
       "baselineDisagreementPct": -2.0833,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "BLNK": {
       "ticker": "BLNK",
@@ -865,10 +972,15 @@
       "peakPMChangePct": 27.444253859348187,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -886,7 +998,8 @@
       "baselinePreviousRegularClose": 0.524,
       "baselineDisagreementPct": 0.3063,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "MF": {
       "ticker": "MF",
@@ -907,10 +1020,15 @@
       "peakPMChangePct": 42.079781420765,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -928,7 +1046,8 @@
       "baselinePreviousRegularClose": 15.08,
       "baselineDisagreementPct": 2.7948,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "KPTI": {
       "ticker": "KPTI",
@@ -949,8 +1068,8 @@
       "peakPMChangePct": -28.202995008319466,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0015,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -973,7 +1092,8 @@
       "baselinePreviousRegularClose": 0.037,
       "baselineDisagreementPct": -0.8043,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "SES": {
       "ticker": "SES",
@@ -994,10 +1114,15 @@
       "peakPMChangePct": 22.400825836897198,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0005,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1015,7 +1140,8 @@
       "baselinePreviousRegularClose": 0.9385,
       "baselineDisagreementPct": 2.9847,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "SATL": {
       "ticker": "SATL",
@@ -1036,10 +1162,15 @@
       "peakPMChangePct": 24.221453287197225,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0066,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1057,7 +1188,8 @@
       "baselinePreviousRegularClose": 3.991,
       "baselineDisagreementPct": 2.4647,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "ASPI": {
       "ticker": "ASPI",
@@ -1078,10 +1210,15 @@
       "peakPMChangePct": 20.883720930232563,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1099,7 +1236,8 @@
       "baselinePreviousRegularClose": 2.17,
       "baselineDisagreementPct": 1.6393,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "AIOT": {
       "ticker": "AIOT",
@@ -1120,10 +1258,15 @@
       "peakPMChangePct": 25.370656370656384,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1141,7 +1284,8 @@
       "baselinePreviousRegularClose": 2.885,
       "baselineDisagreementPct": 2.852,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "GPUS": {
       "ticker": "GPUS",
@@ -1162,10 +1306,14 @@
       "peakPMChangePct": 16.371077762619368,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1183,7 +1331,8 @@
       "baselinePreviousRegularClose": 0.1845,
       "baselineDisagreementPct": -3.806,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "POET": {
       "ticker": "POET",
@@ -1204,10 +1353,14 @@
       "peakPMChangePct": 19.248826291079823,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0078,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1225,7 +1378,8 @@
       "baselinePreviousRegularClose": 5.382,
       "baselineDisagreementPct": 1.5472,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "CIGL": {
       "ticker": "CIGL",
@@ -1246,8 +1400,8 @@
       "peakPMChangePct": -16.157690172126603,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -1267,7 +1421,8 @@
       "baselinePreviousRegularClose": 0.1869,
       "baselineDisagreementPct": 9.812,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "LABT": {
       "ticker": "LABT",
@@ -1288,8 +1443,8 @@
       "peakPMChangePct": -18.36847946725859,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0146,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -1312,7 +1467,8 @@
       "baselinePreviousRegularClose": 0.3922,
       "baselineDisagreementPct": 3.7292,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "RDW": {
       "ticker": "RDW",
@@ -1333,10 +1489,14 @@
       "peakPMChangePct": 17.285945072697896,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0048,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1354,7 +1514,8 @@
       "baselinePreviousRegularClose": 8.16,
       "baselineDisagreementPct": 1.8727,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "NKTX": {
       "ticker": "NKTX",
@@ -1375,7 +1536,7 @@
       "peakPMChangePct": -7.006369426751602,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -1396,7 +1557,8 @@
       "baselinePreviousRegularClose": 1.56,
       "baselineDisagreementPct": 1.9608,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "SLNH": {
       "ticker": "SLNH",
@@ -1417,10 +1579,14 @@
       "peakPMChangePct": 13.664188893747276,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1438,7 +1604,8 @@
       "baselinePreviousRegularClose": 0.557,
       "baselineDisagreementPct": 0.1799,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "SPCE": {
       "ticker": "SPCE",
@@ -1459,10 +1626,14 @@
       "peakPMChangePct": 17.226890756302527,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1480,7 +1651,8 @@
       "baselinePreviousRegularClose": 2.9,
       "baselineDisagreementPct": 0.5199,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "SDA": {
       "ticker": "SDA",
@@ -1501,10 +1673,15 @@
       "peakPMChangePct": 106.35538261997404,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0397,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1525,7 +1702,8 @@
       "baselinePreviousRegularClose": 0.4623,
       "baselineDisagreementPct": 5.8621,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "OCGN": {
       "ticker": "OCGN",
@@ -1546,10 +1724,14 @@
       "peakPMChangePct": 18.19963257807715,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1567,7 +1749,8 @@
       "baselinePreviousRegularClose": 0.98,
       "baselineDisagreementPct": 5.7174,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "DDI": {
       "ticker": "DDI",
@@ -1588,10 +1771,14 @@
       "peakPMChangePct": 14.746881878209827,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1609,7 +1796,8 @@
       "baselinePreviousRegularClose": 15.73,
       "baselineDisagreementPct": 0.2869,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "CYPH": {
       "ticker": "CYPH",
@@ -1653,7 +1841,8 @@
       "sourceReportedPreviousClose": 2.47,
       "baselinePreviousRegularClose": 2.455,
       "baselineDisagreementPct": -0.6073,
-      "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION"
+      "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
+      "directionalCausalAudit": "PASS"
     },
     "ELPW": {
       "ticker": "ELPW",
@@ -1674,7 +1863,7 @@
       "peakPMChangePct": -8.045977011494255,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0288,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -1698,7 +1887,8 @@
       "baselinePreviousRegularClose": 1.15,
       "baselineDisagreementPct": 5.5046,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "VIVK": {
       "ticker": "VIVK",
@@ -1719,10 +1909,14 @@
       "peakPMChangePct": 27.027027027027017,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0288,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1743,7 +1937,8 @@
       "baselinePreviousRegularClose": 0.3951,
       "baselineDisagreementPct": -4.7952,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "INLF": {
       "ticker": "INLF",
@@ -1764,10 +1959,13 @@
       "peakPMChangePct": 22.793522267206477,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0628,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1787,7 +1985,8 @@
       "baselinePreviousRegularClose": 0.2978,
       "baselineDisagreementPct": 5.6403,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "BTDR": {
       "ticker": "BTDR",
@@ -1808,10 +2007,14 @@
       "peakPMChangePct": 12.241054613935987,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0042,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1829,7 +2032,8 @@
       "baselinePreviousRegularClose": 6.66,
       "baselineDisagreementPct": 3.4965,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "IBRX": {
       "ticker": "IBRX",
@@ -1850,7 +2054,7 @@
       "peakPMChangePct": -6.4918851435705305,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -1871,7 +2075,8 @@
       "baselinePreviousRegularClose": 7.295,
       "baselineDisagreementPct": 1.1088,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "AGLT": {
       "ticker": "AGLT",
@@ -1892,8 +2097,8 @@
       "peakPMChangePct": -15.73675065160729,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -1913,7 +2118,8 @@
       "baselinePreviousRegularClose": 8.7,
       "baselineDisagreementPct": 4.4418,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "KSCP": {
       "ticker": "KSCP",
@@ -1934,10 +2140,15 @@
       "peakPMChangePct": 20.183044315992294,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -1955,7 +2166,8 @@
       "baselinePreviousRegularClose": 0.4499,
       "baselineDisagreementPct": -1.6612,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "CDT": {
       "ticker": "CDT",
@@ -1976,10 +2188,15 @@
       "peakPMChangePct": 35.93380614657209,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.035,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2000,7 +2217,8 @@
       "baselinePreviousRegularClose": 0.879,
       "baselineDisagreementPct": -4.4565,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "KEEL": {
       "ticker": "KEEL",
@@ -2021,10 +2239,14 @@
       "peakPMChangePct": 11.533333333333351,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0023,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2042,7 +2264,8 @@
       "baselinePreviousRegularClose": 1.958,
       "baselineDisagreementPct": -0.3562,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "XXII": {
       "ticker": "XXII",
@@ -2063,8 +2286,8 @@
       "peakPMChangePct": -14.507772020725396,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0095,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -2086,7 +2309,8 @@
       "baselinePreviousRegularClose": 1.6,
       "baselineDisagreementPct": 4.2345,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "CIIT": {
       "ticker": "CIIT",
@@ -2107,10 +2331,15 @@
       "peakPMChangePct": 33.54838709677419,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0069,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2130,7 +2359,8 @@
       "baselinePreviousRegularClose": 2.2,
       "baselineDisagreementPct": -1.3453,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "STAK": {
       "ticker": "STAK",
@@ -2151,10 +2381,15 @@
       "peakPMChangePct": 105.60335195530723,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0103,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2172,7 +2407,8 @@
       "baselinePreviousRegularClose": 3.77,
       "baselineDisagreementPct": -8.0263,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "SGRY": {
       "ticker": "SGRY",
@@ -2193,10 +2429,14 @@
       "peakPMChangePct": 11.350884764782032,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2214,7 +2454,8 @@
       "baselinePreviousRegularClose": 26.145,
       "baselineDisagreementPct": -0.248,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "PLCE": {
       "ticker": "PLCE",
@@ -2235,8 +2476,8 @@
       "peakPMChangePct": -14.817018744421306,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0859,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -2259,7 +2500,8 @@
       "baselinePreviousRegularClose": 0.193,
       "baselineDisagreementPct": 4.8913,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "RAYA": {
       "ticker": "RAYA",
@@ -2280,8 +2522,8 @@
       "peakPMChangePct": -23.041662422328624,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0318,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -2303,7 +2545,8 @@
       "baselinePreviousRegularClose": 0.6199,
       "baselineDisagreementPct": 10.6174,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "INO": {
       "ticker": "INO",
@@ -2324,7 +2567,7 @@
       "peakPMChangePct": -6.95862068965517,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.01,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -2348,7 +2591,8 @@
       "baselinePreviousRegularClose": 1.497,
       "baselineDisagreementPct": -4.7104,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "AWX": {
       "ticker": "AWX",
@@ -2369,10 +2613,14 @@
       "peakPMChangePct": 12.749003984063755,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2390,7 +2638,8 @@
       "baselinePreviousRegularClose": 2.795,
       "baselineDisagreementPct": -1.5845,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "IMVT": {
       "ticker": "IMVT",
@@ -2411,10 +2660,14 @@
       "peakPMChangePct": 18.492426910884106,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2432,7 +2685,8 @@
       "baselinePreviousRegularClose": 34.81,
       "baselineDisagreementPct": 2.6238,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "FFR": {
       "ticker": "FFR",
@@ -2453,10 +2707,15 @@
       "peakPMChangePct": 22.10751605186956,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2475,7 +2734,8 @@
       "baselinePreviousRegularClose": 0.913,
       "baselineDisagreementPct": 2.0112,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "LCID": {
       "ticker": "LCID",
@@ -2496,10 +2756,14 @@
       "peakPMChangePct": 10.533557046979869,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2517,7 +2781,8 @@
       "baselinePreviousRegularClose": 3.625,
       "baselineDisagreementPct": 2.1127,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "KOPN": {
       "ticker": "KOPN",
@@ -2538,10 +2803,14 @@
       "peakPMChangePct": 13.818181818181818,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2559,7 +2828,8 @@
       "baselinePreviousRegularClose": 3.385,
       "baselineDisagreementPct": 0.0,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "QXO": {
       "ticker": "QXO",
@@ -2580,10 +2850,13 @@
       "peakPMChangePct": 8.505154639175249,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2601,7 +2874,8 @@
       "baselinePreviousRegularClose": 14.035,
       "baselineDisagreementPct": 0.761,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "LIMN": {
       "ticker": "LIMN",
@@ -2622,7 +2896,7 @@
       "peakPMChangePct": 0.7148288973384043,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -2644,7 +2918,8 @@
       "baselinePreviousRegularClose": 2.685,
       "baselineDisagreementPct": 0.0,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "CRIS": {
       "ticker": "CRIS",
@@ -2665,7 +2940,7 @@
       "peakPMChangePct": -1.17647058823529,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -2688,7 +2963,8 @@
       "baselinePreviousRegularClose": 0.715,
       "baselineDisagreementPct": -3.9237,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "CNSY": {
       "ticker": "CNSY",
@@ -2709,10 +2985,12 @@
       "peakPMChangePct": 4.478280340349294,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0055,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2731,7 +3009,8 @@
       "baselinePreviousRegularClose": 0.592,
       "baselineDisagreementPct": -4.6852,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "CENN": {
       "ticker": "CENN",
@@ -2752,7 +3031,7 @@
       "peakPMChangePct": 6.638418079096042,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0271,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -2776,7 +3055,8 @@
       "baselinePreviousRegularClose": 0.146,
       "baselineDisagreementPct": 2.8169,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "STLN": {
       "ticker": "STLN",
@@ -2797,8 +3077,8 @@
       "peakPMChangePct": -41.66268656716419,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -2818,7 +3098,8 @@
       "baselinePreviousRegularClose": 4.065,
       "baselineDisagreementPct": -4.3754,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "CLSK": {
       "ticker": "CLSK",
@@ -2839,10 +3120,13 @@
       "peakPMChangePct": 5.98591549295775,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0012,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2860,7 +3144,8 @@
       "baselinePreviousRegularClose": 6.905,
       "baselineDisagreementPct": 2.2963,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "MTEK": {
       "ticker": "MTEK",
@@ -2881,10 +3166,12 @@
       "peakPMChangePct": 3.148425787106457,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2904,7 +3191,8 @@
       "baselinePreviousRegularClose": 0.29,
       "baselineDisagreementPct": 4.6931,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "HTZ": {
       "ticker": "HTZ",
@@ -2925,7 +3213,7 @@
       "peakPMChangePct": -8.379888268156432,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -2946,7 +3234,8 @@
       "baselinePreviousRegularClose": 1.695,
       "baselineDisagreementPct": 1.497,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "AUTL": {
       "ticker": "AUTL",
@@ -2967,10 +3256,13 @@
       "peakPMChangePct": 9.523809523809511,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0061,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -2988,7 +3280,8 @@
       "baselinePreviousRegularClose": 1.29,
       "baselineDisagreementPct": -0.7692,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "AEHL": {
       "ticker": "AEHL",
@@ -3009,8 +3302,8 @@
       "peakPMChangePct": -21.731651376146786,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0382,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -3031,7 +3324,8 @@
       "baselinePreviousRegularClose": 12.3,
       "baselineDisagreementPct": 0.3263,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "ANVS": {
       "ticker": "ANVS",
@@ -3052,10 +3346,15 @@
       "peakPMChangePct": 37.98774106742413,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0072,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3075,7 +3374,8 @@
       "baselinePreviousRegularClose": 0.9,
       "baselineDisagreementPct": 3.081,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "BDMD": {
       "ticker": "BDMD",
@@ -3096,8 +3396,8 @@
       "peakPMChangePct": -40.82539682539682,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0125,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -3120,7 +3420,8 @@
       "baselinePreviousRegularClose": 0.104,
       "baselineDisagreementPct": 13.0435,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "TTD": {
       "ticker": "TTD",
@@ -3141,10 +3442,13 @@
       "peakPMChangePct": 8.508196721311467,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3162,7 +3466,8 @@
       "baselinePreviousRegularClose": 15.13,
       "baselineDisagreementPct": 0.4982,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "EROC": {
       "ticker": "EROC",
@@ -3183,10 +3488,13 @@
       "peakPMChangePct": 8.433734939759052,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3204,7 +3512,8 @@
       "baselinePreviousRegularClose": 8.28,
       "baselineDisagreementPct": 3.8896,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "WORX": {
       "ticker": "WORX",
@@ -3225,7 +3534,7 @@
       "peakPMChangePct": 1.8098591549295717,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -3249,7 +3558,8 @@
       "baselinePreviousRegularClose": 1.41,
       "baselineDisagreementPct": -3.4247,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "VFF": {
       "ticker": "VFF",
@@ -3270,10 +3580,14 @@
       "peakPMChangePct": 10.39426523297491,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3291,7 +3605,8 @@
       "baselinePreviousRegularClose": 2.945,
       "baselineDisagreementPct": 0.0,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "BATL": {
       "ticker": "BATL",
@@ -3312,10 +3627,12 @@
       "peakPMChangePct": 3.1382760038372037,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0211,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3333,7 +3650,8 @@
       "baselinePreviousRegularClose": 0.736,
       "baselineDisagreementPct": -1.9973,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "EPSM": {
       "ticker": "EPSM",
@@ -3354,12 +3672,10 @@
       "peakPMChangePct": 7.833415964303425,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0445,
-      "firstObservationBand": "WAKE_UP",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": "2026-11-09T14:22:55+00:00",
       "firstCross10UTC": null,
@@ -3377,7 +3693,8 @@
       "sourceReportedPreviousClose": 0.8,
       "baselinePreviousRegularClose": 0.8,
       "baselineDisagreementPct": 0.0,
-      "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION"
+      "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "FLYE": {
       "ticker": "FLYE",
@@ -3398,7 +3715,7 @@
       "peakPMChangePct": -1.5669642857143007,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -3420,7 +3737,8 @@
       "baselinePreviousRegularClose": 2.16,
       "baselineDisagreementPct": 0.4651,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "ASX": {
       "ticker": "ASX",
@@ -3441,10 +3759,14 @@
       "peakPMChangePct": 13.39165545087484,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0075,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3462,7 +3784,8 @@
       "baselinePreviousRegularClose": 34.77,
       "baselineDisagreementPct": 1.741,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "NVDA": {
       "ticker": "NVDA",
@@ -3483,7 +3806,7 @@
       "peakPMChangePct": -1.855726872246699,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0068,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -3504,7 +3827,8 @@
       "baselinePreviousRegularClose": 178.045,
       "baselineDisagreementPct": 1.093,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "NAK": {
       "ticker": "NAK",
@@ -3525,10 +3849,13 @@
       "peakPMChangePct": 7.245397736868786,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3546,7 +3873,8 @@
       "baselinePreviousRegularClose": 0.6627,
       "baselineDisagreementPct": 2.2212,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "EOSE": {
       "ticker": "EOSE",
@@ -3567,7 +3895,7 @@
       "peakPMChangePct": -5.319148936170204,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0059,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -3588,7 +3916,8 @@
       "baselinePreviousRegularClose": 1.9,
       "baselineDisagreementPct": 1.3333,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "PAAI": {
       "ticker": "PAAI",
@@ -3609,10 +3938,14 @@
       "peakPMChangePct": 11.00000000000001,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3631,7 +3964,8 @@
       "baselinePreviousRegularClose": 0.9416,
       "baselineDisagreementPct": 2.1701,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "NRG": {
       "ticker": "NRG",
@@ -3652,10 +3986,14 @@
       "peakPMChangePct": 16.54872749844816,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3673,7 +4011,8 @@
       "baselinePreviousRegularClose": 97.71,
       "baselineDisagreementPct": 1.4958,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "HUBC": {
       "ticker": "HUBC",
@@ -3694,8 +4033,8 @@
       "peakPMChangePct": -14.157527417746763,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0037,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -3717,7 +4056,8 @@
       "baselinePreviousRegularClose": 0.0893,
       "baselineDisagreementPct": 3.1178,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "UMC": {
       "ticker": "UMC",
@@ -3738,10 +4078,13 @@
       "peakPMChangePct": 9.790732436472327,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3759,7 +4102,8 @@
       "baselinePreviousRegularClose": 14.91,
       "baselineDisagreementPct": 0.7092,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "PMAX": {
       "ticker": "PMAX",
@@ -3780,7 +4124,7 @@
       "peakPMChangePct": -0.7960080788879664,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -3802,7 +4146,8 @@
       "baselinePreviousRegularClose": 0.7433,
       "baselineDisagreementPct": -4.4479,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "LICN": {
       "ticker": "LICN",
@@ -3823,8 +4168,8 @@
       "peakPMChangePct": -49.37563280458994,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -3845,7 +4190,8 @@
       "baselinePreviousRegularClose": 0.34,
       "baselineDisagreementPct": 0.0,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "LAES": {
       "ticker": "LAES",
@@ -3866,10 +4212,13 @@
       "peakPMChangePct": 7.317073170731714,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0031,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3887,7 +4236,8 @@
       "baselinePreviousRegularClose": 1.46,
       "baselineDisagreementPct": 3.9146,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "HPAI": {
       "ticker": "HPAI",
@@ -3908,10 +4258,15 @@
       "peakPMChangePct": 22.261359633673838,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3931,7 +4286,8 @@
       "baselinePreviousRegularClose": 0.3603,
       "baselineDisagreementPct": 2.1838,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "VSA": {
       "ticker": "VSA",
@@ -3952,10 +4308,15 @@
       "peakPMChangePct": 57.14285714285714,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0502,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -3975,7 +4336,8 @@
       "baselinePreviousRegularClose": 2.295,
       "baselineDisagreementPct": 3.7523,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "PGEN": {
       "ticker": "PGEN",
@@ -3996,10 +4358,13 @@
       "peakPMChangePct": 7.345971563981046,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4017,7 +4382,8 @@
       "baselinePreviousRegularClose": 4.755,
       "baselineDisagreementPct": -1.2461,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "LAC": {
       "ticker": "LAC",
@@ -4038,10 +4404,13 @@
       "peakPMChangePct": 5.516304347826084,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4059,7 +4428,8 @@
       "baselinePreviousRegularClose": 2.062,
       "baselineDisagreementPct": 3.6181,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "SAN": {
       "ticker": "SAN",
@@ -4080,10 +4450,12 @@
       "peakPMChangePct": 2.830974188176527,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4101,7 +4473,8 @@
       "baselinePreviousRegularClose": 12.465,
       "baselineDisagreementPct": 0.6459,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "PCT": {
       "ticker": "PCT",
@@ -4122,7 +4495,7 @@
       "peakPMChangePct": -6.914893617021267,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -4143,7 +4516,8 @@
       "baselinePreviousRegularClose": 2.09,
       "baselineDisagreementPct": 0.7229,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "TECK": {
       "ticker": "TECK",
@@ -4164,10 +4538,13 @@
       "peakPMChangePct": 6.02570522450343,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4185,7 +4562,8 @@
       "baselinePreviousRegularClose": 64.745,
       "baselineDisagreementPct": 1.3779,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "TRUG": {
       "ticker": "TRUG",
@@ -4206,7 +4584,7 @@
       "peakPMChangePct": -9.325259515570927,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -4228,7 +4606,8 @@
       "baselinePreviousRegularClose": 0.5052,
       "baselineDisagreementPct": -0.7271,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "XHLD": {
       "ticker": "XHLD",
@@ -4249,10 +4628,14 @@
       "peakPMChangePct": 17.952818872451015,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4271,7 +4654,8 @@
       "baselinePreviousRegularClose": 0.86,
       "baselineDisagreementPct": -0.6928,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "PARA": {
       "ticker": "PARA",
@@ -4292,8 +4676,8 @@
       "peakPMChangePct": -26.646341463414636,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.085,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -4316,7 +4700,8 @@
       "baselinePreviousRegularClose": 0.0835,
       "baselineDisagreementPct": 5.4293,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "AMD": {
       "ticker": "AMD",
@@ -4337,10 +4722,14 @@
       "peakPMChangePct": 16.54055390702276,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4358,7 +4747,8 @@
       "baselinePreviousRegularClose": 513.775,
       "baselineDisagreementPct": 1.635,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "CRML": {
       "ticker": "CRML",
@@ -4379,10 +4769,13 @@
       "peakPMChangePct": 6.797853309481217,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.004,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4400,7 +4793,8 @@
       "baselinePreviousRegularClose": 6.115,
       "baselineDisagreementPct": 1.7471,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "JBLU": {
       "ticker": "JBLU",
@@ -4421,10 +4815,14 @@
       "peakPMChangePct": 10.077363896848123,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4442,7 +4840,8 @@
       "baselinePreviousRegularClose": 4.035,
       "baselineDisagreementPct": 4.3984,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "AAL": {
       "ticker": "AAL",
@@ -4463,10 +4862,13 @@
       "peakPMChangePct": 6.728538283062657,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4484,7 +4886,8 @@
       "baselinePreviousRegularClose": 14.235,
       "baselineDisagreementPct": 1.1009,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "BTBT": {
       "ticker": "BTBT",
@@ -4505,10 +4908,12 @@
       "peakPMChangePct": 3.314447592068004,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4526,7 +4931,8 @@
       "baselinePreviousRegularClose": 0.7844,
       "baselineDisagreementPct": 3.5375,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "HYMC": {
       "ticker": "HYMC",
@@ -4547,10 +4953,14 @@
       "peakPMChangePct": 15.863689776733247,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4569,7 +4979,8 @@
       "baselinePreviousRegularClose": 21.6,
       "baselineDisagreementPct": 3.0043,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "JLHL": {
       "ticker": "JLHL",
@@ -4590,8 +5001,8 @@
       "peakPMChangePct": -11.932024169184297,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -4612,7 +5023,8 @@
       "baselinePreviousRegularClose": 6.03,
       "baselineDisagreementPct": -2.269,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "TLRY": {
       "ticker": "TLRY",
@@ -4633,10 +5045,12 @@
       "peakPMChangePct": 4.195729537366555,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4654,7 +5068,8 @@
       "baselinePreviousRegularClose": 2.88,
       "baselineDisagreementPct": 0.6993,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "SHFS": {
       "ticker": "SHFS",
@@ -4675,7 +5090,7 @@
       "peakPMChangePct": -5.451127819548873,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0077,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -4699,7 +5114,8 @@
       "baselinePreviousRegularClose": 0.0249,
       "baselineDisagreementPct": -5.6818,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "BMNR": {
       "ticker": "BMNR",
@@ -4720,7 +5136,7 @@
       "peakPMChangePct": -5.368421052631578,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -4741,7 +5157,8 @@
       "baselinePreviousRegularClose": 18.985,
       "baselineDisagreementPct": 1.6056,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "SDEV": {
       "ticker": "SDEV",
@@ -4762,10 +5179,12 @@
       "peakPMChangePct": 5.052420254293999,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0053,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4785,7 +5204,8 @@
       "baselinePreviousRegularClose": 0.927,
       "baselineDisagreementPct": -1.1727,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "SOUN": {
       "ticker": "SOUN",
@@ -4806,7 +5226,7 @@
       "peakPMChangePct": -3.7558685446009377,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0009,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -4827,7 +5247,8 @@
       "baselinePreviousRegularClose": 4.125,
       "baselineDisagreementPct": -0.2418,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "VIR": {
       "ticker": "VIR",
@@ -4848,10 +5269,15 @@
       "peakPMChangePct": 29.219600725952823,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.053,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4869,7 +5295,8 @@
       "baselinePreviousRegularClose": 13.8,
       "baselineDisagreementPct": -0.4329,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "ASTS": {
       "ticker": "ASTS",
@@ -4890,10 +5317,14 @@
       "peakPMChangePct": 11.037086092715231,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4911,7 +5342,8 @@
       "baselinePreviousRegularClose": 37.15,
       "baselineDisagreementPct": 1.2814,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "AMZN": {
       "ticker": "AMZN",
@@ -4932,10 +5364,12 @@
       "peakPMChangePct": 3.336843318857863,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4953,7 +5387,8 @@
       "baselinePreviousRegularClose": 268.72,
       "baselineDisagreementPct": 0.336,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "CHSN": {
       "ticker": "CHSN",
@@ -4974,10 +5409,15 @@
       "peakPMChangePct": 33.617021276595736,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0111,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -4997,7 +5437,8 @@
       "baselinePreviousRegularClose": 2.7,
       "baselineDisagreementPct": -0.9174,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "IREN": {
       "ticker": "IREN",
@@ -5018,10 +5459,14 @@
       "peakPMChangePct": 16.084303937881295,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5039,7 +5484,8 @@
       "baselinePreviousRegularClose": 21.69,
       "baselineDisagreementPct": 0.2496,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "MSTR": {
       "ticker": "MSTR",
@@ -5060,7 +5506,7 @@
       "peakPMChangePct": -3.7122969837587116,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -5081,7 +5527,8 @@
       "baselinePreviousRegularClose": 127.055,
       "baselineDisagreementPct": 1.8477,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "PLUG": {
       "ticker": "PLUG",
@@ -5102,10 +5549,14 @@
       "peakPMChangePct": 10.948148148148151,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5123,7 +5574,8 @@
       "baselinePreviousRegularClose": 1.505,
       "baselineDisagreementPct": 1.6892,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "RBNE": {
       "ticker": "RBNE",
@@ -5144,7 +5596,7 @@
       "peakPMChangePct": -2.65995686556435,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0047,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -5168,7 +5620,8 @@
       "baselinePreviousRegularClose": 0.1292,
       "baselineDisagreementPct": 0.4666,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "FRMI": {
       "ticker": "FRMI",
@@ -5189,10 +5642,12 @@
       "peakPMChangePct": 3.1633986928104596,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5210,7 +5665,8 @@
       "baselinePreviousRegularClose": 1.672,
       "baselineDisagreementPct": 1.0272,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "ONCO": {
       "ticker": "ONCO",
@@ -5231,10 +5687,15 @@
       "peakPMChangePct": 31.87613843351549,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.016,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5253,7 +5714,8 @@
       "baselinePreviousRegularClose": 3.71,
       "baselineDisagreementPct": 0.2703,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "SGRX": {
       "ticker": "SGRX",
@@ -5274,8 +5736,8 @@
       "peakPMChangePct": -24.93429122130716,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -5296,7 +5758,8 @@
       "baselinePreviousRegularClose": 0.447,
       "baselineDisagreementPct": 0.9029,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "SMCI": {
       "ticker": "SMCI",
@@ -5317,10 +5780,12 @@
       "peakPMChangePct": 2.7123338257016183,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5338,7 +5803,8 @@
       "baselinePreviousRegularClose": 29.025,
       "baselineDisagreementPct": 0.7288,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "BBD": {
       "ticker": "BBD",
@@ -5359,10 +5825,12 @@
       "peakPMChangePct": 4.382470119521931,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5380,7 +5848,8 @@
       "baselinePreviousRegularClose": 2.645,
       "baselineDisagreementPct": 0.9542,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "AVGO": {
       "ticker": "AVGO",
@@ -5401,10 +5870,12 @@
       "peakPMChangePct": 3.8975405618632664,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5422,7 +5893,8 @@
       "baselinePreviousRegularClose": 322.3,
       "baselineDisagreementPct": 0.9538,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "ABOS": {
       "ticker": "ABOS",
@@ -5443,10 +5915,12 @@
       "peakPMChangePct": 3.648269410664162,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5464,7 +5938,8 @@
       "baselinePreviousRegularClose": 0.2455,
       "baselineDisagreementPct": -0.2438,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "KLAC": {
       "ticker": "KLAC",
@@ -5485,10 +5960,13 @@
       "peakPMChangePct": 9.678043143297366,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5506,7 +5984,8 @@
       "baselinePreviousRegularClose": 152.61,
       "baselineDisagreementPct": 1.0729,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "NOK": {
       "ticker": "NOK",
@@ -5527,10 +6006,13 @@
       "peakPMChangePct": 6.03217158176943,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5548,7 +6030,8 @@
       "baselinePreviousRegularClose": 8.265,
       "baselineDisagreementPct": 0.9158,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "BDSX": {
       "ticker": "BDSX",
@@ -5569,8 +6052,8 @@
       "peakPMChangePct": -57.510080645161295,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -5591,7 +6074,8 @@
       "baselinePreviousRegularClose": 10.585,
       "baselineDisagreementPct": 10.9539,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "BIYA": {
       "ticker": "BIYA",
@@ -5612,7 +6096,7 @@
       "peakPMChangePct": -1.8090909090909157,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -5634,7 +6118,8 @@
       "baselinePreviousRegularClose": 1.15,
       "baselineDisagreementPct": 0.8772,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "DFNS": {
       "ticker": "DFNS",
@@ -5655,8 +6140,8 @@
       "peakPMChangePct": -10.48034934497818,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -5678,7 +6163,8 @@
       "baselinePreviousRegularClose": 1.93,
       "baselineDisagreementPct": 1.847,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "SAFX": {
       "ticker": "SAFX",
@@ -5699,8 +6185,8 @@
       "peakPMChangePct": -17.24137931034483,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0128,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -5721,7 +6207,8 @@
       "baselinePreviousRegularClose": 0.0887,
       "baselineDisagreementPct": 2.1889,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "XRX": {
       "ticker": "XRX",
@@ -5742,7 +6229,7 @@
       "peakPMChangePct": -0.8918918918918939,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -5763,7 +6250,8 @@
       "baselinePreviousRegularClose": 1.055,
       "baselineDisagreementPct": 0.0,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "WFF": {
       "ticker": "WFF",
@@ -5784,10 +6272,13 @@
       "peakPMChangePct": 5.271929824561417,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0065,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5807,7 +6298,8 @@
       "baselinePreviousRegularClose": 1.09,
       "baselineDisagreementPct": 0.0,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "DAVI": {
       "ticker": "DAVI",
@@ -5828,10 +6320,15 @@
       "peakPMChangePct": 25.572519083969468,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0127,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5850,7 +6347,8 @@
       "baselinePreviousRegularClose": 1.75,
       "baselineDisagreementPct": 10.9702,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "AMAT": {
       "ticker": "AMAT",
@@ -5871,10 +6369,13 @@
       "peakPMChangePct": 6.878183241973379,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5892,7 +6393,8 @@
       "baselinePreviousRegularClose": 374.0,
       "baselineDisagreementPct": 0.7923,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "SPRU": {
       "ticker": "SPRU",
@@ -5913,10 +6415,15 @@
       "peakPMChangePct": 21.68503937007875,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5935,7 +6442,8 @@
       "baselinePreviousRegularClose": 1.52,
       "baselineDisagreementPct": 1.3333,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "GOOGL": {
       "ticker": "GOOGL",
@@ -5956,10 +6464,12 @@
       "peakPMChangePct": 3.1885904377676244,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -5977,7 +6487,8 @@
       "baselinePreviousRegularClose": 289.52,
       "baselineDisagreementPct": -0.0794,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "NCPL": {
       "ticker": "NCPL",
@@ -5998,7 +6509,7 @@
       "peakPMChangePct": 16.15384615384614,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0616,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -6021,7 +6532,8 @@
       "baselinePreviousRegularClose": 1.745,
       "baselineDisagreementPct": -2.514,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "BURU": {
       "ticker": "BURU",
@@ -6042,10 +6554,13 @@
       "peakPMChangePct": 7.401656314699778,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0036,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6065,7 +6580,8 @@
       "baselinePreviousRegularClose": 0.215,
       "baselineDisagreementPct": 5.3922,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "RDGT": {
       "ticker": "RDGT",
@@ -6086,10 +6602,15 @@
       "peakPMChangePct": 32.516564570571326,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6110,7 +6631,8 @@
       "baselinePreviousRegularClose": 1.12,
       "baselineDisagreementPct": -5.8824,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "WETO": {
       "ticker": "WETO",
@@ -6131,10 +6653,15 @@
       "peakPMChangePct": 22.83840190816935,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0173,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6154,7 +6681,8 @@
       "baselinePreviousRegularClose": 0.798,
       "baselineDisagreementPct": 0.2513,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "TOYO": {
       "ticker": "TOYO",
@@ -6175,10 +6703,13 @@
       "peakPMChangePct": 8.788306451612904,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6197,7 +6728,8 @@
       "baselinePreviousRegularClose": 5.49,
       "baselineDisagreementPct": 1.6667,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "UUUU": {
       "ticker": "UUUU",
@@ -6218,7 +6750,7 @@
       "peakPMChangePct": 3.6418816388467334,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0066,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -6239,7 +6771,8 @@
       "baselinePreviousRegularClose": 7.305,
       "baselineDisagreementPct": 1.8828,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "NXH": {
       "ticker": "NXH",
@@ -6260,7 +6793,7 @@
       "peakPMChangePct": -3.59281437125748,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -6281,7 +6814,8 @@
       "baselinePreviousRegularClose": 1.495,
       "baselineDisagreementPct": 1.3559,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "DVLT": {
       "ticker": "DVLT",
@@ -6302,10 +6836,14 @@
       "peakPMChangePct": 11.655405405405418,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0006,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6324,7 +6862,8 @@
       "baselinePreviousRegularClose": 0.0575,
       "baselineDisagreementPct": -7.1082,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "CRWV": {
       "ticker": "CRWV",
@@ -6345,10 +6884,12 @@
       "peakPMChangePct": 4.552679798442516,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6366,7 +6907,8 @@
       "baselinePreviousRegularClose": 49.35,
       "baselineDisagreementPct": 1.1478,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "SPCX": {
       "ticker": "SPCX",
@@ -6387,10 +6929,14 @@
       "peakPMChangePct": 10.419026047565104,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6408,7 +6954,8 @@
       "baselinePreviousRegularClose": 141.6,
       "baselineDisagreementPct": 0.3899,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "MU": {
       "ticker": "MU",
@@ -6429,10 +6976,13 @@
       "peakPMChangePct": 6.741418973476132,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6450,7 +7000,8 @@
       "baselinePreviousRegularClose": 739.114,
       "baselineDisagreementPct": 1.2339,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "CLRO": {
       "ticker": "CLRO",
@@ -6471,10 +7022,14 @@
       "peakPMChangePct": 11.894273127753308,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0291,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6494,7 +7049,8 @@
       "baselinePreviousRegularClose": 4.71,
       "baselineDisagreementPct": -1.5674,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "WYFI": {
       "ticker": "WYFI",
@@ -6515,10 +7071,14 @@
       "peakPMChangePct": 15.384615384615397,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6537,7 +7097,8 @@
       "baselinePreviousRegularClose": 9.61,
       "baselineDisagreementPct": 3.4446,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "MRVL": {
       "ticker": "MRVL",
@@ -6558,10 +7119,13 @@
       "peakPMChangePct": 7.10595282665667,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6579,7 +7143,8 @@
       "baselinePreviousRegularClose": 155.45,
       "baselineDisagreementPct": 0.7551,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "WHLR": {
       "ticker": "WHLR",
@@ -6600,8 +7165,8 @@
       "peakPMChangePct": -16.259275425578355,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0022,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -6623,7 +7188,8 @@
       "baselinePreviousRegularClose": 0.401,
       "baselineDisagreementPct": 3.6176,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "SMX": {
       "ticker": "SMX",
@@ -6644,10 +7210,15 @@
       "peakPMChangePct": 288.1832061068702,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6668,7 +7239,8 @@
       "baselinePreviousRegularClose": 8.72,
       "baselineDisagreementPct": 52.1815,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "DBGI": {
       "ticker": "DBGI",
@@ -6689,8 +7261,8 @@
       "peakPMChangePct": -38.638297872340424,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0698,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -6713,7 +7285,8 @@
       "baselinePreviousRegularClose": 0.1954,
       "baselineDisagreementPct": 2.6261,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "AIRS": {
       "ticker": "AIRS",
@@ -6734,8 +7307,8 @@
       "peakPMChangePct": -58.520833333333336,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -6757,7 +7330,8 @@
       "baselinePreviousRegularClose": 0.637,
       "baselineDisagreementPct": 4.4091,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "XNDU": {
       "ticker": "XNDU",
@@ -6778,10 +7352,14 @@
       "peakPMChangePct": 12.605042016806745,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0046,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6801,7 +7379,8 @@
       "baselinePreviousRegularClose": 2.895,
       "baselineDisagreementPct": 1.9366,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "SBET": {
       "ticker": "SBET",
@@ -6822,7 +7401,7 @@
       "peakPMChangePct": -7.165109034267914,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -6843,7 +7422,8 @@
       "baselinePreviousRegularClose": 6.13,
       "baselineDisagreementPct": 0.9885,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "HE": {
       "ticker": "HE",
@@ -6864,10 +7444,12 @@
       "peakPMChangePct": 3.5545023696682554,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -6885,7 +7467,8 @@
       "baselinePreviousRegularClose": 9.155,
       "baselineDisagreementPct": -0.705,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "OPEN": {
       "ticker": "OPEN",
@@ -6906,8 +7489,8 @@
       "peakPMChangePct": -21.24581005586592,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0019,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -6928,7 +7511,8 @@
       "baselinePreviousRegularClose": 1.405,
       "baselineDisagreementPct": 3.69,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "FFAI": {
       "ticker": "FFAI",
@@ -6949,7 +7533,7 @@
       "peakPMChangePct": -7.803379416282652,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0053,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -6972,7 +7556,8 @@
       "baselinePreviousRegularClose": 0.28,
       "baselineDisagreementPct": 0.8282,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "BBAI": {
       "ticker": "BBAI",
@@ -6993,7 +7578,7 @@
       "peakPMChangePct": 0.0,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -7014,7 +7599,8 @@
       "baselinePreviousRegularClose": 2.44,
       "baselineDisagreementPct": 0.6186,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "YFOR": {
       "ticker": "YFOR",
@@ -7035,7 +7621,7 @@
       "peakPMChangePct": -0.08583690987125081,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": -0.0548,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -7059,7 +7645,8 @@
       "baselinePreviousRegularClose": 0.0921,
       "baselineDisagreementPct": 9.1232,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "DJT": {
       "ticker": "DJT",
@@ -7080,7 +7667,7 @@
       "peakPMChangePct": -0.7462686567163979,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -7101,7 +7688,8 @@
       "baselinePreviousRegularClose": 4.1,
       "baselineDisagreementPct": 1.3597,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "HLSQ": {
       "ticker": "HLSQ",
@@ -7122,10 +7710,14 @@
       "peakPMChangePct": 10.233682514101528,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7143,7 +7735,8 @@
       "baselinePreviousRegularClose": 0.1252,
       "baselineDisagreementPct": -1.9577,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "STLA": {
       "ticker": "STLA",
@@ -7164,7 +7757,7 @@
       "peakPMChangePct": 0.9009009009008917,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -7185,7 +7778,8 @@
       "baselinePreviousRegularClose": 4.462,
       "baselineDisagreementPct": 1.1791,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "NAMM": {
       "ticker": "NAMM",
@@ -7206,7 +7800,7 @@
       "peakPMChangePct": -0.46127700898276336,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -7228,7 +7822,8 @@
       "baselinePreviousRegularClose": 0.838,
       "baselineDisagreementPct": -1.4118,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "CYN": {
       "ticker": "CYN",
@@ -7249,7 +7844,7 @@
       "peakPMChangePct": -2.2213994816734584,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -7271,7 +7866,8 @@
       "baselinePreviousRegularClose": 0.2815,
       "baselineDisagreementPct": 1.478,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "RKLB": {
       "ticker": "RKLB",
@@ -7292,10 +7888,14 @@
       "peakPMChangePct": 16.634050880626216,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7313,7 +7913,8 @@
       "baselinePreviousRegularClose": 59.191,
       "baselineDisagreementPct": 1.5057,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "QTEX": {
       "ticker": "QTEX",
@@ -7334,10 +7935,13 @@
       "peakPMChangePct": 10.802069857697294,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0071,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7356,7 +7960,8 @@
       "baselinePreviousRegularClose": 1.06,
       "baselineDisagreementPct": 1.0486,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "NEXR": {
       "ticker": "NEXR",
@@ -7377,10 +7982,12 @@
       "peakPMChangePct": 4.77787091366304,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7399,7 +8006,8 @@
       "baselinePreviousRegularClose": 2.108,
       "baselineDisagreementPct": 2.679,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "INTC": {
       "ticker": "INTC",
@@ -7420,10 +8028,13 @@
       "peakPMChangePct": 8.688995215311014,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7441,7 +8052,8 @@
       "baselinePreviousRegularClose": 59.44,
       "baselineDisagreementPct": 1.8244,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "IONQ": {
       "ticker": "IONQ",
@@ -7462,10 +8074,15 @@
       "peakPMChangePct": 22.360953461975043,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7483,7 +8100,8 @@
       "baselinePreviousRegularClose": 36.02,
       "baselineDisagreementPct": 1.0946,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "ONDS": {
       "ticker": "ONDS",
@@ -7504,10 +8122,14 @@
       "peakPMChangePct": 19.241150442477895,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7525,7 +8147,8 @@
       "baselinePreviousRegularClose": 6.085,
       "baselineDisagreementPct": 2.0802,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "SKHY": {
       "ticker": "SKHY",
@@ -7546,10 +8169,12 @@
       "peakPMChangePct": 2.0258272800645516,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7567,7 +8192,8 @@
       "baselinePreviousRegularClose": 135.12,
       "baselineDisagreementPct": 1.6245,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "FTCI": {
       "ticker": "FTCI",
@@ -7588,10 +8214,15 @@
       "peakPMChangePct": 24.148437499999996,
       "observationCount": 2,
       "crossSnapshotChangeSlopePpPerMin": 0.0111,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "ALREADY_EXTENDED",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10,
+        20
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7610,7 +8241,8 @@
       "baselinePreviousRegularClose": 1.59,
       "baselineDisagreementPct": 1.9231,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "SNAP": {
       "ticker": "SNAP",
@@ -7631,7 +8263,7 @@
       "peakPMChangePct": -3.143418467583503,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -7652,7 +8284,8 @@
       "baselinePreviousRegularClose": 5.01,
       "baselineDisagreementPct": 0.5015,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "BRNX": {
       "ticker": "BRNX",
@@ -7673,8 +8306,8 @@
       "peakPMChangePct": -11.974248927038634,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -7695,7 +8328,8 @@
       "baselinePreviousRegularClose": 0.3896,
       "baselineDisagreementPct": -1.3421,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "PSIG": {
       "ticker": "PSIG",
@@ -7716,7 +8350,7 @@
       "peakPMChangePct": 0.19685039370078705,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -7738,7 +8372,8 @@
       "baselinePreviousRegularClose": 5.415,
       "baselineDisagreementPct": 1.9774,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "OFAL": {
       "ticker": "OFAL",
@@ -7759,7 +8394,7 @@
       "peakPMChangePct": -5.063829787234042,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -7781,7 +8416,8 @@
       "baselinePreviousRegularClose": 0.2471,
       "baselineDisagreementPct": 1.2705,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "MEDS": {
       "ticker": "MEDS",
@@ -7802,7 +8438,7 @@
       "peakPMChangePct": -4.868852459016382,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -7824,7 +8460,8 @@
       "baselinePreviousRegularClose": 1.01,
       "baselineDisagreementPct": 0.0,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "BYND": {
       "ticker": "BYND",
@@ -7845,7 +8482,7 @@
       "peakPMChangePct": -0.41089108910891126,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -7867,7 +8504,8 @@
       "baselinePreviousRegularClose": 6.195,
       "baselineDisagreementPct": 1.3912,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "YYAI": {
       "ticker": "YYAI",
@@ -7888,13 +8526,10 @@
       "peakPMChangePct": -8.082991138966932,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "PRE_IGNITION",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": true,
-      "crossingCensoredBeforeFirstObservation": [
-        2,
-        5
-      ],
+      "earlyCaptureEligibleAtFirstObservation": false,
+      "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7912,7 +8547,8 @@
       "sourceReportedPreviousClose": 0.9188,
       "baselinePreviousRegularClose": 0.9234,
       "baselineDisagreementPct": 0.5007,
-      "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION"
+      "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "JYD": {
       "ticker": "JYD",
@@ -7933,7 +8569,7 @@
       "peakPMChangePct": -4.375000000000007,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -7955,7 +8591,8 @@
       "baselinePreviousRegularClose": 1.471,
       "baselineDisagreementPct": -0.2712,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "NBIS": {
       "ticker": "NBIS",
@@ -7976,10 +8613,13 @@
       "peakPMChangePct": 7.177868239594565,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -7997,7 +8637,8 @@
       "baselinePreviousRegularClose": 142.895,
       "baselineDisagreementPct": 2.441,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "EDVA": {
       "ticker": "EDVA",
@@ -8018,10 +8659,14 @@
       "peakPMChangePct": 12.492007104795743,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8040,7 +8685,8 @@
       "baselinePreviousRegularClose": 0.179,
       "baselineDisagreementPct": -3.7634,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "AKAN": {
       "ticker": "AKAN",
@@ -8061,7 +8707,7 @@
       "peakPMChangePct": -3.7558685446009377,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -8083,7 +8729,8 @@
       "baselinePreviousRegularClose": 0.8196,
       "baselineDisagreementPct": 3.4196,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "ANNA": {
       "ticker": "ANNA",
@@ -8104,7 +8751,7 @@
       "peakPMChangePct": 1.856410256410257,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -8126,7 +8773,8 @@
       "baselinePreviousRegularClose": 2.01,
       "baselineDisagreementPct": -1.4706,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "AVX": {
       "ticker": "AVX",
@@ -8147,10 +8795,14 @@
       "peakPMChangePct": 13.30166270783848,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8170,7 +8822,8 @@
       "baselinePreviousRegularClose": 4.17,
       "baselineDisagreementPct": -6.9196,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "BSEM": {
       "ticker": "BSEM",
@@ -8191,10 +8844,13 @@
       "peakPMChangePct": 7.692307692307709,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8213,7 +8869,8 @@
       "baselinePreviousRegularClose": 1.17,
       "baselineDisagreementPct": -4.4898,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "BXBL": {
       "ticker": "BXBL",
@@ -8234,10 +8891,13 @@
       "peakPMChangePct": 6.239583333333343,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8256,7 +8916,8 @@
       "baselinePreviousRegularClose": 1.914,
       "baselineDisagreementPct": 2.3529,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "CNTB": {
       "ticker": "CNTB",
@@ -8277,7 +8938,7 @@
       "peakPMChangePct": 1.1206778734454081,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -8299,7 +8960,8 @@
       "baselinePreviousRegularClose": 0.7451,
       "baselineDisagreementPct": -2.0121,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "DRK": {
       "ticker": "DRK",
@@ -8320,7 +8982,7 @@
       "peakPMChangePct": -0.6578527176342996,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -8342,7 +9004,8 @@
       "baselinePreviousRegularClose": 1.67,
       "baselineDisagreementPct": 1.2121,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "ELOG": {
       "ticker": "ELOG",
@@ -8363,8 +9026,8 @@
       "peakPMChangePct": -14.322506796394329,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
-      "firstObservationLate": true,
+      "firstObservationBand": "NEGATIVE_DISLOCATION",
+      "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
       "firstCross2UTC": null,
@@ -8385,7 +9048,8 @@
       "baselinePreviousRegularClose": 0.621,
       "baselineDisagreementPct": 0.1613,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "NEGATIVE_PATH_EXCLUDED_FROM_UPSIDE_EARLY_CAPTURE"
     },
     "ESLA": {
       "ticker": "ESLA",
@@ -8406,10 +9070,13 @@
       "peakPMChangePct": 7.778590587661549,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8428,7 +9095,8 @@
       "baselinePreviousRegularClose": 0.52,
       "baselineDisagreementPct": 12.4324,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "FRGT": {
       "ticker": "FRGT",
@@ -8449,10 +9117,13 @@
       "peakPMChangePct": 6.761565836298922,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8471,7 +9142,8 @@
       "baselinePreviousRegularClose": 1.01,
       "baselineDisagreementPct": -0.9804,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "GTEC": {
       "ticker": "GTEC",
@@ -8492,10 +9164,12 @@
       "peakPMChangePct": 4.294478527607359,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "WAKE_UP",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8514,7 +9188,8 @@
       "baselinePreviousRegularClose": 0.4813,
       "baselineDisagreementPct": -1.1907,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "ICCM": {
       "ticker": "ICCM",
@@ -8535,10 +9210,14 @@
       "peakPMChangePct": 17.40832004638355,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "LATE_AT_FIRST_SEEN",
       "firstObservationLate": true,
       "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5,
+        10
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8557,7 +9236,8 @@
       "baselinePreviousRegularClose": 0.82,
       "baselineDisagreementPct": 1.2221,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "IMTE": {
       "ticker": "IMTE",
@@ -8578,10 +9258,13 @@
       "peakPMChangePct": 6.849719515795694,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8600,7 +9283,8 @@
       "baselinePreviousRegularClose": 0.3709,
       "baselineDisagreementPct": 2.4869,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "ISPC": {
       "ticker": "ISPC",
@@ -8621,7 +9305,7 @@
       "peakPMChangePct": 0.2723109295704962,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "DISCOVERY",
       "firstObservationLate": false,
       "earlyCaptureEligibleAtFirstObservation": false,
       "crossingCensoredBeforeFirstObservation": [],
@@ -8643,7 +9327,8 @@
       "baselinePreviousRegularClose": 0.7831,
       "baselineDisagreementPct": 1.5826,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     },
     "LSTA": {
       "ticker": "LSTA",
@@ -8664,10 +9349,13 @@
       "peakPMChangePct": 9.383084577114431,
       "observationCount": 1,
       "crossSnapshotChangeSlopePpPerMin": null,
-      "firstObservationBand": "DATA_UNVERIFIED_LEGACY_BASELINE",
+      "firstObservationBand": "PRE_IGNITION",
       "firstObservationLate": false,
-      "earlyCaptureEligibleAtFirstObservation": false,
-      "crossingCensoredBeforeFirstObservation": [],
+      "earlyCaptureEligibleAtFirstObservation": true,
+      "crossingCensoredBeforeFirstObservation": [
+        2,
+        5
+      ],
       "firstCross2UTC": null,
       "firstCross5UTC": null,
       "firstCross10UTC": null,
@@ -8686,7 +9374,8 @@
       "baselinePreviousRegularClose": 1.18,
       "baselineDisagreementPct": 0.8547,
       "baselineIntegrity": "VERIFIED_CURRENT_OBSERVATION",
-      "firstObservationUnverified": true
+      "firstObservationUnverified": true,
+      "directionalCausalAudit": "PASS"
     }
   },
   "failClosed": false
