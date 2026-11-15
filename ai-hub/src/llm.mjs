@@ -266,7 +266,7 @@ export function createLLM({ config, fetchImpl = fetch, pullTimeoutMs = DEFAULT_P
     if (last !== undefined) yield last;
   }
 
-  function chatBody({ model, messages, temperature, maxTokens, json, stream }) {
+  function chatBody({ model, messages, temperature, maxTokens, json, schema, stream }) {
     const temp = Number(temperature);
     const max = Number(maxTokens);
     const body = {
@@ -279,7 +279,9 @@ export function createLLM({ config, fetchImpl = fetch, pullTimeoutMs = DEFAULT_P
         num_ctx: numCtx,
       },
     };
-    if (json) body.format = 'json';
+    // `schema` (a JSON Schema object) asks Ollama for structured output; plain `json` asks for any JSON.
+    if (schema && typeof schema === 'object') body.format = schema;
+    else if (json) body.format = 'json';
     return body;
   }
 
@@ -312,12 +314,12 @@ export function createLLM({ config, fetchImpl = fetch, pullTimeoutMs = DEFAULT_P
 
   // ---- public API -----------------------------------------------------------------------------
 
-  async function chat({ model, messages, temperature = 0.3, maxTokens = 1024, json = false, signal } = {}) {
+  async function chat({ model, messages, temperature = 0.3, maxTokens = 1024, json = false, schema, signal } = {}) {
     const useModel = model || defaultModel;
     const started = Date.now();
     const req = await open('/api/chat', {
       method: 'POST',
-      body: chatBody({ model: useModel, messages, temperature, maxTokens, json, stream: false }),
+      body: chatBody({ model: useModel, messages, temperature, maxTokens, json, schema, stream: false }),
       timeoutMs: llmTimeoutMs,
       signal,
     });

@@ -234,3 +234,13 @@ All non-public routes: `identity = auth.guard(ctx)`; then `limiter.check(identit
 - `/` chat: key gate, project picker, streaming answer, sources list, model status pill (`/health`).
 - `/admin`: admin key gate, status cards, usage totals + "estimated saved USD" (labelled estimate), per-project table,
   simple SVG bar chart by day (built with DOM, no library), create/revoke keys (show new key once with copy button).
+
+## Addendum (v1.1)
+
+- `src/anthropic-compat.mjs` — `export function register(router, deps)`: `POST /v1/messages` and
+  `POST /v1/messages/count_tokens` in Anthropic Messages shape (text, `output_config.format` json_schema,
+  one custom tool → `tool_use`). Refuses images, documents, server tools, multi-tool choice, `tool_result`
+  turns and prompts beyond `numCtx` with a 400 `invalid_request_error`. Usage kind `'anthropic'`.
+- `llm.chat` accepts an optional `schema` (JSON Schema object) passed to Ollama as `format`.
+- `projects.json` also lists `demaia`, `iyan`, `manhaj`, `qayyim` with neutral one-line descriptions only:
+  this repository is public and holds no documentation of those private products.

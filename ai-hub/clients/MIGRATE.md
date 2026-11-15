@@ -97,6 +97,31 @@ console.log(res.choices[0].message.content);
 
 ---
 
+## المشاريع المبنية على Claude (Anthropic SDK)
+
+المركز يقبل أيضًا صيغة Claude على `POST /v1/messages`، فيعمل معه Anthropic SDK كما هو.
+
+```bash
+# عنوان المركز دون ‎/v1 — المكتبة تضيفه بنفسها
+ANTHROPIC_BASE_URL=https://ai.example.com
+ANTHROPIC_API_KEY=hub_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+مكتبتا Python و Node تقرآن `ANTHROPIC_BASE_URL` تلقائيًا. المشروع الذي يتصل بـ `https://api.anthropic.com/v1/messages` مباشرة (بلا المكتبة) يحتاج أن يقرأ العنوان من متغير بيئة.
+
+**مهم:** لا توجّه المشروع كله إلى المركز. اجعل في طبقة الاتصال عميلين: عميل Claude للمهام الثقيلة، وعميل المركز للمهام الخفيفة فقط، مع الرجوع إلى Claude إذا ردّ المركز بخطأ.
+
+| | |
+|---|---|
+| مدعوم | `system` (نص أو كتل نصية)، رسائل نصية، `temperature`، `max_tokens` (حتى 4096)، `stream`، `stop_sequences` (دون بث) |
+| مخرجات منظمة | `output_config.format` من نوع `json_schema`، أو **أداة واحدة** مخصّصة: يعود الجواب ككتلة `tool_use` مطابقة لمخططها. JSON غير صالح مرتين = خطأ 502 صريح، لا كائن مختلق |
+| يُقبل ويُتجاهل | `thinking`، `output_config.effort`، `cache_control`، `metadata` |
+| يُرفض بخطأ 400 واضح | الصور والمستندات (PDF)، البحث في الويب وأدوات الخادم، عدة أدوات يختار بينها النموذج، جولات `tool_result`، الدفعات (batches)، وأي طلب أطول من نافذة سياق النموذج (`AI_NUM_CTX`، الافتراضي 4096 رمزًا) |
+
+أسماء نماذج Claude (`claude-haiku-…` وغيرها) تُحوَّل إلى نموذج المركز، ويعود اسم النموذج الفعلي في الرد.
+
+---
+
 # Migrating an OpenAI-SDK project to AI Hub (English)
 
 It is a configuration change, not a code change.
@@ -119,3 +144,16 @@ Keep the key in environment variables or secrets, never in the repository.
 **Plan for:** slower answers (set client timeouts to about 240 s and prefer streaming for interactive screens), lower quality than large paid models on long reasoning, a 4096-token default context (`AI_NUM_CTX`), one request processed at a time, and a default limit of 60 requests per minute per key (429 with `Retry-After`).
 
 **Suggested order:** create a dedicated key, test your three most important prompts, move simple tasks first (summaries, classification, short drafting, field extraction), watch usage and errors in `/admin` for a week, then retire the paid key.
+
+## Projects built on Claude (Anthropic SDK)
+
+The hub also accepts the Claude format at `POST /v1/messages`, so the Anthropic SDK works unchanged: set `ANTHROPIC_BASE_URL` to the hub origin (no `/v1` suffix; both the Python and Node SDKs read it) and use a hub key as `ANTHROPIC_API_KEY`. Code that calls `https://api.anthropic.com/v1/messages` directly must read the URL from an environment variable instead.
+
+Do not point a whole project at the hub. Keep two clients in the project's AI wrapper: Claude for heavy work, the hub for light tasks only, falling back to Claude when the hub returns an error.
+
+- **Supported:** `system` (string or text blocks), text messages, `temperature`, `max_tokens` (capped at 4096), `stream`, `stop_sequences` (non-stream).
+- **Structured output:** `output_config.format` of type `json_schema`, or **one** custom tool, answered as a `tool_use` block matching its schema. Invalid JSON twice is an explicit 502, never an invented object.
+- **Accepted and ignored:** `thinking`, `output_config.effort`, `cache_control`, `metadata`.
+- **Refused with a clear 400:** images and documents (PDF), web search and other server tools, several tools chosen by the model, `tool_result` turns, batches, and any prompt longer than the model's context window (`AI_NUM_CTX`, default 4096 tokens).
+
+Claude model names map to the hub's model; the response reports the model actually used.

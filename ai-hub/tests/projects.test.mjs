@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { createProjects } from '../src/projects.mjs';
 
 const SHIPPED = fileURLToPath(new URL('../projects.json', import.meta.url));
-const SHIPPED_IDS = ['general', 'tagit', 'operon', 'marginos', 'myai', 'dont-chaos'];
+const SHIPPED_IDS = ['general', 'tagit', 'operon', 'marginos', 'myai', 'dont-chaos', 'demaia', 'iyan', 'manhaj', 'qayyim'];
 
 function withFile(content, fn) {
   const dir = mkdtempSync(join(tmpdir(), 'ai-hub-projects-'));
@@ -153,7 +153,7 @@ test('broken, non-array or missing file falls back to built-in general only', ()
   withFile(undefined, check); // file never created
 });
 
-test('shipped projects.json parses and contains the six projects', () => {
+test('shipped projects.json parses and contains the shipped projects', () => {
   const raw = JSON.parse(readFileSync(SHIPPED, 'utf8'));
   assert.ok(Array.isArray(raw));
   assert.deepEqual(raw.map((p) => p.id), SHIPPED_IDS);

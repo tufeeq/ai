@@ -14,6 +14,7 @@ import { createProjects } from './src/projects.mjs';
 import { createResearch } from './src/research.mjs';
 import { createLimiter } from './src/ratelimit.mjs';
 import { register as registerOpenAI } from './src/openai-compat.mjs';
+import { register as registerAnthropic } from './src/anthropic-compat.mjs';
 import { register as registerChat } from './src/chat.mjs';
 import { register as registerTagit } from './src/tagit.mjs';
 import { register as registerAdmin } from './src/admin.mjs';
@@ -68,6 +69,7 @@ export async function createApp(overrides = {}) {
   });
 
   registerOpenAI(router, deps);
+  registerAnthropic(router, deps);
   registerChat(router, deps);
   registerTagit(router, deps);
   registerAdmin(router, deps);

@@ -43,6 +43,7 @@
 | `GET /admin` | صفحة عامة، تطلب مفتاح المدير | لوحة الإدارة |
 | `GET /v1/models` | مفتاح مشروع | النماذج المتاحة بصيغة OpenAI |
 | `POST /v1/chat/completions` | مفتاح مشروع | إكمال المحادثة بصيغة OpenAI (عادي أو بث) |
+| `POST /v1/messages` | مفتاح مشروع | صيغة Claude (Anthropic Messages): نص، مخرجات JSON بمخطط، أو أداة واحدة للمخرجات المنظمة — التفاصيل في [clients/MIGRATE.md](clients/MIGRATE.md) |
 | `GET /api/me` | مفتاح مشروع | هوية المفتاح: الدور والمشروع والاسم |
 | `GET /api/projects` | مفتاح مشروع | قائمة المشاريع (مفتاح المشروع يرى مشروعه و `general`) |
 | `POST /api/chat` | مفتاح مشروع | محادثة مع معرفة المشروع وقائمة المصادر |
@@ -111,6 +112,7 @@ Two containers in one `docker-compose.yml`: `hub` (Node.js 22, zero npm dependen
 | `GET /`, `GET /admin` | public pages, key required inside | Chat UI, admin panel |
 | `GET /v1/models` | project key | Model list, OpenAI shape |
 | `POST /v1/chat/completions` | project key | OpenAI-compatible chat (stream or not) |
+| `POST /v1/messages` | project key | Claude format (Anthropic Messages): text, JSON-schema output, or one tool for structured output — see [clients/MIGRATE.md](clients/MIGRATE.md) |
 | `GET /api/me`, `GET /api/projects` | project key | Key identity, project list |
 | `POST /api/chat` | project key | Chat with project knowledge and sources |
 | `POST /api/tagit/analyze` | project key | Up to 8 tickers, TAGit schema JSON |
