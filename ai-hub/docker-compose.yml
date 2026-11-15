@@ -63,6 +63,8 @@ services:
       OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
       AI_MODEL: ${AI_MODEL:-gemma3:4b}
       AI_NUM_CTX: ${AI_NUM_CTX:-4096}
+      # Keep equal to OLLAMA_CPUS: more model threads than allowed CPUs slows inference badly.
+      AI_NUM_THREAD: ${AI_NUM_THREAD:-4}
       LLM_TIMEOUT_MS: ${LLM_TIMEOUT_MS:-180000}
       AUTO_PULL_MODEL: ${AUTO_PULL_MODEL:-true}
       # Empty = the hub generates one on first boot, stores it in /data/admin.key

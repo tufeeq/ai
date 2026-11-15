@@ -84,6 +84,7 @@ export function createLLM({ config, fetchImpl = fetch, pullTimeoutMs = DEFAULT_P
   const defaultModel = String(cfg.model || '');
   const llmTimeoutMs = Number(cfg.llmTimeoutMs) > 0 ? Number(cfg.llmTimeoutMs) : DEFAULT_LLM_TIMEOUT_MS;
   const numCtx = Number(cfg.numCtx) > 0 ? Math.floor(Number(cfg.numCtx)) : 4096;
+  const numThread = Number(cfg.numThread) > 0 ? Math.floor(Number(cfg.numThread)) : 0;
 
   // model (normalized) -> in-flight ensureModel promise
   const inFlight = new Map();
@@ -277,6 +278,7 @@ export function createLLM({ config, fetchImpl = fetch, pullTimeoutMs = DEFAULT_P
         temperature: Number.isFinite(temp) ? temp : 0.3,
         num_predict: Number.isFinite(max) && max > 0 ? Math.floor(max) : 1024,
         num_ctx: numCtx,
+        ...(numThread ? { num_thread: numThread } : {}),
       },
     };
     // `schema` (a JSON Schema object) asks Ollama for structured output; plain `json` asks for any JSON.
