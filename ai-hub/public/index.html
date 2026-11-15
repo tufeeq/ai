@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0B1026">
+  <meta name="robots" content="noindex, nofollow">
+  <title>مركز الذكاء</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/chat.js"></script>
+</head>
+<body>
+  <!-- Shared SVG symbols (no external images). -->
+  <svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id="g-brand" x1="0" y1="0" x2="1" y2="1">
+        <stop class="g-stop-a" offset="0"/>
+        <stop class="g-stop-b" offset="1"/>
+      </linearGradient>
+      <symbol id="i-mark" viewBox="0 0 32 32">
+        <path d="M16 3.2 27.1 9.6v12.8L16 28.8 4.9 22.4V9.6Z" fill="none" stroke="url(#g-brand)" stroke-width="2.2" stroke-linejoin="round"/>
+        <path d="M16 9.6c.7 3.7 2.7 5.7 6.4 6.4-3.7.7-5.7 2.7-6.4 6.4-.7-3.7-2.7-5.7-6.4-6.4 3.7-.7 5.7-2.7 6.4-6.4Z" fill="url(#g-brand)"/>
+      </symbol>
+      <symbol id="i-send" viewBox="0 0 24 24">
+        <path d="M12 19V5m0 0-6 6m6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24">
+        <rect x="6.5" y="6.5" width="11" height="11" rx="2.5" fill="currentColor"/>
+      </symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </symbol>
+      <symbol id="i-exit" viewBox="0 0 24 24">
+        <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 8l-4 4 4 4M6 12h9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <noscript>
+    <p class="noscript">هذه الصفحة تحتاج إلى JavaScript. — This page needs JavaScript.</p>
+  </noscript>
+
+  <!-- ───────────── Key gate ───────────── -->
+  <section id="gate" class="gate" aria-labelledby="gateTitle">
+    <button type="button" class="btn btn-ghost lang-toggle gate-lang js-lang" data-i18n-aria-label="langSwitch">
+      <span class="js-lang-label">English</span>
+    </button>
+
+    <div class="gate-card">
+      <div class="gate-brand">
+        <svg class="mark mark-lg" aria-hidden="true" focusable="false"><use href="#i-mark"/></svg>
+        <div>
+          <h1 id="gateTitle" class="gate-title" data-i18n="product">مركز الذكاء</h1>
+          <p class="gate-tag" data-i18n="tagline">مساعدك الخاص، يعمل على خادمك.</p>
+        </div>
+      </div>
+
+      <form id="gateForm" class="gate-form" novalidate>
+        <label class="field-label" for="keyInput" data-i18n="keyLabel">مفتاح الوصول</label>
+        <input id="keyInput" class="field" type="password" name="access-key" dir="ltr"
+               autocomplete="off" autocapitalize="off" spellcheck="false"
+               placeholder="hub_…" data-i18n-placeholder="keyPlaceholder" aria-describedby="gateHelp gateError">
+        <p id="gateHelp" class="field-help" data-i18n="keyHelp">يُحفظ المفتاح في هذه الجلسة فقط ويُمسح عند إغلاق التبويب.</p>
+        <p id="gateError" class="form-error" role="alert" hidden></p>
+        <button id="gateSubmit" type="submit" class="btn btn-primary btn-block">
+          <span data-i18n="enter">دخول</span>
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ───────────── App ───────────── -->
+  <div id="app" class="app" hidden>
+    <header class="topbar">
+      <a class="brand" href="/" data-i18n-aria-label="product">
+        <svg class="mark" aria-hidden="true" focusable="false"><use href="#i-mark"/></svg>
+        <span class="brand-name" data-i18n="product">مركز الذكاء</span>
+      </a>
+
+      <div class="topbar-actions">
+        <span id="status" class="pill" data-state="checking" role="status">
+          <span class="pill-dot" aria-hidden="true"></span>
+          <span id="statusText" class="pill-text"></span>
+        </span>
+        <a id="adminLink" class="btn btn-ghost btn-sm" href="/admin" hidden data-i18n="admin">لوحة الإدارة</a>
+        <button type="button" class="btn btn-ghost btn-sm lang-toggle js-lang" data-i18n-aria-label="langSwitch">
+          <span class="js-lang-label">English</span>
+        </button>
+        <button id="signOut" type="button" class="btn btn-ghost btn-sm btn-icon-text" data-i18n-aria-label="signOut">
+          <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-exit"/></svg>
+          <span class="btn-text" data-i18n="signOut">خروج</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="shell">
+      <nav class="rail" data-i18n-aria-label="projects">
+        <h2 class="rail-title" data-i18n="projects">المشاريع</h2>
+        <ul id="projectList" class="project-list"></ul>
+        <p id="whoami" class="rail-foot"></p>
+      </nav>
+
+      <main class="stage" id="main">
+        <div class="stage-head">
+          <div class="stage-title-wrap">
+            <h1 id="projectTitle" class="stage-title" dir="auto"></h1>
+            <p id="projectDesc" class="stage-desc" dir="auto"></p>
+          </div>
+          <button id="newChat" type="button" class="btn btn-ghost btn-sm btn-icon-text">
+            <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg>
+            <span data-i18n="newChat">محادثة جديدة</span>
+          </button>
+        </div>
+
+        <div id="scroller" class="scroller" tabindex="-1">
+          <div class="column">
+            <div id="empty" class="empty">
+              <svg class="mark mark-xl" aria-hidden="true" focusable="false"><use href="#i-mark"/></svg>
+              <h2 id="emptyTitle" class="empty-title" data-i18n="emptyTitle">بماذا أساعدك؟</h2>
+              <p id="emptySub" class="empty-sub"></p>
+              <ul id="suggestions" class="suggestions"></ul>
+            </div>
+            <div id="messages" class="messages" role="log" aria-live="off" data-i18n-aria-label="conversation"></div>
+          </div>
+        </div>
+
+        <form id="composer" class="composer" novalidate>
+          <div class="column">
+            <div class="composer-box">
+              <label class="sr-only" for="input" data-i18n="inputLabel">رسالتك</label>
+              <textarea id="input" class="composer-input" rows="1" dir="auto" maxlength="12000"
+                        placeholder="اكتب رسالتك…" data-i18n-placeholder="inputPlaceholder"></textarea>
+              <button id="stopBtn" type="button" class="btn btn-stop btn-round" hidden data-i18n-aria-label="stop" data-i18n-title="stop">
+                <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-stop"/></svg>
+              </button>
+              <button id="sendBtn" type="submit" class="btn btn-primary btn-round" disabled data-i18n-aria-label="send" data-i18n-title="send">
+                <svg class="icon" aria-hidden="true" focusable="false"><use href="#i-send"/></svg>
+              </button>
+            </div>
+            <p class="composer-hint" data-i18n="hint">Enter للإرسال · Shift+Enter لسطر جديد</p>
+          </div>
+        </form>
+      </main>
+    </div>
+
+    <p id="live" class="sr-only" aria-live="polite"></p>
+  </div>
+</body>
+</html>

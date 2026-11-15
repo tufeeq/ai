@@ -1,0 +1,57 @@
+name: TAGit Self-Hosted AI Stock Analysis (no API cost)
+
+# Same output file as tagit-ai-stock-analysis.yml (tag/data/ai-stock-analysis.json),
+# produced by the owner's self-hosted AI Hub instead of a paid API.
+# Enable: set repository variable AI_HUB_URL and repository secret AI_HUB_KEY.
+# The paid workflow skips itself as soon as AI_HUB_URL is set.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tag/data/live-quotes.json'
+  schedule:
+    - cron: '*/15 * * * 1-5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tagit-self-hosted-stock-analysis
+  cancel-in-progress: false
+
+jobs:
+  analyze:
+    if: ${{ vars.AI_HUB_URL != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AI_HUB_URL: ${{ vars.AI_HUB_URL }}
+      AI_HUB_KEY: ${{ secrets.AI_HUB_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Sync latest main
+        run: git pull --rebase origin main
+
+      - name: Research current opportunities with the self-hosted AI Hub
+        shell: bash
+        run: python3 ai-hub/scripts/tagit-analyze.py --live tag/data/live-quotes.json --out tag/data/ai-stock-analysis.json
+
+      - name: Commit self-hosted research cache
+        run: |
+          test -f tag/data/ai-stock-analysis.json || exit 0
+          git config user.name "TAGit Self-Hosted Research Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add tag/data/ai-stock-analysis.json
+          git diff --cached --quiet && exit 0
+          git commit -m "data: refresh TAGit self-hosted AI research"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((i*3))
+          done
+          exit 1

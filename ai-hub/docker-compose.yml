@@ -1,0 +1,91 @@
+# AI Hub — Docker Compose stack (CPU only, no GPU required).
+#
+# Dokploy (Compose type "Docker Compose", NOT "Stack" — Stack cannot build):
+#   Repository      tufeeq/ai
+#   Compose path    ai-hub/docker-compose.yml
+#   Domains tab     service name: hub   container port: 8080   (HTTPS: Let's Encrypt)
+#   Environment tab paste the variables from .env.example; Dokploy writes them to a
+#                   .env file next to this file and the ${VAR} references below read it.
+#   Dokploy adds the Traefik labels and its own network to the "hub" service at
+#   deploy time. Nothing is published on the host; only Traefik reaches the hub.
+#
+# Local use:
+#   cp .env.example .env && docker compose up -d --build
+#   then uncomment the "ports" block under the hub service to open http://localhost:8080
+#
+# Data survives redeploys: both volumes are Docker named volumes.
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    environment:
+      # Keep the model in memory between requests (first load on CPU is slow).
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
+      # One request at a time and one model in RAM: sized for a CPU-only VPS.
+      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
+      OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-1}
+    volumes:
+      - ollama-models:/root/.ollama
+    # Never published to the host and never attached to the proxy network:
+    # only the hub can talk to Ollama, over the private network below.
+    expose:
+      - "11434"
+    networks:
+      hub-internal:
+        aliases:
+          - ai-hub-ollama
+    healthcheck:
+      # The image ships no curl/wget; the bundled CLI queries the local server.
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  hub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      PORT: "8080"
+      DATA_DIR: /data
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+      AI_MODEL: ${AI_MODEL:-gemma3:4b}
+      AI_NUM_CTX: ${AI_NUM_CTX:-4096}
+      LLM_TIMEOUT_MS: ${LLM_TIMEOUT_MS:-180000}
+      AUTO_PULL_MODEL: ${AUTO_PULL_MODEL:-true}
+      # Empty = the hub generates one on first boot, stores it in /data/admin.key
+      # and prints it once in the logs.
+      ADMIN_KEY: ${ADMIN_KEY:-}
+      RATE_LIMIT_RPM: ${RATE_LIMIT_RPM:-60}
+      MAX_BODY_BYTES: ${MAX_BODY_BYTES:-1000000}
+      REF_PRICE_IN_PER_M: ${REF_PRICE_IN_PER_M:-2.5}
+      REF_PRICE_OUT_PER_M: ${REF_PRICE_OUT_PER_M:-10}
+    volumes:
+      - hub-data:/data
+    # Container port only. Dokploy/Traefik routes the domain to hub:8080.
+    expose:
+      - "8080"
+    # Local use only — leave commented on the server:
+    # ports:
+    #   - "8080:8080"
+    networks:
+      - hub-internal
+
+volumes:
+  # Downloaded models (several GB). Kept across redeploys.
+  ollama-models:
+  # API key hashes, usage log, generated admin key. Kept across redeploys.
+  hub-data:
+
+networks:
+  # Private network created by Compose, so the stack also runs without Dokploy.
+  # Dokploy appends its proxy network to the hub service only.
+  hub-internal:
+    driver: bridge
