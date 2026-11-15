@@ -57,6 +57,8 @@ export function loadConfig(env = process.env) {
     ollamaUrl: str(e.OLLAMA_URL, 'http://ollama:11434').replace(/\/+$/, ''),
     model: str(e.AI_MODEL, 'gemma3:4b'),
     numCtx: int(e.AI_NUM_CTX, 4096),
+    // Threads the model may use. Must match the container's CPU cap: more threads than CPUs makes inference far slower. 0 = let Ollama decide.
+    numThread: int(e.AI_NUM_THREAD, 0),
     llmTimeoutMs: int(e.LLM_TIMEOUT_MS, 180000),
     adminKey: str(e.ADMIN_KEY, ''),
     rateLimitRpm: int(e.RATE_LIMIT_RPM, 60),

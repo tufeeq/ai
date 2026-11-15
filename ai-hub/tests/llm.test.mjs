@@ -517,3 +517,16 @@ test('ensureModel: never throws (pull error, http error, unreachable)', async ()
   });
   assert.equal(await noSuccess.ensureModel('qwen2.5:3b'), false);
 });
+
+test('num_thread is sent only when configured', async () => {
+  const seen = [];
+  const fetchImpl = async (url, init) => {
+    seen.push(JSON.parse(init.body));
+    return new Response(JSON.stringify({ model: 'm', message: { role: 'assistant', content: 'ok' }, done: true, prompt_eval_count: 1, eval_count: 1 }), { status: 200 });
+  };
+  const base = { ollamaUrl: 'http://x', model: 'm', numCtx: 2048, llmTimeoutMs: 5000 };
+  await createLLM({ config: { ...base, numThread: 4 }, fetchImpl }).chat({ messages: [{ role: 'user', content: 'hi' }] });
+  await createLLM({ config: base, fetchImpl }).chat({ messages: [{ role: 'user', content: 'hi' }] });
+  assert.equal(seen[0].options.num_thread, 4);
+  assert.equal('num_thread' in seen[1].options, false);
+});

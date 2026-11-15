@@ -30,7 +30,8 @@ test('loadConfig returns the documented defaults', () => {
 test('loadConfig exposes exactly the contract fields', () => {
   assert.deepEqual(Object.keys(loadConfig({})).sort(), [
     'adminKey', 'autoPullModel', 'dataDir', 'knowledgePath', 'llmTimeoutMs', 'maxBodyBytes',
-    'model', 'numCtx', 'ollamaUrl', 'port', 'projectsPath', 'publicDir', 'rateLimitRpm',
+    'model', 'numCtx',
+    'numThread', 'ollamaUrl', 'port', 'projectsPath', 'publicDir', 'rateLimitRpm',
     'refPriceInPerM', 'refPriceOutPerM', 'version',
   ]);
 });
