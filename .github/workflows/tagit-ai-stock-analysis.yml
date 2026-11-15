@@ -19,6 +19,8 @@ concurrency:
 
 jobs:
   analyze:
+    # The self-hosted workflow (tagit-ai-stock-analysis-free.yml) takes over once the repository variable AI_HUB_URL is set.
+    if: ${{ vars.AI_HUB_URL == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:

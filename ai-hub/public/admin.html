@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex, nofollow">
+  <title>مركز الذكاء — لوحة الإدارة</title>
+  <link rel="stylesheet" href="/admin.css">
+  <script type="module" src="/admin.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main" data-i18n="skip">تخطَّ إلى المحتوى</a>
+
+  <header class="app-header">
+    <div class="header-inner">
+      <a class="brand" href="/" data-i18n-label="brand_home" aria-label="مركز الذكاء — العودة إلى المحادثة">
+        <svg class="brand-mark" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="mark-grad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#7C5CFF"/>
+              <stop offset="1" stop-color="#FF7A59"/>
+            </linearGradient>
+          </defs>
+          <rect x="1" y="1" width="30" height="30" rx="9" fill="url(#mark-grad)"/>
+          <g fill="none" stroke="#0B1026" stroke-width="2" stroke-linecap="round">
+            <path d="M16 16 L16 7.5"/>
+            <path d="M16 16 L8.6 20.6"/>
+            <path d="M16 16 L23.4 20.6"/>
+          </g>
+          <g fill="#0B1026">
+            <circle cx="16" cy="16" r="3.4"/>
+            <circle cx="16" cy="7.5" r="2.1"/>
+            <circle cx="8.6" cy="20.6" r="2.1"/>
+            <circle cx="23.4" cy="20.6" r="2.1"/>
+          </g>
+        </svg>
+        <span class="brand-text">
+          <span class="brand-name" data-i18n="brand">مركز الذكاء</span>
+          <span class="brand-sub" data-i18n="brand_sub">لوحة الإدارة</span>
+        </span>
+      </a>
+      <nav class="header-actions" data-i18n-label="nav_label" aria-label="التنقل">
+        <a class="btn btn-ghost" href="/" data-i18n="nav_chat">المحادثة</a>
+        <button type="button" class="btn btn-ghost" id="lang-toggle" lang="en">English</button>
+        <button type="button" class="btn btn-ghost" id="signout" data-i18n="signout" hidden>تسجيل الخروج</button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1">
+
+    <!-- Admin key gate -->
+    <section id="gate" class="gate" aria-labelledby="gate-title">
+      <div class="card gate-card">
+        <p class="eyebrow" data-i18n="gate_eyebrow">دخول المشرف</p>
+        <h1 id="gate-title" data-i18n="gate_title">أدخل مفتاح المشرف</h1>
+        <p class="lead" data-i18n="gate_lead">هذه اللوحة تدير المفاتيح وتعرض حالة النموذج والاستخدام. المفتاح يُحفظ في هذه الجلسة فقط ويُمسح عند إغلاق التبويب.</p>
+        <form id="gate-form" novalidate>
+          <label class="field-label" for="gate-key" data-i18n="gate_label">مفتاح المشرف</label>
+          <input class="input mono" id="gate-key" name="key" type="password" autocomplete="off" spellcheck="false" dir="ltr" required placeholder="hub_…">
+          <div id="gate-error" class="notice is-error" role="alert" hidden></div>
+          <button type="submit" class="btn btn-primary btn-block" id="gate-submit" data-i18n="gate_submit">دخول</button>
+        </form>
+        <p class="hint" data-i18n="gate_hint">يُطبع المفتاح في سجلّ الخادم عند أول تشغيل، أو يُضبط عبر المتغيّر ADMIN_KEY.</p>
+      </div>
+    </section>
+
+    <!-- Dashboard -->
+    <div id="dash" hidden>
+
+      <section class="section" aria-labelledby="status-title">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow" data-i18n="status_eyebrow">الآن</p>
+            <h1 id="status-title" data-i18n="status_title">حالة الخدمة</h1>
+          </div>
+          <div class="section-tools">
+            <span class="updated" id="status-updated" aria-live="off"></span>
+            <button type="button" class="btn btn-ghost" id="refresh" data-i18n="refresh">تحديث</button>
+          </div>
+        </div>
+        <div id="status-error" class="notice is-error" role="alert" hidden></div>
+        <div id="status-cards" class="grid-status"></div>
+      </section>
+
+      <section class="section" aria-labelledby="usage-title">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow" data-i18n="usage_eyebrow">الاستخدام</p>
+            <h2 id="usage-title" data-i18n="usage_title">الطلبات والرموز</h2>
+          </div>
+          <div class="seg" role="group" id="days-seg" data-i18n-label="days_label" aria-label="الفترة">
+            <button type="button" class="seg-btn" data-days="7" aria-pressed="false"></button>
+            <button type="button" class="seg-btn" data-days="30" aria-pressed="true"></button>
+            <button type="button" class="seg-btn" data-days="90" aria-pressed="false"></button>
+          </div>
+        </div>
+        <div id="usage-error" class="notice is-error" role="alert" hidden></div>
+
+        <div class="usage-top">
+          <div class="card hero-saved">
+            <div class="hero-head">
+              <span class="hero-label" data-i18n="saved_label">التوفير التقديري</span>
+              <span class="badge badge-estimate" data-i18n="saved_badge">تقدير</span>
+            </div>
+            <p class="hero-value num" id="saved-value">—</p>
+            <p class="hero-note" id="saved-note"></p>
+          </div>
+          <div id="totals" class="grid-totals"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3 data-i18n="chart_title">الطلبات يوميًا</h3>
+            <span class="card-meta" id="chart-range"></span>
+          </div>
+          <div id="chart" class="chart"></div>
+          <p id="chart-readout" class="chart-readout" aria-live="polite"></p>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3 data-i18n="projects_title">حسب المشروع</h3>
+          </div>
+          <div id="projects-table"></div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="keys-title">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow" data-i18n="keys_eyebrow">الوصول</p>
+            <h2 id="keys-title" data-i18n="keys_title">مفاتيح المشاريع</h2>
+          </div>
+        </div>
+
+        <div class="keys-layout">
+          <div class="card">
+            <div class="card-head">
+              <h3 data-i18n="create_title">مفتاح جديد</h3>
+            </div>
+            <form id="key-form" class="key-form" novalidate>
+              <div class="field">
+                <label class="field-label" for="key-name" data-i18n="create_name">اسم المفتاح</label>
+                <input class="input" id="key-name" name="name" type="text" maxlength="80" autocomplete="off" required data-i18n-placeholder="create_name_ph" placeholder="مثال: خادم الإنتاج">
+              </div>
+              <div class="field">
+                <label class="field-label" for="key-project" data-i18n="create_project">المشروع</label>
+                <select class="input" id="key-project" name="project" required></select>
+              </div>
+              <button type="submit" class="btn btn-primary" id="key-submit" data-i18n="create_submit">إنشاء المفتاح</button>
+            </form>
+            <div id="create-error" class="notice is-error" role="alert" hidden></div>
+            <div id="new-key" class="keybox" role="status" hidden></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h3 data-i18n="list_title">المفاتيح الحالية</h3>
+              <span class="card-meta num" id="keys-count"></span>
+            </div>
+            <div id="keys-error" class="notice is-error" role="alert" hidden></div>
+            <div id="keys-table"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="connect-title">
+        <div class="card connect">
+          <p class="eyebrow" data-i18n="connect_eyebrow">الربط</p>
+          <h2 id="connect-title" data-i18n="connect_title">اربط مشروعًا</h2>
+          <p class="lead" data-i18n="connect_lead">أي عميل متوافق مع OpenAI يعمل مباشرة: غيّر عنوان الأساس وضع مفتاح المشروع مكان مفتاح OpenAI.</p>
+          <div class="connect-row">
+            <span class="field-label" data-i18n="connect_base">عنوان الأساس</span>
+            <div class="copy-line">
+              <code class="code-inline mono" id="base-url" dir="ltr"></code>
+              <button type="button" class="btn btn-ghost btn-small" id="copy-base" data-i18n="copy">نسخ</button>
+            </div>
+          </div>
+          <pre class="code-block mono" id="snippet" dir="ltr" tabindex="0"></pre>
+          <p class="hint" data-i18n="connect_hint">استخدم مفتاح مشروع من القسم أعلاه — لا تضع مفتاح المشرف داخل تطبيقاتك.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <span data-i18n="footer">مركز الذكاء — نموذج مفتوح المصدر يعمل على خادمك.</span>
+  </footer>
+</body>
+</html>
