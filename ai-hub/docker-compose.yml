@@ -19,6 +19,10 @@ services:
   ollama:
     image: ollama/ollama:latest
     restart: unless-stopped
+    # Shared server: cap the model's memory and CPU so a heavy request cannot starve the other apps.
+    # If the cap is hit, only this container is restarted. Raise OLLAMA_MEM_LIMIT for a larger model.
+    mem_limit: ${OLLAMA_MEM_LIMIT:-6g}
+    cpus: ${OLLAMA_CPUS:-4}
     environment:
       # Keep the model in memory between requests (first load on CPU is slow).
       OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
@@ -49,6 +53,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     init: true
+    mem_limit: ${HUB_MEM_LIMIT:-512m}
     depends_on:
       ollama:
         condition: service_healthy
