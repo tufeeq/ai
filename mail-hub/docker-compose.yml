@@ -3,7 +3,7 @@
 #   webmail   Roundcube (GPL-3.0)       webmail to read and write mail in the browser
 #   lists     listmonk (AGPL-3.0)       marketing email: lists, campaigns, templates, unsubscribe, analytics
 #   mailer    this repo (mailer/)       password reset + transactional email API for every project
-#   certs     traefik-certs-dumper      copies Dokploy's Let's Encrypt certificate into Stalwart (for SMTP/IMAP TLS)
+#   certs     certs (alpine + jq)        copies Dokploy's Let's Encrypt certificate into Stalwart (for SMTP/IMAP TLS)
 #
 # Dokploy (Compose type "Docker Compose"):
 #   Repository      tufeeq/ai          Compose path  mail-hub/docker-compose.yml
@@ -45,19 +45,19 @@ services:
         aliases:
           - ${MAIL_HOST}
 
+  # Copies the Let's Encrypt certificate that Dokploy's Traefik issues for MAIL_HOST into Stalwart
+  # (SMTP/IMAP TLS). Re-checks every hour, so renewals are picked up automatically.
   certs:
-    image: ldez/traefik-certs-dumper:v2.10.0
+    image: alpine:3.20
     restart: unless-stopped
     mem_limit: 64m
-    # Writes /certs/<domain>/cert.pem and key.pem for every certificate Traefik holds, and rewrites them on renewal.
-    command: >
-      file --version v3 --watch
-      --source /traefik/acme.json --dest /certs
-      --domain-subdir --crt-name cert --crt-ext .pem --key-name key --key-ext .pem
+    environment:
+      MAIL_HOST: ${MAIL_HOST}
+    entrypoint: ["/bin/sh", "/scripts/export-certs.sh"]
     volumes:
-      - ${TRAEFIK_ACME_JSON:-/etc/dokploy/traefik/dynamic/acme.json}:/traefik/acme.json:ro
+      - ${TRAEFIK_DYNAMIC_DIR:-/etc/dokploy/traefik/dynamic}:/traefik:ro
+      - ./scripts:/scripts:ro
       - mail-certs:/certs
-    network_mode: none
 
   webmail:
     image: ${ROUNDCUBE_IMAGE:-roundcube/roundcubemail:1.6.x-apache}
