@@ -1,0 +1,173 @@
+# Mail Hub — free, self-hosted email for all projects, built only from open-source software:
+#   stalwart  Stalwart (AGPL-3.0)      secure mail server: SMTP, IMAP, DKIM/SPF/DMARC, spam filter, web admin
+#   webmail   Roundcube (GPL-3.0)       webmail to read and write mail in the browser
+#   lists     listmonk (AGPL-3.0)       marketing email: lists, campaigns, templates, unsubscribe, analytics
+#   mailer    this repo (mailer/)       password reset + transactional email API for every project
+#   certs     traefik-certs-dumper      copies Dokploy's Let's Encrypt certificate into Stalwart (for SMTP/IMAP TLS)
+#
+# Dokploy (Compose type "Docker Compose"):
+#   Repository      tufeeq/ai          Compose path  mail-hub/docker-compose.yml
+#   Environment     paste .env.example and fill the blanks
+#   Domains tab     MAIL_HOST     -> service stalwart, port 8080   (web admin; also issues the cert used by SMTP/IMAP)
+#                   webmail.<d>   -> service webmail,  port 80
+#                   lists.<d>     -> service lists,    port 9000
+#                   mailer.<d>    -> service mailer,   port 8080
+#   See DEPLOY.md for DNS records, the first-run wizard and the PTR record.
+#
+# Mail ports are published straight on the host (Traefik does not touch them),
+# so Stalwart sees the real client IP for its rate limits and auto-ban.
+
+services:
+  stalwart:
+    image: ${STALWART_IMAGE:-stalwartlabs/stalwart:v1}
+    init: true
+    restart: unless-stopped
+    mem_limit: ${STALWART_MEM_LIMIT:-1g}
+    environment:
+      STALWART_PUBLIC_URL: https://${MAIL_HOST:?set MAIL_HOST, e.g. mail.tryn.cc}
+    ports:
+      - "25:25"     # SMTP: receiving mail from other servers
+      - "465:465"   # SMTPS: sending from mail apps (implicit TLS)
+      - "587:587"   # Submission: sending from mail apps (STARTTLS)
+      - "993:993"   # IMAPS: reading mail from mail apps
+      # Setup wizard only. Default binds to the server itself; see DEPLOY.md step 3.
+      - "${STALWART_SETUP_BIND:-127.0.0.1:18080}:8080"
+    expose:
+      - "8080"
+    volumes:
+      - stalwart-etc:/etc/stalwart
+      - stalwart-data:/var/lib/stalwart
+      - mail-certs:/data/certs:ro
+    networks:
+      mail-internal:
+        # Inside the stack the other services reach Stalwart by its public name,
+        # so TLS certificate checks pass without any "insecure" switch.
+        aliases:
+          - ${MAIL_HOST}
+
+  certs:
+    image: ldez/traefik-certs-dumper:v2.10.0
+    restart: unless-stopped
+    mem_limit: 64m
+    # Writes /certs/<domain>/cert.pem and key.pem for every certificate Traefik holds, and rewrites them on renewal.
+    command: >
+      file --version v3 --watch
+      --source /traefik/acme.json --dest /certs
+      --domain-subdir --crt-name cert --crt-ext .pem --key-name key --key-ext .pem
+    volumes:
+      - ${TRAEFIK_ACME_JSON:-/etc/dokploy/traefik/dynamic/acme.json}:/traefik/acme.json:ro
+      - mail-certs:/certs
+    network_mode: none
+
+  webmail:
+    image: ${ROUNDCUBE_IMAGE:-roundcube/roundcubemail:1.6.x-apache}
+    restart: unless-stopped
+    mem_limit: 256m
+    depends_on:
+      - stalwart
+    environment:
+      ROUNDCUBEMAIL_DEFAULT_HOST: ssl://${MAIL_HOST}
+      ROUNDCUBEMAIL_DEFAULT_PORT: "993"
+      ROUNDCUBEMAIL_SMTP_SERVER: ssl://${MAIL_HOST}
+      ROUNDCUBEMAIL_SMTP_PORT: "465"
+      ROUNDCUBEMAIL_DB_TYPE: sqlite
+      ROUNDCUBEMAIL_SKIN: elastic
+      ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE: 25M
+      ROUNDCUBEMAIL_PLUGINS: archive,zipdownload,markasjunk,newmail_notifier
+      ROUNDCUBEMAIL_ASPELL_DICTS: en
+    volumes:
+      - webmail-db:/var/roundcube/db
+    expose:
+      - "80"
+    networks:
+      - mail-internal
+
+  lists-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      POSTGRES_USER: listmonk
+      POSTGRES_PASSWORD: ${LISTMONK_DB_PASSWORD:?set LISTMONK_DB_PASSWORD}
+      POSTGRES_DB: listmonk
+    volumes:
+      - lists-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U listmonk"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks:
+      - mail-internal
+
+  lists:
+    image: ${LISTMONK_IMAGE:-listmonk/listmonk:latest}
+    restart: unless-stopped
+    mem_limit: 256m
+    depends_on:
+      lists-db:
+        condition: service_healthy
+    command: [sh, -c, "./listmonk --install --idempotent --yes --config '' && ./listmonk --upgrade --yes --config '' && ./listmonk --config ''"]
+    environment:
+      LISTMONK_app__address: 0.0.0.0:9000
+      LISTMONK_db__host: lists-db
+      LISTMONK_db__port: "5432"
+      LISTMONK_db__user: listmonk
+      LISTMONK_db__password: ${LISTMONK_DB_PASSWORD}
+      LISTMONK_db__database: listmonk
+      LISTMONK_db__ssl_mode: disable
+      LISTMONK_db__max_open: "10"
+      LISTMONK_db__max_idle: "5"
+      LISTMONK_db__max_lifetime: 300s
+      # Leave both empty: the first visit to the site asks you to create the super admin (do it right after deploy).
+      LISTMONK_ADMIN_USER: ${LISTMONK_ADMIN_USER:-}
+      LISTMONK_ADMIN_PASSWORD: ${LISTMONK_ADMIN_PASSWORD:-}
+      TZ: ${TZ:-Asia/Riyadh}
+    volumes:
+      - lists-uploads:/listmonk/uploads
+    expose:
+      - "9000"
+    networks:
+      - mail-internal
+
+  mailer:
+    build:
+      context: ./mailer
+    restart: unless-stopped
+    init: true
+    mem_limit: 192m
+    depends_on:
+      - stalwart
+    environment:
+      PORT: "8080"
+      DATA_DIR: /data
+      PUBLIC_URL: ${MAILER_PUBLIC_URL:-}
+      SMTP_HOST: ${MAIL_HOST}
+      SMTP_PORT: "587"
+      SMTP_USER: ${MAILER_SMTP_USER:-}
+      SMTP_PASS: ${MAILER_SMTP_PASS:-}
+      SMTP_VERIFY_TLS: ${MAILER_SMTP_VERIFY_TLS:-true}
+      DEFAULT_FROM_EMAIL: ${MAILER_SMTP_USER:-}
+      ADMIN_KEY: ${MAILER_ADMIN_KEY:-}
+      RESET_TTL_MINUTES: ${RESET_TTL_MINUTES:-30}
+      PROJECT_RPM: ${PROJECT_RPM:-60}
+      SEND_PER_HOUR: ${SEND_PER_HOUR:-300}
+    volumes:
+      - mailer-data:/data
+    expose:
+      - "8080"
+    networks:
+      - mail-internal
+
+volumes:
+  stalwart-etc:
+  stalwart-data:
+  mail-certs:
+  webmail-db:
+  lists-db:
+  lists-uploads:
+  mailer-data:
+
+networks:
+  mail-internal:
+    driver: bridge
