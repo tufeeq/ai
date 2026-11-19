@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nutq — Say it in Arabic</title>
+<meta name="description" content="Translate English into Arabic, see how to pronounce it in English letters, and hear it from a native neural voice.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23ff7a59'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='serif'%3E%D9%86%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">نُ</div>
+    <div>
+      <h1>Nutq · Say it in Arabic</h1>
+      <div class="sub">English → Arabic, with easy pronunciation and a native voice</div>
+    </div>
+  </header>
+
+  <form class="box" id="form">
+    <textarea id="inp" maxlength="200" placeholder="Type an English word or sentence…  e.g. Thank you very much"></textarea>
+    <div class="row toolbar">
+      <div class="seg" id="dial" role="group" aria-label="Arabic style">
+        <button type="button" data-v="msa" class="on">Standard</button>
+        <button type="button" data-v="saudi">Saudi</button>
+      </div>
+      <button class="primary" id="go" type="submit">Translate</button>
+    </div>
+  </form>
+
+  <div class="row chips" id="chips"></div>
+  <div class="status" id="status" role="status"></div>
+  <div class="err" id="err" role="alert"></div>
+
+  <section class="result" id="result" hidden>
+    <div class="card">
+      <p class="ar" id="ar" lang="ar" dir="rtl"></p>
+      <div class="tr" id="tr"></div>
+      <div class="play" id="play">
+        <button type="button" class="ghost" id="pNormal">
+          <svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 10v4h4l5 4V6L7 10H3zm13.5 2a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg>Listen</button>
+        <button type="button" class="ghost" id="pSlow">
+          <svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 10v4h4l5 4V6L7 10H3z"/></svg>Slowly</button>
+        <select id="voice" aria-label="Voice"></select>
+        <button type="button" class="ghost" id="copy">Copy</button>
+      </div>
+
+      <div class="sect" id="wordsSect">
+        <div class="label">Word by word</div>
+        <div class="words" id="words"></div>
+      </div>
+
+      <div class="sect" id="tipsSect">
+        <div class="label">Pronunciation tips</div>
+        <ul class="tips" id="tips"></ul>
+      </div>
+    </div>
+  </section>
+
+  <details>
+    <summary>How to read the pronunciation</summary>
+    <div class="key">
+      <div><b>aa / ee / oo</b> long vowel — hold it</div>
+      <div><b>'</b> <span>ء</span> short stop, like “uh‑oh”</div>
+      <div><b>3</b> <span>ع</span> squeezed “a” from the throat</div>
+      <div><b>H</b> <span>ح</span> breathy “h”, like fogging glass</div>
+      <div><b>kh</b> <span>خ</span> like Scottish “loch”</div>
+      <div><b>gh</b> <span>غ</span> French “r”, gargled</div>
+      <div><b>q</b> <span>ق</span> “k” from deep in the throat</div>
+      <div><b>th</b> <span>ث</span> as in “think”</div>
+      <div><b>dh</b> <span>ذ</span> as in “this”</div>
+      <div><b>S D T Z</b> <span>ص ض ط ظ</span> heavy, full‑mouth sounds</div>
+      <div><b>doubled letter</b> (bb, mm) hold it a beat longer</div>
+    </div>
+  </details>
+  <footer>Voices by Azure AI Speech. Machine translation — check important text with a native speaker.</footer>
+</div>
+<audio id="audio" preload="none"></audio>
+<script src="/app.js" type="module"></script>
+</body>
+</html>
