@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>مركز البريد — لوحة الإدارة</title>
+<link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="dot"></span> مركز البريد</div>
+  <div class="sub">إعادة تعيين كلمات المرور والرسائل التلقائية لكل مشاريعك</div>
+</header>
+
+<main>
+  <section id="login" class="card narrow">
+    <h2>الدخول</h2>
+    <p class="muted">الصق مفتاح الإدارة (يبدأ بـ <code>mha_</code>). لا يُحفظ في المتصفح بعد إغلاق التبويب.</p>
+    <form id="loginForm">
+      <input id="adminKey" type="password" autocomplete="off" placeholder="mha_…" required>
+      <button type="submit">دخول</button>
+    </form>
+    <p id="loginError" class="error" hidden></p>
+  </section>
+
+  <div id="app" hidden>
+    <section class="grid">
+      <div class="card stat"><div class="label">حالة الاتصال بخادم البريد</div><div id="smtpStatus" class="value">…</div></div>
+      <div class="card stat"><div class="label">المشاريع</div><div id="projectCount" class="value">0</div></div>
+      <div class="card stat"><div class="label">العمليات خلال 24 ساعة</div><div id="eventCount" class="value">0</div></div>
+    </section>
+
+    <section id="keyBox" class="card highlight" hidden>
+      <h3>مفتاح المشروع — يظهر مرة واحدة</h3>
+      <p class="muted">انسخه الآن وضعه في متغيرات بيئة المشروع باسم <code>MAIL_HUB_KEY</code>.</p>
+      <div class="keyrow"><code id="newKey"></code><button id="copyKey" type="button">نسخ</button></div>
+    </section>
+
+    <section class="card">
+      <h2>مشروع جديد</h2>
+      <form id="createForm" class="form">
+        <label>المعرّف (إنجليزي صغير)<input name="id" pattern="[a-z0-9][a-z0-9-]{1,31}" placeholder="iyan" required></label>
+        <label>اسم المشروع<input name="name" placeholder="عيان" required></label>
+        <label>رابط صفحة إعادة التعيين في المشروع<input name="reset_url" type="url" placeholder="https://iyan.app/reset-password" required dir="ltr"></label>
+        <label>بريد المُرسِل<input name="from_email" type="email" placeholder="no-reply@tryn.cc" dir="ltr"></label>
+        <label>اسم المُرسِل<input name="from_name" placeholder="عيان"></label>
+        <label>بريد الرد (اختياري)<input name="reply_to" type="email" dir="ltr"></label>
+        <label>لون الهوية<input name="brand_color" type="color" value="#4338CA"></label>
+        <label>اللغة الافتراضية
+          <select name="locale"><option value="ar">العربية</option><option value="en">English</option></select></label>
+        <label>صلاحية الرابط (دقائق)<input name="ttl_minutes" type="number" min="5" max="120" value="30"></label>
+        <div class="actions"><button type="submit">إنشاء المشروع ومفتاحه</button></div>
+      </form>
+      <p id="createError" class="error" hidden></p>
+    </section>
+
+    <section class="card">
+      <h2>المشاريع</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>المشروع</th><th>المرسل</th><th>صفحة إعادة التعيين</th><th>24 ساعة</th><th>الحالة</th><th></th></tr></thead>
+        <tbody id="projects"></tbody>
+      </table></div>
+    </section>
+
+    <section class="card">
+      <h2>آخر العمليات</h2>
+      <ul id="events" class="events"></ul>
+    </section>
+  </div>
+</main>
+<script src="/admin/admin.js"></script>
+</body>
+</html>
