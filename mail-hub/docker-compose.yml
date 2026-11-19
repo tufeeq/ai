@@ -82,16 +82,29 @@ services:
     networks:
       - mail-internal
 
+  # Generates the listmonk database password once, inside the server, so nobody has to type or store it.
+  secrets-init:
+    image: alpine:3.20
+    restart: "no"
+    command: ["sh", "-c", "umask 077; [ -s /secrets/lists-db ] || head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \\n' > /secrets/lists-db; chmod 444 /secrets/lists-db"]
+    volumes:
+      - mail-secrets:/secrets
+    network_mode: none
+
   lists-db:
     image: postgres:17-alpine
     restart: unless-stopped
     mem_limit: 256m
+    depends_on:
+      secrets-init:
+        condition: service_completed_successfully
     environment:
       POSTGRES_USER: listmonk
-      POSTGRES_PASSWORD: ${LISTMONK_DB_PASSWORD:?set LISTMONK_DB_PASSWORD}
+      POSTGRES_PASSWORD_FILE: /secrets/lists-db
       POSTGRES_DB: listmonk
     volumes:
       - lists-db:/var/lib/postgresql/data
+      - mail-secrets:/secrets:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U listmonk"]
       interval: 10s
@@ -107,13 +120,15 @@ services:
     depends_on:
       lists-db:
         condition: service_healthy
+      secrets-init:
+        condition: service_completed_successfully
     command: [sh, -c, "./listmonk --install --idempotent --yes --config '' && ./listmonk --upgrade --yes --config '' && ./listmonk --config ''"]
     environment:
       LISTMONK_app__address: 0.0.0.0:9000
       LISTMONK_db__host: lists-db
       LISTMONK_db__port: "5432"
       LISTMONK_db__user: listmonk
-      LISTMONK_db__password: ${LISTMONK_DB_PASSWORD}
+      LISTMONK_db__password_FILE: /secrets/lists-db
       LISTMONK_db__database: listmonk
       LISTMONK_db__ssl_mode: disable
       LISTMONK_db__max_open: "10"
@@ -125,6 +140,7 @@ services:
       TZ: ${TZ:-Asia/Riyadh}
     volumes:
       - lists-uploads:/listmonk/uploads
+      - mail-secrets:/secrets:ro
     expose:
       - "9000"
     networks:
@@ -167,6 +183,7 @@ volumes:
   lists-db:
   lists-uploads:
   mailer-data:
+  mail-secrets:
 
 networks:
   mail-internal:

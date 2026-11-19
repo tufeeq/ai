@@ -31,7 +31,6 @@ timeout 5 sh -c 'exec 3<>/dev/tcp/gmail-smtp-in.l.google.com/25' && echo OPEN ||
 2. المصدر: GitHub، المستودع `tufeeq/ai`، الفرع `main`، مسار الملف `mail-hub/docker-compose.yml`.
 3. **Watch Paths:** `mail-hub/**` حتى لا يُعاد النشر مع كل تحديث بيانات آلي في المستودع.
 4. **Environment:** الصق محتوى `.env.example` واملأ:
-   - `LISTMONK_DB_PASSWORD` بكلمة عشوائية (`openssl rand -hex 24`).
    - اترك `MAILER_SMTP_PASS` فارغًا الآن، ويُملأ في الخطوة 5.
    - ضع مؤقتًا `STALWART_SETUP_BIND=0.0.0.0:18080` لمعالج الإعداد.
 5. **Domains** (كلها HTTPS مع Let's Encrypt):
